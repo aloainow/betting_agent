@@ -299,7 +299,7 @@ def main():
                     with col2:
                         away_teams = [team for team in teams if team != home_team]
                         away_team = st.selectbox("Time Visitante:", away_teams)
-                    
+                        
                     # Seção de Mercados e Odds
                     st.markdown("### Odds dos Mercados")
                     
@@ -356,8 +356,7 @@ Ambos Marcam:
 - Sim: @{odd_btts_yes:.2f} (Implícita: {(100/odd_btts_yes):.1f}%)
 - Não: @{odd_btts_no:.2f} (Implícita: {(100/odd_btts_no):.1f}%)"""
 
-                    # Botão de análise
-                    if st.button("Analisar Partida", type="primary"):
+if st.button("Analisar Partida", type="primary"):
                         with st.spinner("Realizando análise..."):
                             try:
                                 # Formata o prompt completo
@@ -368,7 +367,6 @@ Ambos Marcam:
                                     odds_data
                                 )
                                 
-
                                 if prompt:
                                     # Faz a chamada para o GPT-4 com a nova API
                                     response = client.chat.completions.create(
@@ -388,6 +386,14 @@ Ambos Marcam:
                                     # Exibe a análise
                                     st.markdown("## Análise da Partida")
                                     st.markdown(analysis)
-                                    
+                            except Exception as e:
+                                st.error(f"Erro na análise: {str(e)}")
+                                st.error(f"Detalhes do erro para debug:\n{type(e).__name__}: {str(e)}")
+                                import traceback
+                                st.error(f"Traceback:\n```\n{traceback.format_exc()}\n```")
+    except Exception as e:
+        st.error(f"Erro geral na aplicação: {str(e)}")
+        import traceback
+        st.error(f"Traceback:\n```\n{traceback.format_exc()}\n```")
+
 if __name__ == "__main__":
-    main()
