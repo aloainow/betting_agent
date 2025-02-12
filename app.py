@@ -238,9 +238,33 @@ def format_prompt(home_team, away_team, team_stats_df, fixtures_df, competition)
     Histórico H2H (últimos 3 jogos):
     {format_h2h(h2h)}"""
     
+    # Coleta todas as odds
+    odds_data = f"""ODDS DOS MERCADOS:
+
+Money Line:
+- Casa: @{odd_home:.2f} (Implícita: {(100/odd_home):.1f}%)
+- Empate: @{odd_draw:.2f} (Implícita: {(100/odd_draw):.1f}%)
+- Fora: @{odd_away:.2f} (Implícita: {(100/odd_away):.1f}%)
+
+Over/Under {goals_line}:
+- Over: @{odd_over:.2f} (Implícita: {(100/odd_over):.1f}%)
+- Under: @{odd_under:.2f} (Implícita: {(100/odd_under):.1f}%)
+
+Chance Dupla:
+- 1X: @{odd_1x:.2f} (Implícita: {(100/odd_1x):.1f}%)
+- 12: @{odd_12:.2f} (Implícita: {(100/odd_12):.1f}%)
+- X2: @{odd_x2:.2f} (Implícita: {(100/odd_x2):.1f}%)
+
+Ambos Marcam:
+- Sim: @{odd_btts_yes:.2f} (Implícita: {(100/odd_btts_yes):.1f}%)
+- Não: @{odd_btts_no:.2f} (Implícita: {(100/odd_btts_no):.1f}%)
+"""
+
     prompt = f"""Role: Agente Analista de Probabilidades Esportivas
 
 {kb_data}
+
+{odds_data}
 
 INSTRUÇÕES CRÍTICAS:
 1. CALCULAR probabilidades usando knowledge base interno
@@ -345,6 +369,43 @@ def main():
                     away_teams = [team for team in teams if team != home_team]
                     away_team = st.selectbox("Time Visitante:", away_teams)
                 
+                # Seção de Mercados e Odds
+                st.markdown("### Odds dos Mercados")
+                
+                with st.expander("Money Line", expanded=True):
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        odd_home = st.number_input("Casa (@)", min_value=1.01, format="%.2f", key="ml_home")
+                    with col2:
+                        odd_draw = st.number_input("Empate (@)", min_value=1.01, format="%.2f", key="ml_draw")
+                    with col3:
+                        odd_away = st.number_input("Fora (@)", min_value=1.01, format="%.2f", key="ml_away")
+
+                with st.expander("Over/Under", expanded=True):
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        goals_line = st.number_input("Linha", min_value=0.5, value=2.5, step=0.5, format="%.1f")
+                    with col2:
+                        odd_over = st.number_input(f"Over {goals_line} (@)", min_value=1.01, format="%.2f", key="ou_over")
+                    with col3:
+                        odd_under = st.number_input(f"Under {goals_line} (@)", min_value=1.01, format="%.2f", key="ou_under")
+
+                with st.expander("Chance Dupla", expanded=True):
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        odd_1x = st.number_input("1X (@)", min_value=1.01, format="%.2f", key="dc_1x")
+                    with col2:
+                        odd_12 = st.number_input("12 (@)", min_value=1.01, format="%.2f", key="dc_12")
+                    with col3:
+                        odd_x2 = st.number_input("X2 (@)", min_value=1.01, format="%.2f", key="dc_x2")
+
+                with st.expander("Ambos Marcam", expanded=True):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        odd_btts_yes = st.number_input("Sim (@)", min_value=1.01, format="%.2f", key="btts_yes")
+                    with col2:
+                        odd_btts_no = st.number_input("Não (@)", min_value=1.01, format="%.2f", key="btts_no")
+
                 if st.button("Analisar Partida"):
                     with st.spinner("Realizando análise..."):
                         # Formata o prompt com os dados
