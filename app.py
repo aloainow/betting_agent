@@ -5,7 +5,6 @@ from datetime import datetime
 import requests
 from bs4 import BeautifulSoup
 import time
-st.debug = st.write  # Para permitir logs de debug
 
 # Configuração da página
 st.set_page_config(
@@ -111,9 +110,9 @@ def parse_team_stats(html_content):
         df = df.dropna(subset=['Squad'])
         df = df.drop_duplicates(subset=['Squad'])
         
-        # Adiciona log para debug
-        st.debug(f"Colunas encontradas: {df.columns.tolist()}")
-        st.debug(f"Número de times encontrados: {len(df)}")
+        # Log informações úteis
+        st.write(f"Colunas encontradas: {df.columns.tolist()}")
+        st.write(f"Número de times encontrados: {len(df)}")
         
         return df
     
