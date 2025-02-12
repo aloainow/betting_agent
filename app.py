@@ -5,6 +5,7 @@ from datetime import datetime
 import requests
 from bs4 import BeautifulSoup
 import time
+st.debug = st.write  # Para permitir logs de debug
 
 # Configuração da página
 st.set_page_config(
@@ -44,7 +45,10 @@ FBREF_URLS = {
 }
 
 @st.cache_data(ttl=3600)
- def parse_team_stats(html_content):
+ # Adicione essa linha após seus imports
+st.debug = st.write  # Para permitir logs de debug
+
+def parse_team_stats(html_content):
     """Processa os dados do time com tratamento de erros aprimorado"""
     try:
         soup = BeautifulSoup(html_content, 'html.parser')
