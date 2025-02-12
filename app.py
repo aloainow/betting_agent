@@ -44,40 +44,43 @@ FBREF_URLS = {
 }
 
 @st.cache_data(ttl=3600)
-def fetch_fbref_data(url):
-    """Busca dados do FBref com tratamento de erros e cache"""
-    try:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-        # Adiciona timeout na requisição
-        response = requests.get(url, headers=headers, timeout=30)
-        response.raise_for_status()
-        
-        # Pequeno delay para evitar sobrecarga
-        time.sleep(1)
-        
-        return response.text
-    except requests.Timeout:
-        st.error("Timeout ao buscar dados. Por favor, tente novamente.")
-        return None
-    except requests.RequestException as e:
-        st.error(f"Erro ao buscar dados: {str(e)}")
-        return None
-
-def parse_team_stats(html_content):
-    """Processa os dados do time com tratamento de erros"""
+ def parse_team_stats(html_content):
+    """Processa os dados do time com tratamento de erros aprimorado"""
     try:
         soup = BeautifulSoup(html_content, 'html.parser')
-        stats_table = soup.find('table', {'id': 'stats_squads_standard_for'})
         
+        # Busca mais generalizada por tabelas de estatísticas
+        possible_table_ids = [
+            'stats_squads_standard_for',
+            'stats_squads_standard_overall',
+            'stats_squads_standard_stats_squads',
+            'stats_squads_standard_big5',
+            'stats_squads_keeper_for',
+            'stats_squads_keeper'
+        ]
+        
+        stats_table = None
+        for table_id in possible_table_ids:
+            stats_table = soup.find('table', {'id': table_id})
+            if stats_table:
+                break
+                
+        # Se ainda não encontrou, tenta buscar qualquer tabela com estatísticas
         if not stats_table:
-            stats_table = soup.find('table', {'id': 'stats_squads_standard_overall'})
+            all_tables = soup.find_all('table')
+            for table in all_tables:
+                # Verifica se a tabela tem "Squad" ou "Team" no cabeçalho
+                headers = table.find_all('th')
+                header_text = [h.get_text(strip=True) for h in headers]
+                if any(text in ['Squad', 'Team'] for text in header_text):
+                    stats_table = table
+                    break
         
         if not stats_table:
             st.error("Não foi possível encontrar a tabela de estatísticas")
             return None
         
+        # Usa pandas para ler a tabela HTML
         df = pd.read_html(str(stats_table))[0]
         
         # Limpa os nomes das colunas multinível
@@ -87,26 +90,72 @@ def parse_team_stats(html_content):
         # Procura pela coluna com os nomes dos times
         team_col = None
         for col in df.columns:
-            if col in ['Squad', 'Team']:
+            if isinstance(col, str) and col.strip() in ['Squad', 'Team']:
                 team_col = col
                 break
         
         if team_col:
             df = df.rename(columns={team_col: 'Squad'})
         else:
-            st.error("Não foi possível encontrar a coluna com os nomes dos times")
-            return None
+            # Se não encontrar a coluna específica, assume que a primeira coluna é a dos times
+            df = df.rename(columns={df.columns[0]: 'Squad'})
+        
+        # Limpa os nomes dos times
+        df['Squad'] = df['Squad'].str.strip()
         
         # Remove linhas com valores nulos e duplicatas
         df = df.dropna(subset=['Squad'])
         df = df.drop_duplicates(subset=['Squad'])
         
+        # Adiciona log para debug
+        st.debug(f"Colunas encontradas: {df.columns.tolist()}")
+        st.debug(f"Número de times encontrados: {len(df)}")
+        
         return df
     
     except Exception as e:
         st.error(f"Erro ao processar dados: {str(e)}")
+        import traceback
+        st.error(f"Traceback: {traceback.format_exc()}")
         return None
 
+def fetch_fbref_data(url):
+    """Busca dados do FBref com tratamento de erros aprimorado"""
+    try:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        # Aumenta o timeout e adiciona retries
+        session = requests.Session()
+        retries = 3
+        
+        for attempt in range(retries):
+            try:
+                response = session.get(url, headers=headers, timeout=60)
+                response.raise_for_status()
+                
+                # Verifica se o conteúdo é HTML válido
+                if not response.text or '<html' not in response.text.lower():
+                    raise ValueError("Conteúdo HTML inválido recebido")
+                
+                # Pequeno delay para evitar sobrecarga
+                time.sleep(2)
+                
+                return response.text
+            except (requests.Timeout, requests.ConnectionError) as e:
+                if attempt == retries - 1:
+                    raise
+                time.sleep(5 * (attempt + 1))  # Backoff exponencial
+                
+    except requests.Timeout:
+        st.error("Timeout ao buscar dados. Por favor, tente novamente.")
+        return None
+    except requests.RequestException as e:
+        st.error(f"Erro ao buscar dados: {str(e)}")
+        return None
+    except Exception as e:
+        st.error(f"Erro inesperado: {str(e)}")
+        return None
 def format_prompt(stats_df, home_team, away_team, odds_data):
     """Formata o prompt para o GPT-4 com os dados coletados"""
     try:
