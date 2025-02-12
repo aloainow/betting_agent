@@ -357,65 +357,66 @@ Ambos Marcam:
 - Não: @{odd_btts_no:.2f} (Implícita: {(100/odd_btts_no):.1f}%)"""
 
                     # Botão de análise
-if st.button("Analisar Partida", type="primary"):
-    with st.spinner("Realizando análise..."):
-        try:
-            # Formata o prompt completo
-            prompt = format_prompt(
-                team_stats_df,
-                home_team,
-                away_team,
-                odds_data
-            )
-            
-            if prompt:
-                try:
-                    # Configura o cliente OpenAI com configuração mínima
-                    from openai import OpenAI
-                    client = OpenAI(
-                        api_key=st.secrets["OPENAI_API_KEY"],
-                        base_url="https://api.openai.com/v1"  # URL base explícita
-                    )
-                    
-                    # Faz a chamada para o GPT-4
-                    response = client.chat.completions.create(
-                        model="gpt-4o-2024-08-06",
-                        messages=[
-                            {
-                                "role": "system", 
-                                "content": "Você é um Agente Analista de Probabilidades Esportivas especializado. Você DEVE seguir EXATAMENTE o formato de saída especificado no prompt do usuário, preenchendo todos os campos com os valores calculados."
-                            },
-                            {"role": "user", "content": prompt}
-                        ],
-                        temperature=0.3,
-                        max_tokens=4000
-                    )
-                    
-                    analysis = response.choices[0].message.content
-                    
-                    # Mostra o resultado
-                    st.markdown("### Resultado da Análise")
-                    st.markdown(analysis)
-                    
-                    # Botão para baixar análise
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    filename = f"analise_{home_team}_vs_{away_team}_{timestamp}.txt"
-                    st.download_button(
-                        label="Baixar Análise",
-                        data=analysis,
-                        file_name=filename,
-                        mime="text/plain"
-                    )
-                
-                except Exception as e:
-                    st.error(f"Erro na chamada da API: {str(e)}")
-                    st.error("Detalhes completos do erro:")
-                    st.exception(e)
-            
-        except Exception as e:
-            st.error(f"Erro na análise: {str(e)}")
-            st.error("Detalhes do erro para debug:")
-            st.exception(e)
+                    if st.button("Analisar Partida", type="primary"):
+                        with st.spinner("Realizando análise..."):
+                            try:
+                                # Formata o prompt completo
+                                prompt = format_prompt(
+                                    team_stats_df,
+                                    home_team,
+                                    away_team,
+                                    odds_data
+                                )
+                                
+                                if prompt:
+                                    # Configura o cliente OpenAI com configuração mínima
+                                    from openai import OpenAI
+                                    client = OpenAI(
+                                        api_key=st.secrets["OPENAI_API_KEY"],
+                                        base_url="https://api.openai.com/v1"
+                                    )
+                                    
+                                    # Faz a chamada para o GPT-4
+                                    response = client.chat.completions.create(
+                                        model="gpt-4o-2024-08-06",
+                                        messages=[
+                                            {
+                                                "role": "system", 
+                                                "content": "Você é um Agente Analista de Probabilidades Esportivas especializado. Você DEVE seguir EXATAMENTE o formato de saída especificado no prompt do usuário, preenchendo todos os campos com os valores calculados."
+                                            },
+                                            {"role": "user", "content": prompt}
+                                        ],
+                                        temperature=0.3,
+                                        max_tokens=4000
+                                    )
+                                    
+                                    analysis = response.choices[0].message.content
+                                    
+                                    # Mostra o resultado
+                                    st.markdown("### Resultado da Análise")
+                                    st.markdown(analysis)
+                                    
+                                    # Botão para baixar análise
+                                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                                    filename = f"analise_{home_team}_vs_{away_team}_{timestamp}.txt"
+                                    st.download_button(
+                                        label="Baixar Análise",
+                                        data=analysis,
+                                        file_name=filename,
+                                        mime="text/plain"
+                                    )
+                            except Exception as e:
+                                st.error(f"Erro na análise: {str(e)}")
+                                st.error("Detalhes do erro para debug:")
+                                st.exception(e)
+                                if "openai" in str(e).lower():
+                                    st.error("Verifique sua chave da API OpenAI")
+
+    except Exception as e:
+        st.error(f"Erro inesperado: {str(e)}")
+        st.error("Por favor, recarregue a página e tente novamente.")
+        st.error("Detalhes do erro (para debug):")
+        st.exception(e)
+
 if __name__ == "__main__":
     main()
-
