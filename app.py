@@ -369,16 +369,13 @@ Ambos Marcam:
                                 )
                                 
                                 if prompt:
-                                    # Configura o cliente OpenAI com configuração mínima
+                                    # Configura o cliente OpenAI da maneira mais simples possível
                                     from openai import OpenAI
-                                    client = OpenAI(
-                                        api_key=st.secrets["OPENAI_API_KEY"],
-                                        base_url="https://api.openai.com/v1"
-                                    )
+                                    client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
                                     
                                     # Faz a chamada para o GPT-4
                                     response = client.chat.completions.create(
-                                        model="gpt-4o-2024-08-06",
+                                        model="gpt-4-0613",  # Vamos usar um modelo estável por enquanto
                                         messages=[
                                             {
                                                 "role": "system", 
