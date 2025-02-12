@@ -368,14 +368,14 @@ Ambos Marcam:
                                     odds_data
                                 )
                                 
-                                if prompt:
-                                    # Configura o cliente OpenAI da maneira mais simples possível
-                                    from openai import OpenAI
-                                    client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+if prompt:
+                                    # Configura o cliente OpenAI da maneira mais básica
+                                    import openai
+                                    openai.api_key = st.secrets["OPENAI_API_KEY"]
                                     
                                     # Faz a chamada para o GPT-4
-                                    response = client.chat.completions.create(
-                                        model="gpt-4-0613",  # Vamos usar um modelo estável por enquanto
+                                    response = openai.ChatCompletion.create(
+                                        model="gpt-4-0613",
                                         messages=[
                                             {
                                                 "role": "system", 
@@ -387,33 +387,7 @@ Ambos Marcam:
                                         max_tokens=4000
                                     )
                                     
-                                    analysis = response.choices[0].message.content
-                                    
-                                    # Mostra o resultado
-                                    st.markdown("### Resultado da Análise")
-                                    st.markdown(analysis)
-                                    
-                                    # Botão para baixar análise
-                                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                                    filename = f"analise_{home_team}_vs_{away_team}_{timestamp}.txt"
-                                    st.download_button(
-                                        label="Baixar Análise",
-                                        data=analysis,
-                                        file_name=filename,
-                                        mime="text/plain"
-                                    )
-                            except Exception as e:
-                                st.error(f"Erro na análise: {str(e)}")
-                                st.error("Detalhes do erro para debug:")
-                                st.exception(e)
-                                if "openai" in str(e).lower():
-                                    st.error("Verifique sua chave da API OpenAI")
-
-    except Exception as e:
-        st.error(f"Erro inesperado: {str(e)}")
-        st.error("Por favor, recarregue a página e tente novamente.")
-        st.error("Detalhes do erro (para debug):")
-        st.exception(e)
+                                    analysis = response.choices[0].message['content']
 
 if __name__ == "__main__":
     main()
