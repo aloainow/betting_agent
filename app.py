@@ -1,6 +1,6 @@
 import streamlit as st
+from openai import OpenAI  # Importação atualizada
 import pandas as pd
-import openai
 from datetime import datetime
 import requests
 from bs4 import BeautifulSoup
@@ -13,7 +13,7 @@ st.set_page_config(
 )
 
 # Configuração da API OpenAI
-openai.api_key = st.secrets["OPENAI_API_KEY"]
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 # Dicionário com URLs do FBref
 FBREF_URLS = {
@@ -368,26 +368,26 @@ Ambos Marcam:
                                     odds_data
                                 )
                                 
-if prompt:
-                                    # Configura o cliente OpenAI da maneira mais básica
-                                    import openai
-                                    openai.api_key = st.secrets["OPENAI_API_KEY"]
-                                    
-                                    # Faz a chamada para o GPT-4
-                                    response = openai.ChatCompletion.create(
-                                        model="gpt-4-0613",
+
+                                if prompt:
+                                    # Faz a chamada para o GPT-4 com a nova API
+                                    response = client.chat.completions.create(
+                                        model="gpt-4",
                                         messages=[
                                             {
-                                                "role": "system", 
+                                                "role": "system",
                                                 "content": "Você é um Agente Analista de Probabilidades Esportivas especializado. Você DEVE seguir EXATAMENTE o formato de saída especificado no prompt do usuário, preenchendo todos os campos com os valores calculados."
                                             },
                                             {"role": "user", "content": prompt}
                                         ],
-                                        temperature=0.3,
-                                        max_tokens=4000
+                                        temperature=0.3
                                     )
                                     
-                                    analysis = response.choices[0].message['content']
-
+                                    analysis = response.choices[0].message.content
+                                    
+                                    # Exibe a análise
+                                    st.markdown("## Análise da Partida")
+                                    st.markdown(analysis)
+                                    
 if __name__ == "__main__":
     main()
