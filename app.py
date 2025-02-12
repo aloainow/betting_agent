@@ -27,7 +27,20 @@ FBREF_URLS = {
     "Serie A": {
         "stats": "https://fbref.com/en/comps/11/Serie-A-Stats",
         "fixtures": "https://fbref.com/en/comps/11/schedule/Serie-A-Scores-and-Fixtures"
+    },
+    "Bundesliga": {
+        "stats": "https://fbref.com/en/comps/20/Bundesliga-Stats",
+        "fixtures": "https://fbref.com/en/comps/20/schedule/Bundesliga-Scores-and-Fixtures"
+    },
+    "Ligue 1": {
+        "stats": "https://fbref.com/en/comps/13/Ligue-1-Stats",
+        "fixtures": "https://fbref.com/en/comps/13/schedule/Ligue-1-Scores-and-Fixtures"
+    },
+    "Champions League": {
+        "stats": "https://fbref.com/en/comps/8/Champions-League-Stats",
+        "fixtures": "https://fbref.com/en/comps/8/schedule/Champions-League-Scores-and-Fixtures"
     }
+}
 }
 
 @st.cache_data(ttl=3600)
