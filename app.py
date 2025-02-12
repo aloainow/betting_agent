@@ -45,14 +45,176 @@ def fetch_fbref_data(url):
         return None
 
 def parse_team_stats(html_content):
-    soup = BeautifulSoup(html_content, 'html.parser')
-    stats_table = soup.find('table', {'id': 'stats_squads_standard_for'})
+    try:
+        soup = BeautifulSoup(html_content, 'html.parser')
+        
+        # Procura primeiro pela tabela de estatísticas gerais
+        stats_table = soup.find('table', {'id': 'stats_squads_standard_for'})
+        
+        if not stats_table:
+            # Tenta encontrar outras tabelas possíveis
+            stats_table = soup.find('table', {'id': 'stats_squads_standard_overall'})
+        
+        if not stats_table:
+            st.error("Não foi possível encontrar a tabela de estatísticas")
+            return None
+        
+        # Lê a tabela com pandas
+        df = pd.read_html(str(stats_table))[0]
+        
+        # Limpa os nomes das colunas
+        df.columns = df.columns.get_level_values(-1)
+        
+        # Renomeia a coluna do time se necessário
+        if 'Squad' not in df.columns and 'Team' in df.columns:
+            df = df.rename(columns={'Team': 'Squad'})
+        elif 'Squad' not in df.columns:
+            # Procura por uma coluna que contenha os nomes dos times
+            for col in df.columns:
+                if df[col].dtype == 'object' and not df[col].str.contains(r'^\d+\.?\d*
+
+def main():
+    # Título principal
+    st.title("Análise de Apostas Esportivas")
     
-    if not stats_table:
+    # Sidebar
+    st.sidebar.title("Configurações")
+    selected_league = st.sidebar.selectbox(
+        "Escolha o campeonato:",
+        list(FBREF_URLS.keys())
+    )
+    
+    # Busca dados do campeonato selecionado
+    with st.spinner("Carregando dados do campeonato..."):
+        stats_html = fetch_fbref_data(FBREF_URLS[selected_league]["stats"])
+        if stats_html:
+            team_stats_df = parse_team_stats(stats_html)
+            
+            # Debug info
+            if team_stats_df is not None:
+                st.debug(f"Colunas disponíveis: {team_stats_df.columns.tolist()}")
+                if 'Squad' in team_stats_df.columns:
+                    st.debug(f"Times encontrados: {team_stats_df['Squad'].tolist()}")
+                else:
+                    st.debug("Coluna 'Squad' não encontrada")
+                    st.debug(f"Primeiras linhas do DataFrame:\n{team_stats_df.head()}")
+            
+            if team_stats_df is not None and 'Squad' in team_stats_df.columns:
+                # Garante que temos times válidos
+                teams = team_stats_df['Squad'].dropna().unique().tolist()
+                
+                if not teams:
+                    st.error("Não foi possível encontrar os times do campeonato")
+                    return
+                
+                # Seleção dos times
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    home_team = st.selectbox("Time da Casa:", teams)
+                
+                with col2:
+                    away_teams = [team for team in teams if team != home_team]
+                    away_team = st.selectbox("Time Visitante:", away_teams)
+                
+                # Seção de Mercados e Odds
+                st.markdown("### Odds dos Mercados")
+                
+                with st.expander("Money Line", expanded=True):
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        odd_home = st.number_input("Casa (@)", min_value=1.01, value=1.50, format="%.2f", key="ml_home")
+                    with col2:
+                        odd_draw = st.number_input("Empate (@)", min_value=1.01, value=4.00, format="%.2f", key="ml_draw")
+                    with col3:
+                        odd_away = st.number_input("Fora (@)", min_value=1.01, value=6.50, format="%.2f", key="ml_away")
+
+                with st.expander("Over/Under", expanded=True):
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        goals_line = st.number_input("Linha", min_value=0.5, value=2.5, step=0.5, format="%.1f")
+                    with col2:
+                        odd_over = st.number_input(f"Over {goals_line} (@)", min_value=1.01, value=1.85, format="%.2f", key="ou_over")
+                    with col3:
+                        odd_under = st.number_input(f"Under {goals_line} (@)", min_value=1.01, value=1.95, format="%.2f", key="ou_under")
+
+                with st.expander("Chance Dupla", expanded=True):
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        odd_1x = st.number_input("1X (@)", min_value=1.01, value=1.20, format="%.2f", key="dc_1x")
+                    with col2:
+                        odd_12 = st.number_input("12 (@)", min_value=1.01, value=1.25, format="%.2f", key="dc_12")
+                    with col3:
+                        odd_x2 = st.number_input("X2 (@)", min_value=1.01, value=2.40, format="%.2f", key="dc_x2")
+
+                with st.expander("Ambos Marcam", expanded=True):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        odd_btts_yes = st.number_input("Sim (@)", min_value=1.01, value=1.75, format="%.2f", key="btts_yes")
+                    with col2:
+                        odd_btts_no = st.number_input("Não (@)", min_value=1.01, value=2.05, format="%.2f", key="btts_no")
+
+                # Botão de análise
+                if st.button("Analisar Partida", type="primary"):
+                    with st.spinner("Realizando análise..."):
+                        try:
+                            prompt = format_prompt(
+                                home_team, 
+                                away_team, 
+                                team_stats_df,
+                                odd_home, odd_draw, odd_away,
+                                goals_line, odd_over, odd_under,
+                                odd_1x, odd_12, odd_x2,
+                                odd_btts_yes, odd_btts_no
+                            )
+                            
+                            response = openai.chat.completions.create(
+                                model="gpt-4-0125-preview",
+                                messages=[
+                                    {
+                                        "role": "system", 
+                                        "content": "Você é um Agente Analista de Probabilidades Esportivas especializado. Você DEVE seguir EXATAMENTE o formato de saída especificado no prompt do usuário, preenchendo todos os campos com os valores calculados."
+                                    },
+                                    {"role": "user", "content": prompt}
+                                ],
+                                temperature=0.3,
+                                max_tokens=4000
+                            )
+                            
+                            analysis = response.choices[0].message.content
+                            
+                            st.markdown("### Resultado da Análise")
+                            st.markdown(analysis)
+                            
+                            # Botão para baixar análise
+                            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                            filename = f"analise_{home_team}_vs_{away_team}_{timestamp}.txt"
+                            st.download_button(
+                                label="Baixar Análise",
+                                data=analysis,
+                                file_name=filename,
+                                mime="text/plain"
+                            )
+                            
+                        except Exception as e:
+                            st.error(f"Erro na análise: {str(e)}")
+
+if __name__ == "__main__":
+    main()
+).all():
+                    df = df.rename(columns={col: 'Squad'})
+                    break
+        
+        # Remove linhas com valores nulos no nome do time
+        df = df.dropna(subset=['Squad'])
+        
+        # Remove possíveis duplicatas
+        df = df.drop_duplicates(subset=['Squad'])
+        
+        return df
+    except Exception as e:
+        st.error(f"Erro ao processar os dados: {str(e)}")
         return None
-    
-    df = pd.read_html(str(stats_table))[0]
-    return df
 
 def main():
     # Título principal
