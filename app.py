@@ -173,26 +173,54 @@ def fetch_fbref_data(url):
 def format_prompt(stats_df, home_team, away_team, odds_data):
     """Formata o prompt para o GPT-4 com os dados coletados"""
     try:
+        # Primeiro, vamos verificar se temos todos os dados necessários
         home_stats = stats_df[stats_df['Squad'] == home_team].iloc[0]
         away_stats = stats_df[stats_df['Squad'] == away_team].iloc[0]
         
+        # Debug das colunas disponíveis
+        st.write("Colunas disponíveis:", stats_df.columns.tolist())
+        
+        # Mapeamento de colunas
+        column_mapping = {
+            'Rk': 'Posição',
+            'GF': 'Gols Marcados',
+            'GA': 'Gols Sofridos',
+            'xG': 'Expected Goals',
+            'xGA': 'Expected Goals Against',
+            'W': 'Vitórias',
+            'D': 'Empates',
+            'L': 'Derrotas',
+            'Pts': 'Pontos',
+            'MP': 'Jogos',
+            'Clean Sheets': 'Clean Sheets'
+        }
+        
+        # Função auxiliar para pegar valor com fallback
+        def get_stat(stats, col, default='N/A'):
+            if col in stats.index:
+                return stats[col]
+            return default
+        
+        # Formata as estatísticas do time da casa
+        home_team_stats = "\n".join([
+            f"  * {name}: {get_stat(home_stats, col)}"
+            for col, name in column_mapping.items()
+        ])
+        
+        # Formata as estatísticas do time visitante
+        away_team_stats = "\n".join([
+            f"  * {name}: {get_stat(away_stats, col)}"
+            for col, name in column_mapping.items()
+        ])
+        
         prompt = f"""Role: Agente Analista de Probabilidades Esportivas
 
-    
 KNOWLEDGE BASE INTERNO:
 - Estatísticas Home Team ({home_team}):
-  * Posição: {home_stats.get('Rk', 'N/A')}
-  * Gols Marcados: {home_stats.get('GF', 'N/A')}
-  * Gols Sofridos: {home_stats.get('GA', 'N/A')}
-  * Expected Goals: {home_stats.get('xG', 'N/A')}
-  * Expected Goals Against: {home_stats.get('xGA', 'N/A')}
+{home_team_stats}
 
 - Estatísticas Away Team ({away_team}):
-  * Posição: {away_stats.get('Rk', 'N/A')}
-  * Gols Marcados: {away_stats.get('GF', 'N/A')}
-  * Gols Sofridos: {away_stats.get('GA', 'N/A')}
-  * Expected Goals: {away_stats.get('xG', 'N/A')}
-  * Expected Goals Against: {away_stats.get('xGA', 'N/A')}
+{away_team_stats}
 
 ODDS DOS MERCADOS:
 {odds_data}
@@ -206,21 +234,21 @@ INSTRUÇÕES CRÍTICAS:
 
 [PROCESSO DE CÁLCULO OBRIGATÓRIO]
 1. Base Calculation [35%]
-- Form recente (últimos 5 jogos do KB)
-- H2H (últimos 3 confrontos do KB)
-- Home/Away performance (KB)
-- Tendência de gols (KB)
+- Form recente (vitórias, empates, derrotas)
+- Home/Away performance
+- Tendência de gols
+- Pontuação total
 
 2. Technical Factors [25%]
-- Expected goals (xG do KB)
-- Gols marcados/sofridos (KB)
-- Clean sheets (KB)
-- Posição na tabela (KB)
+- Expected goals (xG)
+- Gols marcados/sofridos
+- Clean sheets
+- Posição na tabela
 
 3. Market Analysis [20%]
 - Linha base de probabilidade por mercado
-- Ajustes por padrão de jogo (baseado no KB)
-- Fatores situacionais (KB)
+- Ajustes por padrão de jogo
+- Fatores situacionais
 
 4. Edge Calculation [20%]
 - Calc vs Implied difference
@@ -261,9 +289,14 @@ CHECKLIST FINAL:
 3. Edges foram calculados corretamente? [S/N]
 4. Times identificados corretamente? [S/N]"""
         
+        # Debug do prompt final
+        st.write("Dados do time da casa:", home_team_stats)
+        st.write("Dados do time visitante:", away_team_stats)
+        
         return prompt
     except Exception as e:
         st.error(f"Erro ao formatar prompt: {str(e)}")
+        st.error(f"Detalhes do erro:\n{traceback.format_exc()}")
         return None
 
 def main():
