@@ -19,15 +19,16 @@ def get_odds_data(selected_markets):
     odds_data = {}
     formatted_odds = []
 
-    if selected_markets["money_line"]:
-        with st.expander("Money Line", expanded=True):
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                odds_data["home"] = st.number_input("Casa (@)", min_value=1.01, value=0.0, format="%.2f", key="ml_home")
-            with col2:
-                odds_data["draw"] = st.number_input("Empate (@)", min_value=1.01, value=0.0, format="%.2f", key="ml_draw")
-            with col3:
-                odds_data["away"] = st.number_input("Fora (@)", min_value=1.01, value=0.0, format="%.2f", key="ml_away")
+    # Money Line
+    if selected_markets.get("money_line", False):
+        st.markdown("### Money Line")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            odds_data["home"] = st.number_input("Casa (@)", min_value=1.01, value=0.0, format="%.2f", key="ml_home")
+        with col2:
+            odds_data["draw"] = st.number_input("Empate (@)", min_value=1.01, value=0.0, format="%.2f", key="ml_draw")
+        with col3:
+            odds_data["away"] = st.number_input("Fora (@)", min_value=1.01, value=0.0, format="%.2f", key="ml_away")
 
         if all(odds_data.get(k, 0) > 0 for k in ["home", "draw", "away"]):
             formatted_odds.append(f"""Money Line:
@@ -35,74 +36,62 @@ def get_odds_data(selected_markets):
 - Empate: @{odds_data['draw']:.2f} (Implícita: {(100/odds_data['draw']):.1f}%)
 - Fora: @{odds_data['away']:.2f} (Implícita: {(100/odds_data['away']):.1f}%)""")
 
-    if selected_markets["over_under"]:
-        with st.expander("Over/Under", expanded=True):
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                odds_data["goals_line"] = st.number_input("Linha", min_value=0.5, value=2.5, step=0.5, format="%.1f")
-            with col2:
-                odds_data["over"] = st.number_input(f"Over (@)", min_value=1.01, value=0.0, format="%.2f", key="ou_over")
-            with col3:
-                odds_data["under"] = st.number_input(f"Under (@)", min_value=1.01, value=0.0, format="%.2f", key="ou_under")
+    # Over/Under
+    if selected_markets.get("over_under", False):
+        st.markdown("### Over/Under")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            odds_data["goals_line"] = st.number_input("Linha", min_value=0.5, value=2.5, step=0.5, format="%.1f")
+        with col2:
+            odds_data["over"] = st.number_input(f"Over (@)", min_value=1.01, value=0.0, format="%.2f", key="ou_over")
+        with col3:
+            odds_data["under"] = st.number_input(f"Under (@)", min_value=1.01, value=0.0, format="%.2f", key="ou_under")
 
         if all(odds_data.get(k, 0) > 0 for k in ["over", "under"]):
             formatted_odds.append(f"""Over/Under {odds_data['goals_line']}:
 - Over: @{odds_data['over']:.2f} (Implícita: {(100/odds_data['over']):.1f}%)
 - Under: @{odds_data['under']:.2f} (Implícita: {(100/odds_data['under']):.1f}%)""")
 
-    if selected_markets["chance_dupla"]:
-        with st.expander("Chance Dupla", expanded=True):
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                odds_data["1x"] = st.number_input("1X (@)", min_value=1.01, value=0.0, format="%.2f", key="dc_1x")
-            with col2:
-                odds_data["12"] = st.number_input("12 (@)", min_value=1.01, value=0.0, format="%.2f", key="dc_12")
-            with col3:
-                odds_data["x2"] = st.number_input("X2 (@)", min_value=1.01, value=0.0, format="%.2f", key="dc_x2")
-
-        if all(odds_data.get(k, 0) > 0 for k in ["1x", "12", "x2"]):
-            formatted_odds.append(f"""Chance Dupla:
-- 1X: @{odds_data['1x']:.2f} (Implícita: {(100/odds_data['1x']):.1f}%)
-- 12: @{odds_data['12']:.2f} (Implícita: {(100/odds_data['12']):.1f}%)
-- X2: @{odds_data['x2']:.2f} (Implícita: {(100/odds_data['x2']):.1f}%)""")
-
-    if selected_markets["ambos_marcam"]:
-        with st.expander("Ambos Marcam", expanded=True):
-            col1, col2 = st.columns(2)
-            with col1:
-                odds_data["btts_yes"] = st.number_input("Sim (@)", min_value=1.01, value=0.0, format="%.2f", key="btts_yes")
-            with col2:
-                odds_data["btts_no"] = st.number_input("Não (@)", min_value=1.01, value=0.0, format="%.2f", key="btts_no")
+    # Ambos Marcam
+    if selected_markets.get("ambos_marcam", False):
+        st.markdown("### Ambos Marcam")
+        col1, col2 = st.columns(2)
+        with col1:
+            odds_data["btts_yes"] = st.number_input("Sim (@)", min_value=1.01, value=0.0, format="%.2f", key="btts_yes")
+        with col2:
+            odds_data["btts_no"] = st.number_input("Não (@)", min_value=1.01, value=0.0, format="%.2f", key="btts_no")
 
         if all(odds_data.get(k, 0) > 0 for k in ["btts_yes", "btts_no"]):
             formatted_odds.append(f"""Ambos Marcam:
 - Sim: @{odds_data['btts_yes']:.2f} (Implícita: {(100/odds_data['btts_yes']):.1f}%)
 - Não: @{odds_data['btts_no']:.2f} (Implícita: {(100/odds_data['btts_no']):.1f}%)""")
 
-    if selected_markets["escanteios"]:
-        with st.expander("Total de Escanteios", expanded=True):
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                odds_data["corners_line"] = st.number_input("Linha Escanteios", min_value=0.5, value=9.5, step=0.5, format="%.1f")
-            with col2:
-                odds_data["corners_over"] = st.number_input("Over Escanteios (@)", min_value=1.01, value=0.0, format="%.2f", key="corners_over")
-            with col3:
-                odds_data["corners_under"] = st.number_input("Under Escanteios (@)", min_value=1.01, value=0.0, format="%.2f", key="corners_under")
+    # Total de Escanteios
+    if selected_markets.get("escanteios", False):
+        st.markdown("### Total de Escanteios")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            odds_data["corners_line"] = st.number_input("Linha Escanteios", min_value=0.5, value=9.5, step=0.5, format="%.1f")
+        with col2:
+            odds_data["corners_over"] = st.number_input("Over Escanteios (@)", min_value=1.01, value=0.0, format="%.2f", key="corners_over")
+        with col3:
+            odds_data["corners_under"] = st.number_input("Under Escanteios (@)", min_value=1.01, value=0.0, format="%.2f", key="corners_under")
 
         if all(odds_data.get(k, 0) > 0 for k in ["corners_over", "corners_under"]):
             formatted_odds.append(f"""Total de Escanteios {odds_data['corners_line']}:
 - Over: @{odds_data['corners_over']:.2f} (Implícita: {(100/odds_data['corners_over']):.1f}%)
 - Under: @{odds_data['corners_under']:.2f} (Implícita: {(100/odds_data['corners_under']):.1f}%)""")
 
-    if selected_markets["cartoes"]:
-        with st.expander("Total de Cartões", expanded=True):
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                odds_data["cards_line"] = st.number_input("Linha Cartões", min_value=0.5, value=3.5, step=0.5, format="%.1f")
-            with col2:
-                odds_data["cards_over"] = st.number_input("Over Cartões (@)", min_value=1.01, value=0.0, format="%.2f", key="cards_over")
-            with col3:
-                odds_data["cards_under"] = st.number_input("Under Cartões (@)", min_value=1.01, value=0.0, format="%.2f", key="cards_under")
+    # Total de Cartões
+    if selected_markets.get("cartoes", False):
+        st.markdown("### Total de Cartões")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            odds_data["cards_line"] = st.number_input("Linha Cartões", min_value=0.5, value=3.5, step=0.5, format="%.1f")
+        with col2:
+            odds_data["cards_over"] = st.number_input("Over Cartões (@)", min_value=1.01, value=0.0, format="%.2f", key="cards_over")
+        with col3:
+            odds_data["cards_under"] = st.number_input("Under Cartões (@)", min_value=1.01, value=0.0, format="%.2f", key="cards_under")
 
         if all(odds_data.get(k, 0) > 0 for k in ["cards_over", "cards_under"]):
             formatted_odds.append(f"""Total de Cartões {odds_data['cards_line']}:
@@ -110,7 +99,6 @@ def get_odds_data(selected_markets):
 - Under: @{odds_data['cards_under']:.2f} (Implícita: {(100/odds_data['cards_under']):.1f}%)""")
 
     return "\n\n".join(formatted_odds)
-
 
 def get_fbref_urls():
     """Retorna o dicionário de URLs do FBref"""
@@ -385,111 +373,58 @@ CHECKLIST FINAL:
         
 def main():
     try:
-        # Inicializa os URLs do FBref
-        FBREF_URLS = get_fbref_urls()
-        
-        # Estado da aplicação
-        if 'load_state' not in st.session_state:
-            st.session_state.load_state = 'initial'
-
-        # Título principal
         st.title("Análise de Apostas Esportivas")
         
-        # Sidebar
-        st.sidebar.title("Configurações")
+        # Simulando dados de times para teste
+        teams = ["Arsenal", "Aston Villa", "Manchester City", "Liverpool"]
         
-        # Mostrar status de carregamento
-        status_container = st.empty()
+        # Seleção dos times
+        col1, col2 = st.columns(2)
+        with col1:
+            home_team = st.selectbox("Time da Casa:", teams)
+        with col2:
+            away_teams = [team for team in teams if team != home_team]
+            away_team = st.selectbox("Time Visitante:", away_teams)
+
+        # Seleção de mercados
+        st.markdown("### Seleção de Mercados")
         
-        selected_league = st.sidebar.selectbox(
-            "Escolha o campeonato:",
-            list(FBREF_URLS.keys())
-        )
+        selected_markets = {}
+        col1, col2 = st.columns(2)
         
-        try:
-            # Busca dados do campeonato
-            with st.spinner("Carregando dados do campeonato..."):
-                st.session_state.load_state = 'loading'
-                status_container.info("Carregando dados...")
-                
-                stats_html = fetch_fbref_data(FBREF_URLS[selected_league]["stats"])
-                
-                if not stats_html:
-                    st.error("Não foi possível carregar os dados do campeonato")
-                    return
-                
-                team_stats_df = parse_team_stats(stats_html)
-                
-                if team_stats_df is None or 'Squad' not in team_stats_df.columns:
-                    st.error("Erro ao processar dados dos times")
-                    return
-                
-                st.session_state.load_state = 'loaded'
-                status_container.success("Dados carregados com sucesso!")
-                
-                teams = team_stats_df['Squad'].dropna().unique().tolist()
-                
-                if not teams:
-                    st.error("Não foi possível encontrar os times do campeonato")
-                    return
-                
-                # Seleção dos times
-                col1, col2 = st.columns(2)
-                with col1:
-                    home_team = st.selectbox("Time da Casa:", teams)
-                with col2:
-                    away_teams = [team for team in teams if team != home_team]
-                    away_team = st.selectbox("Time Visitante:", away_teams)
+        with col1:
+            selected_markets["money_line"] = st.checkbox("Money Line (1X2)")
+            selected_markets["over_under"] = st.checkbox("Over/Under")
+            selected_markets["chance_dupla"] = st.checkbox("Chance Dupla")
+            
+        with col2:
+            selected_markets["ambos_marcam"] = st.checkbox("Ambos Marcam")
+            selected_markets["escanteios"] = st.checkbox("Total de Escanteios")
+            selected_markets["cartoes"] = st.checkbox("Total de Cartões")
 
-                # Seleção de mercados
-                st.markdown("### Seleção de Mercados")
-                mercados = {
-                    "money_line": "Money Line (1X2)",
-                    "over_under": "Over/Under",
-                    "chance_dupla": "Chance Dupla",
-                    "ambos_marcam": "Ambos Marcam",
-                    "escanteios": "Total de Escanteios",
-                    "cartoes": "Total de Cartões"
-                }
+        # Só mostra campos de odds para mercados selecionados
+        if any(selected_markets.values()):
+            st.markdown("### Odds dos Mercados")
+            odds_data = get_odds_data(selected_markets)
 
-                selected_markets = {}
-                col1, col2 = st.columns(2)
-                with col1:
-                    for mercado in list(mercados.keys())[:3]:
-                        selected_markets[mercado] = st.checkbox(mercados[mercado], value=False)
-                with col2:
-                    for mercado in list(mercados.keys())[3:]:
-                        selected_markets[mercado] = st.checkbox(mercados[mercado], value=False)
-
-                # Coleta e formatação das odds
-                odds_data = get_odds_data(selected_markets)
-
-                # Botão de análise
+            if odds_data:  # Só mostra o botão se tiver odds preenchidas
                 if st.button("Analisar Partida", type="primary"):
                     with st.spinner("Realizando análise..."):
                         try:
-                            prompt = format_prompt(
-                                team_stats_df,
-                                home_team,
-                                away_team,
-                                odds_data
-                            )
+                            # Simulando análise para teste
+                            st.markdown("## Análise da Partida")
+                            st.markdown(f"""
+                            Análise para {home_team} x {away_team}
                             
-                            if prompt:
-                                analysis = analyze_with_gpt(prompt)
-                                st.markdown("## Análise da Partida")
-                                st.markdown(analysis)
+                            Odds analisadas:
+                            {odds_data}
+                            """)
                         except Exception as e:
                             st.error(f"Erro na análise: {str(e)}")
-                            import traceback
                             st.error(f"Traceback:\n```\n{traceback.format_exc()}\n```")
-        except Exception as e:
-            st.error(f"Erro ao carregar dados: {str(e)}")
-            import traceback
-            st.error(f"Traceback:\n```\n{traceback.format_exc()}\n```")
+
     except Exception as e:
         st.error(f"Erro geral na aplicação: {str(e)}")
-        import traceback
         st.error(f"Traceback:\n```\n{traceback.format_exc()}\n```")
 
 if __name__ == "__main__":
