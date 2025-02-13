@@ -5,6 +5,7 @@ from bs4 import BeautifulSoup
 import time
 from openai import OpenAI
 import traceback
+import numpy as np
 
 
 # Configuração da página
@@ -191,13 +192,7 @@ def analyze_with_gpt(prompt):
         st.error(f"Erro na chamada da API: {str(e)}")
         return None
 
-import streamlit as st
-import pandas as pd
-import requests
-from bs4 import BeautifulSoup
-import time
-from openai import OpenAI
-import traceback
+
 
 def parse_team_stats(html_content):
     """Processa os dados do time com tratamento melhorado para extrair estatísticas"""
@@ -205,30 +200,30 @@ def parse_team_stats(html_content):
         soup = BeautifulSoup(html_content, 'html.parser')
         
         # Procurar todas as tabelas que podem conter as estatísticas
-        all_tables = soup.find_all('table')
         stats_table = None
         
-        # Lista de IDs e classes comuns para tabelas de estatísticas
-        table_identifiers = [
+        # Lista de IDs de tabelas conhecidos
+        table_ids = [
             'stats_squads_standard_for',
-            'stats_squads_shooting',
             'stats_squads_standard_stats',
+            'stats_squads_standard_overall',
             'stats_squads_keeper_for'
         ]
         
-        # Primeiro, tenta encontrar por ID
-        for table_id in table_identifiers:
+        # Tentar encontrar a tabela por ID
+        for table_id in table_ids:
             stats_table = soup.find('table', {'id': table_id})
             if stats_table:
                 break
         
-        # Se não encontrar por ID, procura nas tabelas por conteúdo
+        # Se não encontrou por ID, procurar por conteúdo
         if not stats_table:
+            all_tables = soup.find_all('table')
             for table in all_tables:
                 headers = table.find_all('th')
                 if headers:
                     header_text = [h.get_text(strip=True).lower() for h in headers]
-                    if any(keyword in ' '.join(header_text) for keyword in ['squad', 'team', 'goals', 'gls', 'xg']):
+                    if any(keyword in ' '.join(header_text) for keyword in ['squad', 'team', 'goals']):
                         stats_table = table
                         break
         
@@ -236,15 +231,33 @@ def parse_team_stats(html_content):
             st.error("Não foi possível encontrar a tabela de estatísticas")
             return None
         
-        # Converter tabela para DataFrame
+        # Ler a tabela com pandas
         df = pd.read_html(str(stats_table))[0]
         
         # Tratar colunas multi-índice
         if isinstance(df.columns, pd.MultiIndex):
-            # Pegar o último nível que geralmente contém os nomes mais específicos
             df.columns = [col[-1] if isinstance(col, tuple) else col for col in df.columns]
         
-        # Mapear e renomear colunas importantes
+        # Limpar nomes das colunas
+        df.columns = [str(col).strip() for col in df.columns]
+        
+        # Função para encontrar a coluna correta
+        def find_column(possible_names, df_columns):
+            for name in possible_names:
+                # Procura exata
+                if name in df_columns:
+                    return name
+                # Procura case-insensitive
+                matches = [col for col in df_columns if str(col).strip().lower() == name.lower()]
+                if matches:
+                    return matches[0]
+                # Procura por substring
+                matches = [col for col in df_columns if name.lower() in str(col).strip().lower()]
+                if matches:
+                    return matches[0]
+            return None
+
+        # Mapear colunas importantes
         column_mapping = {
             'Squad': ['Squad', 'Team', 'Equipe'],
             'MP': ['MP', 'Matches', 'Jogos'],
@@ -255,41 +268,42 @@ def parse_team_stats(html_content):
             'Poss': ['Poss', 'Possession', 'PosseBola']
         }
         
-        # Função para encontrar a coluna correta
-        def find_column(possible_names):
-            for name in possible_names:
-                matches = [col for col in df.columns if str(col).strip().lower() == name.lower()]
-                if matches:
-                    return matches[0]
-            return None
-        
-        # Renomear colunas encontradas
+        # Encontrar e renomear colunas usando find_column
         new_columns = {}
         for new_name, possible_names in column_mapping.items():
-            found_col = find_column(possible_names)
+            found_col = find_column(possible_names, df.columns)
             if found_col:
                 new_columns[found_col] = new_name
+                st.write(f"Coluna encontrada: {found_col} -> {new_name}")
         
+        # Aplicar o mapeamento de colunas
         df = df.rename(columns=new_columns)
         
-        # Garantir que temos as colunas mínimas necessárias
-        required_columns = ['Squad', 'MP', 'Gls', 'xG']
-        if not all(col in df.columns for col in required_columns):
-            missing = [col for col in required_columns if col not in df.columns]
-            st.warning(f"Colunas ausentes: {missing}. Adicionando colunas vazias.")
-            for col in missing:
-                df[col] = 'N/A'
+        # Garantir coluna Squad
+        if 'Squad' not in df.columns and len(df.columns) > 0:
+            df = df.rename(columns={df.columns[0]: 'Squad'})
         
-        # Limpar e processar dados
-        df['Squad'] = df['Squad'].str.strip()
+        # Limpar dados
+        df['Squad'] = df['Squad'].astype(str).str.strip()
         df = df.dropna(subset=['Squad'])
         df = df.drop_duplicates(subset=['Squad'])
         
-        # Converter colunas numéricas
+        # Converter colunas numéricas com segurança
         numeric_columns = ['MP', 'Gls', 'G90', 'xG', 'xG90', 'Poss']
         for col in numeric_columns:
             if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors='coerce')
+                try:
+                    # Primeiro, converter strings para formato numérico
+                    df[col] = df[col].astype(str).str.replace(',', '.').str.extract('([-+]?\d*\.?\d+)').astype(float)
+                except Exception as e:
+                    st.warning(f"Não foi possível converter coluna {col}: {str(e)}")
+                    df[col] = np.nan
+        
+        # Preencher valores ausentes
+        df = df.fillna('N/A')
+        
+        # Debug: mostrar colunas encontradas
+        st.write("Colunas disponíveis:", list(df.columns))
         
         return df
     
@@ -305,6 +319,7 @@ def fetch_fbref_data(url):
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.5',
         'Connection': 'keep-alive',
+        'DNT': '1',
         'Upgrade-Insecure-Requests': '1',
     }
     
@@ -317,7 +332,12 @@ def fetch_fbref_data(url):
             response.raise_for_status()
             
             if 'cf-browser-verification' in response.text.lower():
-                st.error("Detectado Cloudflare protection. Tentando novamente...")
+                st.warning(f"Detectado Cloudflare protection. Tentativa {attempt + 1}/{retries}...")
+                time.sleep(5 * (attempt + 1))
+                continue
+            
+            if '<table' not in response.text.lower():
+                st.warning(f"Nenhuma tabela encontrada na resposta. Tentativa {attempt + 1}/{retries}...")
                 time.sleep(5 * (attempt + 1))
                 continue
                 
@@ -327,11 +347,10 @@ def fetch_fbref_data(url):
             if attempt == retries - 1:
                 st.error(f"Erro ao buscar dados (tentativa {attempt + 1}/{retries}): {str(e)}")
                 return None
+            st.warning(f"Erro na tentativa {attempt + 1}, tentando novamente em {5 * (attempt + 1)} segundos...")
             time.sleep(5 * (attempt + 1))
     
     return None
-
-# O resto do código permanece o mesmo...
 
 def format_prompt(stats_df, home_team, away_team, odds_data):
     """Formata o prompt para o GPT-4 com os dados coletados"""
