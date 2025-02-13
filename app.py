@@ -18,14 +18,7 @@ st.set_page_config(
 def get_openai_client():
     """Função para criar e retornar o cliente OpenAI usando cache_resource"""
     try:
-        client = OpenAI(
-            api_key=st.secrets["OPENAI_API_KEY"],
-            http_client=httpx.Client(
-                timeout=60.0,
-                follow_redirects=True
-            )
-        )
-        return client
+        return OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
     except Exception as e:
         st.error(f"Erro ao criar cliente OpenAI: {str(e)}")
         return None
@@ -53,7 +46,6 @@ def analyze_with_gpt(prompt):
     except Exception as e:
         st.error(f"Erro na chamada da API: {str(e)}")
         return None
-
 # Funções do config.py agora diretamente no app.py
 def get_fbref_urls():
     """Retorna o dicionário de URLs do FBref"""
