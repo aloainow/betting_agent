@@ -1,12 +1,4 @@
 import streamlit as st
-from config import (
-    get_fbref_urls,
-    get_openai_client,
-    analyze_with_gpt,
-    parse_team_stats,
-    fetch_fbref_data,
-    format_prompt
-)
 import pandas as pd
 from datetime import datetime
 import requests
@@ -22,7 +14,6 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
-
 def get_odds_data(selected_markets):
     """Função para coletar e formatar os dados das odds"""
     odds_data = {}
