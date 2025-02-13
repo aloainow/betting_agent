@@ -24,13 +24,13 @@ def get_odds_data(selected_markets):
         st.markdown("### Money Line")
         col1, col2, col3 = st.columns(3)
         with col1:
-            odds_data["home"] = st.number_input("Casa (@)", min_value=1.01, value=0.0, format="%.2f", key="ml_home")
+            odds_data["home"] = st.number_input("Casa (@)", min_value=1.01, step=0.01, value=1.01, format="%.2f", key="ml_home")
         with col2:
-            odds_data["draw"] = st.number_input("Empate (@)", min_value=1.01, value=0.0, format="%.2f", key="ml_draw")
+            odds_data["draw"] = st.number_input("Empate (@)", min_value=1.01, step=0.01, value=1.01, format="%.2f", key="ml_draw")
         with col3:
-            odds_data["away"] = st.number_input("Fora (@)", min_value=1.01, value=0.0, format="%.2f", key="ml_away")
+            odds_data["away"] = st.number_input("Fora (@)", min_value=1.01, step=0.01, value=1.01, format="%.2f", key="ml_away")
 
-        if all(odds_data.get(k, 0) > 0 for k in ["home", "draw", "away"]):
+        if all(odds_data.get(k, 0) > 1.01 for k in ["home", "draw", "away"]):
             formatted_odds.append(f"""Money Line:
 - Casa: @{odds_data['home']:.2f} (Implícita: {(100/odds_data['home']):.1f}%)
 - Empate: @{odds_data['draw']:.2f} (Implícita: {(100/odds_data['draw']):.1f}%)
@@ -41,13 +41,13 @@ def get_odds_data(selected_markets):
         st.markdown("### Over/Under")
         col1, col2, col3 = st.columns(3)
         with col1:
-            odds_data["goals_line"] = st.number_input("Linha", min_value=0.5, value=2.5, step=0.5, format="%.1f")
+            odds_data["goals_line"] = st.number_input("Linha", min_value=0.5, value=2.5, step=0.5, format="%.1f", key="goals_line")
         with col2:
-            odds_data["over"] = st.number_input(f"Over (@)", min_value=1.01, value=0.0, format="%.2f", key="ou_over")
+            odds_data["over"] = st.number_input(f"Over (@)", min_value=1.01, step=0.01, value=1.01, format="%.2f", key="ou_over")
         with col3:
-            odds_data["under"] = st.number_input(f"Under (@)", min_value=1.01, value=0.0, format="%.2f", key="ou_under")
+            odds_data["under"] = st.number_input(f"Under (@)", min_value=1.01, step=0.01, value=1.01, format="%.2f", key="ou_under")
 
-        if all(odds_data.get(k, 0) > 0 for k in ["over", "under"]):
+        if all(odds_data.get(k, 0) > 1.01 for k in ["over", "under"]):
             formatted_odds.append(f"""Over/Under {odds_data['goals_line']}:
 - Over: @{odds_data['over']:.2f} (Implícita: {(100/odds_data['over']):.1f}%)
 - Under: @{odds_data['under']:.2f} (Implícita: {(100/odds_data['under']):.1f}%)""")
@@ -57,11 +57,11 @@ def get_odds_data(selected_markets):
         st.markdown("### Ambos Marcam")
         col1, col2 = st.columns(2)
         with col1:
-            odds_data["btts_yes"] = st.number_input("Sim (@)", min_value=1.01, value=0.0, format="%.2f", key="btts_yes")
+            odds_data["btts_yes"] = st.number_input("Sim (@)", min_value=1.01, step=0.01, value=1.01, format="%.2f", key="btts_yes")
         with col2:
-            odds_data["btts_no"] = st.number_input("Não (@)", min_value=1.01, value=0.0, format="%.2f", key="btts_no")
+            odds_data["btts_no"] = st.number_input("Não (@)", min_value=1.01, step=0.01, value=1.01, format="%.2f", key="btts_no")
 
-        if all(odds_data.get(k, 0) > 0 for k in ["btts_yes", "btts_no"]):
+        if all(odds_data.get(k, 0) > 1.01 for k in ["btts_yes", "btts_no"]):
             formatted_odds.append(f"""Ambos Marcam:
 - Sim: @{odds_data['btts_yes']:.2f} (Implícita: {(100/odds_data['btts_yes']):.1f}%)
 - Não: @{odds_data['btts_no']:.2f} (Implícita: {(100/odds_data['btts_no']):.1f}%)""")
@@ -71,13 +71,13 @@ def get_odds_data(selected_markets):
         st.markdown("### Total de Escanteios")
         col1, col2, col3 = st.columns(3)
         with col1:
-            odds_data["corners_line"] = st.number_input("Linha Escanteios", min_value=0.5, value=9.5, step=0.5, format="%.1f")
+            odds_data["corners_line"] = st.number_input("Linha Escanteios", min_value=0.5, value=9.5, step=0.5, format="%.1f", key="corners_line")
         with col2:
-            odds_data["corners_over"] = st.number_input("Over Escanteios (@)", min_value=1.01, value=0.0, format="%.2f", key="corners_over")
+            odds_data["corners_over"] = st.number_input("Over Escanteios (@)", min_value=1.01, step=0.01, value=1.01, format="%.2f", key="corners_over")
         with col3:
-            odds_data["corners_under"] = st.number_input("Under Escanteios (@)", min_value=1.01, value=0.0, format="%.2f", key="corners_under")
+            odds_data["corners_under"] = st.number_input("Under Escanteios (@)", min_value=1.01, step=0.01, value=1.01, format="%.2f", key="corners_under")
 
-        if all(odds_data.get(k, 0) > 0 for k in ["corners_over", "corners_under"]):
+        if all(odds_data.get(k, 0) > 1.01 for k in ["corners_over", "corners_under"]):
             formatted_odds.append(f"""Total de Escanteios {odds_data['corners_line']}:
 - Over: @{odds_data['corners_over']:.2f} (Implícita: {(100/odds_data['corners_over']):.1f}%)
 - Under: @{odds_data['corners_under']:.2f} (Implícita: {(100/odds_data['corners_under']):.1f}%)""")
@@ -87,19 +87,18 @@ def get_odds_data(selected_markets):
         st.markdown("### Total de Cartões")
         col1, col2, col3 = st.columns(3)
         with col1:
-            odds_data["cards_line"] = st.number_input("Linha Cartões", min_value=0.5, value=3.5, step=0.5, format="%.1f")
+            odds_data["cards_line"] = st.number_input("Linha Cartões", min_value=0.5, value=3.5, step=0.5, format="%.1f", key="cards_line")
         with col2:
-            odds_data["cards_over"] = st.number_input("Over Cartões (@)", min_value=1.01, value=0.0, format="%.2f", key="cards_over")
+            odds_data["cards_over"] = st.number_input("Over Cartões (@)", min_value=1.01, step=0.01, value=1.01, format="%.2f", key="cards_over")
         with col3:
-            odds_data["cards_under"] = st.number_input("Under Cartões (@)", min_value=1.01, value=0.0, format="%.2f", key="cards_under")
+            odds_data["cards_under"] = st.number_input("Under Cartões (@)", min_value=1.01, step=0.01, value=1.01, format="%.2f", key="cards_under")
 
-        if all(odds_data.get(k, 0) > 0 for k in ["cards_over", "cards_under"]):
+        if all(odds_data.get(k, 0) > 1.01 for k in ["cards_over", "cards_under"]):
             formatted_odds.append(f"""Total de Cartões {odds_data['cards_line']}:
 - Over: @{odds_data['cards_over']:.2f} (Implícita: {(100/odds_data['cards_over']):.1f}%)
 - Under: @{odds_data['cards_under']:.2f} (Implícita: {(100/odds_data['cards_under']):.1f}%)""")
 
     return "\n\n".join(formatted_odds)
-
 def get_fbref_urls():
     """Retorna o dicionário de URLs do FBref"""
     return {
