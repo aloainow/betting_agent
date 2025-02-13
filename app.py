@@ -1,26 +1,21 @@
 import streamlit as st
-from openai import OpenAI
 import pandas as pd
-from bs4 import BeautifulSoup
+from datetime import datetime
 import requests
+from bs4 import BeautifulSoup
 import time
-import traceback
-from config import (
-    get_fbref_urls,
-    get_openai_client,
-    analyze_with_gpt,
-    parse_team_stats,
-    fetch_fbref_data,
-    format_prompt
-)
+from openai import OpenAI
 
 # Configuração da página
 st.set_page_config(
     page_title="Análise de Apostas Esportivas",
-    layout="wide"
+    page_icon="⚽",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
 
+# Funções do config.py agora diretamente no app.py
 def get_fbref_urls():
     """Retorna o dicionário de URLs do FBref"""
     return {
@@ -49,7 +44,6 @@ def get_fbref_urls():
             "fixtures": "https://fbref.com/en/comps/8/schedule/Champions-League-Scores-and-Fixtures"
         }
     }
-
 @st.cache_resource
 def get_openai_client():
     """Função para criar e retornar o cliente OpenAI usando cache_resource"""
@@ -74,6 +68,7 @@ def analyze_with_gpt(prompt):
     except Exception as e:
         st.error(f"Erro na chamada da API: {str(e)}")
         raise
+
 
 def parse_team_stats(html_content):
     """Processa os dados do time com tratamento de erros aprimorado"""
