@@ -99,6 +99,7 @@ def get_odds_data(selected_markets):
 - Under: @{odds_data['cards_under']:.2f} (Implícita: {(100/odds_data['cards_under']):.1f}%)""")
 
     return "\n\n".join(formatted_odds)
+    
 def get_fbref_urls():
     """Retorna o dicionário de URLs do FBref"""
     return {
