@@ -1,10 +1,18 @@
 import streamlit as st
-import pandas as pd
-from datetime import datetime
-import requests
-from bs4 import BeautifulSoup
-import time
 from openai import OpenAI
+import pandas as pd
+from bs4 import BeautifulSoup
+import requests
+import time
+import traceback
+from config import (
+    get_fbref_urls,
+    get_openai_client,
+    analyze_with_gpt,
+    parse_team_stats,
+    fetch_fbref_data,
+    format_prompt
+)
 
 # Configuração da página
 st.set_page_config(
@@ -12,7 +20,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# Funções auxiliares
+
 def get_fbref_urls():
     """Retorna o dicionário de URLs do FBref"""
     return {
@@ -72,7 +80,6 @@ def parse_team_stats(html_content):
     try:
         soup = BeautifulSoup(html_content, 'html.parser')
         
-        # Busca mais generalizada por tabelas de estatísticas
         possible_table_ids = [
             'stats_squads_standard_for',
             'stats_squads_standard_overall',
@@ -87,12 +94,10 @@ def parse_team_stats(html_content):
             stats_table = soup.find('table', {'id': table_id})
             if stats_table:
                 break
-                
-        # Se ainda não encontrou, tenta buscar qualquer tabela com estatísticas
+        
         if not stats_table:
             all_tables = soup.find_all('table')
             for table in all_tables:
-                # Verifica se a tabela tem "Squad" ou "Team" no cabeçalho
                 headers = table.find_all('th')
                 header_text = [h.get_text(strip=True) for h in headers]
                 if any(text in ['Squad', 'Team'] for text in header_text):
@@ -103,14 +108,11 @@ def parse_team_stats(html_content):
             st.error("Não foi possível encontrar a tabela de estatísticas")
             return None
         
-        # Usa pandas para ler a tabela HTML
         df = pd.read_html(str(stats_table))[0]
         
-        # Limpa os nomes das colunas multinível
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(-1)
         
-        # Procura pela coluna com os nomes dos times
         team_col = None
         for col in df.columns:
             if isinstance(col, str) and col.strip() in ['Squad', 'Team']:
@@ -120,25 +122,16 @@ def parse_team_stats(html_content):
         if team_col:
             df = df.rename(columns={team_col: 'Squad'})
         else:
-            # Se não encontrar a coluna específica, assume que a primeira coluna é a dos times
             df = df.rename(columns={df.columns[0]: 'Squad'})
         
-        # Limpa os nomes dos times
         df['Squad'] = df['Squad'].str.strip()
-        
-        # Remove linhas com valores nulos e duplicatas
         df = df.dropna(subset=['Squad'])
         df = df.drop_duplicates(subset=['Squad'])
-        
-        # Log informações úteis
-        st.write(f"Colunas encontradas: {df.columns.tolist()}")
-        st.write(f"Número de times encontrados: {len(df)}")
         
         return df
     
     except Exception as e:
         st.error(f"Erro ao processar dados: {str(e)}")
-        import traceback
         st.error(f"Traceback: {traceback.format_exc()}")
         return None
 
@@ -148,7 +141,6 @@ def fetch_fbref_data(url):
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
-        # Aumenta o timeout e adiciona retries
         session = requests.Session()
         retries = 3
         
@@ -157,18 +149,15 @@ def fetch_fbref_data(url):
                 response = session.get(url, headers=headers, timeout=60)
                 response.raise_for_status()
                 
-                # Verifica se o conteúdo é HTML válido
                 if not response.text or '<html' not in response.text.lower():
                     raise ValueError("Conteúdo HTML inválido recebido")
                 
-                # Pequeno delay para evitar sobrecarga
                 time.sleep(2)
-                
                 return response.text
             except (requests.Timeout, requests.ConnectionError) as e:
                 if attempt == retries - 1:
                     raise
-                time.sleep(5 * (attempt + 1))  # Backoff exponencial
+                time.sleep(5 * (attempt + 1))
                 
     except requests.Timeout:
         st.error("Timeout ao buscar dados. Por favor, tente novamente.")
@@ -188,6 +177,7 @@ def format_prompt(stats_df, home_team, away_team, odds_data):
         
         prompt = f"""Role: Agente Analista de Probabilidades Esportivas
 
+    
 KNOWLEDGE BASE INTERNO:
 - Estatísticas Home Team ({home_team}):
   * Posição: {home_stats.get('Rk', 'N/A')}
@@ -325,53 +315,53 @@ def main():
                     st.error("Não foi possível encontrar os times do campeonato")
                     return
                 
-# Seleção dos times
-col1, col2 = st.columns(2)
-with col1:
-    home_team = st.selectbox("Time da Casa:", teams)
-with col2:
-    away_teams = [team for team in teams if team != home_team]
-    away_team = st.selectbox("Time Visitante:", away_teams)
+                # Seleção dos times
+                col1, col2 = st.columns(2)
+                with col1:
+                    home_team = st.selectbox("Time da Casa:", teams)
+                with col2:
+                    away_teams = [team for team in teams if team != home_team]
+                    away_team = st.selectbox("Time Visitante:", away_teams)
+                
+                # Seção de Mercados e Odds
+                st.markdown("### Odds dos Mercados")
+                
+                with st.expander("Money Line", expanded=True):
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        odd_home = st.number_input("Casa (@)", min_value=1.01, value=1.50, format="%.2f", key="ml_home")
+                    with col2:
+                        odd_draw = st.number_input("Empate (@)", min_value=1.01, value=4.00, format="%.2f", key="ml_draw")
+                    with col3:
+                        odd_away = st.number_input("Fora (@)", min_value=1.01, value=6.50, format="%.2f", key="ml_away")
 
-# Seção de Mercados e Odds
-st.markdown("### Odds dos Mercados")
+                with st.expander("Over/Under", expanded=True):
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        goals_line = st.number_input("Linha", min_value=0.5, value=2.5, step=0.5, format="%.1f")
+                    with col2:
+                        odd_over = st.number_input(f"Over {goals_line} (@)", min_value=1.01, value=1.85, format="%.2f", key="ou_over")
+                    with col3:
+                        odd_under = st.number_input(f"Under {goals_line} (@)", min_value=1.01, value=1.95, format="%.2f", key="ou_under")
 
-with st.expander("Money Line", expanded=True):
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        odd_home = st.number_input("Casa (@)", min_value=1.01, value=1.50, format="%.2f", key="ml_home")
-    with col2:
-        odd_draw = st.number_input("Empate (@)", min_value=1.01, value=4.00, format="%.2f", key="ml_draw")
-    with col3:
-        odd_away = st.number_input("Fora (@)", min_value=1.01, value=6.50, format="%.2f", key="ml_away")
+                with st.expander("Chance Dupla", expanded=True):
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        odd_1x = st.number_input("1X (@)", min_value=1.01, value=1.20, format="%.2f", key="dc_1x")
+                    with col2:
+                        odd_12 = st.number_input("12 (@)", min_value=1.01, value=1.25, format="%.2f", key="dc_12")
+                    with col3:
+                        odd_x2 = st.number_input("X2 (@)", min_value=1.01, value=2.40, format="%.2f", key="dc_x2")
 
-with st.expander("Over/Under", expanded=True):
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        goals_line = st.number_input("Linha", min_value=0.5, value=2.5, step=0.5, format="%.1f")
-    with col2:
-        odd_over = st.number_input(f"Over {goals_line} (@)", min_value=1.01, value=1.85, format="%.2f", key="ou_over")
-    with col3:
-        odd_under = st.number_input(f"Under {goals_line} (@)", min_value=1.01, value=1.95, format="%.2f", key="ou_under")
+                with st.expander("Ambos Marcam", expanded=True):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        odd_btts_yes = st.number_input("Sim (@)", min_value=1.01, value=1.75, format="%.2f", key="btts_yes")
+                    with col2:
+                        odd_btts_no = st.number_input("Não (@)", min_value=1.01, value=2.05, format="%.2f", key="btts_no")
 
-with st.expander("Chance Dupla", expanded=True):
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        odd_1x = st.number_input("1X (@)", min_value=1.01, value=1.20, format="%.2f", key="dc_1x")
-    with col2:
-        odd_12 = st.number_input("12 (@)", min_value=1.01, value=1.25, format="%.2f", key="dc_12")
-    with col3:
-        odd_x2 = st.number_input("X2 (@)", min_value=1.01, value=2.40, format="%.2f", key="dc_x2")
-
-with st.expander("Ambos Marcam", expanded=True):
-    col1, col2 = st.columns(2)
-    with col1:
-        odd_btts_yes = st.number_input("Sim (@)", min_value=1.01, value=1.75, format="%.2f", key="btts_yes")
-    with col2:
-        odd_btts_no = st.number_input("Não (@)", min_value=1.01, value=2.05, format="%.2f", key="btts_no")
-
-# Formata os dados das odds
-odds_data = f"""Money Line:
+                # Formata os dados das odds
+                odds_data = f"""Money Line:
 - Casa: @{odd_home:.2f} (Implícita: {(100/odd_home):.1f}%)
 - Empate: @{odd_draw:.2f} (Implícita: {(100/odd_draw):.1f}%)
 - Fora: @{odd_away:.2f} (Implícita: {(100/odd_away):.1f}%)
@@ -389,25 +379,33 @@ Ambos Marcam:
 - Sim: @{odd_btts_yes:.2f} (Implícita: {(100/odd_btts_yes):.1f}%)
 - Não: @{odd_btts_no:.2f} (Implícita: {(100/odd_btts_no):.1f}%)"""
 
-# Botão de análise
-if st.button("Analisar Partida", type="primary"):
-    with st.spinner("Realizando análise..."):
-        try:
-            prompt = format_prompt(
-                team_stats_df,
-                home_team,
-                away_team,
-                odds_data
-            )
-            
-            if prompt:
-                analysis = analyze_with_gpt(prompt)
-                st.markdown("## Análise da Partida")
-                st.markdown(analysis)
+                # Botão de análise
+                if st.button("Analisar Partida", type="primary"):
+                    with st.spinner("Realizando análise..."):
+                        try:
+                            prompt = format_prompt(
+                                team_stats_df,
+                                home_team,
+                                away_team,
+                                odds_data
+                            )
+                            
+                            if prompt:
+                                analysis = analyze_with_gpt(prompt)
+                                st.markdown("## Análise da Partida")
+                                st.markdown(analysis)
+                        except Exception as e:
+                            st.error(f"Erro na análise: {str(e)}")
+                            import traceback
+                            st.error(f"Traceback:\n```\n{traceback.format_exc()}\n```")
         except Exception as e:
-            st.error(f"Erro na análise: {str(e)}")
+            st.error(f"Erro ao carregar dados: {str(e)}")
             import traceback
             st.error(f"Traceback:\n```\n{traceback.format_exc()}\n```")
-            
+    except Exception as e:
+        st.error(f"Erro geral na aplicação: {str(e)}")
+        import traceback
+        st.error(f"Traceback:\n```\n{traceback.format_exc()}\n```")
+
 if __name__ == "__main__":
     main()
