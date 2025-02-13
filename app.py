@@ -173,54 +173,41 @@ def fetch_fbref_data(url):
 def format_prompt(stats_df, home_team, away_team, odds_data):
     """Formata o prompt para o GPT-4 com os dados coletados"""
     try:
-        # Primeiro, vamos verificar se temos todos os dados necessários
         home_stats = stats_df[stats_df['Squad'] == home_team].iloc[0]
         away_stats = stats_df[stats_df['Squad'] == away_team].iloc[0]
         
-        # Debug das colunas disponíveis
-        st.write("Colunas disponíveis:", stats_df.columns.tolist())
-        
-        # Mapeamento de colunas
-        column_mapping = {
-            'Rk': 'Posição',
-            'GF': 'Gols Marcados',
-            'GA': 'Gols Sofridos',
-            'xG': 'Expected Goals',
-            'xGA': 'Expected Goals Against',
-            'W': 'Vitórias',
-            'D': 'Empates',
-            'L': 'Derrotas',
-            'Pts': 'Pontos',
-            'MP': 'Jogos',
-            'Clean Sheets': 'Clean Sheets'
-        }
-        
-        # Função auxiliar para pegar valor com fallback
         def get_stat(stats, col, default='N/A'):
-            if col in stats.index:
-                return stats[col]
-            return default
-        
-        # Formata as estatísticas do time da casa
-        home_team_stats = "\n".join([
-            f"  * {name}: {get_stat(home_stats, col)}"
-            for col, name in column_mapping.items()
-        ])
-        
-        # Formata as estatísticas do time visitante
-        away_team_stats = "\n".join([
-            f"  * {name}: {get_stat(away_stats, col)}"
-            for col, name in column_mapping.items()
-        ])
+            try:
+                value = stats[col]
+                if pd.notna(value):
+                    return value
+                return default
+            except:
+                return default
+
+        # Mapeamento das colunas existentes
+        home_team_stats = f"""
+  * Jogos Disputados: {get_stat(home_stats, 'MP')}
+  * Gols Marcados: {get_stat(home_stats, 'Gls')}
+  * Gols por 90min: {get_stat(home_stats, 'G90')}
+  * Expected Goals (xG): {get_stat(home_stats, 'xG')}
+  * Expected Goals por 90min: {get_stat(home_stats, 'xG90')}
+  * Posse de Bola: {get_stat(home_stats, 'Poss')}%"""
+
+        away_team_stats = f"""
+  * Jogos Disputados: {get_stat(away_stats, 'MP')}
+  * Gols Marcados: {get_stat(away_stats, 'Gls')}
+  * Gols por 90min: {get_stat(away_stats, 'G90')}
+  * Expected Goals (xG): {get_stat(away_stats, 'xG')}
+  * Expected Goals por 90min: {get_stat(away_stats, 'xG90')}
+  * Posse de Bola: {get_stat(away_stats, 'Poss')}%"""
         
         prompt = f"""Role: Agente Analista de Probabilidades Esportivas
 
 KNOWLEDGE BASE INTERNO:
-- Estatísticas Home Team ({home_team}):
-{home_team_stats}
+- Estatísticas Home Team ({home_team}):{home_team_stats}
 
-- Estatísticas Away Team ({away_team}):
-{away_team_stats}
+- Estatísticas Away Team ({away_team}):{away_team_stats}
 
 ODDS DOS MERCADOS:
 {odds_data}
@@ -230,58 +217,61 @@ INSTRUÇÕES CRÍTICAS:
 2. Converter odds em probabilidades implícitas (100/odd)
 3. Analisar TODOS os mercados apresentados
 4. Comparar probabilidades CALCULADAS vs IMPLÍCITAS
-5. Identificar edges (diferença entre calculada e implícita)
+5. Identificar edges significativos (diferença calculada - implícita > 3%)
 
 [PROCESSO DE CÁLCULO OBRIGATÓRIO]
 1. Base Calculation [35%]
-- Form recente (vitórias, empates, derrotas)
-- Home/Away performance
-- Tendência de gols
-- Pontuação total
+- Desempenho geral (gols marcados, xG)
+- Eficiência ofensiva e defensiva
+- Posse de bola e controle de jogo
+- Tendência de gols por 90 minutos
 
 2. Technical Factors [25%]
-- Expected goals (xG)
-- Gols marcados/sofridos
-- Clean sheets
-- Posição na tabela
+- Expected goals (xG) e eficiência
+- Gols marcados vs xG (over/underperformance)
+- Média de gols por jogo
+- Padrões ofensivos e defensivos
 
 3. Market Analysis [20%]
 - Linha base de probabilidade por mercado
 - Ajustes por padrão de jogo
 - Fatores situacionais
+- Correlação entre mercados
 
-4. Edge Calculation [20%]
-- Calc vs Implied difference
-- Confidence rating
+4. Edge Identification [20%]
+- Calc vs Implied difference > 3%
+- Força do edge (3-5% moderado, >5% forte)
 - Risk assessment
+- Consistência entre mercados correlacionados
 
-[SAÍDA OBRIGATÓRIA]
+[SAÍDA OBRIGATÓRIA - FORMATO ESTRITO]
 Partida: {home_team} x {away_team}
 
 Money Line:
-- Casa: [CALCULADO via KB]% | Implícita: [100/odd]% (odd @x.xx)
-- Empate: [CALCULADO via KB]% | Implícita: [100/odd]% (odd @x.xx)
-- Fora: [CALCULADO via KB]% | Implícita: [100/odd]% (odd @x.xx)
+- Casa: {home_team} [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]% (@{odd_home:.2f})
+- Empate: [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]% (@{odd_draw:.2f})
+- Fora: {away_team} [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]% (@{odd_away:.2f})
 
-Over/Under [linha]:
-- Over: [CALCULADO via KB]% | Implícita: [100/odd]% (odd @x.xx)
-- Under: [CALCULADO via KB]% | Implícita: [100/odd]% (odd @x.xx)
+Over/Under {goals_line}:
+- Over: [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]% (@{odd_over:.2f})
+- Under: [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]% (@{odd_under:.2f})
 
 Chance Dupla:
-- 1X: [CALCULADO via KB]% | Implícita: [100/odd]% (odd @x.xx)
-- 12: [CALCULADO via KB]% | Implícita: [100/odd]% (odd @x.xx)
-- X2: [CALCULADO via KB]% | Implícita: [100/odd]% (odd @x.xx)
+- 1X: [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]% (@{odd_1x:.2f})
+- 12: [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]% (@{odd_12:.2f})
+- X2: [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]% (@{odd_x2:.2f})
 
 Ambos Marcam:
-- Sim: [CALCULADO via KB]% | Implícita: [100/odd]% (odd @x.xx)
-- Não: [CALCULADO via KB]% | Implícita: [100/odd]% (odd @x.xx)
+- Sim: [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]% (@{odd_btts_yes:.2f})
+- Não: [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]% (@{odd_btts_no:.2f})
 
-Valor Identificado:
-- Mercado: [mercado com maior edge]
-- Edge: [CALCULADO - Implícita]%
+EDGES IDENTIFICADOS (>3%):
+1. [Mercado] - Edge: [±X.X]% [FORTE/MODERADO]
+2. [Mercado] - Edge: [±X.X]% [FORTE/MODERADO]
+[Listar apenas edges >3%]
 
-Nível de Confiança: [Baixo/Médio/Alto]
-Alerta: [Se relevante]
+Nível de Confiança Geral: [Baixo/Médio/Alto]
+Alerta de Valor: [Destacar principais oportunidades identificadas]
 
 CHECKLIST FINAL:
 1. Knowledge Base foi usado para cálculos? [S/N]
@@ -289,14 +279,9 @@ CHECKLIST FINAL:
 3. Edges foram calculados corretamente? [S/N]
 4. Times identificados corretamente? [S/N]"""
         
-        # Debug do prompt final
-        st.write("Dados do time da casa:", home_team_stats)
-        st.write("Dados do time visitante:", away_team_stats)
-        
         return prompt
     except Exception as e:
         st.error(f"Erro ao formatar prompt: {str(e)}")
-        st.error(f"Detalhes do erro:\n{traceback.format_exc()}")
         return None
 
 def main():
