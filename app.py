@@ -482,18 +482,18 @@ CHECKLIST FINAL:
         
 def main():
     try:
-        # Título principal
-        st.title("Análise de Apostas Esportivas")
+        # Título principal na sidebar
+        st.sidebar.title("Análise de Apostas Esportivas")
         
-        # Sidebar para seleção do campeonato
+        # Configurações na sidebar
         st.sidebar.title("Configurações")
         selected_league = st.sidebar.selectbox(
             "Escolha o campeonato:",
             list(FBREF_URLS.keys())
         )
         
-        # Status container para mensagens de carregamento
-        status_container = st.empty()
+        # Container de status para mensagens
+        status_container = st.sidebar.empty()
         
         try:
             # Busca dados do campeonato
@@ -518,37 +518,43 @@ def main():
                     st.error("Não foi possível encontrar os times do campeonato")
                     return
                 
-                # Seleção dos times
+                # Área principal
+                st.title("Seleção de Times")
+                
+                # Seleção dos times em duas colunas
                 col1, col2 = st.columns(2)
                 with col1:
-                    home_team = st.selectbox("Time da Casa:", teams)
+                    home_team = st.selectbox("Time da Casa:", teams, key='home_team')
                 with col2:
                     away_teams = [team for team in teams if team != home_team]
-                    away_team = st.selectbox("Time Visitante:", away_teams)
+                    away_team = st.selectbox("Time Visitante:", away_teams, key='away_team')
 
-                # Seleção de mercados
-                st.markdown("### Seleção de Mercados")
-                
-                selected_markets = {}
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    selected_markets["money_line"] = st.checkbox("Money Line (1X2)")
-                    selected_markets["over_under"] = st.checkbox("Over/Under")
-                    selected_markets["chance_dupla"] = st.checkbox("Chance Dupla")
+                # Seleção de mercados em container separado
+                with st.expander("Mercados Disponíveis", expanded=True):
+                    st.markdown("### Seleção de Mercados")
                     
-                with col2:
-                    selected_markets["ambos_marcam"] = st.checkbox("Ambos Marcam")
-                    selected_markets["escanteios"] = st.checkbox("Total de Escanteios")
-                    selected_markets["cartoes"] = st.checkbox("Total de Cartões")
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        selected_markets = {
+                            "money_line": st.checkbox("Money Line (1X2)", key='ml'),
+                            "over_under": st.checkbox("Over/Under", key='ou'),
+                            "chance_dupla": st.checkbox("Chance Dupla", key='cd')
+                        }
+                    
+                    with col2:
+                        selected_markets.update({
+                            "ambos_marcam": st.checkbox("Ambos Marcam", key='btts'),
+                            "escanteios": st.checkbox("Total de Escanteios", key='corners'),
+                            "cartoes": st.checkbox("Total de Cartões", key='cards')
+                        })
 
-                # Inputs de odds para mercados selecionados
-                odds_data = ""
+                # Inputs de odds em container separado
                 if any(selected_markets.values()):
-                    odds_data = get_odds_data(selected_markets)
+                    with st.expander("Configuração de Odds", expanded=True):
+                        odds_data = get_odds_data(selected_markets)
 
-                # Botão de análise separado, depois dos inputs
-                st.markdown("")  # Espaço em branco
+                # Botão de análise centralizado
                 col1, col2, col3 = st.columns([1,1,1])
                 with col2:
                     if st.button("Analisar Partida", type="primary"):
@@ -563,11 +569,17 @@ def main():
                                 
                                 if prompt:
                                     analysis = analyze_with_gpt(prompt)
-                                    st.markdown("## Análise da Partida")
-                                    st.markdown(analysis)
+                                    if analysis:
+                                        st.markdown("## Análise da Partida")
+                                        st.markdown(analysis)
                             except Exception as e:
                                 st.error(f"Erro na análise: {str(e)}")
                                 st.error(f"Traceback:\n```\n{traceback.format_exc()}\n```")
+                
+                # Debug info em um expander no final (opcional)
+                with st.expander("Informações de Debug", expanded=False):
+                    st.dataframe(team_stats_df)
+                    
         except Exception as e:
             st.error(f"Erro ao carregar dados: {str(e)}")
             st.error(f"Traceback:\n```\n{traceback.format_exc()}\n```")
