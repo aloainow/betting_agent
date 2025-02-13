@@ -7,7 +7,6 @@ from openai import OpenAI
 import traceback
 import numpy as np
 
-
 # Configuração da página
 st.set_page_config(
     page_title="Análise de Apostas Esportivas",
@@ -234,9 +233,13 @@ def parse_team_stats(html_content):
         # Ler a tabela com pandas
         df = pd.read_html(str(stats_table))[0]
         
-        # Tratar colunas multi-índice
+        # Tratar colunas multi-índice e duplicadas
         if isinstance(df.columns, pd.MultiIndex):
+            # Pegar apenas o último nível do índice
             df.columns = [col[-1] if isinstance(col, tuple) else col for col in df.columns]
+        
+        # Remover colunas duplicadas mantendo a primeira ocorrência
+        df = df.loc[:, ~df.columns.duplicated()]
         
         # Limpar nomes das colunas
         df.columns = [str(col).strip() for col in df.columns]
@@ -293,8 +296,17 @@ def parse_team_stats(html_content):
         for col in numeric_columns:
             if col in df.columns:
                 try:
-                    # Primeiro, converter strings para formato numérico
-                    df[col] = df[col].astype(str).str.replace(',', '.').str.extract('([-+]?\d*\.?\d+)').astype(float)
+                    # Primeiro, garantir que a coluna é uma série e não um DataFrame
+                    if isinstance(df[col], pd.DataFrame):
+                        df[col] = df[col].iloc[:, 0]
+                    
+                    # Limpar e converter para número
+                    df[col] = pd.to_numeric(
+                        df[col].astype(str)
+                           .str.replace(',', '.')
+                           .str.extract('([-+]?\d*\.?\d+)', expand=False),
+                        errors='coerce'
+                    )
                 except Exception as e:
                     st.warning(f"Não foi possível converter coluna {col}: {str(e)}")
                     df[col] = np.nan
@@ -302,8 +314,9 @@ def parse_team_stats(html_content):
         # Preencher valores ausentes
         df = df.fillna('N/A')
         
-        # Debug: mostrar colunas encontradas
+        # Debug: mostrar colunas e alguns dados
         st.write("Colunas disponíveis:", list(df.columns))
+        st.write("Primeiras linhas:", df.head())
         
         return df
     
