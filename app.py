@@ -14,6 +14,35 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Definição das URLs do FBref
+FBREF_URLS = {
+    "Premier League": {
+        "stats": "https://fbref.com/en/comps/9/Premier-League-Stats",
+        "fixtures": "https://fbref.com/en/comps/9/schedule/Premier-League-Scores-and-Fixtures"
+    },
+    "La Liga": {
+        "stats": "https://fbref.com/en/comps/12/La-Liga-Stats",
+        "fixtures": "https://fbref.com/en/comps/12/schedule/La-Liga-Scores-and-Fixtures"
+    },
+    "Serie A": {
+        "stats": "https://fbref.com/en/comps/11/Serie-A-Stats",
+        "fixtures": "https://fbref.com/en/comps/11/schedule/Serie-A-Scores-and-Fixtures"
+    },
+    "Bundesliga": {
+        "stats": "https://fbref.com/en/comps/20/Bundesliga-Stats",
+        "fixtures": "https://fbref.com/en/comps/20/schedule/Bundesliga-Scores-and-Fixtures"
+    },
+    "Ligue 1": {
+        "stats": "https://fbref.com/en/comps/13/Ligue-1-Stats",
+        "fixtures": "https://fbref.com/en/comps/13/schedule/Ligue-1-Scores-and-Fixtures"
+    },
+    "Champions League": {
+        "stats": "https://fbref.com/en/comps/8/Champions-League-Stats",
+        "fixtures": "https://fbref.com/en/comps/8/schedule/Champions-League-Scores-and-Fixtures"
+    }
+}
+
 def get_odds_data(selected_markets):
     """Função para coletar e formatar os dados das odds"""
     odds_data = {}
@@ -373,56 +402,92 @@ CHECKLIST FINAL:
         
 def main():
     try:
+        # Título principal
         st.title("Análise de Apostas Esportivas")
         
-        # Simulando dados de times para teste
-        teams = ["Arsenal", "Aston Villa", "Manchester City", "Liverpool"]
+        # Sidebar para seleção do campeonato
+        st.sidebar.title("Configurações")
+        selected_league = st.sidebar.selectbox(
+            "Escolha o campeonato:",
+            list(FBREF_URLS.keys())
+        )
         
-        # Seleção dos times
-        col1, col2 = st.columns(2)
-        with col1:
-            home_team = st.selectbox("Time da Casa:", teams)
-        with col2:
-            away_teams = [team for team in teams if team != home_team]
-            away_team = st.selectbox("Time Visitante:", away_teams)
-
-        # Seleção de mercados
-        st.markdown("### Seleção de Mercados")
+        # Status container para mensagens de carregamento
+        status_container = st.empty()
         
-        selected_markets = {}
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            selected_markets["money_line"] = st.checkbox("Money Line (1X2)")
-            selected_markets["over_under"] = st.checkbox("Over/Under")
-            selected_markets["chance_dupla"] = st.checkbox("Chance Dupla")
-            
-        with col2:
-            selected_markets["ambos_marcam"] = st.checkbox("Ambos Marcam")
-            selected_markets["escanteios"] = st.checkbox("Total de Escanteios")
-            selected_markets["cartoes"] = st.checkbox("Total de Cartões")
+        try:
+            # Busca dados do campeonato
+            with st.spinner("Carregando dados do campeonato..."):
+                stats_html = fetch_fbref_data(FBREF_URLS[selected_league]["stats"])
+                
+                if not stats_html:
+                    st.error("Não foi possível carregar os dados do campeonato")
+                    return
+                
+                team_stats_df = parse_team_stats(stats_html)
+                
+                if team_stats_df is None or 'Squad' not in team_stats_df.columns:
+                    st.error("Erro ao processar dados dos times")
+                    return
+                
+                status_container.success("Dados carregados com sucesso!")
+                
+                teams = team_stats_df['Squad'].dropna().unique().tolist()
+                
+                if not teams:
+                    st.error("Não foi possível encontrar os times do campeonato")
+                    return
+                
+                # Seleção dos times
+                col1, col2 = st.columns(2)
+                with col1:
+                    home_team = st.selectbox("Time da Casa:", teams)
+                with col2:
+                    away_teams = [team for team in teams if team != home_team]
+                    away_team = st.selectbox("Time Visitante:", away_teams)
 
-        # Só mostra campos de odds para mercados selecionados
-        if any(selected_markets.values()):
-            st.markdown("### Odds dos Mercados")
-            odds_data = get_odds_data(selected_markets)
+                # Seleção de mercados
+                st.markdown("### Seleção de Mercados")
+                
+                selected_markets = {}
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    selected_markets["money_line"] = st.checkbox("Money Line (1X2)")
+                    selected_markets["over_under"] = st.checkbox("Over/Under")
+                    selected_markets["chance_dupla"] = st.checkbox("Chance Dupla")
+                    
+                with col2:
+                    selected_markets["ambos_marcam"] = st.checkbox("Ambos Marcam")
+                    selected_markets["escanteios"] = st.checkbox("Total de Escanteios")
+                    selected_markets["cartoes"] = st.checkbox("Total de Cartões")
 
-            if odds_data:  # Só mostra o botão se tiver odds preenchidas
-                if st.button("Analisar Partida", type="primary"):
-                    with st.spinner("Realizando análise..."):
-                        try:
-                            # Simulando análise para teste
-                            st.markdown("## Análise da Partida")
-                            st.markdown(f"""
-                            Análise para {home_team} x {away_team}
-                            
-                            Odds analisadas:
-                            {odds_data}
-                            """)
-                        except Exception as e:
-                            st.error(f"Erro na análise: {str(e)}")
-                            st.error(f"Traceback:\n```\n{traceback.format_exc()}\n```")
+                # Inputs de odds para mercados selecionados
+                if any(selected_markets.values()):
+                    odds_data = get_odds_data(selected_markets)
 
+                    # Botão de análise
+                    if odds_data:
+                        if st.button("Analisar Partida", type="primary"):
+                            with st.spinner("Realizando análise..."):
+                                try:
+                                    prompt = format_prompt(
+                                        team_stats_df,
+                                        home_team,
+                                        away_team,
+                                        odds_data
+                                    )
+                                    
+                                    if prompt:
+                                        analysis = analyze_with_gpt(prompt)
+                                        st.markdown("## Análise da Partida")
+                                        st.markdown(analysis)
+                                except Exception as e:
+                                    st.error(f"Erro na análise: {str(e)}")
+                                    st.error(f"Traceback:\n```\n{traceback.format_exc()}\n```")
+        except Exception as e:
+            st.error(f"Erro ao carregar dados: {str(e)}")
+            st.error(f"Traceback:\n```\n{traceback.format_exc()}\n```")
     except Exception as e:
         st.error(f"Erro geral na aplicação: {str(e)}")
         st.error(f"Traceback:\n```\n{traceback.format_exc()}\n```")
