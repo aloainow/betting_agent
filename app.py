@@ -1,10 +1,19 @@
 import streamlit as st
+from config import (
+    get_fbref_urls,
+    get_openai_client,
+    analyze_with_gpt,
+    parse_team_stats,
+    fetch_fbref_data,
+    format_prompt
+)
 import pandas as pd
 from datetime import datetime
 import requests
 from bs4 import BeautifulSoup
 import time
 from openai import OpenAI
+import traceback
 
 # Configuração da página
 st.set_page_config(
@@ -14,39 +23,104 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-@st.cache_resource(show_spinner=False)
-def get_openai_client():
-    """Função para criar e retornar o cliente OpenAI usando cache_resource"""
-    try:
-        return OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-    except Exception as e:
-        st.error(f"Erro ao criar cliente OpenAI: {str(e)}")
-        return None
+def get_odds_data(selected_markets):
+    """Função para coletar e formatar os dados das odds"""
+    odds_data = {}
+    formatted_odds = []
 
-def analyze_with_gpt(prompt):
-    """Função para fazer a chamada à API do GPT"""
-    try:
-        client = get_openai_client()
-        if not client:
-            st.error("Não foi possível inicializar o cliente OpenAI")
-            return None
-            
-        response = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {
-                    "role": "system",
-                    "content": "Você é um Agente Analista de Probabilidades Esportivas especializado. Você DEVE seguir EXATAMENTE o formato de saída especificado no prompt do usuário, preenchendo todos os campos com os valores calculados."
-                },
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.3
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        st.error(f"Erro na chamada da API: {str(e)}")
-        return None
-# Funções do config.py agora diretamente no app.py
+    if selected_markets["money_line"]:
+        with st.expander("Money Line", expanded=True):
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                odds_data["home"] = st.number_input("Casa (@)", min_value=1.01, value=0.0, format="%.2f", key="ml_home")
+            with col2:
+                odds_data["draw"] = st.number_input("Empate (@)", min_value=1.01, value=0.0, format="%.2f", key="ml_draw")
+            with col3:
+                odds_data["away"] = st.number_input("Fora (@)", min_value=1.01, value=0.0, format="%.2f", key="ml_away")
+
+        if all(odds_data.get(k, 0) > 0 for k in ["home", "draw", "away"]):
+            formatted_odds.append(f"""Money Line:
+- Casa: @{odds_data['home']:.2f} (Implícita: {(100/odds_data['home']):.1f}%)
+- Empate: @{odds_data['draw']:.2f} (Implícita: {(100/odds_data['draw']):.1f}%)
+- Fora: @{odds_data['away']:.2f} (Implícita: {(100/odds_data['away']):.1f}%)""")
+
+    if selected_markets["over_under"]:
+        with st.expander("Over/Under", expanded=True):
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                odds_data["goals_line"] = st.number_input("Linha", min_value=0.5, value=2.5, step=0.5, format="%.1f")
+            with col2:
+                odds_data["over"] = st.number_input(f"Over (@)", min_value=1.01, value=0.0, format="%.2f", key="ou_over")
+            with col3:
+                odds_data["under"] = st.number_input(f"Under (@)", min_value=1.01, value=0.0, format="%.2f", key="ou_under")
+
+        if all(odds_data.get(k, 0) > 0 for k in ["over", "under"]):
+            formatted_odds.append(f"""Over/Under {odds_data['goals_line']}:
+- Over: @{odds_data['over']:.2f} (Implícita: {(100/odds_data['over']):.1f}%)
+- Under: @{odds_data['under']:.2f} (Implícita: {(100/odds_data['under']):.1f}%)""")
+
+    if selected_markets["chance_dupla"]:
+        with st.expander("Chance Dupla", expanded=True):
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                odds_data["1x"] = st.number_input("1X (@)", min_value=1.01, value=0.0, format="%.2f", key="dc_1x")
+            with col2:
+                odds_data["12"] = st.number_input("12 (@)", min_value=1.01, value=0.0, format="%.2f", key="dc_12")
+            with col3:
+                odds_data["x2"] = st.number_input("X2 (@)", min_value=1.01, value=0.0, format="%.2f", key="dc_x2")
+
+        if all(odds_data.get(k, 0) > 0 for k in ["1x", "12", "x2"]):
+            formatted_odds.append(f"""Chance Dupla:
+- 1X: @{odds_data['1x']:.2f} (Implícita: {(100/odds_data['1x']):.1f}%)
+- 12: @{odds_data['12']:.2f} (Implícita: {(100/odds_data['12']):.1f}%)
+- X2: @{odds_data['x2']:.2f} (Implícita: {(100/odds_data['x2']):.1f}%)""")
+
+    if selected_markets["ambos_marcam"]:
+        with st.expander("Ambos Marcam", expanded=True):
+            col1, col2 = st.columns(2)
+            with col1:
+                odds_data["btts_yes"] = st.number_input("Sim (@)", min_value=1.01, value=0.0, format="%.2f", key="btts_yes")
+            with col2:
+                odds_data["btts_no"] = st.number_input("Não (@)", min_value=1.01, value=0.0, format="%.2f", key="btts_no")
+
+        if all(odds_data.get(k, 0) > 0 for k in ["btts_yes", "btts_no"]):
+            formatted_odds.append(f"""Ambos Marcam:
+- Sim: @{odds_data['btts_yes']:.2f} (Implícita: {(100/odds_data['btts_yes']):.1f}%)
+- Não: @{odds_data['btts_no']:.2f} (Implícita: {(100/odds_data['btts_no']):.1f}%)""")
+
+    if selected_markets["escanteios"]:
+        with st.expander("Total de Escanteios", expanded=True):
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                odds_data["corners_line"] = st.number_input("Linha Escanteios", min_value=0.5, value=9.5, step=0.5, format="%.1f")
+            with col2:
+                odds_data["corners_over"] = st.number_input("Over Escanteios (@)", min_value=1.01, value=0.0, format="%.2f", key="corners_over")
+            with col3:
+                odds_data["corners_under"] = st.number_input("Under Escanteios (@)", min_value=1.01, value=0.0, format="%.2f", key="corners_under")
+
+        if all(odds_data.get(k, 0) > 0 for k in ["corners_over", "corners_under"]):
+            formatted_odds.append(f"""Total de Escanteios {odds_data['corners_line']}:
+- Over: @{odds_data['corners_over']:.2f} (Implícita: {(100/odds_data['corners_over']):.1f}%)
+- Under: @{odds_data['corners_under']:.2f} (Implícita: {(100/odds_data['corners_under']):.1f}%)""")
+
+    if selected_markets["cartoes"]:
+        with st.expander("Total de Cartões", expanded=True):
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                odds_data["cards_line"] = st.number_input("Linha Cartões", min_value=0.5, value=3.5, step=0.5, format="%.1f")
+            with col2:
+                odds_data["cards_over"] = st.number_input("Over Cartões (@)", min_value=1.01, value=0.0, format="%.2f", key="cards_over")
+            with col3:
+                odds_data["cards_under"] = st.number_input("Under Cartões (@)", min_value=1.01, value=0.0, format="%.2f", key="cards_under")
+
+        if all(odds_data.get(k, 0) > 0 for k in ["cards_over", "cards_under"]):
+            formatted_odds.append(f"""Total de Cartões {odds_data['cards_line']}:
+- Over: @{odds_data['cards_over']:.2f} (Implícita: {(100/odds_data['cards_over']):.1f}%)
+- Under: @{odds_data['cards_under']:.2f} (Implícita: {(100/odds_data['cards_under']):.1f}%)""")
+
+    return "\n\n".join(formatted_odds)
+
+
 def get_fbref_urls():
     """Retorna o dicionário de URLs do FBref"""
     return {
@@ -75,6 +149,39 @@ def get_fbref_urls():
             "fixtures": "https://fbref.com/en/comps/8/schedule/Champions-League-Scores-and-Fixtures"
         }
     }
+
+@st.cache_resource
+def get_openai_client():
+    """Função para criar e retornar o cliente OpenAI usando cache_resource"""
+    try:
+        return OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+    except Exception as e:
+        st.error(f"Erro ao criar cliente OpenAI: {str(e)}")
+        return None
+
+def analyze_with_gpt(prompt):
+    """Função para fazer a chamada à API do GPT"""
+    try:
+        client = get_openai_client()
+        if not client:
+            st.error("Não foi possível inicializar o cliente OpenAI")
+            return None
+            
+        response = client.chat.completions.create(
+            model="gpt-4",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "Você é um Agente Analista de Probabilidades Esportivas especializado. Você DEVE seguir EXATAMENTE o formato de saída especificado no prompt do usuário, preenchendo todos os campos com os valores calculados."
+                },
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.3
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        st.error(f"Erro na chamada da API: {str(e)}")
+        return None
 
 def parse_team_stats(html_content):
     """Processa os dados do time com tratamento de erros aprimorado"""
@@ -284,7 +391,7 @@ CHECKLIST FINAL:
     except Exception as e:
         st.error(f"Erro ao formatar prompt: {str(e)}")
         return None
-
+        
 def main():
     try:
         # Inicializa os URLs do FBref
@@ -342,11 +449,9 @@ def main():
                 with col2:
                     away_teams = [team for team in teams if team != home_team]
                     away_team = st.selectbox("Time Visitante:", away_teams)
-                
-                # Seleção de Mercados
-                st.markdown("### Seleção de Mercados")
 
                 # Seleção de mercados
+                st.markdown("### Seleção de Mercados")
                 mercados = {
                     "money_line": "Money Line (1X2)",
                     "over_under": "Over/Under",
@@ -358,114 +463,15 @@ def main():
 
                 selected_markets = {}
                 col1, col2 = st.columns(2)
-
                 with col1:
                     for mercado in list(mercados.keys())[:3]:
                         selected_markets[mercado] = st.checkbox(mercados[mercado], value=False)
-
                 with col2:
                     for mercado in list(mercados.keys())[3:]:
                         selected_markets[mercado] = st.checkbox(mercados[mercado], value=False)
 
-                # Seção de Odds
-                st.markdown("### Odds dos Mercados")
-
-                odds_data = {}
-
-                if selected_markets["money_line"]:
-                    with st.expander("Money Line", expanded=True):
-                        col1, col2, col3 = st.columns(3)
-                        with col1:
-                            odds_data["home"] = st.number_input("Casa (@)", min_value=1.01, value=0.0, format="%.2f", key="ml_home")
-                        with col2:
-                            odds_data["draw"] = st.number_input("Empate (@)", min_value=1.01, value=0.0, format="%.2f", key="ml_draw")
-                        with col3:
-                            odds_data["away"] = st.number_input("Fora (@)", min_value=1.01, value=0.0, format="%.2f", key="ml_away")
-
-if selected_markets["over_under"]:
-    with st.expander("Over/Under", expanded=True):
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            odds_data["goals_line"] = st.number_input("Linha", min_value=0.5, value=2.5, step=0.5, format="%.1f")
-        with col2:
-            odds_data["over"] = st.number_input(f"Over (@)", min_value=1.01, value=0.0, format="%.2f", key="ou_over")
-        with col3:
-            odds_data["under"] = st.number_input(f"Under (@)", min_value=1.01, value=0.0, format="%.2f", key="ou_under")
-
-if selected_markets["chance_dupla"]:
-    with st.expander("Chance Dupla", expanded=True):
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            odds_data["1x"] = st.number_input("1X (@)", min_value=1.01, value=0.0, format="%.2f", key="dc_1x")
-        with col2:
-            odds_data["12"] = st.number_input("12 (@)", min_value=1.01, value=0.0, format="%.2f", key="dc_12")
-        with col3:
-            odds_data["x2"] = st.number_input("X2 (@)", min_value=1.01, value=0.0, format="%.2f", key="dc_x2")
-
-if selected_markets["ambos_marcam"]:
-    with st.expander("Ambos Marcam", expanded=True):
-        col1, col2 = st.columns(2)
-        with col1:
-            odds_data["btts_yes"] = st.number_input("Sim (@)", min_value=1.01, value=0.0, format="%.2f", key="btts_yes")
-        with col2:
-            odds_data["btts_no"] = st.number_input("Não (@)", min_value=1.01, value=0.0, format="%.2f", key="btts_no")
-
-if selected_markets["escanteios"]:
-    with st.expander("Total de Escanteios", expanded=True):
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            odds_data["corners_line"] = st.number_input("Linha Escanteios", min_value=0.5, value=9.5, step=0.5, format="%.1f")
-        with col2:
-            odds_data["corners_over"] = st.number_input("Over Escanteios (@)", min_value=1.01, value=0.0, format="%.2f", key="corners_over")
-        with col3:
-            odds_data["corners_under"] = st.number_input("Under Escanteios (@)", min_value=1.01, value=0.0, format="%.2f", key="corners_under")
-
-if selected_markets["cartoes"]:
-    with st.expander("Total de Cartões", expanded=True):
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            odds_data["cards_line"] = st.number_input("Linha Cartões", min_value=0.5, value=3.5, step=0.5, format="%.1f")
-        with col2:
-            odds_data["cards_over"] = st.number_input("Over Cartões (@)", min_value=1.01, value=0.0, format="%.2f", key="cards_over")
-        with col3:
-            odds_data["cards_under"] = st.number_input("Under Cartões (@)", min_value=1.01, value=0.0, format="%.2f", key="cards_under")
-
-# Formata os dados das odds apenas para mercados selecionados com odds preenchidas
-formatted_odds = []
-
-if selected_markets["money_line"] and all(odds_data.get(k, 0) > 0 for k in ["home", "draw", "away"]):
-    formatted_odds.append(f"""Money Line:
-- Casa: @{odds_data['home']:.2f} (Implícita: {(100/odds_data['home']):.1f}%)
-- Empate: @{odds_data['draw']:.2f} (Implícita: {(100/odds_data['draw']):.1f}%)
-- Fora: @{odds_data['away']:.2f} (Implícita: {(100/odds_data['away']):.1f}%)""")
-
-if selected_markets["over_under"] and all(odds_data.get(k, 0) > 0 for k in ["over", "under"]):
-    formatted_odds.append(f"""Over/Under {odds_data['goals_line']}:
-- Over: @{odds_data['over']:.2f} (Implícita: {(100/odds_data['over']):.1f}%)
-- Under: @{odds_data['under']:.2f} (Implícita: {(100/odds_data['under']):.1f}%)""")
-
-if selected_markets["chance_dupla"] and all(odds_data.get(k, 0) > 0 for k in ["1x", "12", "x2"]):
-    formatted_odds.append(f"""Chance Dupla:
-- 1X: @{odds_data['1x']:.2f} (Implícita: {(100/odds_data['1x']):.1f}%)
-- 12: @{odds_data['12']:.2f} (Implícita: {(100/odds_data['12']):.1f}%)
-- X2: @{odds_data['x2']:.2f} (Implícita: {(100/odds_data['x2']):.1f}%)""")
-
-if selected_markets["ambos_marcam"] and all(odds_data.get(k, 0) > 0 for k in ["btts_yes", "btts_no"]):
-    formatted_odds.append(f"""Ambos Marcam:
-- Sim: @{odds_data['btts_yes']:.2f} (Implícita: {(100/odds_data['btts_yes']):.1f}%)
-- Não: @{odds_data['btts_no']:.2f} (Implícita: {(100/odds_data['btts_no']):.1f}%)""")
-
-if selected_markets["escanteios"] and all(odds_data.get(k, 0) > 0 for k in ["corners_over", "corners_under"]):
-    formatted_odds.append(f"""Total de Escanteios {odds_data['corners_line']}:
-- Over: @{odds_data['corners_over']:.2f} (Implícita: {(100/odds_data['corners_over']):.1f}%)
-- Under: @{odds_data['corners_under']:.2f} (Implícita: {(100/odds_data['corners_under']):.1f}%)""")
-
-if selected_markets["cartoes"] and all(odds_data.get(k, 0) > 0 for k in ["cards_over", "cards_under"]):
-    formatted_odds.append(f"""Total de Cartões {odds_data['cards_line']}:
-- Over: @{odds_data['cards_over']:.2f} (Implícita: {(100/odds_data['cards_over']):.1f}%)
-- Under: @{odds_data['cards_under']:.2f} (Implícita: {(100/odds_data['cards_under']):.1f}%)""")
-
-                odds_data = "\n\n".join(formatted_odds)
+                # Coleta e formatação das odds
+                odds_data = get_odds_data(selected_markets)
 
                 # Botão de análise
                 if st.button("Analisar Partida", type="primary"):
