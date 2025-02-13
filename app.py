@@ -463,28 +463,31 @@ def main():
                     selected_markets["cartoes"] = st.checkbox("Total de Cartões")
 
                 # Inputs de odds para mercados selecionados
+                odds_data = ""
                 if any(selected_markets.values()):
                     odds_data = get_odds_data(selected_markets)
 
-                    # Botão de análise
-                    if odds_data:
-                        if st.button("Analisar Partida", type="primary"):
-                            with st.spinner("Realizando análise..."):
-                                try:
-                                    prompt = format_prompt(
-                                        team_stats_df,
-                                        home_team,
-                                        away_team,
-                                        odds_data
-                                    )
-                                    
-                                    if prompt:
-                                        analysis = analyze_with_gpt(prompt)
-                                        st.markdown("## Análise da Partida")
-                                        st.markdown(analysis)
-                                except Exception as e:
-                                    st.error(f"Erro na análise: {str(e)}")
-                                    st.error(f"Traceback:\n```\n{traceback.format_exc()}\n```")
+                # Botão de análise separado, depois dos inputs
+                st.markdown("")  # Espaço em branco
+                col1, col2, col3 = st.columns([1,1,1])
+                with col2:
+                    if st.button("Analisar Partida", type="primary"):
+                        with st.spinner("Realizando análise..."):
+                            try:
+                                prompt = format_prompt(
+                                    team_stats_df,
+                                    home_team,
+                                    away_team,
+                                    odds_data
+                                )
+                                
+                                if prompt:
+                                    analysis = analyze_with_gpt(prompt)
+                                    st.markdown("## Análise da Partida")
+                                    st.markdown(analysis)
+                            except Exception as e:
+                                st.error(f"Erro na análise: {str(e)}")
+                                st.error(f"Traceback:\n```\n{traceback.format_exc()}\n```")
         except Exception as e:
             st.error(f"Erro ao carregar dados: {str(e)}")
             st.error(f"Traceback:\n```\n{traceback.format_exc()}\n```")
