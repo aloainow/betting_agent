@@ -1,10 +1,10 @@
 import streamlit as st
-from openai import OpenAI  # Importação atualizada
 import pandas as pd
 from datetime import datetime
 import requests
 from bs4 import BeautifulSoup
 import time
+from openai import OpenAI
 
 # Configuração da página
 st.set_page_config(
@@ -12,36 +12,39 @@ st.set_page_config(
     layout="wide"
 )
 
-# Dicionário com URLs do FBref
-FBREF_URLS = {
-    "Premier League": {
-        "stats": "https://fbref.com/en/comps/9/Premier-League-Stats",
-        "fixtures": "https://fbref.com/en/comps/9/schedule/Premier-League-Scores-and-Fixtures"
-    },
-    "La Liga": {
-        "stats": "https://fbref.com/en/comps/12/La-Liga-Stats",
-        "fixtures": "https://fbref.com/en/comps/12/schedule/La-Liga-Scores-and-Fixtures"
-    },
-    "Serie A": {
-        "stats": "https://fbref.com/en/comps/11/Serie-A-Stats",
-        "fixtures": "https://fbref.com/en/comps/11/schedule/Serie-A-Scores-and-Fixtures"
-    },
-    "Bundesliga": {
-        "stats": "https://fbref.com/en/comps/20/Bundesliga-Stats",
-        "fixtures": "https://fbref.com/en/comps/20/schedule/Bundesliga-Scores-and-Fixtures"
-    },
-    "Ligue 1": {
-        "stats": "https://fbref.com/en/comps/13/Ligue-1-Stats",
-        "fixtures": "https://fbref.com/en/comps/13/schedule/Ligue-1-Scores-and-Fixtures"
-    },
-    "Champions League": {
-        "stats": "https://fbref.com/en/comps/8/Champions-League-Stats",
-        "fixtures": "https://fbref.com/en/comps/8/schedule/Champions-League-Scores-and-Fixtures"
+# Funções auxiliares
+def get_fbref_urls():
+    """Retorna o dicionário de URLs do FBref"""
+    return {
+        "Premier League": {
+            "stats": "https://fbref.com/en/comps/9/Premier-League-Stats",
+            "fixtures": "https://fbref.com/en/comps/9/schedule/Premier-League-Scores-and-Fixtures"
+        },
+        "La Liga": {
+            "stats": "https://fbref.com/en/comps/12/La-Liga-Stats",
+            "fixtures": "https://fbref.com/en/comps/12/schedule/La-Liga-Scores-and-Fixtures"
+        },
+        "Serie A": {
+            "stats": "https://fbref.com/en/comps/11/Serie-A-Stats",
+            "fixtures": "https://fbref.com/en/comps/11/schedule/Serie-A-Scores-and-Fixtures"
+        },
+        "Bundesliga": {
+            "stats": "https://fbref.com/en/comps/20/Bundesliga-Stats",
+            "fixtures": "https://fbref.com/en/comps/20/schedule/Bundesliga-Scores-and-Fixtures"
+        },
+        "Ligue 1": {
+            "stats": "https://fbref.com/en/comps/13/Ligue-1-Stats",
+            "fixtures": "https://fbref.com/en/comps/13/schedule/Ligue-1-Scores-and-Fixtures"
+        },
+        "Champions League": {
+            "stats": "https://fbref.com/en/comps/8/Champions-League-Stats",
+            "fixtures": "https://fbref.com/en/comps/8/schedule/Champions-League-Scores-and-Fixtures"
+        }
     }
-}
 
+@st.cache_resource
 def get_openai_client():
-    """Função para criar e retornar o cliente OpenAI"""
+    """Função para criar e retornar o cliente OpenAI usando cache_resource"""
     return OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 def analyze_with_gpt(prompt):
@@ -63,7 +66,6 @@ def analyze_with_gpt(prompt):
     except Exception as e:
         st.error(f"Erro na chamada da API: {str(e)}")
         raise
-
 
 def parse_team_stats(html_content):
     """Processa os dados do time com tratamento de erros aprimorado"""
@@ -177,6 +179,7 @@ def fetch_fbref_data(url):
     except Exception as e:
         st.error(f"Erro inesperado: {str(e)}")
         return None
+
 def format_prompt(stats_df, home_team, away_team, odds_data):
     """Formata o prompt para o GPT-4 com os dados coletados"""
     try:
@@ -274,6 +277,9 @@ CHECKLIST FINAL:
 
 def main():
     try:
+        # Inicializa os URLs do FBref
+        FBREF_URLS = get_fbref_urls()
+        
         # Estado da aplicação
         if 'load_state' not in st.session_state:
             st.session_state.load_state = 'initial'
@@ -319,34 +325,89 @@ def main():
                     st.error("Não foi possível encontrar os times do campeonato")
                     return
                 
-                # [O resto do código permanece igual até o botão de análise]
+# Seleção dos times
+col1, col2 = st.columns(2)
+with col1:
+    home_team = st.selectbox("Time da Casa:", teams)
+with col2:
+    away_teams = [team for team in teams if team != home_team]
+    away_team = st.selectbox("Time Visitante:", away_teams)
 
-                if st.button("Analisar Partida", type="primary"):
-                    with st.spinner("Realizando análise..."):
-                        try:
-                            prompt = format_prompt(
-                                team_stats_df,
-                                home_team,
-                                away_team,
-                                odds_data
-                            )
-                            
-                            if prompt:
-                                analysis = analyze_with_gpt(prompt)
-                                st.markdown("## Análise da Partida")
-                                st.markdown(analysis)
-                        except Exception as e:
-                            st.error(f"Erro na análise: {str(e)}")
-                            import traceback
-                            st.error(f"Traceback:\n```\n{traceback.format_exc()}\n```")
+# Seção de Mercados e Odds
+st.markdown("### Odds dos Mercados")
+
+with st.expander("Money Line", expanded=True):
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        odd_home = st.number_input("Casa (@)", min_value=1.01, value=1.50, format="%.2f", key="ml_home")
+    with col2:
+        odd_draw = st.number_input("Empate (@)", min_value=1.01, value=4.00, format="%.2f", key="ml_draw")
+    with col3:
+        odd_away = st.number_input("Fora (@)", min_value=1.01, value=6.50, format="%.2f", key="ml_away")
+
+with st.expander("Over/Under", expanded=True):
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        goals_line = st.number_input("Linha", min_value=0.5, value=2.5, step=0.5, format="%.1f")
+    with col2:
+        odd_over = st.number_input(f"Over {goals_line} (@)", min_value=1.01, value=1.85, format="%.2f", key="ou_over")
+    with col3:
+        odd_under = st.number_input(f"Under {goals_line} (@)", min_value=1.01, value=1.95, format="%.2f", key="ou_under")
+
+with st.expander("Chance Dupla", expanded=True):
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        odd_1x = st.number_input("1X (@)", min_value=1.01, value=1.20, format="%.2f", key="dc_1x")
+    with col2:
+        odd_12 = st.number_input("12 (@)", min_value=1.01, value=1.25, format="%.2f", key="dc_12")
+    with col3:
+        odd_x2 = st.number_input("X2 (@)", min_value=1.01, value=2.40, format="%.2f", key="dc_x2")
+
+with st.expander("Ambos Marcam", expanded=True):
+    col1, col2 = st.columns(2)
+    with col1:
+        odd_btts_yes = st.number_input("Sim (@)", min_value=1.01, value=1.75, format="%.2f", key="btts_yes")
+    with col2:
+        odd_btts_no = st.number_input("Não (@)", min_value=1.01, value=2.05, format="%.2f", key="btts_no")
+
+# Formata os dados das odds
+odds_data = f"""Money Line:
+- Casa: @{odd_home:.2f} (Implícita: {(100/odd_home):.1f}%)
+- Empate: @{odd_draw:.2f} (Implícita: {(100/odd_draw):.1f}%)
+- Fora: @{odd_away:.2f} (Implícita: {(100/odd_away):.1f}%)
+
+Over/Under {goals_line}:
+- Over: @{odd_over:.2f} (Implícita: {(100/odd_over):.1f}%)
+- Under: @{odd_under:.2f} (Implícita: {(100/odd_under):.1f}%)
+
+Chance Dupla:
+- 1X: @{odd_1x:.2f} (Implícita: {(100/odd_1x):.1f}%)
+- 12: @{odd_12:.2f} (Implícita: {(100/odd_12):.1f}%)
+- X2: @{odd_x2:.2f} (Implícita: {(100/odd_x2):.1f}%)
+
+Ambos Marcam:
+- Sim: @{odd_btts_yes:.2f} (Implícita: {(100/odd_btts_yes):.1f}%)
+- Não: @{odd_btts_no:.2f} (Implícita: {(100/odd_btts_no):.1f}%)"""
+
+# Botão de análise
+if st.button("Analisar Partida", type="primary"):
+    with st.spinner("Realizando análise..."):
+        try:
+            prompt = format_prompt(
+                team_stats_df,
+                home_team,
+                away_team,
+                odds_data
+            )
+            
+            if prompt:
+                analysis = analyze_with_gpt(prompt)
+                st.markdown("## Análise da Partida")
+                st.markdown(analysis)
         except Exception as e:
-            st.error(f"Erro ao carregar dados: {str(e)}")
+            st.error(f"Erro na análise: {str(e)}")
             import traceback
             st.error(f"Traceback:\n```\n{traceback.format_exc()}\n```")
-    except Exception as e:
-        st.error(f"Erro geral na aplicação: {str(e)}")
-        import traceback
-        st.error(f"Traceback:\n```\n{traceback.format_exc()}\n```")
-
+            
 if __name__ == "__main__":
     main()
