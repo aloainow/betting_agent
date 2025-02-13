@@ -14,6 +14,45 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+@st.cache_resource(show_spinner=False)
+def get_openai_client():
+    """Função para criar e retornar o cliente OpenAI usando cache_resource"""
+    try:
+        client = OpenAI(
+            api_key=st.secrets["OPENAI_API_KEY"],
+            http_client=httpx.Client(
+                timeout=60.0,
+                follow_redirects=True
+            )
+        )
+        return client
+    except Exception as e:
+        st.error(f"Erro ao criar cliente OpenAI: {str(e)}")
+        return None
+
+def analyze_with_gpt(prompt):
+    """Função para fazer a chamada à API do GPT"""
+    try:
+        client = get_openai_client()
+        if not client:
+            st.error("Não foi possível inicializar o cliente OpenAI")
+            return None
+            
+        response = client.chat.completions.create(
+            model="gpt-4",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "Você é um Agente Analista de Probabilidades Esportivas especializado. Você DEVE seguir EXATAMENTE o formato de saída especificado no prompt do usuário, preenchendo todos os campos com os valores calculados."
+                },
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.3
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        st.error(f"Erro na chamada da API: {str(e)}")
+        return None
 
 # Funções do config.py agora diretamente no app.py
 def get_fbref_urls():
@@ -44,31 +83,6 @@ def get_fbref_urls():
             "fixtures": "https://fbref.com/en/comps/8/schedule/Champions-League-Scores-and-Fixtures"
         }
     }
-@st.cache_resource
-def get_openai_client():
-    """Função para criar e retornar o cliente OpenAI usando cache_resource"""
-    return OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-
-def analyze_with_gpt(prompt):
-    """Função para fazer a chamada à API do GPT"""
-    try:
-        client = get_openai_client()
-        response = client.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {
-                    "role": "system",
-                    "content": "Você é um Agente Analista de Probabilidades Esportivas especializado. Você DEVE seguir EXATAMENTE o formato de saída especificado no prompt do usuário, preenchendo todos os campos com os valores calculados."
-                },
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.3
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        st.error(f"Erro na chamada da API: {str(e)}")
-        raise
-
 
 def parse_team_stats(html_content):
     """Processa os dados do time com tratamento de erros aprimorado"""
