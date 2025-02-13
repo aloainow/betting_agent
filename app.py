@@ -565,18 +565,12 @@ def main():
                                         st.markdown(analysis)
                             except Exception as e:
                                 st.error(f"Erro na análise: {str(e)}")
-                                st.error(f"Traceback:\n```\n{traceback.format_exc()}\n```")
                 
-                # Debug info em um expander no final (opcional)
-                with st.expander("Informações de Debug", expanded=False):
-                    st.dataframe(team_stats_df)
-                    
         except Exception as e:
             st.error(f"Erro ao carregar dados: {str(e)}")
-            st.error(f"Traceback:\n```\n{traceback.format_exc()}\n```")
+            
     except Exception as e:
         st.error(f"Erro geral na aplicação: {str(e)}")
-        st.error(f"Traceback:\n```\n{traceback.format_exc()}\n```")
 
 if __name__ == "__main__":
     main()
