@@ -1,11 +1,11 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
 import requests
 from bs4 import BeautifulSoup
 import time
 from openai import OpenAI
 import traceback
+
 
 # Configuração da página
 st.set_page_config(
@@ -191,58 +191,105 @@ def analyze_with_gpt(prompt):
         st.error(f"Erro na chamada da API: {str(e)}")
         return None
 
+import streamlit as st
+import pandas as pd
+import requests
+from bs4 import BeautifulSoup
+import time
+from openai import OpenAI
+import traceback
+
 def parse_team_stats(html_content):
-    """Processa os dados do time com tratamento de erros aprimorado"""
+    """Processa os dados do time com tratamento melhorado para extrair estatísticas"""
     try:
         soup = BeautifulSoup(html_content, 'html.parser')
         
-        possible_table_ids = [
+        # Procurar todas as tabelas que podem conter as estatísticas
+        all_tables = soup.find_all('table')
+        stats_table = None
+        
+        # Lista de IDs e classes comuns para tabelas de estatísticas
+        table_identifiers = [
             'stats_squads_standard_for',
-            'stats_squads_standard_overall',
-            'stats_squads_standard_stats_squads',
-            'stats_squads_standard_big5',
-            'stats_squads_keeper_for',
-            'stats_squads_keeper'
+            'stats_squads_shooting',
+            'stats_squads_standard_stats',
+            'stats_squads_keeper_for'
         ]
         
-        stats_table = None
-        for table_id in possible_table_ids:
+        # Primeiro, tenta encontrar por ID
+        for table_id in table_identifiers:
             stats_table = soup.find('table', {'id': table_id})
             if stats_table:
                 break
         
+        # Se não encontrar por ID, procura nas tabelas por conteúdo
         if not stats_table:
-            all_tables = soup.find_all('table')
             for table in all_tables:
                 headers = table.find_all('th')
-                header_text = [h.get_text(strip=True) for h in headers]
-                if any(text in ['Squad', 'Team'] for text in header_text):
-                    stats_table = table
-                    break
+                if headers:
+                    header_text = [h.get_text(strip=True).lower() for h in headers]
+                    if any(keyword in ' '.join(header_text) for keyword in ['squad', 'team', 'goals', 'gls', 'xg']):
+                        stats_table = table
+                        break
         
         if not stats_table:
             st.error("Não foi possível encontrar a tabela de estatísticas")
             return None
         
+        # Converter tabela para DataFrame
         df = pd.read_html(str(stats_table))[0]
         
+        # Tratar colunas multi-índice
         if isinstance(df.columns, pd.MultiIndex):
-            df.columns = df.columns.get_level_values(-1)
+            # Pegar o último nível que geralmente contém os nomes mais específicos
+            df.columns = [col[-1] if isinstance(col, tuple) else col for col in df.columns]
         
-        team_col = None
-        for col in df.columns:
-            if isinstance(col, str) and col.strip() in ['Squad', 'Team']:
-                team_col = col
-                break
+        # Mapear e renomear colunas importantes
+        column_mapping = {
+            'Squad': ['Squad', 'Team', 'Equipe'],
+            'MP': ['MP', 'Matches', 'Jogos'],
+            'Gls': ['Gls', 'Goals', 'Gols', 'G'],
+            'G90': ['G90', 'Goals90', 'Gols90'],
+            'xG': ['xG', 'Expected Goals'],
+            'xG90': ['xG90', 'ExpectedGoals90'],
+            'Poss': ['Poss', 'Possession', 'PosseBola']
+        }
         
-        if team_col:
-            df = df.rename(columns={team_col: 'Squad'})
-        else:
-            df = df.rename(columns={df.columns[0]: 'Squad'})
+        # Função para encontrar a coluna correta
+        def find_column(possible_names):
+            for name in possible_names:
+                matches = [col for col in df.columns if str(col).strip().lower() == name.lower()]
+                if matches:
+                    return matches[0]
+            return None
         
+        # Renomear colunas encontradas
+        new_columns = {}
+        for new_name, possible_names in column_mapping.items():
+            found_col = find_column(possible_names)
+            if found_col:
+                new_columns[found_col] = new_name
+        
+        df = df.rename(columns=new_columns)
+        
+        # Garantir que temos as colunas mínimas necessárias
+        required_columns = ['Squad', 'MP', 'Gls', 'xG']
+        if not all(col in df.columns for col in required_columns):
+            missing = [col for col in required_columns if col not in df.columns]
+            st.warning(f"Colunas ausentes: {missing}. Adicionando colunas vazias.")
+            for col in missing:
+                df[col] = 'N/A'
+        
+        # Limpar e processar dados
         df['Squad'] = df['Squad'].str.strip()
         df = df.dropna(subset=['Squad'])
         df = df.drop_duplicates(subset=['Squad'])
+        
+        # Converter colunas numéricas
+        numeric_columns = ['MP', 'Gls', 'G90', 'xG', 'xG90', 'Poss']
+        for col in numeric_columns:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
         
         return df
     
@@ -252,38 +299,39 @@ def parse_team_stats(html_content):
         return None
 
 def fetch_fbref_data(url):
-    """Busca dados do FBref com tratamento de erros aprimorado"""
-    try:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-        session = requests.Session()
-        retries = 3
-        
-        for attempt in range(retries):
-            try:
-                response = session.get(url, headers=headers, timeout=60)
-                response.raise_for_status()
-                
-                if not response.text or '<html' not in response.text.lower():
-                    raise ValueError("Conteúdo HTML inválido recebido")
-                
-                time.sleep(2)
-                return response.text
-            except (requests.Timeout, requests.ConnectionError) as e:
-                if attempt == retries - 1:
-                    raise
+    """Busca dados do FBref com retry melhorado e headers customizados"""
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+    }
+    
+    session = requests.Session()
+    retries = 3
+    
+    for attempt in range(retries):
+        try:
+            response = session.get(url, headers=headers, timeout=30)
+            response.raise_for_status()
+            
+            if 'cf-browser-verification' in response.text.lower():
+                st.error("Detectado Cloudflare protection. Tentando novamente...")
                 time.sleep(5 * (attempt + 1))
+                continue
                 
-    except requests.Timeout:
-        st.error("Timeout ao buscar dados. Por favor, tente novamente.")
-        return None
-    except requests.RequestException as e:
-        st.error(f"Erro ao buscar dados: {str(e)}")
-        return None
-    except Exception as e:
-        st.error(f"Erro inesperado: {str(e)}")
-        return None
+            return response.text
+            
+        except requests.exceptions.RequestException as e:
+            if attempt == retries - 1:
+                st.error(f"Erro ao buscar dados (tentativa {attempt + 1}/{retries}): {str(e)}")
+                return None
+            time.sleep(5 * (attempt + 1))
+    
+    return None
+
+# O resto do código permanece o mesmo...
 
 def format_prompt(stats_df, home_team, away_team, odds_data):
     """Formata o prompt para o GPT-4 com os dados coletados"""
