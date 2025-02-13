@@ -217,7 +217,8 @@ INSTRUÇÕES CRÍTICAS:
 2. Converter odds em probabilidades implícitas (100/odd)
 3. Analisar TODOS os mercados apresentados
 4. Comparar probabilidades CALCULADAS vs IMPLÍCITAS
-5. Identificar edges significativos (diferença calculada - implícita > 3%)
+5. Identificar edges POSITIVOS significativos (diferença calculada - implícita > +3%)
+   IMPORTANTE: Apenas edges POSITIVOS indicam valor para apostas!
 
 [PROCESSO DE CÁLCULO OBRIGATÓRIO]
 1. Base Calculation [35%]
@@ -239,8 +240,8 @@ INSTRUÇÕES CRÍTICAS:
 - Correlação entre mercados
 
 4. Edge Identification [20%]
-- Calc vs Implied difference > 3%
-- Força do edge (3-5% moderado, >5% forte)
+- Focar em edges POSITIVOS > +3%
+- Força do edge (+3% a +5% moderado, >+5% forte)
 - Risk assessment
 - Consistência entre mercados correlacionados
 
@@ -248,35 +249,35 @@ INSTRUÇÕES CRÍTICAS:
 Partida: {home_team} x {away_team}
 
 Money Line:
-- Casa: {home_team} [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]%
-- Empate: [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]%
-- Fora: {away_team} [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]%
+- Casa: {home_team} [CALCULADO]% (edge: [+/-X.X]%) | Implícita: [100/odd]%
+- Empate: [CALCULADO]% (edge: [+/-X.X]%) | Implícita: [100/odd]%
+- Fora: {away_team} [CALCULADO]% (edge: [+/-X.X]%) | Implícita: [100/odd]%
 
 Over/Under [linha]:
-- Over: [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]%
-- Under: [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]%
+- Over: [CALCULADO]% (edge: [+/-X.X]%) | Implícita: [100/odd]%
+- Under: [CALCULADO]% (edge: [+/-X.X]%) | Implícita: [100/odd]%
 
 Chance Dupla:
-- 1X: [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]%
-- 12: [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]%
-- X2: [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]%
+- 1X: [CALCULADO]% (edge: [+/-X.X]%) | Implícita: [100/odd]%
+- 12: [CALCULADO]% (edge: [+/-X.X]%) | Implícita: [100/odd]%
+- X2: [CALCULADO]% (edge: [+/-X.X]%) | Implícita: [100/odd]%
 
 Ambos Marcam:
-- Sim: [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]%
-- Não: [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]%
+- Sim: [CALCULADO]% (edge: [+/-X.X]%) | Implícita: [100/odd]%
+- Não: [CALCULADO]% (edge: [+/-X.X]%) | Implícita: [100/odd]%
 
-EDGES IDENTIFICADOS (>3%):
-1. [Mercado] - Edge: [±X.X]% [FORTE/MODERADO]
-2. [Mercado] - Edge: [±X.X]% [FORTE/MODERADO]
-[Listar apenas edges >3%]
+OPORTUNIDADES IDENTIFICADAS (Edges Positivos >3%):
+1. [Mercado] - Edge: +[X.X]% [FORTE/MODERADO]
+2. [Mercado] - Edge: +[X.X]% [FORTE/MODERADO]
+[Listar apenas edges POSITIVOS >3%]
 
 Nível de Confiança Geral: [Baixo/Médio/Alto]
-Alerta de Valor: [Destacar principais oportunidades identificadas]
+Recomendação de Valor: [Destacar apenas os mercados com edges POSITIVOS significativos]
 
 CHECKLIST FINAL:
 1. Knowledge Base foi usado para cálculos? [S/N]
 2. Todos os mercados foram analisados? [S/N]
-3. Edges foram calculados corretamente? [S/N]
+3. Edges POSITIVOS foram identificados corretamente? [S/N]
 4. Times identificados corretamente? [S/N]"""
         
         return prompt
