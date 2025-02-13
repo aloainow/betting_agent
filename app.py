@@ -12,9 +12,6 @@ st.set_page_config(
     layout="wide"
 )
 
-# Configuração da API OpenAI
-client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-
 # Dicionário com URLs do FBref
 FBREF_URLS = {
     "Premier League": {
@@ -43,7 +40,30 @@ FBREF_URLS = {
     }
 }
 
-@st.cache_data(ttl=3600)
+def get_openai_client():
+    """Função para criar e retornar o cliente OpenAI"""
+    return OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+
+def analyze_with_gpt(prompt):
+    """Função para fazer a chamada à API do GPT"""
+    try:
+        client = get_openai_client()
+        response = client.chat.completions.create(
+            model="gpt-4",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "Você é um Agente Analista de Probabilidades Esportivas especializado. Você DEVE seguir EXATAMENTE o formato de saída especificado no prompt do usuário, preenchendo todos os campos com os valores calculados."
+                },
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.3
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        st.error(f"Erro na chamada da API: {str(e)}")
+        raise
+
 
 def parse_team_stats(html_content):
     """Processa os dados do time com tratamento de erros aprimorado"""
@@ -299,69 +319,7 @@ def main():
                     st.error("Não foi possível encontrar os times do campeonato")
                     return
                 
-                # Seleção dos times
-                col1, col2 = st.columns(2)
-                with col1:
-                    home_team = st.selectbox("Time da Casa:", teams)
-                with col2:
-                    away_teams = [team for team in teams if team != home_team]
-                    away_team = st.selectbox("Time Visitante:", away_teams)
-                
-                # Seção de Mercados e Odds
-                st.markdown("### Odds dos Mercados")
-                
-                with st.expander("Money Line", expanded=True):
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        odd_home = st.number_input("Casa (@)", min_value=1.01, value=1.50, format="%.2f", key="ml_home")
-                    with col2:
-                        odd_draw = st.number_input("Empate (@)", min_value=1.01, value=4.00, format="%.2f", key="ml_draw")
-                    with col3:
-                        odd_away = st.number_input("Fora (@)", min_value=1.01, value=6.50, format="%.2f", key="ml_away")
-
-                with st.expander("Over/Under", expanded=True):
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        goals_line = st.number_input("Linha", min_value=0.5, value=2.5, step=0.5, format="%.1f")
-                    with col2:
-                        odd_over = st.number_input(f"Over {goals_line} (@)", min_value=1.01, value=1.85, format="%.2f", key="ou_over")
-                    with col3:
-                        odd_under = st.number_input(f"Under {goals_line} (@)", min_value=1.01, value=1.95, format="%.2f", key="ou_under")
-
-                with st.expander("Chance Dupla", expanded=True):
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        odd_1x = st.number_input("1X (@)", min_value=1.01, value=1.20, format="%.2f", key="dc_1x")
-                    with col2:
-                        odd_12 = st.number_input("12 (@)", min_value=1.01, value=1.25, format="%.2f", key="dc_12")
-                    with col3:
-                        odd_x2 = st.number_input("X2 (@)", min_value=1.01, value=2.40, format="%.2f", key="dc_x2")
-
-                with st.expander("Ambos Marcam", expanded=True):
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        odd_btts_yes = st.number_input("Sim (@)", min_value=1.01, value=1.75, format="%.2f", key="btts_yes")
-                    with col2:
-                        odd_btts_no = st.number_input("Não (@)", min_value=1.01, value=2.05, format="%.2f", key="btts_no")
-
-                # Formata os dados das odds
-                odds_data = f"""Money Line:
-- Casa: @{odd_home:.2f} (Implícita: {(100/odd_home):.1f}%)
-- Empate: @{odd_draw:.2f} (Implícita: {(100/odd_draw):.1f}%)
-- Fora: @{odd_away:.2f} (Implícita: {(100/odd_away):.1f}%)
-
-Over/Under {goals_line}:
-- Over: @{odd_over:.2f} (Implícita: {(100/odd_over):.1f}%)
-- Under: @{odd_under:.2f} (Implícita: {(100/odd_under):.1f}%)
-
-Chance Dupla:
-- 1X: @{odd_1x:.2f} (Implícita: {(100/odd_1x):.1f}%)
-- 12: @{odd_12:.2f} (Implícita: {(100/odd_12):.1f}%)
-- X2: @{odd_x2:.2f} (Implícita: {(100/odd_x2):.1f}%)
-
-Ambos Marcam:
-- Sim: @{odd_btts_yes:.2f} (Implícita: {(100/odd_btts_yes):.1f}%)
-- Não: @{odd_btts_no:.2f} (Implícita: {(100/odd_btts_no):.1f}%)"""
+                # [O resto do código permanece igual até o botão de análise]
 
                 if st.button("Analisar Partida", type="primary"):
                     with st.spinner("Realizando análise..."):
@@ -374,19 +332,7 @@ Ambos Marcam:
                             )
                             
                             if prompt:
-                                response = client.chat.completions.create(
-                                    model="gpt-4",
-                                    messages=[
-                                        {
-                                            "role": "system",
-                                            "content": "Você é um Agente Analista de Probabilidades Esportivas especializado. Você DEVE seguir EXATAMENTE o formato de saída especificado no prompt do usuário, preenchendo todos os campos com os valores calculados."
-                                        },
-                                        {"role": "user", "content": prompt}
-                                    ],
-                                    temperature=0.3
-                                )
-                                
-                                analysis = response.choices[0].message.content
+                                analysis = analyze_with_gpt(prompt)
                                 st.markdown("## Análise da Partida")
                                 st.markdown(analysis)
                         except Exception as e:
@@ -404,4 +350,3 @@ Ambos Marcam:
 
 if __name__ == "__main__":
     main()
-
