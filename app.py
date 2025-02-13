@@ -227,7 +227,6 @@ def parse_team_stats(html_content):
                         break
         
         if not stats_table:
-            st.error("Não foi possível encontrar a tabela de estatísticas")
             return None
         
         # Ler a tabela com pandas
@@ -235,7 +234,6 @@ def parse_team_stats(html_content):
         
         # Tratar colunas multi-índice e duplicadas
         if isinstance(df.columns, pd.MultiIndex):
-            # Pegar apenas o último nível do índice
             df.columns = [col[-1] if isinstance(col, tuple) else col for col in df.columns]
         
         # Remover colunas duplicadas mantendo a primeira ocorrência
@@ -277,7 +275,6 @@ def parse_team_stats(html_content):
             found_col = find_column(possible_names, df.columns)
             if found_col:
                 new_columns[found_col] = new_name
-                st.write(f"Coluna encontrada: {found_col} -> {new_name}")
         
         # Aplicar o mapeamento de colunas
         df = df.rename(columns=new_columns)
@@ -307,22 +304,16 @@ def parse_team_stats(html_content):
                            .str.extract('([-+]?\d*\.?\d+)', expand=False),
                         errors='coerce'
                     )
-                except Exception as e:
-                    st.warning(f"Não foi possível converter coluna {col}: {str(e)}")
+                except Exception:
                     df[col] = np.nan
         
         # Preencher valores ausentes
         df = df.fillna('N/A')
         
-        # Debug: mostrar colunas e alguns dados
-        st.write("Colunas disponíveis:", list(df.columns))
-        st.write("Primeiras linhas:", df.head())
-        
         return df
     
     except Exception as e:
         st.error(f"Erro ao processar dados: {str(e)}")
-        st.error(f"Traceback: {traceback.format_exc()}")
         return None
 
 def fetch_fbref_data(url):
