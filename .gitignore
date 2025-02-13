@@ -1,9 +1,7 @@
-# Streamlit
-.streamlit/secrets.toml
-
 # Python
 __pycache__/
 *.py[cod]
+*$py.class
 *.so
 .Python
 env/
@@ -23,15 +21,19 @@ wheels/
 .installed.cfg
 *.egg
 
-# Ambientes Virtuais
+# Virtual Environment
 venv/
 ENV/
-.env
 
-# IDEs e Editores
+# IDE
 .idea/
 .vscode/
 *.swp
 *.swo
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Sistema
 .DS_Store
 Thumbs.db
