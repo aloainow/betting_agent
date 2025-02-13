@@ -481,6 +481,7 @@ def main():
             layout="wide",
             initial_sidebar_state="expanded"
         )
+
         # Título principal na sidebar
         st.sidebar.title("Análise de Apostas Esportivas")
         
@@ -553,48 +554,48 @@ def main():
                 with st.expander("Configuração de Odds", expanded=True):
                     odds_data = get_odds_data(selected_markets)
 
+            # Adicionar CSS para container mais largo
+            st.markdown("""
+                <style>
+                .report-container {
+                    max-width: 1200px;
+                    margin: auto;
+                    padding: 2rem;
+                }
+                </style>
+                """, unsafe_allow_html=True)
+
             # Botão de análise centralizado
             col1, col2, col3 = st.columns([1,1,1])
             with col2:
-               # Quando mostrar a análise, usar container mais largo
-        if st.button("Analisar Partida", type="primary"):
-            if not any(selected_markets.values()):
-                st.error("Por favor, selecione pelo menos um mercado para análise.")
-                return
-                
-            if not odds_data:
-                st.error("Por favor, configure as odds para os mercados selecionados.")
-                return
-                
-            with st.spinner("Realizando análise..."):
-                try:
-                    prompt = format_prompt(
-                        team_stats_df,
-                        home_team,
-                        away_team,
-                        odds_data
-                    )
-                    
-                    if prompt:
-                        analysis = analyze_with_gpt(prompt)
-                        if analysis:
-                            st.markdown("""
-                            <style>
-                            .report-container {
-                                max-width: 1200px;
-                                margin: auto;
-                                padding: 2rem;
-                            }
-                            </style>
-                            """, unsafe_allow_html=True)
+                if st.button("Analisar Partida", type="primary"):
+                    if not any(selected_markets.values()):
+                        st.error("Por favor, selecione pelo menos um mercado para análise.")
+                        return
+                        
+                    if not odds_data:
+                        st.error("Por favor, configure as odds para os mercados selecionados.")
+                        return
+                        
+                    with st.spinner("Realizando análise..."):
+                        try:
+                            prompt = format_prompt(
+                                team_stats_df,
+                                home_team,
+                                away_team,
+                                odds_data
+                            )
                             
-                            with st.container():
-                                st.markdown('<div class="report-container">', unsafe_allow_html=True)
-                                st.markdown("## Análise da Partida")
-                                st.markdown(analysis)
-                                st.markdown('</div>', unsafe_allow_html=True)
-                except Exception as e:
-                    st.error(f"Erro na análise: {str(e)}")
+                            if prompt:
+                                analysis = analyze_with_gpt(prompt)
+                                if analysis:
+                                    with st.container():
+                                        st.markdown('<div class="report-container">', unsafe_allow_html=True)
+                                        st.markdown("## Análise da Partida")
+                                        st.markdown(analysis)
+                                        st.markdown('</div>', unsafe_allow_html=True)
+                        except Exception as e:
+                            st.error(f"Erro na análise: {str(e)}")
                     
     except Exception as e:
         st.error(f"Erro geral na aplicação: {str(e)}")
