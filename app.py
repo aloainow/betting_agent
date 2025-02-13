@@ -343,44 +343,44 @@ def main():
                     away_teams = [team for team in teams if team != home_team]
                     away_team = st.selectbox("Time Visitante:", away_teams)
                 
-                # Na seção de Mercados e Odds:
-st.markdown("### Seleção de Mercados")
+                # Seleção de Mercados
+                st.markdown("### Seleção de Mercados")
 
-# Seleção de mercados
-mercados = {
-    "money_line": "Money Line (1X2)",
-    "over_under": "Over/Under",
-    "chance_dupla": "Chance Dupla",
-    "ambos_marcam": "Ambos Marcam",
-    "escanteios": "Total de Escanteios",
-    "cartoes": "Total de Cartões"
-}
+                # Seleção de mercados
+                mercados = {
+                    "money_line": "Money Line (1X2)",
+                    "over_under": "Over/Under",
+                    "chance_dupla": "Chance Dupla",
+                    "ambos_marcam": "Ambos Marcam",
+                    "escanteios": "Total de Escanteios",
+                    "cartoes": "Total de Cartões"
+                }
 
-selected_markets = {}
-col1, col2 = st.columns(2)
+                selected_markets = {}
+                col1, col2 = st.columns(2)
 
-with col1:
-    for mercado in list(mercados.keys())[:3]:
-        selected_markets[mercado] = st.checkbox(mercados[mercado], value=False)
+                with col1:
+                    for mercado in list(mercados.keys())[:3]:
+                        selected_markets[mercado] = st.checkbox(mercados[mercado], value=False)
 
-with col2:
-    for mercado in list(mercados.keys())[3:]:
-        selected_markets[mercado] = st.checkbox(mercados[mercado], value=False)
+                with col2:
+                    for mercado in list(mercados.keys())[3:]:
+                        selected_markets[mercado] = st.checkbox(mercados[mercado], value=False)
 
-# Seção de Odds
-st.markdown("### Odds dos Mercados")
+                # Seção de Odds
+                st.markdown("### Odds dos Mercados")
 
-odds_data = {}
+                odds_data = {}
 
-if selected_markets["money_line"]:
-    with st.expander("Money Line", expanded=True):
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            odds_data["home"] = st.number_input("Casa (@)", min_value=1.01, value=0.0, format="%.2f", key="ml_home")
-        with col2:
-            odds_data["draw"] = st.number_input("Empate (@)", min_value=1.01, value=0.0, format="%.2f", key="ml_draw")
-        with col3:
-            odds_data["away"] = st.number_input("Fora (@)", min_value=1.01, value=0.0, format="%.2f", key="ml_away")
+                if selected_markets["money_line"]:
+                    with st.expander("Money Line", expanded=True):
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            odds_data["home"] = st.number_input("Casa (@)", min_value=1.01, value=0.0, format="%.2f", key="ml_home")
+                        with col2:
+                            odds_data["draw"] = st.number_input("Empate (@)", min_value=1.01, value=0.0, format="%.2f", key="ml_draw")
+                        with col3:
+                            odds_data["away"] = st.number_input("Fora (@)", min_value=1.01, value=0.0, format="%.2f", key="ml_away")
 
 if selected_markets["over_under"]:
     with st.expander("Over/Under", expanded=True):
@@ -465,7 +465,7 @@ if selected_markets["cartoes"] and all(odds_data.get(k, 0) > 0 for k in ["cards_
 - Over: @{odds_data['cards_over']:.2f} (Implícita: {(100/odds_data['cards_over']):.1f}%)
 - Under: @{odds_data['cards_under']:.2f} (Implícita: {(100/odds_data['cards_under']):.1f}%)""")
 
-odds_data = "\n\n".join(formatted_odds)
+                odds_data = "\n\n".join(formatted_odds)
 
                 # Botão de análise
                 if st.button("Analisar Partida", type="primary"):
