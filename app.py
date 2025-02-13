@@ -464,98 +464,94 @@ def main():
         # Container de status para mensagens
         status_container = st.sidebar.empty()
         
-        try:
-            # Busca dados do campeonato
-            with st.spinner("Carregando dados do campeonato..."):
-                stats_html = fetch_fbref_data(FBREF_URLS[selected_league]["stats"])
-                
-                if not stats_html:
-                    st.error("Não foi possível carregar os dados do campeonato")
-                    return
-                
-                team_stats_df = parse_team_stats(stats_html)
-                
-                if team_stats_df is None or 'Squad' not in team_stats_df.columns:
-                    st.error("Erro ao processar dados dos times")
-                    return
-                
-                status_container.success("Dados carregados com sucesso!")
-                
-                teams = team_stats_df['Squad'].dropna().unique().tolist()
-                
-                if not teams:
-                    st.error("Não foi possível encontrar os times do campeonato")
-                    return
-                
-                # Área principal
-                st.title("Seleção de Times")
-                
-                # Seleção dos times em duas colunas
-                col1, col2 = st.columns(2)
-                with col1:
-                    home_team = st.selectbox("Time da Casa:", teams, key='home_team')
-                with col2:
-                    away_teams = [team for team in teams if team != home_team]
-                    away_team = st.selectbox("Time Visitante:", away_teams, key='away_team')
-
-                # Seleção de mercados em container separado
-                with st.expander("Mercados Disponíveis", expanded=True):
-                    st.markdown("### Seleção de Mercados")
-                    
-                    col1, col2 = st.columns(2)
-                    
-                    with col1:
-                        selected_markets = {
-                            "money_line": st.checkbox("Money Line (1X2)", key='ml'),
-                            "over_under": st.checkbox("Over/Under", key='ou'),
-                            "chance_dupla": st.checkbox("Chance Dupla", key='cd')
-                        }
-                    
-                    with col2:
-                        selected_markets.update({
-                            "ambos_marcam": st.checkbox("Ambos Marcam", key='btts'),
-                            "escanteios": st.checkbox("Total de Escanteios", key='corners'),
-                            "cartoes": st.checkbox("Total de Cartões", key='cards')
-                        })
-
-# Inputs de odds em container separado
-        odds_data = None
-        if any(selected_markets.values()):
-            with st.expander("Configuração de Odds", expanded=True):
-                odds_data = get_odds_data(selected_markets)
-
-        # Botão de análise centralizado
-        col1, col2, col3 = st.columns([1,1,1])
-        with col2:
-            if st.button("Analisar Partida", type="primary"):
-                if not any(selected_markets.values()):
-                    st.error("Por favor, selecione pelo menos um mercado para análise.")
-                    return
-                    
-                if not odds_data:
-                    st.error("Por favor, configure as odds para os mercados selecionados.")
-                    return
-                    
-                with st.spinner("Realizando análise..."):
-                    try:
-                        prompt = format_prompt(
-                            team_stats_df,
-                            home_team,
-                            away_team,
-                            odds_data
-                        )
-                        
-                        if prompt:
-                            analysis = analyze_with_gpt(prompt)
-                            if analysis:
-                                st.markdown("## Análise da Partida")
-                                st.markdown(analysis)
-                    except Exception as e:
-                        st.error(f"Erro na análise: {str(e)}")
-
-        except Exception as e:
-            st.error(f"Erro ao carregar dados: {str(e)}")
+        # Busca dados do campeonato
+        with st.spinner("Carregando dados do campeonato..."):
+            stats_html = fetch_fbref_data(FBREF_URLS[selected_league]["stats"])
             
+            if not stats_html:
+                st.error("Não foi possível carregar os dados do campeonato")
+                return
+            
+            team_stats_df = parse_team_stats(stats_html)
+            
+            if team_stats_df is None or 'Squad' not in team_stats_df.columns:
+                st.error("Erro ao processar dados dos times")
+                return
+            
+            status_container.success("Dados carregados com sucesso!")
+            
+            teams = team_stats_df['Squad'].dropna().unique().tolist()
+            
+            if not teams:
+                st.error("Não foi possível encontrar os times do campeonato")
+                return
+            
+            # Área principal
+            st.title("Seleção de Times")
+            
+            # Seleção dos times em duas colunas
+            col1, col2 = st.columns(2)
+            with col1:
+                home_team = st.selectbox("Time da Casa:", teams, key='home_team')
+            with col2:
+                away_teams = [team for team in teams if team != home_team]
+                away_team = st.selectbox("Time Visitante:", away_teams, key='away_team')
+
+            # Seleção de mercados em container separado
+            with st.expander("Mercados Disponíveis", expanded=True):
+                st.markdown("### Seleção de Mercados")
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    selected_markets = {
+                        "money_line": st.checkbox("Money Line (1X2)", key='ml'),
+                        "over_under": st.checkbox("Over/Under", key='ou'),
+                        "chance_dupla": st.checkbox("Chance Dupla", key='cd')
+                    }
+                
+                with col2:
+                    selected_markets.update({
+                        "ambos_marcam": st.checkbox("Ambos Marcam", key='btts'),
+                        "escanteios": st.checkbox("Total de Escanteios", key='corners'),
+                        "cartoes": st.checkbox("Total de Cartões", key='cards')
+                    })
+
+            # Inputs de odds em container separado
+            odds_data = None
+            if any(selected_markets.values()):
+                with st.expander("Configuração de Odds", expanded=True):
+                    odds_data = get_odds_data(selected_markets)
+
+            # Botão de análise centralizado
+            col1, col2, col3 = st.columns([1,1,1])
+            with col2:
+                if st.button("Analisar Partida", type="primary"):
+                    if not any(selected_markets.values()):
+                        st.error("Por favor, selecione pelo menos um mercado para análise.")
+                        return
+                        
+                    if not odds_data:
+                        st.error("Por favor, configure as odds para os mercados selecionados.")
+                        return
+                        
+                    with st.spinner("Realizando análise..."):
+                        try:
+                            prompt = format_prompt(
+                                team_stats_df,
+                                home_team,
+                                away_team,
+                                odds_data
+                            )
+                            
+                            if prompt:
+                                analysis = analyze_with_gpt(prompt)
+                                if analysis:
+                                    st.markdown("## Análise da Partida")
+                                    st.markdown(analysis)
+                        except Exception as e:
+                            st.error(f"Erro na análise: {str(e)}")
+                            
     except Exception as e:
         st.error(f"Erro geral na aplicação: {str(e)}")
 
