@@ -248,22 +248,22 @@ INSTRUÇÕES CRÍTICAS:
 Partida: {home_team} x {away_team}
 
 Money Line:
-- Casa: {home_team} [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]% (@{odd_home:.2f})
-- Empate: [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]% (@{odd_draw:.2f})
-- Fora: {away_team} [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]% (@{odd_away:.2f})
+- Casa: {home_team} [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]%
+- Empate: [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]%
+- Fora: {away_team} [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]%
 
-Over/Under {goals_line}:
-- Over: [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]% (@{odd_over:.2f})
-- Under: [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]% (@{odd_under:.2f})
+Over/Under [linha]:
+- Over: [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]%
+- Under: [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]%
 
 Chance Dupla:
-- 1X: [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]% (@{odd_1x:.2f})
-- 12: [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]% (@{odd_12:.2f})
-- X2: [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]% (@{odd_x2:.2f})
+- 1X: [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]%
+- 12: [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]%
+- X2: [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]%
 
 Ambos Marcam:
-- Sim: [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]% (@{odd_btts_yes:.2f})
-- Não: [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]% (@{odd_btts_no:.2f})
+- Sim: [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]%
+- Não: [CALCULADO]% (edge: [±X.X]%) | Implícita: [100/odd]%
 
 EDGES IDENTIFICADOS (>3%):
 1. [Mercado] - Edge: [±X.X]% [FORTE/MODERADO]
