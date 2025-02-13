@@ -7,13 +7,6 @@ from openai import OpenAI
 import traceback
 import numpy as np
 
-# Configuração da página
-st.set_page_config(
-    page_title="Análise de Apostas Esportivas",
-    page_icon="⚽",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
 
 # Definição das URLs do FBref
 FBREF_URLS = {
@@ -349,23 +342,18 @@ def format_prompt(stats_df, home_team, away_team, odds_data):
             except:
                 return default
 
-        # Mapeamento das colunas existentes
         home_team_stats = f"""
   * Jogos Disputados: {get_stat(home_stats, 'MP')}
   * Gols Marcados: {get_stat(home_stats, 'Gls')}
-  * Gols por 90min: {get_stat(home_stats, 'G90')}
   * Expected Goals (xG): {get_stat(home_stats, 'xG')}
-  * Expected Goals por 90min: {get_stat(home_stats, 'xG90')}
   * Posse de Bola: {get_stat(home_stats, 'Poss')}%"""
 
         away_team_stats = f"""
   * Jogos Disputados: {get_stat(away_stats, 'MP')}
   * Gols Marcados: {get_stat(away_stats, 'Gls')}
-  * Gols por 90min: {get_stat(away_stats, 'G90')}
   * Expected Goals (xG): {get_stat(away_stats, 'xG')}
-  * Expected Goals por 90min: {get_stat(away_stats, 'xG90')}
   * Posse de Bola: {get_stat(away_stats, 'Poss')}%"""
-        
+
         prompt = f"""Role: Agente Analista de Probabilidades Esportivas
 
 KNOWLEDGE BASE INTERNO:
@@ -376,81 +364,123 @@ KNOWLEDGE BASE INTERNO:
 ODDS DOS MERCADOS:
 {odds_data}
 
-INSTRUÇÕES CRÍTICAS:
-1. CALCULAR probabilidades usando knowledge base interno
-2. Converter odds em probabilidades implícitas (100/odd)
-3. Analisar TODOS os mercados apresentados
-4. Comparar probabilidades CALCULADAS vs IMPLÍCITAS
-5. Identificar edges POSITIVOS significativos (diferença calculada - implícita > +3%)
-   IMPORTANTE: Apenas edges POSITIVOS indicam valor para apostas!
-
-[PROCESSO DE CÁLCULO OBRIGATÓRIO]
-1. Base Calculation [35%]
-- Desempenho geral (gols marcados, xG)
-- Eficiência ofensiva e defensiva
-- Posse de bola e controle de jogo
-- Tendência de gols por 90 minutos
-
-2. Technical Factors [25%]
-- Expected goals (xG) e eficiência
-- Gols marcados vs xG (over/underperformance)
-- Média de gols por jogo
-- Padrões ofensivos e defensivos
-
-3. Market Analysis [20%]
-- Linha base de probabilidade por mercado
-- Ajustes por padrão de jogo
-- Fatores situacionais
-- Correlação entre mercados
-
-4. Edge Identification [20%]
-- Focar em edges POSITIVOS > +3%
-- Força do edge (+3% a +5% moderado, >+5% forte)
-- Risk assessment
-- Consistência entre mercados correlacionados
-
-[SAÍDA OBRIGATÓRIA - FORMATO ESTRITO]
+[SAÍDA OBRIGATÓRIA]
 Partida: {home_team} x {away_team}
 
-Money Line:
-- Casa: {home_team} [CALCULADO]% (edge: [+/-X.X]%) | Implícita: [100/odd]%
-- Empate: [CALCULADO]% (edge: [+/-X.X]%) | Implícita: [100/odd]%
-- Fora: {away_team} [CALCULADO]% (edge: [+/-X.X]%) | Implícita: [100/odd]%
+# Análise de Mercados Disponíveis:
+{odds_data}
 
-Over/Under [linha]:
-- Over: [CALCULADO]% (edge: [+/-X.X]%) | Implícita: [100/odd]%
-- Under: [CALCULADO]% (edge: [+/-X.X]%) | Implícita: [100/odd]%
+OPORTUNIDADES IDENTIFICADAS (Edges >3%):
+[Listar apenas mercados com edges positivos significativos]
 
-Chance Dupla:
-- 1X: [CALCULADO]% (edge: [+/-X.X]%) | Implícita: [100/odd]%
-- 12: [CALCULADO]% (edge: [+/-X.X]%) | Implícita: [100/odd]%
-- X2: [CALCULADO]% (edge: [+/-X.X]%) | Implícita: [100/odd]%
-
-Ambos Marcam:
-- Sim: [CALCULADO]% (edge: [+/-X.X]%) | Implícita: [100/odd]%
-- Não: [CALCULADO]% (edge: [+/-X.X]%) | Implícita: [100/odd]%
-
-OPORTUNIDADES IDENTIFICADAS (Edges Positivos >3%):
-1. [Mercado] - Edge: +[X.X]% [FORTE/MODERADO]
-2. [Mercado] - Edge: +[X.X]% [FORTE/MODERADO]
-[Listar apenas edges POSITIVOS >3%]
-
-Nível de Confiança Geral: [Baixo/Médio/Alto]
-Recomendação de Valor: [Destacar apenas os mercados com edges POSITIVOS significativos]
-
-CHECKLIST FINAL:
-1. Knowledge Base foi usado para cálculos? [S/N]
-2. Todos os mercados foram analisados? [S/N]
-3. Edges POSITIVOS foram identificados corretamente? [S/N]
-4. Times identificados corretamente? [S/N]"""
+Nível de Confiança Geral: [Baixo/Médio/Alto]"""
         
         return prompt
     except Exception as e:
         st.error(f"Erro ao formatar prompt: {str(e)}")
         return None
+
+def get_odds_data(selected_markets):
+    """Função para coletar e formatar os dados das odds"""
+    odds_data = {}
+    odds_text = []
+
+    # Money Line
+    if selected_markets.get("money_line", False):
+        st.markdown("### Money Line")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            odds_data["home"] = st.number_input("Casa (@)", min_value=1.01, step=0.01, value=1.50, format="%.2f", key="ml_home")
+        with col2:
+            odds_data["draw"] = st.number_input("Empate (@)", min_value=1.01, step=0.01, value=4.00, format="%.2f", key="ml_draw")
+        with col3:
+            odds_data["away"] = st.number_input("Fora (@)", min_value=1.01, step=0.01, value=6.50, format="%.2f", key="ml_away")
+
+        if all(odds_data.get(k, 0) > 1.01 for k in ["home", "draw", "away"]):
+            odds_text.append(f"""Money Line:
+- Casa: @{odds_data['home']:.2f} (Implícita: {(100/odds_data['home']):.1f}%)
+- Empate: @{odds_data['draw']:.2f} (Implícita: {(100/odds_data['draw']):.1f}%)
+- Fora: @{odds_data['away']:.2f} (Implícita: {(100/odds_data['away']):.1f}%)""")
+
+    # Over/Under
+    if selected_markets.get("over_under", False):
+        st.markdown("### Over/Under")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            odds_data["goals_line"] = st.number_input("Linha", min_value=0.5, value=2.5, step=0.5, format="%.1f", key="goals_line")
+        with col2:
+            odds_data["over"] = st.number_input(f"Over {odds_data.get('goals_line', 2.5)} (@)", min_value=1.01, step=0.01, value=1.85, format="%.2f", key="ou_over")
+        with col3:
+            odds_data["under"] = st.number_input(f"Under {odds_data.get('goals_line', 2.5)} (@)", min_value=1.01, step=0.01, value=1.95, format="%.2f", key="ou_under")
+
+        if all(odds_data.get(k, 0) > 1.01 for k in ["over", "under"]):
+            odds_text.append(f"""Over/Under {odds_data['goals_line']}:
+- Over: @{odds_data['over']:.2f} (Implícita: {(100/odds_data['over']):.1f}%)
+- Under: @{odds_data['under']:.2f} (Implícita: {(100/odds_data['under']):.1f}%)""")
+
+    # Chance Dupla
+    if selected_markets.get("chance_dupla", False):
+        st.markdown("### Chance Dupla")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            odds_data["1x"] = st.number_input("1X (@)", min_value=1.01, step=0.01, value=1.20, format="%.2f", key="cd_1x")
+        with col2:
+            odds_data["12"] = st.number_input("12 (@)", min_value=1.01, step=0.01, value=1.30, format="%.2f", key="cd_12")
+        with col3:
+            odds_data["x2"] = st.number_input("X2 (@)", min_value=1.01, step=0.01, value=1.40, format="%.2f", key="cd_x2")
+
+        if all(odds_data.get(k, 0) > 1.01 for k in ["1x", "12", "x2"]):
+            odds_text.append(f"""Chance Dupla:
+- 1X: @{odds_data['1x']:.2f} (Implícita: {(100/odds_data['1x']):.1f}%)
+- 12: @{odds_data['12']:.2f} (Implícita: {(100/odds_data['12']):.1f}%)
+- X2: @{odds_data['x2']:.2f} (Implícita: {(100/odds_data['x2']):.1f}%)""")
+
+    # Total de Escanteios
+    if selected_markets.get("escanteios", False):
+        st.markdown("### Total de Escanteios")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            odds_data["corners_line"] = st.number_input("Linha Escanteios", min_value=0.5, value=9.5, step=0.5, format="%.1f", key="corners_line")
+        with col2:
+            odds_data["corners_over"] = st.number_input("Over Escanteios (@)", min_value=1.01, step=0.01, value=1.85, format="%.2f", key="corners_over")
+        with col3:
+            odds_data["corners_under"] = st.number_input("Under Escanteios (@)", min_value=1.01, step=0.01, value=1.95, format="%.2f", key="corners_under")
+
+        if all(odds_data.get(k, 0) > 1.01 for k in ["corners_over", "corners_under"]):
+            odds_text.append(f"""Total de Escanteios {odds_data['corners_line']}:
+- Over: @{odds_data['corners_over']:.2f} (Implícita: {(100/odds_data['corners_over']):.1f}%)
+- Under: @{odds_data['corners_under']:.2f} (Implícita: {(100/odds_data['corners_under']):.1f}%)""")
+
+    # Total de Cartões
+    if selected_markets.get("cartoes", False):
+        st.markdown("### Total de Cartões")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            odds_data["cards_line"] = st.number_input("Linha Cartões", min_value=0.5, value=3.5, step=0.5, format="%.1f", key="cards_line")
+        with col2:
+            odds_data["cards_over"] = st.number_input("Over Cartões (@)", min_value=1.01, step=0.01, value=1.85, format="%.2f", key="cards_over")
+        with col3:
+            odds_data["cards_under"] = st.number_input("Under Cartões (@)", min_value=1.01, step=0.01, value=1.95, format="%.2f", key="cards_under")
+
+        if all(odds_data.get(k, 0) > 1.01 for k in ["cards_over", "cards_under"]):
+            odds_text.append(f"""Total de Cartões {odds_data['cards_line']}:
+- Over: @{odds_data['cards_over']:.2f} (Implícita: {(100/odds_data['cards_over']):.1f}%)
+- Under: @{odds_data['cards_under']:.2f} (Implícita: {(100/odds_data['cards_under']):.1f}%)""")
+
+    if not odds_text:
+        return None
+        
+    return "\n\n".join(odds_text)
         
 def main():
     try:
+        # Configuração inicial do Streamlit para layout mais largo
+        st.set_page_config(
+            page_title="Análise de Apostas Esportivas",
+            page_icon="⚽",
+            layout="wide",
+            initial_sidebar_state="expanded"
+        )
         # Título principal na sidebar
         st.sidebar.title("Análise de Apostas Esportivas")
         
@@ -526,32 +556,46 @@ def main():
             # Botão de análise centralizado
             col1, col2, col3 = st.columns([1,1,1])
             with col2:
-                if st.button("Analisar Partida", type="primary"):
-                    if not any(selected_markets.values()):
-                        st.error("Por favor, selecione pelo menos um mercado para análise.")
-                        return
-                        
-                    if not odds_data:
-                        st.error("Por favor, configure as odds para os mercados selecionados.")
-                        return
-                        
-                    with st.spinner("Realizando análise..."):
-                        try:
-                            prompt = format_prompt(
-                                team_stats_df,
-                                home_team,
-                                away_team,
-                                odds_data
-                            )
+               # Quando mostrar a análise, usar container mais largo
+        if st.button("Analisar Partida", type="primary"):
+            if not any(selected_markets.values()):
+                st.error("Por favor, selecione pelo menos um mercado para análise.")
+                return
+                
+            if not odds_data:
+                st.error("Por favor, configure as odds para os mercados selecionados.")
+                return
+                
+            with st.spinner("Realizando análise..."):
+                try:
+                    prompt = format_prompt(
+                        team_stats_df,
+                        home_team,
+                        away_team,
+                        odds_data
+                    )
+                    
+                    if prompt:
+                        analysis = analyze_with_gpt(prompt)
+                        if analysis:
+                            st.markdown("""
+                            <style>
+                            .report-container {
+                                max-width: 1200px;
+                                margin: auto;
+                                padding: 2rem;
+                            }
+                            </style>
+                            """, unsafe_allow_html=True)
                             
-                            if prompt:
-                                analysis = analyze_with_gpt(prompt)
-                                if analysis:
-                                    st.markdown("## Análise da Partida")
-                                    st.markdown(analysis)
-                        except Exception as e:
-                            st.error(f"Erro na análise: {str(e)}")
-                            
+                            with st.container():
+                                st.markdown('<div class="report-container">', unsafe_allow_html=True)
+                                st.markdown("## Análise da Partida")
+                                st.markdown(analysis)
+                                st.markdown('</div>', unsafe_allow_html=True)
+                except Exception as e:
+                    st.error(f"Erro na análise: {str(e)}")
+                    
     except Exception as e:
         st.error(f"Erro geral na aplicação: {str(e)}")
 
