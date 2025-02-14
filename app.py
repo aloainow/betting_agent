@@ -660,34 +660,33 @@ def main():
                         return
                         
                     with st.spinner("Realizando análise..."):
-                        try:
-                            prompt = format_prompt(
-                                team_stats_df,
-                                home_team,
-                                away_team,
-                                odds_data
-                            )
-                            
-                            if prompt:
-                                analysis = analyze_with_gpt(prompt)
-                                if analysis:
-                                    st.markdown("""
-                                        <style>
-                                        .analysis-wrapper {
-                                            width: 100% !important;
-                                            max-width: 100% !important;
-                                            margin: 0 !important;
-                                            padding: 2rem !important;
-                                            box-sizing: border-box !important;
-                                        }
-                                        </style>
-                                    """, unsafe_allow_html=True)
-                                    
-                                    st.markdown('<div class="analysis-wrapper">', unsafe_allow_html=True)
-                                    st.markdown("# Análise da Partida")
-                                    st.markdown(analysis)
-                                    st.markdown('</div>', unsafe_allow_html=True)
-                    
+                        prompt = format_prompt(
+                            team_stats_df,
+                            home_team,
+                            away_team,
+                            odds_data
+                        )
+                        
+                        if prompt:
+                            analysis = analyze_with_gpt(prompt)
+                            if analysis:
+                                st.markdown("""
+                                    <style>
+                                    .analysis-wrapper {
+                                        width: 100% !important;
+                                        max-width: 100% !important;
+                                        margin: 0 !important;
+                                        padding: 2rem !important;
+                                        box-sizing: border-box !important;
+                                    }
+                                    </style>
+                                """, unsafe_allow_html=True)
+                                
+                                st.markdown('<div class="analysis-wrapper">', unsafe_allow_html=True)
+                                st.markdown("# Análise da Partida")
+                                st.markdown(analysis)
+                                st.markdown('</div>', unsafe_allow_html=True)
+    
     except Exception as e:
         st.error(f"Erro geral na aplicação: {str(e)}")
 
