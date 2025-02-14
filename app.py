@@ -377,7 +377,18 @@ def fetch_fbref_data(url):
     
     return None
 
-# 3. Para incluir o cálculo da probabilidade real, vamos modificar o format_prompt:
+def get_stat(stats, col, default='N/A'):
+    """
+    Função auxiliar para extrair estatísticas com tratamento de erro
+    """
+    try:
+        value = stats[col]
+        if pd.notna(value) and value != '':
+            return value
+        return default
+    except:
+        return default
+
 def format_prompt(stats_df, home_team, away_team, odds_data):
     """Formata o prompt para o GPT-4 com os dados coletados"""
     try:
@@ -463,6 +474,7 @@ def get_odds_data(selected_markets):
     """Função para coletar e formatar os dados das odds"""
     odds_data = {}
     odds_text = []
+    has_valid_odds = False
 
     # Money Line
     if selected_markets.get("money_line", False):
@@ -476,6 +488,7 @@ def get_odds_data(selected_markets):
             odds_data["away"] = st.number_input("Fora (@)", min_value=1.01, step=0.01, value=6.50, format="%.2f", key="ml_away")
 
         if all(odds_data.get(k, 0) > 1.01 for k in ["home", "draw", "away"]):
+            has_valid_odds = True
             odds_text.append(f"""Money Line:
 - Casa: @{odds_data['home']:.2f} (Implícita: {(100/odds_data['home']):.1f}%)
 - Empate: @{odds_data['draw']:.2f} (Implícita: {(100/odds_data['draw']):.1f}%)
@@ -493,6 +506,7 @@ def get_odds_data(selected_markets):
             odds_data["under"] = st.number_input(f"Under {odds_data.get('goals_line', 2.5)} (@)", min_value=1.01, step=0.01, value=1.95, format="%.2f", key="ou_under")
 
         if all(odds_data.get(k, 0) > 1.01 for k in ["over", "under"]):
+            has_valid_odds = True
             odds_text.append(f"""Over/Under {odds_data['goals_line']}:
 - Over: @{odds_data['over']:.2f} (Implícita: {(100/odds_data['over']):.1f}%)
 - Under: @{odds_data['under']:.2f} (Implícita: {(100/odds_data['under']):.1f}%)""")
@@ -509,10 +523,26 @@ def get_odds_data(selected_markets):
             odds_data["x2"] = st.number_input("X2 (@)", min_value=1.01, step=0.01, value=1.40, format="%.2f", key="cd_x2")
 
         if all(odds_data.get(k, 0) > 1.01 for k in ["1x", "12", "x2"]):
+            has_valid_odds = True
             odds_text.append(f"""Chance Dupla:
 - 1X: @{odds_data['1x']:.2f} (Implícita: {(100/odds_data['1x']):.1f}%)
 - 12: @{odds_data['12']:.2f} (Implícita: {(100/odds_data['12']):.1f}%)
 - X2: @{odds_data['x2']:.2f} (Implícita: {(100/odds_data['x2']):.1f}%)""")
+
+    # Ambos Marcam
+    if selected_markets.get("ambos_marcam", False):
+        st.markdown("### Ambos Marcam")
+        col1, col2 = st.columns(2)
+        with col1:
+            odds_data["btts_yes"] = st.number_input("Sim (@)", min_value=1.01, step=0.01, value=1.75, format="%.2f", key="btts_yes")
+        with col2:
+            odds_data["btts_no"] = st.number_input("Não (@)", min_value=1.01, step=0.01, value=2.05, format="%.2f", key="btts_no")
+
+        if all(odds_data.get(k, 0) > 1.01 for k in ["btts_yes", "btts_no"]):
+            has_valid_odds = True
+            odds_text.append(f"""Ambos Marcam:
+- Sim: @{odds_data['btts_yes']:.2f} (Implícita: {(100/odds_data['btts_yes']):.1f}%)
+- Não: @{odds_data['btts_no']:.2f} (Implícita: {(100/odds_data['btts_no']):.1f}%)""")
 
     # Total de Escanteios
     if selected_markets.get("escanteios", False):
@@ -526,6 +556,7 @@ def get_odds_data(selected_markets):
             odds_data["corners_under"] = st.number_input("Under Escanteios (@)", min_value=1.01, step=0.01, value=1.95, format="%.2f", key="corners_under")
 
         if all(odds_data.get(k, 0) > 1.01 for k in ["corners_over", "corners_under"]):
+            has_valid_odds = True
             odds_text.append(f"""Total de Escanteios {odds_data['corners_line']}:
 - Over: @{odds_data['corners_over']:.2f} (Implícita: {(100/odds_data['corners_over']):.1f}%)
 - Under: @{odds_data['corners_under']:.2f} (Implícita: {(100/odds_data['corners_under']):.1f}%)""")
@@ -542,15 +573,15 @@ def get_odds_data(selected_markets):
             odds_data["cards_under"] = st.number_input("Under Cartões (@)", min_value=1.01, step=0.01, value=1.95, format="%.2f", key="cards_under")
 
         if all(odds_data.get(k, 0) > 1.01 for k in ["cards_over", "cards_under"]):
+            has_valid_odds = True
             odds_text.append(f"""Total de Cartões {odds_data['cards_line']}:
 - Over: @{odds_data['cards_over']:.2f} (Implícita: {(100/odds_data['cards_over']):.1f}%)
 - Under: @{odds_data['cards_under']:.2f} (Implícita: {(100/odds_data['cards_under']):.1f}%)""")
 
-    if not odds_text:
+    if not has_valid_odds:
         return None
-        
-    return "\n\n".join(odds_text)
-        
+
+    return "\n\n".join(odds_text)     
 def main():
     try:
         st.set_page_config(
