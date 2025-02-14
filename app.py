@@ -660,29 +660,34 @@ def main():
 
             # Seleção de mercados em container separado
             with st.expander("Mercados Disponíveis", expanded=True):
-                st.markdown("### Seleção de Mercados")
-                
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    selected_markets = {
-                        "money_line": st.checkbox("Money Line (1X2)", key='ml'),
-                        "over_under": st.checkbox("Over/Under", key='ou'),
-                        "chance_dupla": st.checkbox("Chance Dupla", key='cd')
-                    }
-                
-                with col2:
-                    selected_markets.update({
-                        "ambos_marcam": st.checkbox("Ambos Marcam", key='btts'),
-                        "escanteios": st.checkbox("Total de Escanteios", key='corners'),
-                        "cartoes": st.checkbox("Total de Cartões", key='cards')
-                    })
-
+    st.markdown("### Seleção de Mercados")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        selected_markets = {
+            "money_line": st.checkbox("Money Line (1X2)", value=True, key='ml'),
+            "over_under": st.checkbox("Over/Under", key='ou'),
+            "chance_dupla": st.checkbox("Chance Dupla", key='cd')
+        }
+    
+    with col2:
+        selected_markets.update({
+            "ambos_marcam": st.checkbox("Ambos Marcam", key='btts'),
+            "escanteios": st.checkbox("Total de Escanteios", key='corners'),
+            "cartoes": st.checkbox("Total de Cartões", key='cards')
+        })
             # Inputs de odds em container separado
             odds_data = None
-            if any(selected_markets.values()):
-                with st.expander("Configuração de Odds", expanded=True):
-                    odds_data = get_odds_data(selected_markets)
+if any(selected_markets.values()):
+    with st.expander("Configuração de Odds", expanded=True):
+        odds_data = get_odds_data(selected_markets)
+
+# Verificação antes de prosseguir
+if not any(selected_markets.values()):
+    st.warning("Por favor, selecione pelo menos um mercado para análise.")
+elif not odds_data:
+    st.warning("Por favor, configure as odds para os mercados selecionados.")
 
             # Adicionar CSS para container mais largo
             st.markdown("""
