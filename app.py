@@ -6,10 +6,8 @@ import time
 from openai import OpenAI
 import traceback
 import numpy as np
-from time import sleep
+import time
 from functools import wraps
-import time 
-
 
 
 # Definição das URLs do FBref
@@ -217,8 +215,6 @@ def analyze_with_gpt(prompt):
     except Exception as e:
         st.error(f"Erro inesperado: {str(e)}")
         return None
-```
-
 
 def parse_team_stats(html_content):
     """Processa os dados do time com tratamento melhorado para extrair estatísticas"""
@@ -468,7 +464,7 @@ def format_prompt(stats_df, home_team, away_team, odds_data):
         )
 
         # Montar o prompt
-        prompt = f"""Role: Agente Analista de Probabilidades Esportivas
+        base_prompt = f"""Role: Agente Analista de Probabilidades Esportivas
 
 KNOWLEDGE BASE INTERNO:
 - Estatísticas Home Team ({home_team}):{home_team_stats}
@@ -479,18 +475,19 @@ PROBABILIDADES CALCULADAS:
 """
         
         # Adicionar probabilidades calculadas se disponíveis
-        if real_probs:
-            prompt += f"""- Vitória {home_team}: {real_probs['home']:.1f}% (Real)
+         if real_probs:
+            base_prompt += f"""- Vitória {home_team}: {real_probs['home']:.1f}% (Real)
 - Empate: {real_probs['draw']:.1f}% (Real)
 - Vitória {away_team}: {real_probs['away']:.1f}% (Real)
 """
         else:
-            prompt += "Dados insuficientes para cálculo de probabilidades reais\n"
+            base_prompt += "Dados insuficientes para cálculo de probabilidades reais\n"
+
 
         # Adicionar odds dos mercados
       # Na função format_prompt, modificar a parte final do prompt para:
 
-prompt += f"""
+final_prompt = base_prompt + f"""
 [SAÍDA OBRIGATÓRIA]
 
 # Análise da Partida
@@ -508,123 +505,11 @@ prompt += f"""
 # Nível de Confiança Geral: [Baixo/Médio/Alto]
 """
         
-        return prompt
+        return final_prompt
     except Exception as e:
         st.error(f"Erro ao formatar prompt: {str(e)}")
         return None
         
-def get_odds_data(selected_markets):
-    """Função para coletar e formatar os dados das odds"""
-    odds_data = {}
-    odds_text = []
-    has_valid_odds = False
-
-    # Money Line
-    if selected_markets.get("money_line", False):
-        st.markdown("### Money Line")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            odds_data["home"] = st.number_input("Casa (@)", min_value=1.01, step=0.01, value=1.50, format="%.2f", key="ml_home")
-        with col2:
-            odds_data["draw"] = st.number_input("Empate (@)", min_value=1.01, step=0.01, value=4.00, format="%.2f", key="ml_draw")
-        with col3:
-            odds_data["away"] = st.number_input("Fora (@)", min_value=1.01, step=0.01, value=6.50, format="%.2f", key="ml_away")
-
-        if all(odds_data.get(k, 0) > 1.01 for k in ["home", "draw", "away"]):
-            has_valid_odds = True
-            odds_text.append(f"""Money Line:
-- Casa: @{odds_data['home']:.2f} (Implícita: {(100/odds_data['home']):.1f}%)
-- Empate: @{odds_data['draw']:.2f} (Implícita: {(100/odds_data['draw']):.1f}%)
-- Fora: @{odds_data['away']:.2f} (Implícita: {(100/odds_data['away']):.1f}%)""")
-
-    # Over/Under
-    if selected_markets.get("over_under", False):
-        st.markdown("### Over/Under")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            odds_data["goals_line"] = st.number_input("Linha", min_value=0.5, value=2.5, step=0.5, format="%.1f", key="goals_line")
-        with col2:
-            odds_data["over"] = st.number_input(f"Over {odds_data.get('goals_line', 2.5)} (@)", min_value=1.01, step=0.01, value=1.85, format="%.2f", key="ou_over")
-        with col3:
-            odds_data["under"] = st.number_input(f"Under {odds_data.get('goals_line', 2.5)} (@)", min_value=1.01, step=0.01, value=1.95, format="%.2f", key="ou_under")
-
-        if all(odds_data.get(k, 0) > 1.01 for k in ["over", "under"]):
-            has_valid_odds = True
-            odds_text.append(f"""Over/Under {odds_data['goals_line']}:
-- Over: @{odds_data['over']:.2f} (Implícita: {(100/odds_data['over']):.1f}%)
-- Under: @{odds_data['under']:.2f} (Implícita: {(100/odds_data['under']):.1f}%)""")
-
-    # Chance Dupla
-    if selected_markets.get("chance_dupla", False):
-        st.markdown("### Chance Dupla")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            odds_data["1x"] = st.number_input("1X (@)", min_value=1.01, step=0.01, value=1.20, format="%.2f", key="cd_1x")
-        with col2:
-            odds_data["12"] = st.number_input("12 (@)", min_value=1.01, step=0.01, value=1.30, format="%.2f", key="cd_12")
-        with col3:
-            odds_data["x2"] = st.number_input("X2 (@)", min_value=1.01, step=0.01, value=1.40, format="%.2f", key="cd_x2")
-
-        if all(odds_data.get(k, 0) > 1.01 for k in ["1x", "12", "x2"]):
-            has_valid_odds = True
-            odds_text.append(f"""Chance Dupla:
-- 1X: @{odds_data['1x']:.2f} (Implícita: {(100/odds_data['1x']):.1f}%)
-- 12: @{odds_data['12']:.2f} (Implícita: {(100/odds_data['12']):.1f}%)
-- X2: @{odds_data['x2']:.2f} (Implícita: {(100/odds_data['x2']):.1f}%)""")
-
-    # Ambos Marcam
-    if selected_markets.get("ambos_marcam", False):
-        st.markdown("### Ambos Marcam")
-        col1, col2 = st.columns(2)
-        with col1:
-            odds_data["btts_yes"] = st.number_input("Sim (@)", min_value=1.01, step=0.01, value=1.75, format="%.2f", key="btts_yes")
-        with col2:
-            odds_data["btts_no"] = st.number_input("Não (@)", min_value=1.01, step=0.01, value=2.05, format="%.2f", key="btts_no")
-
-        if all(odds_data.get(k, 0) > 1.01 for k in ["btts_yes", "btts_no"]):
-            has_valid_odds = True
-            odds_text.append(f"""Ambos Marcam:
-- Sim: @{odds_data['btts_yes']:.2f} (Implícita: {(100/odds_data['btts_yes']):.1f}%)
-- Não: @{odds_data['btts_no']:.2f} (Implícita: {(100/odds_data['btts_no']):.1f}%)""")
-
-    # Total de Escanteios
-    if selected_markets.get("escanteios", False):
-        st.markdown("### Total de Escanteios")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            odds_data["corners_line"] = st.number_input("Linha Escanteios", min_value=0.5, value=9.5, step=0.5, format="%.1f", key="corners_line")
-        with col2:
-            odds_data["corners_over"] = st.number_input("Over Escanteios (@)", min_value=1.01, step=0.01, value=1.85, format="%.2f", key="corners_over")
-        with col3:
-            odds_data["corners_under"] = st.number_input("Under Escanteios (@)", min_value=1.01, step=0.01, value=1.95, format="%.2f", key="corners_under")
-
-        if all(odds_data.get(k, 0) > 1.01 for k in ["corners_over", "corners_under"]):
-            has_valid_odds = True
-            odds_text.append(f"""Total de Escanteios {odds_data['corners_line']}:
-- Over: @{odds_data['corners_over']:.2f} (Implícita: {(100/odds_data['corners_over']):.1f}%)
-- Under: @{odds_data['corners_under']:.2f} (Implícita: {(100/odds_data['corners_under']):.1f}%)""")
-
-    # Total de Cartões
-    if selected_markets.get("cartoes", False):
-        st.markdown("### Total de Cartões")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            odds_data["cards_line"] = st.number_input("Linha Cartões", min_value=0.5, value=3.5, step=0.5, format="%.1f", key="cards_line")
-        with col2:
-            odds_data["cards_over"] = st.number_input("Over Cartões (@)", min_value=1.01, step=0.01, value=1.85, format="%.2f", key="cards_over")
-        with col3:
-            odds_data["cards_under"] = st.number_input("Under Cartões (@)", min_value=1.01, step=0.01, value=1.95, format="%.2f", key="cards_under")
-
-        if all(odds_data.get(k, 0) > 1.01 for k in ["cards_over", "cards_under"]):
-            has_valid_odds = True
-            odds_text.append(f"""Total de Cartões {odds_data['cards_line']}:
-- Over: @{odds_data['cards_over']:.2f} (Implícita: {(100/odds_data['cards_over']):.1f}%)
-- Under: @{odds_data['cards_under']:.2f} (Implícita: {(100/odds_data['cards_under']):.1f}%)""")
-
-    if not has_valid_odds:
-        return None
-
-    return "\n\n".join(odds_text)     
 
 def main():
     try:
@@ -636,14 +521,65 @@ def main():
             initial_sidebar_state="expanded"
         )
         
-        st.markdown("""
+         st.markdown("""
             <style>
-            /* Configuração geral para containers */
-            .block-container {
-                max-width: 100% !important;
-                width: 100% !important;
-                padding: 2rem !important;
-            }
+                .block-container {
+                    max-width: 100% !important;
+                    width: 100% !important;
+                    padding: 2rem !important;
+                }
+
+                .main > div {
+                    max-width: 100% !important;
+                    width: 100% !important;
+                    padding: 0 !important;
+                }
+
+                .stMarkdown {
+                    max-width: 100% !important;
+                    width: 100% !important;
+                }
+
+                .report-container {
+                    width: 100% !important;
+                    max-width: 100% !important;
+                    margin: 0 !important;
+                    padding: 2rem !important;
+                }
+
+                .stMarkdown h1,
+                .stMarkdown h2,
+                .stMarkdown h3 {
+                    width: 100% !important;
+                    padding: 1rem 0 !important;
+                }
+
+                .stMarkdown p {
+                    width: 100% !important;
+                    font-size: 1rem !important;
+                }
+
+                [data-testid="stVerticalBlock"] {
+                    width: 100% !important;
+                    max-width: 100% !important;
+                    padding: 0 !important;
+                }
+
+                .css-1d391kg, 
+                .css-12oz5g7 {
+                    padding: 1rem 0 !important;
+                }
+
+                .streamlit-expanderHeader {
+                    width: 100% !important;
+                }
+
+                div[data-testid="stExpander"] {
+                    width: 100% !important;
+                    max-width: 100% !important;
+                }
+            </style>
+        """, unsafe_allow_html=True)
 
     /* Remove restrições de largura do streamlit */
     .main > div {
@@ -796,20 +732,20 @@ def main():
                                 odds_data
                             )
                             
-                          if prompt:
-    analysis = analyze_with_gpt(prompt)
-    if analysis:
-        st.markdown("""
-            <style>
-            .analysis-wrapper {
-                width: 100% !important;
-                max-width: 100% !important;
-                margin: 0 !important;
-                padding: 2rem !important;
-                box-sizing: border-box !important;
-            }
-            </style>
-        """, unsafe_allow_html=True)
+if prompt:  # Correção
+                                analysis = analyze_with_gpt(prompt)
+                                if analysis:
+                                    st.markdown("""
+                                        <style>
+                                        .analysis-wrapper {
+                                            width: 100% !important;
+                                            max-width: 100% !important;
+                                            margin: 0 !important;
+                                            padding: 2rem !important;
+                                            box-sizing: border-box !important;
+                                        }
+                                        </style>
+                                    """, unsafe_allow_html=True)
         
         st.markdown('<div class="analysis-wrapper">', unsafe_allow_html=True)
         st.markdown("# Análise da Partida")
