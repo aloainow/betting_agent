@@ -183,25 +183,28 @@ def get_fbref_urls():
     }
 
 @st.cache_resource
+@st.cache_resource
 def get_openai_client():
     """Função para criar e retornar o cliente OpenAI usando cache_resource"""
     try:
-        return OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+        st.write("Tentando criar cliente OpenAI...")  # Log 9
+        client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+        st.write("Cliente OpenAI criado com sucesso!")  # Log 10
+        return client
     except Exception as e:
         st.error(f"Erro ao criar cliente OpenAI: {str(e)}")
         return None
 
-# Adicione esta importação no topo do arquivo junto com os outros imports
-from openai import OpenAI, OpenAIError
+
 
 def analyze_with_gpt(prompt):
-    """Função para fazer a chamada à API do GPT"""
     try:
         client = get_openai_client()
         if not client:
             st.error("Cliente OpenAI não inicializado")
             return None
             
+        st.write("Enviando requisição para API...")
         response = client.chat.completions.create(
             model="gpt-4",
             messages=[
@@ -211,7 +214,8 @@ def analyze_with_gpt(prompt):
                 },
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.3
+            temperature=0.3,
+            timeout=60  # Timeout de 60 segundos
         )
         return response.choices[0].message.content
     except OpenAIError as e:
@@ -413,6 +417,7 @@ def get_stat(stats, col, default='N/A'):
 def format_prompt(stats_df, home_team, away_team, odds_data):
     """Formata o prompt para o GPT-4 com os dados coletados"""
     try:
+        st.write("Iniciando formatação do prompt...")  # Novo log
         # Extrair dados dos times
         home_stats = stats_df[stats_df['Squad'] == home_team].iloc[0]
         away_stats = stats_df[stats_df['Squad'] == away_team].iloc[0]
@@ -459,6 +464,8 @@ def format_prompt(stats_df, home_team, away_team, odds_data):
   * Expected Goals (xG): {get_stat(away_stats, 'xG')}
   * Posse de Bola: {get_stat(away_stats, 'Poss')}%"""
 
+        st.write("Calculando probabilidades...")  # Novo log
+
         # Calcular probabilidades reais
         real_probs = calculate_real_prob(
             float(get_stat(home_stats, 'xG', 0)),
@@ -503,12 +510,12 @@ PROBABILIDADES CALCULADAS:
 
 # Nível de Confiança Geral: [Baixo/Médio/Alto]
 """
+        st.write("Prompt formatado com sucesso!")  # Log final
         return full_prompt
 
     except Exception as e:
         st.error(f"Erro ao formatar prompt: {str(e)}")
         return None
-
 def main():
     try:
         # Configuração inicial do Streamlit para layout mais largo
