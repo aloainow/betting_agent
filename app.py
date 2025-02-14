@@ -77,6 +77,24 @@ def get_odds_data(selected_markets):
 - Over: @{odds_data['over']:.2f} (Implícita: {(100/odds_data['over']):.1f}%)
 - Under: @{odds_data['under']:.2f} (Implícita: {(100/odds_data['under']):.1f}%)""")
 
+    # Chance Dupla
+    if selected_markets.get("chance_dupla", False):
+        st.markdown("### Chance Dupla")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            odds_data["1x"] = st.number_input("1X (@)", min_value=1.01, step=0.01, value=1.20, format="%.2f", key="cd_1x")
+        with col2:
+            odds_data["12"] = st.number_input("12 (@)", min_value=1.01, step=0.01, value=1.30, format="%.2f", key="cd_12")
+        with col3:
+            odds_data["x2"] = st.number_input("X2 (@)", min_value=1.01, step=0.01, value=1.40, format="%.2f", key="cd_x2")
+
+        if all(odds_data.get(k, 0) > 1.01 for k in ["1x", "12", "x2"]):
+            has_valid_odds = True
+            odds_text.append(f"""Chance Dupla:
+- 1X: @{odds_data['1x']:.2f} (Implícita: {(100/odds_data['1x']):.1f}%)
+- 12: @{odds_data['12']:.2f} (Implícita: {(100/odds_data['12']):.1f}%)
+- X2: @{odds_data['x2']:.2f} (Implícita: {(100/odds_data['x2']):.1f}%)""")
+
     # Ambos Marcam
     if selected_markets.get("ambos_marcam", False):
         st.markdown("### Ambos Marcam")
@@ -92,11 +110,43 @@ def get_odds_data(selected_markets):
 - Sim: @{odds_data['btts_yes']:.2f} (Implícita: {(100/odds_data['btts_yes']):.1f}%)
 - Não: @{odds_data['btts_no']:.2f} (Implícita: {(100/odds_data['btts_no']):.1f}%)""")
 
-    # Se não houver odds válidas, retorna None
+    # Total de Escanteios
+    if selected_markets.get("escanteios", False):
+        st.markdown("### Total de Escanteios")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            odds_data["corners_line"] = st.number_input("Linha Escanteios", min_value=0.5, value=9.5, step=0.5, format="%.1f", key="corners_line")
+        with col2:
+            odds_data["corners_over"] = st.number_input("Over Escanteios (@)", min_value=1.01, step=0.01, value=1.85, format="%.2f", key="corners_over")
+        with col3:
+            odds_data["corners_under"] = st.number_input("Under Escanteios (@)", min_value=1.01, step=0.01, value=1.95, format="%.2f", key="corners_under")
+
+        if all(odds_data.get(k, 0) > 1.01 for k in ["corners_over", "corners_under"]):
+            has_valid_odds = True
+            odds_text.append(f"""Total de Escanteios {odds_data['corners_line']}:
+- Over: @{odds_data['corners_over']:.2f} (Implícita: {(100/odds_data['corners_over']):.1f}%)
+- Under: @{odds_data['corners_under']:.2f} (Implícita: {(100/odds_data['corners_under']):.1f}%)""")
+
+    # Total de Cartões
+    if selected_markets.get("cartoes", False):
+        st.markdown("### Total de Cartões")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            odds_data["cards_line"] = st.number_input("Linha Cartões", min_value=0.5, value=3.5, step=0.5, format="%.1f", key="cards_line")
+        with col2:
+            odds_data["cards_over"] = st.number_input("Over Cartões (@)", min_value=1.01, step=0.01, value=1.85, format="%.2f", key="cards_over")
+        with col3:
+            odds_data["cards_under"] = st.number_input("Under Cartões (@)", min_value=1.01, step=0.01, value=1.95, format="%.2f", key="cards_under")
+
+        if all(odds_data.get(k, 0) > 1.01 for k in ["cards_over", "cards_under"]):
+            has_valid_odds = True
+            odds_text.append(f"""Total de Cartões {odds_data['cards_line']}:
+- Over: @{odds_data['cards_over']:.2f} (Implícita: {(100/odds_data['cards_over']):.1f}%)
+- Under: @{odds_data['cards_under']:.2f} (Implícita: {(100/odds_data['cards_under']):.1f}%)""")
+
     if not has_valid_odds:
         return None
         
-    # Retorna o texto formatado com todas as odds
     return "\n\n".join(odds_text)
 
     
@@ -327,39 +377,66 @@ def fetch_fbref_data(url):
     
     return None
 
+# 3. Para incluir o cálculo da probabilidade real, vamos modificar o format_prompt:
 def format_prompt(stats_df, home_team, away_team, odds_data):
     """Formata o prompt para o GPT-4 com os dados coletados"""
     try:
         home_stats = stats_df[stats_df['Squad'] == home_team].iloc[0]
         away_stats = stats_df[stats_df['Squad'] == away_team].iloc[0]
         
-        def get_stat(stats, col, default='N/A'):
-            try:
-                value = stats[col]
-                if pd.notna(value):
-                    return value
-                return default
-            except:
-                return default
-
-        home_team_stats = f"""
-  * Jogos Disputados: {get_stat(home_stats, 'MP')}
-  * Gols Marcados: {get_stat(home_stats, 'Gls')}
-  * Expected Goals (xG): {get_stat(home_stats, 'xG')}
-  * Posse de Bola: {get_stat(home_stats, 'Poss')}%"""
-
-        away_team_stats = f"""
-  * Jogos Disputados: {get_stat(away_stats, 'MP')}
-  * Gols Marcados: {get_stat(away_stats, 'Gls')}
-  * Expected Goals (xG): {get_stat(away_stats, 'xG')}
-  * Posse de Bola: {get_stat(away_stats, 'Poss')}%"""
+        # Calcular probabilidades reais baseadas em xG e outros dados
+        def calculate_real_prob(home_xg, away_xg, home_games, away_games):
+            if pd.isna(home_xg) or pd.isna(away_xg):
+                return None
+            
+            home_xg_per_game = home_xg / home_games if home_games > 0 else 0
+            away_xg_per_game = away_xg / away_games if away_games > 0 else 0
+            
+            # Ajuste baseado em home advantage
+            home_advantage = 1.1
+            adjusted_home_xg = home_xg_per_game * home_advantage
+            
+            total_xg = adjusted_home_xg + away_xg_per_game
+            if total_xg == 0:
+                return None
+                
+            home_prob = (adjusted_home_xg / total_xg) * 100
+            away_prob = (away_xg_per_game / total_xg) * 100
+            draw_prob = 100 - (home_prob + away_prob)
+            
+            return {
+                'home': home_prob,
+                'draw': draw_prob,
+                'away': away_prob
+            }
+        
+        # Calcular probabilidades reais
+        real_probs = calculate_real_prob(
+            float(get_stat(home_stats, 'xG', 0)),
+            float(get_stat(away_stats, 'xG', 0)),
+            float(get_stat(home_stats, 'MP', 1)),
+            float(get_stat(away_stats, 'MP', 1))
+        )
 
         prompt = f"""Role: Agente Analista de Probabilidades Esportivas
 
 KNOWLEDGE BASE INTERNO:
-- Estatísticas Home Team ({home_team}):{home_team_stats}
+- Estatísticas Home Team ({home_team}):
+  * Jogos Disputados: {get_stat(home_stats, 'MP')}
+  * Gols Marcados: {get_stat(home_stats, 'Gls')}
+  * Expected Goals (xG): {get_stat(home_stats, 'xG')}
+  * Posse de Bola: {get_stat(home_stats, 'Poss')}%
 
-- Estatísticas Away Team ({away_team}):{away_team_stats}
+- Estatísticas Away Team ({away_team}):
+  * Jogos Disputados: {get_stat(away_stats, 'MP')}
+  * Gols Marcados: {get_stat(away_stats, 'Gls')}
+  * Expected Goals (xG): {get_stat(away_stats, 'xG')}
+  * Posse de Bola: {get_stat(away_stats, 'Poss')}%
+
+PROBABILIDADES CALCULADAS:
+{f'''- Vitória {home_team}: {real_probs["home"]:.1f}% (Real) vs {(100/float(odds_data.get("home", 100))):.1f}% (Implícita)
+- Empate: {real_probs["draw"]:.1f}% (Real) vs {(100/float(odds_data.get("draw", 100))):.1f}% (Implícita)
+- Vitória {away_team}: {real_probs["away"]:.1f}% (Real) vs {(100/float(odds_data.get("away", 100))):.1f}% (Implícita)''' if real_probs else "Dados insuficientes para cálculo de probabilidades reais"}
 
 ODDS DOS MERCADOS:
 {odds_data}
@@ -370,6 +447,9 @@ Partida: {home_team} x {away_team}
 # Análise de Mercados Disponíveis:
 {odds_data}
 
+PROBABILIDADES CALCULADAS:
+[Incluir comparação entre probabilidades reais e implícitas para cada mercado]
+
 OPORTUNIDADES IDENTIFICADAS (Edges >3%):
 [Listar apenas mercados com edges positivos significativos]
 
@@ -379,7 +459,6 @@ Nível de Confiança Geral: [Baixo/Médio/Alto]"""
     except Exception as e:
         st.error(f"Erro ao formatar prompt: {str(e)}")
         return None
-
 def get_odds_data(selected_markets):
     """Função para coletar e formatar os dados das odds"""
     odds_data = {}
@@ -474,13 +553,33 @@ def get_odds_data(selected_markets):
         
 def main():
     try:
-        # Configuração inicial do Streamlit para layout mais largo
         st.set_page_config(
             page_title="Análise de Apostas Esportivas",
             page_icon="⚽",
             layout="wide",
             initial_sidebar_state="expanded"
         )
+
+        # Modificar o CSS para layout mais amplo
+        st.markdown("""
+            <style>
+            .main > div {
+                max-width: 1200px;
+                padding: 1rem;
+                margin: auto;
+            }
+            .stMarkdown {
+                max-width: 100% !important;
+            }
+            .report-container {
+                width: 100% !important;
+                max-width: none !important;
+                margin: 0 !important;
+                padding: 1rem !important;
+            }
+            </style>
+        """, unsafe_allow_html=True)
+
 
         # Título principal na sidebar
         st.sidebar.title("Análise de Apostas Esportivas")
