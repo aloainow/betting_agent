@@ -6,6 +6,10 @@ import time
 from openai import OpenAI
 import traceback
 import numpy as np
+from time import sleep
+from functools import wraps
+import time 
+
 
 
 # Definição das URLs do FBref
@@ -189,11 +193,10 @@ def get_openai_client():
         return None
 
 def analyze_with_gpt(prompt):
-    """Função para fazer a chamada à API do GPT"""
     try:
         client = get_openai_client()
         if not client:
-            st.error("Não foi possível inicializar o cliente OpenAI")
+            st.error("Cliente OpenAI não inicializado")
             return None
             
         response = client.chat.completions.create(
@@ -201,17 +204,20 @@ def analyze_with_gpt(prompt):
             messages=[
                 {
                     "role": "system",
-                    "content": "Você é um Agente Analista de Probabilidades Esportivas especializado. Você DEVE seguir EXATAMENTE o formato de saída especificado no prompt do usuário, preenchendo todos os campos com os valores calculados."
+                    "content": "Você é um Agente Analista..."
                 },
                 {"role": "user", "content": prompt}
             ],
             temperature=0.3
         )
         return response.choices[0].message.content
-    except Exception as e:
-        st.error(f"Erro na chamada da API: {str(e)}")
+    except OpenAIError as e:
+        st.error(f"Erro na API OpenAI: {str(e)}")
         return None
-
+    except Exception as e:
+        st.error(f"Erro inesperado: {str(e)}")
+        return None
+```
 
 
 def parse_team_stats(html_content):
@@ -337,6 +343,21 @@ def parse_team_stats(html_content):
         st.error(f"Erro ao processar dados: {str(e)}")
         return None
 
+def rate_limit(seconds):
+    def decorator(func):
+        last_called = [0]
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            elapsed = time.time() - last_called[0]
+            if elapsed < seconds:
+                sleep(seconds - elapsed)
+            result = func(*args, **kwargs)
+            last_called[0] = time.time()
+            return result
+        return wrapper
+    return decorator
+
+@rate_limit(1)  # 1 requisição por segundo
 def fetch_fbref_data(url):
     """Busca dados do FBref com retry melhorado e headers customizados"""
     headers = {
@@ -604,6 +625,7 @@ def get_odds_data(selected_markets):
         return None
 
     return "\n\n".join(odds_text)     
+
 def main():
     try:
         # Configuração inicial do Streamlit para layout mais largo
@@ -613,44 +635,74 @@ def main():
             layout="wide",
             initial_sidebar_state="expanded"
         )
-# Adicionar CSS customizado para layout mais amplo
-st.markdown("""
-    <style>
-    .main {
-        max-width: 1200px;
+        
+        st.markdown("""
+            <style>
+            /* Configuração geral para containers */
+            .block-container {
+                max-width: 100% !important;
+                width: 100% !important;
+                padding: 2rem !important;
+            }
+
+    /* Remove restrições de largura do streamlit */
+    .main > div {
+        max-width: 100% !important;
+        width: 100% !important;
         padding: 0 !important;
     }
+
+    /* Configuração para elementos markdown */
     .stMarkdown {
         max-width: 100% !important;
+        width: 100% !important;
     }
-    .reportview-container .main .block-container {
-        max-width: 1200px;
-        padding-top: 2rem;
-        padding-right: 2rem;
-        padding-left: 2rem;
-        padding-bottom: 2rem;
-    }
+
+    /* Container da análise */
     .report-container {
         width: 100% !important;
-        max-width: none !important;
+        max-width: 100% !important;
         margin: 0 !important;
         padding: 2rem !important;
     }
-    div[data-testid="stExpander"] div[data-testid="stMarkdown"] {
+
+    /* Headers e texto */
+    .stMarkdown h1,
+    .stMarkdown h2,
+    .stMarkdown h3 {
         width: 100% !important;
-        max-width: none !important;
+        padding: 1rem 0 !important;
+    }
+
+    .stMarkdown p {
+        width: 100% !important;
+        font-size: 1rem !important;
+    }
+
+    /* Força todos os containers a usarem largura total */
+    [data-testid="stVerticalBlock"] {
+        width: 100% !important;
+        max-width: 100% !important;
         padding: 0 !important;
     }
-    div.stMarkdown > div > p {
-        font-size: 16px !important;
-    }
-    h1, h2, h3 {
-        margin-top: 1rem !important;
-        margin-bottom: 1rem !important;
-    }
-    </style>
-""", unsafe_allow_html=True)
 
+    /* Remove padding excessivo */
+    .css-1d391kg, .css-12oz5g7 {
+        padding: 1rem 0 !important;
+    }
+
+    /* Configuração para expanders */
+    .streamlit-expanderHeader {
+        width: 100% !important;
+    }
+
+    div[data-testid="stExpander"] {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+ </style>
+        """, unsafe_allow_html=True)
+```
         # Título principal na sidebar
         st.sidebar.title("Análise de Apostas Esportivas")
         
@@ -744,15 +796,26 @@ st.markdown("""
                                 odds_data
                             )
                             
-                            if prompt:
+                          if prompt:
     analysis = analyze_with_gpt(prompt)
     if analysis:
-        st.markdown('<div class="report-container">', unsafe_allow_html=True)
+        st.markdown("""
+            <style>
+            .analysis-wrapper {
+                width: 100% !important;
+                max-width: 100% !important;
+                margin: 0 !important;
+                padding: 2rem !important;
+                box-sizing: border-box !important;
+            }
+            </style>
+        """, unsafe_allow_html=True)
+        
+        st.markdown('<div class="analysis-wrapper">', unsafe_allow_html=True)
         st.markdown("# Análise da Partida")
         st.markdown(analysis)
         st.markdown('</div>', unsafe_allow_html=True)
-                        except Exception as e:
-                            st.error(f"Erro na análise: {str(e)}")
+```
                     
     except Exception as e:
         st.error(f"Erro geral na aplicação: {str(e)}")
