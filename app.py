@@ -515,7 +515,7 @@ def main():
             initial_sidebar_state="expanded"
         )
         
-         st.markdown("""
+        st.markdown("""
             <style>
                 .block-container {
                     max-width: 100% !important;
@@ -575,64 +575,6 @@ def main():
             </style>
         """, unsafe_allow_html=True)
 
-    /* Remove restrições de largura do streamlit */
-    .main > div {
-        max-width: 100% !important;
-        width: 100% !important;
-        padding: 0 !important;
-    }
-
-    /* Configuração para elementos markdown */
-    .stMarkdown {
-        max-width: 100% !important;
-        width: 100% !important;
-    }
-
-    /* Container da análise */
-    .report-container {
-        width: 100% !important;
-        max-width: 100% !important;
-        margin: 0 !important;
-        padding: 2rem !important;
-    }
-
-    /* Headers e texto */
-    .stMarkdown h1,
-    .stMarkdown h2,
-    .stMarkdown h3 {
-        width: 100% !important;
-        padding: 1rem 0 !important;
-    }
-
-    .stMarkdown p {
-        width: 100% !important;
-        font-size: 1rem !important;
-    }
-
-    /* Força todos os containers a usarem largura total */
-    [data-testid="stVerticalBlock"] {
-        width: 100% !important;
-        max-width: 100% !important;
-        padding: 0 !important;
-    }
-
-    /* Remove padding excessivo */
-    .css-1d391kg, .css-12oz5g7 {
-        padding: 1rem 0 !important;
-    }
-
-    /* Configuração para expanders */
-    .streamlit-expanderHeader {
-        width: 100% !important;
-    }
-
-    div[data-testid="stExpander"] {
-        width: 100% !important;
-        max-width: 100% !important;
-    }
- </style>
-        """, unsafe_allow_html=True)
-```
         # Título principal na sidebar
         st.sidebar.title("Análise de Apostas Esportivas")
         
@@ -726,7 +668,7 @@ def main():
                                 odds_data
                             )
                             
-if prompt:  # Correção
+                            if prompt:
                                 analysis = analyze_with_gpt(prompt)
                                 if analysis:
                                     st.markdown("""
@@ -740,12 +682,11 @@ if prompt:  # Correção
                                         }
                                         </style>
                                     """, unsafe_allow_html=True)
-        
-        st.markdown('<div class="analysis-wrapper">', unsafe_allow_html=True)
-        st.markdown("# Análise da Partida")
-        st.markdown(analysis)
-        st.markdown('</div>', unsafe_allow_html=True)
-```
+                                    
+                                    st.markdown('<div class="analysis-wrapper">', unsafe_allow_html=True)
+                                    st.markdown("# Análise da Partida")
+                                    st.markdown(analysis)
+                                    st.markdown('</div>', unsafe_allow_html=True)
                     
     except Exception as e:
         st.error(f"Erro geral na aplicação: {str(e)}")
