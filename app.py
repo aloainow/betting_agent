@@ -463,28 +463,26 @@ def format_prompt(stats_df, home_team, away_team, odds_data):
             float(get_stat(away_stats, 'MP', 1))
         )
 
-        # Montar o prompt base
-        prompt = f"""Role: Agente Analista de Probabilidades Esportivas
+        # Montar o prompt completo
+        full_prompt = f"""Role: Agente Analista de Probabilidades Esportivas
 
 KNOWLEDGE BASE INTERNO:
 - Estatísticas Home Team ({home_team}):{home_team_stats}
 
 - Estatísticas Away Team ({away_team}):{away_team_stats}
 
-PROBABILIDADES CALCULADAS:"""
-
-        # Adicionar probabilidades calculadas se disponíveis
+PROBABILIDADES CALCULADAS:
+"""
+        
         if real_probs:
-            prompt += f"""
-- Vitória {home_team}: {real_probs['home']:.1f}% (Real)
+            full_prompt += f"""- Vitória {home_team}: {real_probs['home']:.1f}% (Real)
 - Empate: {real_probs['draw']:.1f}% (Real)
-- Vitória {away_team}: {real_probs['away']:.1f}% (Real)"""
+- Vitória {away_team}: {real_probs['away']:.1f}% (Real)
+"""
         else:
-            prompt += "\nDados insuficientes para cálculo de probabilidades reais"
+            full_prompt += "Dados insuficientes para cálculo de probabilidades reais\n"
 
-
-prompt += f"""
-
+        full_prompt += f"""
 [SAÍDA OBRIGATÓRIA]
 
 # Análise da Partida
@@ -501,11 +499,11 @@ prompt += f"""
 
 # Nível de Confiança Geral: [Baixo/Médio/Alto]
 """
-        return prompt
+        return full_prompt
+
     except Exception as e:
         st.error(f"Erro ao formatar prompt: {str(e)}")
         return None
-
 
 def main():
     try:
