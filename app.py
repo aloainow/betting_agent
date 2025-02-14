@@ -467,28 +467,31 @@ PROBABILIDADES CALCULADAS:
             prompt += "Dados insuficientes para cálculo de probabilidades reais\n"
 
         # Adicionar odds dos mercados
-        prompt += f"""
-ODDS DOS MERCADOS:
-{odds_data}
+      # Na função format_prompt, modificar a parte final do prompt para:
 
+prompt += f"""
 [SAÍDA OBRIGATÓRIA]
-Partida: {home_team} x {away_team}
+
+# Análise da Partida
+## {home_team} x {away_team}
 
 # Análise de Mercados Disponíveis:
 {odds_data}
 
-PROBABILIDADES CALCULADAS:
-[Incluir comparação entre probabilidades reais e implícitas para cada mercado]
+# Probabilidades Calculadas:
+[Detalhamento das probabilidades reais vs implícitas por mercado]
 
-OPORTUNIDADES IDENTIFICADAS (Edges >3%):
-[Listar apenas mercados com edges positivos significativos]
+# Oportunidades Identificadas (Edges >3%):
+[Listagem detalhada dos mercados com edges significativos]
 
-Nível de Confiança Geral: [Baixo/Médio/Alto]"""
+# Nível de Confiança Geral: [Baixo/Médio/Alto]
+"""
         
         return prompt
     except Exception as e:
         st.error(f"Erro ao formatar prompt: {str(e)}")
         return None
+        
 def get_odds_data(selected_markets):
     """Função para coletar e formatar os dados das odds"""
     odds_data = {}
@@ -610,6 +613,43 @@ def main():
             layout="wide",
             initial_sidebar_state="expanded"
         )
+# Adicionar CSS customizado para layout mais amplo
+st.markdown("""
+    <style>
+    .main {
+        max-width: 1200px;
+        padding: 0 !important;
+    }
+    .stMarkdown {
+        max-width: 100% !important;
+    }
+    .reportview-container .main .block-container {
+        max-width: 1200px;
+        padding-top: 2rem;
+        padding-right: 2rem;
+        padding-left: 2rem;
+        padding-bottom: 2rem;
+    }
+    .report-container {
+        width: 100% !important;
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 2rem !important;
+    }
+    div[data-testid="stExpander"] div[data-testid="stMarkdown"] {
+        width: 100% !important;
+        max-width: none !important;
+        padding: 0 !important;
+    }
+    div.stMarkdown > div > p {
+        font-size: 16px !important;
+    }
+    h1, h2, h3 {
+        margin-top: 1rem !important;
+        margin-bottom: 1rem !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
         # Título principal na sidebar
         st.sidebar.title("Análise de Apostas Esportivas")
@@ -705,13 +745,12 @@ def main():
                             )
                             
                             if prompt:
-                                analysis = analyze_with_gpt(prompt)
-                                if analysis:
-                                    with st.container():
-                                        st.markdown('<div class="report-container">', unsafe_allow_html=True)
-                                        st.markdown("## Análise da Partida")
-                                        st.markdown(analysis)
-                                        st.markdown('</div>', unsafe_allow_html=True)
+    analysis = analyze_with_gpt(prompt)
+    if analysis:
+        st.markdown('<div class="report-container">', unsafe_allow_html=True)
+        st.markdown("# Análise da Partida")
+        st.markdown(analysis)
+        st.markdown('</div>', unsafe_allow_html=True)
                         except Exception as e:
                             st.error(f"Erro na análise: {str(e)}")
                     
