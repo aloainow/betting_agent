@@ -392,35 +392,52 @@ def get_stat(stats, col, default='N/A'):
 def format_prompt(stats_df, home_team, away_team, odds_data):
     """Formata o prompt para o GPT-4 com os dados coletados"""
     try:
+        # Extrair dados dos times
         home_stats = stats_df[stats_df['Squad'] == home_team].iloc[0]
         away_stats = stats_df[stats_df['Squad'] == away_team].iloc[0]
         
         # Calcular probabilidades reais baseadas em xG e outros dados
         def calculate_real_prob(home_xg, away_xg, home_games, away_games):
-            if pd.isna(home_xg) or pd.isna(away_xg):
-                return None
-            
-            home_xg_per_game = home_xg / home_games if home_games > 0 else 0
-            away_xg_per_game = away_xg / away_games if away_games > 0 else 0
-            
-            # Ajuste baseado em home advantage
-            home_advantage = 1.1
-            adjusted_home_xg = home_xg_per_game * home_advantage
-            
-            total_xg = adjusted_home_xg + away_xg_per_game
-            if total_xg == 0:
-                return None
+            try:
+                if pd.isna(home_xg) or pd.isna(away_xg):
+                    return None
                 
-            home_prob = (adjusted_home_xg / total_xg) * 100
-            away_prob = (away_xg_per_game / total_xg) * 100
-            draw_prob = 100 - (home_prob + away_prob)
-            
-            return {
-                'home': home_prob,
-                'draw': draw_prob,
-                'away': away_prob
-            }
-        
+                home_xg_per_game = home_xg / home_games if home_games > 0 else 0
+                away_xg_per_game = away_xg / away_games if away_games > 0 else 0
+                
+                # Ajuste baseado em home advantage
+                home_advantage = 1.1
+                adjusted_home_xg = home_xg_per_game * home_advantage
+                
+                total_xg = adjusted_home_xg + away_xg_per_game
+                if total_xg == 0:
+                    return None
+                    
+                home_prob = (adjusted_home_xg / total_xg) * 100
+                away_prob = (away_xg_per_game / total_xg) * 100
+                draw_prob = 100 - (home_prob + away_prob)
+                
+                return {
+                    'home': home_prob,
+                    'draw': draw_prob,
+                    'away': away_prob
+                }
+            except:
+                return None
+
+        # Formatar estatísticas dos times
+        home_team_stats = f"""
+  * Jogos Disputados: {get_stat(home_stats, 'MP')}
+  * Gols Marcados: {get_stat(home_stats, 'Gls')}
+  * Expected Goals (xG): {get_stat(home_stats, 'xG')}
+  * Posse de Bola: {get_stat(home_stats, 'Poss')}%"""
+
+        away_team_stats = f"""
+  * Jogos Disputados: {get_stat(away_stats, 'MP')}
+  * Gols Marcados: {get_stat(away_stats, 'Gls')}
+  * Expected Goals (xG): {get_stat(away_stats, 'xG')}
+  * Posse de Bola: {get_stat(away_stats, 'Poss')}%"""
+
         # Calcular probabilidades reais
         real_probs = calculate_real_prob(
             float(get_stat(home_stats, 'xG', 0)),
@@ -429,26 +446,28 @@ def format_prompt(stats_df, home_team, away_team, odds_data):
             float(get_stat(away_stats, 'MP', 1))
         )
 
+        # Montar o prompt
         prompt = f"""Role: Agente Analista de Probabilidades Esportivas
 
 KNOWLEDGE BASE INTERNO:
-- Estatísticas Home Team ({home_team}):
-  * Jogos Disputados: {get_stat(home_stats, 'MP')}
-  * Gols Marcados: {get_stat(home_stats, 'Gls')}
-  * Expected Goals (xG): {get_stat(home_stats, 'xG')}
-  * Posse de Bola: {get_stat(home_stats, 'Poss')}%
+- Estatísticas Home Team ({home_team}):{home_team_stats}
 
-- Estatísticas Away Team ({away_team}):
-  * Jogos Disputados: {get_stat(away_stats, 'MP')}
-  * Gols Marcados: {get_stat(away_stats, 'Gls')}
-  * Expected Goals (xG): {get_stat(away_stats, 'xG')}
-  * Posse de Bola: {get_stat(away_stats, 'Poss')}%
+- Estatísticas Away Team ({away_team}):{away_team_stats}
 
 PROBABILIDADES CALCULADAS:
-{f'''- Vitória {home_team}: {real_probs["home"]:.1f}% (Real) vs {(100/float(odds_data.get("home", 100))):.1f}% (Implícita)
-- Empate: {real_probs["draw"]:.1f}% (Real) vs {(100/float(odds_data.get("draw", 100))):.1f}% (Implícita)
-- Vitória {away_team}: {real_probs["away"]:.1f}% (Real) vs {(100/float(odds_data.get("away", 100))):.1f}% (Implícita)''' if real_probs else "Dados insuficientes para cálculo de probabilidades reais"}
+"""
+        
+        # Adicionar probabilidades calculadas se disponíveis
+        if real_probs:
+            prompt += f"""- Vitória {home_team}: {real_probs['home']:.1f}% (Real)
+- Empate: {real_probs['draw']:.1f}% (Real)
+- Vitória {away_team}: {real_probs['away']:.1f}% (Real)
+"""
+        else:
+            prompt += "Dados insuficientes para cálculo de probabilidades reais\n"
 
+        # Adicionar odds dos mercados
+        prompt += f"""
 ODDS DOS MERCADOS:
 {odds_data}
 
