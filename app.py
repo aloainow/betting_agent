@@ -4,6 +4,7 @@ import requests
 from bs4 import BeautifulSoup
 import time
 from openai import OpenAI
+from openai import OpenAI, OpenAIError
 import traceback
 import numpy as np
 import time
@@ -190,7 +191,11 @@ def get_openai_client():
         st.error(f"Erro ao criar cliente OpenAI: {str(e)}")
         return None
 
+# Adicione esta importação no topo do arquivo junto com os outros imports
+from openai import OpenAI, OpenAIError
+
 def analyze_with_gpt(prompt):
+    """Função para fazer a chamada à API do GPT"""
     try:
         client = get_openai_client()
         if not client:
@@ -202,7 +207,7 @@ def analyze_with_gpt(prompt):
             messages=[
                 {
                     "role": "system",
-                    "content": "Você é um Agente Analista..."
+                    "content": "Você é um Agente Analista de Probabilidades Esportivas especializado. Você DEVE seguir EXATAMENTE o formato de saída especificado no prompt do usuário, preenchendo todos os campos com os valores calculados."
                 },
                 {"role": "user", "content": prompt}
             ],
@@ -215,7 +220,6 @@ def analyze_with_gpt(prompt):
     except Exception as e:
         st.error(f"Erro inesperado: {str(e)}")
         return None
-
 def parse_team_stats(html_content):
     """Processa os dados do time com tratamento melhorado para extrair estatísticas"""
     try:
