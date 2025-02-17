@@ -709,7 +709,74 @@ PROBABILIDADES CALCULADAS:
 
     except Exception as e:
         st.error(f"Erro ao formatar prompt: {str(e)}")
-        return None
+    return None
+
+def setup_test_environment():
+    """Configuração do ambiente de testes"""
+    try:
+        conn = sqlite3.connect('users.db')
+        c = conn.cursor()
+        
+        # Criar usuários de teste para cada plano
+        test_users = [
+            ('user_free', hash_password('test123'), 'free', 0),
+            ('user_pro', hash_password('test123'), 'pro', 0),
+            ('user_unlimited', hash_password('test123'), 'unlimited', 0)
+        ]
+        
+        for username, password, plan, usage in test_users:
+            try:
+                c.execute("""
+                    INSERT OR REPLACE INTO users 
+                    (username, password, subscription_level, usage_count, last_reset_date) 
+                    VALUES (?, ?, ?, ?, ?)
+                """, (username, password, plan, usage, datetime.now().strftime('%Y-%m')))
+            except sqlite3.IntegrityError:
+                pass
+                
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        st.error(f"Erro na configuração do ambiente de teste: {str(e)}")
+        return False
+
+def show_test_panel():
+    """Painel de controle para testes"""
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### Painel de Testes")
+    
+    # Botão para configurar ambiente de teste
+    if st.sidebar.button("Configurar Usuários de Teste"):
+        if setup_test_environment():
+            st.sidebar.success("""
+            Usuários de teste criados:
+            - Free: user_free / test123
+            - Pro: user_pro / test123
+            - Unlimited: user_unlimited / test123
+            """)
+    
+    # Simulador de uso
+    if 'username' in st.session_state:
+        st.sidebar.markdown("### Simulador de Uso")
+        if st.sidebar.button("Simular +1 Análise"):
+            update_usage_count(st.session_state['username'])
+            st.rerun()
+        
+        # Reset de contagem
+        if st.sidebar.button("Resetar Contagem"):
+            conn = sqlite3.connect('users.db')
+            c = conn.cursor()
+            c.execute("""
+                UPDATE users 
+                SET usage_count = 0 
+                WHERE username = ?
+            """, (st.session_state['username'],))
+            conn.commit()
+            conn.close()
+            st.rerun()
+
+
 def main():
     try:
         # Configuração inicial do Streamlit
