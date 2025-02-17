@@ -504,6 +504,7 @@ PROBABILIDADES CALCULADAS:
         return None
 def main():
     try:
+        # Configuração inicial do Streamlit
         st.set_page_config(
             page_title="Análise de Apostas Esportivas",
             page_icon="⚽",
@@ -511,10 +512,9 @@ def main():
             initial_sidebar_state="expanded"
         )
         
-        # CSS atualizado
+        # CSS para corrigir o layout
         st.markdown("""
             <style>
-                /* Container principal */
                 .main .block-container {
                     max-width: 100%;
                     width: 100%;
@@ -522,12 +522,10 @@ def main():
                     box-sizing: border-box;
                 }
                 
-                /* Remove scroll horizontal */
                 .main {
                     overflow-x: hidden;
                 }
                 
-                /* Ajusta containers de conteúdo */
                 .element-container, 
                 .stMarkdown > div,
                 div[data-testid="stVerticalBlock"] > div {
@@ -537,7 +535,6 @@ def main():
                     box-sizing: border-box !important;
                 }
                 
-                /* Ajusta texto e cabeçalhos */
                 .stMarkdown p, 
                 .stMarkdown h1,
                 .stMarkdown h2,
@@ -551,13 +548,11 @@ def main():
                     word-wrap: break-word !important;
                 }
                 
-                /* Garante que listas não ultrapassem os limites */
                 .stMarkdown ul,
                 .stMarkdown ol {
                     padding-left: 2rem !important;
                 }
                 
-                /* Ajusta o container da análise */
                 .analysis-container {
                     width: 100% !important;
                     max-width: 100% !important;
@@ -567,6 +562,7 @@ def main():
                 }
             </style>
         """, unsafe_allow_html=True)
+
         # Título principal na sidebar
         st.sidebar.title("Análise de Apostas Esportivas")
         
@@ -651,10 +647,10 @@ def main():
                     st.error("Por favor, configure as odds para os mercados selecionados.")
                     return
                     
-                # Criar um placeholder para o status
-                status = st.empty()
-                
                 try:
+                    # Criar um placeholder para o status
+                    status = st.empty()
+                    
                     # Etapa 1: Carregar dados
                     status.info("Carregando dados dos times...")
                     if not stats_html or not team_stats_df is not None:
@@ -669,12 +665,12 @@ def main():
                         return
                         
                     # Etapa 3: Análise GPT
-status.info("Realizando análise com IA...")
+                    status.info("Realizando análise com IA...")
                     analysis = analyze_with_gpt(prompt)
                     if not analysis:
                         status.error("Falha na análise")
                         return
-                        
+                    
                     # Sucesso - mostrar resultado
                     if analysis:
                         st.markdown("""
@@ -685,8 +681,12 @@ status.info("Realizando análise com IA...")
                                 </div>
                             </div>
                         """.format(analysis.replace('# ', '## ')), unsafe_allow_html=True)
-                            
+                
                 except Exception as e:
                     status.error(f"Erro durante a análise: {str(e)}")
+
+    except Exception as e:
+        st.error(f"Erro geral na aplicação: {str(e)}")
+
 if __name__ == "__main__":
     main()
