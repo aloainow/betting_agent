@@ -560,7 +560,7 @@ def main():
                 }
             </style>
         """, unsafe_allow_html=True)
-        
+
         # Título principal na sidebar
         st.sidebar.title("Análise de Apostas Esportivas")
         
@@ -637,7 +637,7 @@ def main():
         col1, col2, col3 = st.columns([1,1,1])
         with col2:
             if st.button("Analisar Partida", type="primary"):
-                try: (selected_markets.values()):
+                if not any(selected_markets.values()):
                     st.error("Por favor, selecione pelo menos um mercado para análise.")
                     return
                     
@@ -670,31 +670,32 @@ def main():
                         return
                     
                     # Sucesso - mostrar resultado
-# Quando for mostrar o resultado:
-                if analysis:
-                    st.markdown("""
-                        <style>
-                            .analysis-result {
-                                width: 100% !important;
-                                max-width: 100% !important;
-                                padding: 1rem 2rem !important;
-                                margin: 0 !important;
-                                box-sizing: border-box !important;
-                            }
-                            .analysis-content {
-                                width: 100% !important;
-                                text-align: left !important;
-                                padding: 0 !important;
-                            }
-                        </style>
-                        <div class="analysis-result">
-                            <div class="analysis-content">
-                                {}
+                    if analysis:
+                        st.markdown("""
+                            <style>
+                                .analysis-result {
+                                    width: 100% !important;
+                                    max-width: 100% !important;
+                                    padding: 1rem 2rem !important;
+                                    margin: 0 !important;
+                                    box-sizing: border-box !important;
+                                }
+                                .analysis-content {
+                                    width: 100% !important;
+                                    text-align: left !important;
+                                    padding: 0 !important;
+                                }
+                            </style>
+                            <div class="analysis-result">
+                                <div class="analysis-content">
+                                    {}
+                                </div>
                             </div>
-                        </div>
-                    """.format(analysis), unsafe_allow_html=True)
-            except Exception as e:
-                st.error(f"Erro durante a análise: {str(e)}")
+                        """.format(analysis), unsafe_allow_html=True)
+                        
+                except Exception as e:
+                    status.error(f"Erro durante a análise: {str(e)}")
+
     except Exception as e:
         st.error(f"Erro geral na aplicação: {str(e)}")
 
