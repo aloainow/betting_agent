@@ -183,48 +183,53 @@ def get_fbref_urls():
     }
 
 @st.cache_resource
-@st.cache_resource
 def get_openai_client():
-    """Função para criar e retornar o cliente OpenAI usando cache_resource"""
     try:
-        st.write("Tentando criar cliente OpenAI...")  # Log 9
         client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-        st.write("Cliente OpenAI criado com sucesso!")  # Log 10
         return client
     except Exception as e:
         st.error(f"Erro ao criar cliente OpenAI: {str(e)}")
         return None
 
 
-
 def analyze_with_gpt(prompt):
+    """Analisa com GPT com melhor tratamento de erros e feedback"""
     try:
-        client = get_openai_client()
-        if not client:
-            st.error("Cliente OpenAI não inicializado")
+        # Verificar se temos a chave da API
+        if "OPENAI_API_KEY" not in st.secrets:
+            st.error("Chave da API OpenAI não configurada")
             return None
             
-        st.write("Enviando requisição para API...")
-        response = client.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {
-                    "role": "system",
-                    "content": "Você é um Agente Analista de Probabilidades Esportivas especializado. Você DEVE seguir EXATAMENTE o formato de saída especificado no prompt do usuário, preenchendo todos os campos com os valores calculados."
-                },
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.3,
-            timeout=60  # Timeout de 60 segundos
-        )
-        return response.choices[0].message.content
+        client = get_openai_client()
+        if not client:
+            st.error("Falha ao inicializar cliente OpenAI")
+            return None
+            
+        with st.spinner("Analisando com GPT-4..."):
+            response = client.chat.completions.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": "Você é um Agente Analista de Probabilidades Esportivas especializado."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.3,
+                timeout=30  # 30 segundos de timeout
+            )
+            
+            if not response or not response.choices:
+                st.error("Resposta inválida da API OpenAI")
+                return None
+                
+            return response.choices[0].message.content
+            
     except OpenAIError as e:
         st.error(f"Erro na API OpenAI: {str(e)}")
         return None
     except Exception as e:
         st.error(f"Erro inesperado: {str(e)}")
         return None
-def parse_team_stats(html_content):
+        
+        def parse_team_stats(html_content):
     """Processa os dados do time com tratamento melhorado para extrair estatísticas"""
     try:
         soup = BeautifulSoup(html_content, 'html.parser')
@@ -363,44 +368,32 @@ def rate_limit(seconds):
 
 @rate_limit(1)  # 1 requisição por segundo
 def fetch_fbref_data(url):
-    """Busca dados do FBref com retry melhorado e headers customizados"""
+    """Busca dados do FBref com melhor tratamento de erros e timeout"""
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'Connection': 'keep-alive',
-        'DNT': '1',
-        'Upgrade-Insecure-Requests': '1',
     }
     
-    session = requests.Session()
-    retries = 3
-    
-    for attempt in range(retries):
-        try:
-            response = session.get(url, headers=headers, timeout=30)
+    try:
+        with st.spinner(f"Buscando dados de {url}..."):
+            response = requests.get(url, headers=headers, timeout=10)
             response.raise_for_status()
             
-            if 'cf-browser-verification' in response.text.lower():
-                st.warning(f"Detectado Cloudflare protection. Tentativa {attempt + 1}/{retries}...")
-                time.sleep(5 * (attempt + 1))
-                continue
-            
-            if '<table' not in response.text.lower():
-                st.warning(f"Nenhuma tabela encontrada na resposta. Tentativa {attempt + 1}/{retries}...")
-                time.sleep(5 * (attempt + 1))
-                continue
-                
-            return response.text
-            
-        except requests.exceptions.RequestException as e:
-            if attempt == retries - 1:
-                st.error(f"Erro ao buscar dados (tentativa {attempt + 1}/{retries}): {str(e)}")
+            if response.status_code == 200:
+                return response.text
+            else:
+                st.error(f"Erro ao buscar dados: Status {response.status_code}")
                 return None
-            st.warning(f"Erro na tentativa {attempt + 1}, tentando novamente em {5 * (attempt + 1)} segundos...")
-            time.sleep(5 * (attempt + 1))
-    
-    return None
+                
+    except requests.Timeout:
+        st.error("Timeout ao buscar dados. Tente novamente.")
+        return None
+    except requests.RequestException as e:
+        st.error(f"Erro na requisição: {str(e)}")
+        return None
+    except Exception as e:
+        st.error(f"Erro inesperado: {str(e)}")
+        return None
 
 def get_stat(stats, col, default='N/A'):
     """
@@ -661,45 +654,55 @@ def main():
             # Botão de análise centralizado
             col1, col2, col3 = st.columns([1,1,1])
             with col2:
-                if st.button("Analisar Partida", type="primary"):
-                    if not any(selected_markets.values()):
-                        st.error("Por favor, selecione pelo menos um mercado para análise.")
-                        return
-                        
-                    if not odds_data:
-                        st.error("Por favor, configure as odds para os mercados selecionados.")
-                        return
-                        
-                    with st.spinner("Realizando análise..."):
-                        prompt = format_prompt(
-                            team_stats_df,
-                            home_team,
-                            away_team,
-                            odds_data
-                        )
-                        
-                        if prompt:
-                            analysis = analyze_with_gpt(prompt)
-                            if analysis:
-                                st.markdown("""
-                                    <style>
-                                    .analysis-wrapper {
-                                        width: 100% !important;
-                                        max-width: 100% !important;
-                                        margin: 0 !important;
-                                        padding: 2rem !important;
-                                        box-sizing: border-box !important;
-                                    }
-                                    </style>
-                                """, unsafe_allow_html=True)
-                                
-                                st.markdown('<div class="analysis-wrapper">', unsafe_allow_html=True)
-                                st.markdown("# Análise da Partida")
-                                st.markdown(analysis)
-                                st.markdown('</div>', unsafe_allow_html=True)
+               # No botão de análise:
+if st.button("Analisar Partida", type="primary"):
+    if not any(selected_markets.values()):
+        st.error("Selecione pelo menos um mercado para análise.")
+        return
+        
+    if not odds_data:
+        st.error("Configure as odds para os mercados selecionados.")
+        return
+        
+    # Criar um placeholder para o status
+    status = st.empty()
     
+    try:
+        # Etapa 1: Carregar dados
+        status.info("Carregando dados dos times...")
+        stats_html = fetch_fbref_data(FBREF_URLS[selected_league]["stats"])
+        if not stats_html:
+            status.error("Falha ao carregar dados")
+            return
+            
+        # Etapa 2: Processar dados
+        status.info("Processando estatísticas...")
+        team_stats_df = parse_team_stats(stats_html)
+        if team_stats_df is None:
+            status.error("Falha ao processar estatísticas")
+            return
+            
+        # Etapa 3: Formatar prompt
+        status.info("Preparando análise...")
+        prompt = format_prompt(team_stats_df, home_team, away_team, odds_data)
+        if not prompt:
+            status.error("Falha ao preparar análise")
+            return
+            
+        # Etapa 4: Análise GPT
+        status.info("Realizando análise com IA...")
+        analysis = analyze_with_gpt(prompt)
+        if not analysis:
+            status.error("Falha na análise")
+            return
+            
+        # Sucesso - mostrar resultado
+        status.success("Análise concluída!")
+        st.markdown("## Resultado da Análise")
+        st.markdown(analysis)
+        
     except Exception as e:
-        st.error(f"Erro geral na aplicação: {str(e)}")
+        status.error(f"Erro durante a análise: {str(e)}")
 
 if __name__ == "__main__":
     main()
