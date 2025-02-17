@@ -504,7 +504,6 @@ PROBABILIDADES CALCULADAS:
         return None
 def main():
     try:
-        # Configuração inicial do Streamlit com layout wide
         st.set_page_config(
             page_title="Análise de Apostas Esportivas",
             page_icon="⚽",
@@ -512,51 +511,62 @@ def main():
             initial_sidebar_state="expanded"
         )
         
-        # CSS melhorado para garantir largura total
+        # CSS atualizado
         st.markdown("""
             <style>
+                /* Container principal */
                 .main .block-container {
-                    max-width: none;
+                    max-width: 100%;
                     width: 100%;
-                    padding: 2rem;
+                    padding: 1rem;
+                    box-sizing: border-box;
                 }
-                .stMarkdown > div {
+                
+                /* Remove scroll horizontal */
+                .main {
+                    overflow-x: hidden;
+                }
+                
+                /* Ajusta containers de conteúdo */
+                .element-container, 
+                .stMarkdown > div,
+                div[data-testid="stVerticalBlock"] > div {
                     width: 100% !important;
-                    max-width: none !important;
+                    max-width: 100% !important;
+                    padding: 0 !important;
+                    box-sizing: border-box !important;
                 }
-                .css-12oz5g7 {
-                    padding-top: 0;
-                    padding-bottom: 0;
-                }
-                [data-testid="column"] {
-                    width: 100% !important;
-                    flex: 1 1 auto !important;
-                }
-                .css-1y4p8pa {
-                    max-width: none !important;
-                    width: 100% !important;
-                }
-                .streamlit-expanderHeader,
+                
+                /* Ajusta texto e cabeçalhos */
                 .stMarkdown p, 
                 .stMarkdown h1,
                 .stMarkdown h2,
-                .stMarkdown h3 {
+                .stMarkdown h3,
+                .stMarkdown ul,
+                .stMarkdown ol {
+                    width: 100% !important;
+                    max-width: 100% !important;
                     text-align: left !important;
-                    width: 100% !important;
+                    box-sizing: border-box !important;
+                    word-wrap: break-word !important;
                 }
-                div[data-testid="stVerticalBlock"] > div {
-                    width: 100% !important;
-                    max-width: none !important;
+                
+                /* Garante que listas não ultrapassem os limites */
+                .stMarkdown ul,
+                .stMarkdown ol {
+                    padding-left: 2rem !important;
                 }
-                .element-container {
+                
+                /* Ajusta o container da análise */
+                .analysis-container {
                     width: 100% !important;
-                    max-width: none !important;
-                    margin-left: 0 !important;
-                    margin-right: 0 !important;
+                    max-width: 100% !important;
+                    padding: 1rem !important;
+                    box-sizing: border-box !important;
+                    overflow-wrap: break-word !important;
                 }
             </style>
         """, unsafe_allow_html=True)
-
         # Título principal na sidebar
         st.sidebar.title("Análise de Apostas Esportivas")
         
@@ -666,16 +676,15 @@ def main():
                         return
                         
                     # Sucesso - mostrar resultado
-                    if analysis:
-                        st.markdown(f"""
-                            <div style="width: 100vw; max-width: none; margin: 0; padding: 2rem; box-sizing: border-box;">
-                                <h1 style="width: 100%; text-align: left;">Resultado da Análise</h1>
-                                <div style="width: 100%; text-align: left;">
-                                    {analysis.replace('# ', '## ')}
-                                </div>
-                            </div>
-                        """, unsafe_allow_html=True)
-                        
+ if analysis:
+            st.markdown("""
+                <div class="analysis-container">
+                    <h1>Resultado da Análise</h1>
+                    <div style="width: 100%; word-wrap: break-word;">
+                        {}
+                    </div>
+                </div>
+            """.format(analysis.replace('# ', '## ')), unsafe_allow_html=True)                        
                 except Exception as e:
                     status.error(f"Erro durante a análise: {str(e)}")
 
