@@ -669,27 +669,24 @@ def main():
                         return
                         
                     # Etapa 3: Análise GPT
-                    status.info("Realizando análise com IA...")
+status.info("Realizando análise com IA...")
                     analysis = analyze_with_gpt(prompt)
                     if not analysis:
                         status.error("Falha na análise")
                         return
                         
                     # Sucesso - mostrar resultado
- if analysis:
-            st.markdown("""
-                <div class="analysis-container">
-                    <h1>Resultado da Análise</h1>
-                    <div style="width: 100%; word-wrap: break-word;">
-                        {}
-                    </div>
-                </div>
-            """.format(analysis.replace('# ', '## ')), unsafe_allow_html=True)                        
+                    if analysis:
+                        st.markdown("""
+                            <div class="analysis-container">
+                                <h1>Resultado da Análise</h1>
+                                <div style="width: 100%; word-wrap: break-word;">
+                                    {}
+                                </div>
+                            </div>
+                        """.format(analysis.replace('# ', '## ')), unsafe_allow_html=True)
+                            
                 except Exception as e:
                     status.error(f"Erro durante a análise: {str(e)}")
-
-    except Exception as e:
-        st.error(f"Erro geral na aplicação: {str(e)}")
-
 if __name__ == "__main__":
     main()
