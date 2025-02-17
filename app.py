@@ -503,74 +503,60 @@ PROBABILIDADES CALCULADAS:
         st.error(f"Erro ao formatar prompt: {str(e)}")
         return None
 def main():
-    # Configuração inicial do Streamlit com layout wide
-    st.set_page_config(
-        page_title="Análise de Apostas Esportivas",
-        page_icon="⚽",
-        layout="wide",
-        initial_sidebar_state="expanded"
-    )
-    
-    # CSS melhorado para garantir largura total
-    st.markdown("""
-        <style>
-            /* Força largura total para todos os containers */
-            .main .block-container {
-                max-width: none;
-                width: 100%;
-                padding: 2rem;
-            }
-
-            /* Força largura total para elementos markdown */
-            .stMarkdown > div {
-                width: 100% !important;
-                max-width: none !important;
-            }
-
-            /* Remove padding excessivo */
-            .css-12oz5g7 {
-                padding-top: 0;
-                padding-bottom: 0;
-            }
-
-            /* Garante que colunas ocupem espaço total */
-            [data-testid="column"] {
-                width: 100% !important;
-                flex: 1 1 auto !important;
-            }
-
-            /* Remove restrições de largura do streamlit */
-            .css-1y4p8pa {
-                max-width: none !important;
-                width: 100% !important;
-            }
-
-            /* Ajusta alinhamento do texto */
-            .streamlit-expanderHeader,
-            .stMarkdown p, 
-            .stMarkdown h1,
-            .stMarkdown h2,
-            .stMarkdown h3 {
-                text-align: left !important;
-                width: 100% !important;
-            }
-
-            /* Ajusta largura dos containers de resultado */
-            div[data-testid="stVerticalBlock"] > div {
-                width: 100% !important;
-                max-width: none !important;
-            }
-
-            /* Remove margens laterais */
-            .element-container {
-                width: 100% !important;
-                max-width: none !important;
-                margin-left: 0 !important;
-                margin-right: 0 !important;
-            }
-        </style>
-    """, unsafe_allow_html=True)
+    try:
+        # Configuração inicial do Streamlit com layout wide
+        st.set_page_config(
+            page_title="Análise de Apostas Esportivas",
+            page_icon="⚽",
+            layout="wide",
+            initial_sidebar_state="expanded"
+        )
         
+        # CSS melhorado para garantir largura total
+        st.markdown("""
+            <style>
+                .main .block-container {
+                    max-width: none;
+                    width: 100%;
+                    padding: 2rem;
+                }
+                .stMarkdown > div {
+                    width: 100% !important;
+                    max-width: none !important;
+                }
+                .css-12oz5g7 {
+                    padding-top: 0;
+                    padding-bottom: 0;
+                }
+                [data-testid="column"] {
+                    width: 100% !important;
+                    flex: 1 1 auto !important;
+                }
+                .css-1y4p8pa {
+                    max-width: none !important;
+                    width: 100% !important;
+                }
+                .streamlit-expanderHeader,
+                .stMarkdown p, 
+                .stMarkdown h1,
+                .stMarkdown h2,
+                .stMarkdown h3 {
+                    text-align: left !important;
+                    width: 100% !important;
+                }
+                div[data-testid="stVerticalBlock"] > div {
+                    width: 100% !important;
+                    max-width: none !important;
+                }
+                .element-container {
+                    width: 100% !important;
+                    max-width: none !important;
+                    margin-left: 0 !important;
+                    margin-right: 0 !important;
+                }
+            </style>
+        """, unsafe_allow_html=True)
+
         # Título principal na sidebar
         st.sidebar.title("Análise de Apostas Esportivas")
         
@@ -605,96 +591,93 @@ def main():
             if not teams:
                 st.error("Não foi possível encontrar os times do campeonato")
                 return
+        
+        # Área principal
+        st.title("Seleção de Times")
+        
+        # Seleção dos times em duas colunas
+        col1, col2 = st.columns(2)
+        with col1:
+            home_team = st.selectbox("Time da Casa:", teams, key='home_team')
+        with col2:
+            away_teams = [team for team in teams if team != home_team]
+            away_team = st.selectbox("Time Visitante:", away_teams, key='away_team')
+
+        # Seleção de mercados em container separado
+        with st.expander("Mercados Disponíveis", expanded=True):
+            st.markdown("### Seleção de Mercados")
             
-            # Área principal
-            st.title("Seleção de Times")
-            
-            # Seleção dos times em duas colunas
             col1, col2 = st.columns(2)
+            
             with col1:
-                home_team = st.selectbox("Time da Casa:", teams, key='home_team')
+                selected_markets = {
+                    "money_line": st.checkbox("Money Line (1X2)", value=True, key='ml'),
+                    "over_under": st.checkbox("Over/Under", key='ou'),
+                    "chance_dupla": st.checkbox("Chance Dupla", key='cd')
+                }
+            
             with col2:
-                away_teams = [team for team in teams if team != home_team]
-                away_team = st.selectbox("Time Visitante:", away_teams, key='away_team')
+                selected_markets.update({
+                    "ambos_marcam": st.checkbox("Ambos Marcam", key='btts'),
+                    "escanteios": st.checkbox("Total de Escanteios", key='corners'),
+                    "cartoes": st.checkbox("Total de Cartões", key='cards')
+                })
 
-            # Seleção de mercados em container separado
-            with st.expander("Mercados Disponíveis", expanded=True):
-                st.markdown("### Seleção de Mercados")
-                
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    selected_markets = {
-                        "money_line": st.checkbox("Money Line (1X2)", value=True, key='ml'),
-                        "over_under": st.checkbox("Over/Under", key='ou'),
-                        "chance_dupla": st.checkbox("Chance Dupla", key='cd')
-                    }
-                
-                with col2:
-                    selected_markets.update({
-                        "ambos_marcam": st.checkbox("Ambos Marcam", key='btts'),
-                        "escanteios": st.checkbox("Total de Escanteios", key='corners'),
-                        "cartoes": st.checkbox("Total de Cartões", key='cards')
-                    })
+        # Inputs de odds em container separado
+        odds_data = None
+        if any(selected_markets.values()):
+            with st.expander("Configuração de Odds", expanded=True):
+                odds_data = get_odds_data(selected_markets)
 
-            # Inputs de odds em container separado
-            odds_data = None
-            if any(selected_markets.values()):
-                with st.expander("Configuração de Odds", expanded=True):
-                    odds_data = get_odds_data(selected_markets)
-
-            # Botão de análise centralizado
-            col1, col2, col3 = st.columns([1,1,1])
-            with col2:
-                if st.button("Analisar Partida", type="primary"):
-                    if not any(selected_markets.values()):
-                        st.error("Por favor, selecione pelo menos um mercado para análise.")
-                        return
-                        
-                    if not odds_data:
-                        st.error("Por favor, configure as odds para os mercados selecionados.")
-                        return
-                        
-                    # Criar um placeholder para o status
-                    status = st.empty()
+        # Botão de análise centralizado
+        col1, col2, col3 = st.columns([1,1,1])
+        with col2:
+            if st.button("Analisar Partida", type="primary"):
+                if not any(selected_markets.values()):
+                    st.error("Por favor, selecione pelo menos um mercado para análise.")
+                    return
                     
-                    try:
-                        # Etapa 1: Carregar dados
-                        status.info("Carregando dados dos times...")
-                        if not stats_html or not team_stats_df is not None:
-                            status.error("Falha ao carregar dados")
-                            return
-                            
-                        # Etapa 2: Formatar prompt
-                        status.info("Preparando análise...")
-                        prompt = format_prompt(team_stats_df, home_team, away_team, odds_data)
-                        if not prompt:
-                            status.error("Falha ao preparar análise")
-                            return
-                            
-                        # Etapa 3: Análise GPT
-                        status.info("Realizando análise com IA...")
-                        analysis = analyze_with_gpt(prompt)
-                        if not analysis:
-                            status.error("Falha na análise")
-                            return
-                            
-                        # Sucesso - mostrar resultado
-if analysis:
-                            st.markdown(f"""
-                                <div style="width: 100vw; max-width: none; margin: 0; padding: 2rem; box-sizing: border-box;">
-                                    <h1 style="width: 100%; text-align: left;">Resultado da Análise</h1>
-                                    <div style="width: 100%; text-align: left;">
-                                        {analysis.replace('# ', '## ')}
-                                    </div>
+                if not odds_data:
+                    st.error("Por favor, configure as odds para os mercados selecionados.")
+                    return
+                    
+                # Criar um placeholder para o status
+                status = st.empty()
+                
+                try:
+                    # Etapa 1: Carregar dados
+                    status.info("Carregando dados dos times...")
+                    if not stats_html or not team_stats_df is not None:
+                        status.error("Falha ao carregar dados")
+                        return
+                        
+                    # Etapa 2: Formatar prompt
+                    status.info("Preparando análise...")
+                    prompt = format_prompt(team_stats_df, home_team, away_team, odds_data)
+                    if not prompt:
+                        status.error("Falha ao preparar análise")
+                        return
+                        
+                    # Etapa 3: Análise GPT
+                    status.info("Realizando análise com IA...")
+                    analysis = analyze_with_gpt(prompt)
+                    if not analysis:
+                        status.error("Falha na análise")
+                        return
+                        
+                    # Sucesso - mostrar resultado
+                    if analysis:
+                        st.markdown(f"""
+                            <div style="width: 100vw; max-width: none; margin: 0; padding: 2rem; box-sizing: border-box;">
+                                <h1 style="width: 100%; text-align: left;">Resultado da Análise</h1>
+                                <div style="width: 100%; text-align: left;">
+                                    {analysis.replace('# ', '## ')}
                                 </div>
-                            """, unsafe_allow_html=True)
-                        # ATÉ AQUI
-                            
-                    except Exception as e:
-                        status.error(f"Erro durante a análise: {str(e)}")
-                    except Exception as e:
-                        status.error(f"Erro durante a análise: {str(e)}")
+                            </div>
+                        """, unsafe_allow_html=True)
+                        
+                except Exception as e:
+                    status.error(f"Erro durante a análise: {str(e)}")
 
     except Exception as e:
         st.error(f"Erro geral na aplicação: {str(e)}")
