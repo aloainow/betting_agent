@@ -1,223 +1,116 @@
+# Substitua o início do seu código por este:
 import streamlit as st
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 import time
-from openai import OpenAI
 from openai import OpenAI, OpenAIError
 import traceback
 import numpy as np
-import time
 from functools import wraps
+from datetime import datetime
+import json
+from pathlib import Path
+import sqlite3
+import hashlib
 
-# Initialize Stripe
-stripe.api_key = st.secrets["STRIPE_SECRET_KEY"]
+# Configuração segura do Stripe
+STRIPE_ENABLED = False
+try:
+    import stripe
+    if "STRIPE_SECRET_KEY" in st.secrets:
+        stripe.api_key = st.secrets["STRIPE_SECRET_KEY"]
+        STRIPE_ENABLED = True
+except Exception as e:
+    st.warning("Executando em modo de desenvolvimento sem Stripe")
 
-# Database setup
-def init_db():
-    conn = sqlite3.connect('users.db')
-    c = conn.cursor()
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY,
-            username TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL,
-            subscription_level TEXT DEFAULT 'free',
-            subscription_id TEXT,
-            usage_count INTEGER DEFAULT 0,
-            last_reset_date TEXT
-        )
-    ''')
-    conn.commit()
-    conn.close()
-
-# User management functions
-def hash_password(password):
-    return hashlib.sha256(password.encode()).hexdigest()
-
-def create_user(username, password, subscription_level='free'):
-    conn = sqlite3.connect('users.db')
-    c = conn.cursor()
-    try:
-        c.execute(
-            "INSERT INTO users (username, password, subscription_level, usage_count, last_reset_date) VALUES (?, ?, ?, ?, ?)",
-            (username, hash_password(password), subscription_level, 0, datetime.now().strftime('%Y-%m'))
-        )
-        conn.commit()
-        return True
-    except sqlite3.IntegrityError:
-        return False
-    finally:
-        conn.close()
-
-def verify_user(username, password):
-    conn = sqlite3.connect('users.db')
-    c = conn.cursor()
-    c.execute("SELECT * FROM users WHERE username=? AND password=?", 
-              (username, hash_password(password)))
-    user = c.fetchone()
-    conn.close()
-    return user
-
-def get_user_subscription(username):
-    conn = sqlite3.connect('users.db')
-    c = conn.cursor()
-    c.execute("SELECT subscription_level, usage_count, last_reset_date FROM users WHERE username=?", (username,))
-    result = c.fetchone()
-    conn.close()
-    return result if result else (None, None, None)
-
-def update_usage_count(username):
-    conn = sqlite3.connect('users.db')
-    c = conn.cursor()
-    current_month = datetime.now().strftime('%Y-%m')
-    
-    # Check if we need to reset the counter for a new month
-    c.execute("SELECT usage_count, last_reset_date FROM users WHERE username=?", (username,))
-    count, last_reset = c.fetchone()
-    
-    if last_reset != current_month:
-        c.execute("UPDATE users SET usage_count=1, last_reset_date=? WHERE username=?",
-                 (current_month, username))
-    else:
-        c.execute("UPDATE users SET usage_count=usage_count+1 WHERE username=?", (username,))
-    
-    conn.commit()
-    conn.close()
-
-# Subscription management
+# Modificar a função create_checkout_session
 def create_checkout_session(price_id):
+    if not STRIPE_ENABLED:
+        st.info("Modo de desenvolvimento: Simulando upgrade de plano")
+        return {"url": "#"}
+        
     try:
         checkout_session = stripe.checkout.Session.create(
             payment_method_types=['card'],
             line_items=[{'price': price_id, 'quantity': 1}],
             mode='subscription',
-            success_url=st.secrets["DOMAIN"] + '/success',
-            cancel_url=st.secrets["DOMAIN"] + '/cancel',
+            success_url=st.secrets.get("DOMAIN", "http://localhost:8501") + '/success',
+            cancel_url=st.secrets.get("DOMAIN", "http://localhost:8501") + '/cancel',
         )
         return checkout_session
     except Exception as e:
-        st.error(f"Error creating checkout session: {str(e)}")
+        st.error(f"Erro ao criar sessão de checkout: {str(e)}")
         return None
 
-def check_subscription_limits(username):
-    subscription_level, usage_count, last_reset_date = get_user_subscription(username)
-    current_month = datetime.now().strftime('%Y-%m')
-    
-    # Reset usage count if it's a new month
-    if last_reset_date != current_month:
-        usage_count = 0
-    
-    limits = {
-        'free': 1,
-        'pro': 30,
-        'unlimited': float('inf')
-    }
-    
-    return usage_count < limits.get(subscription_level, 0)
-
-# Authentication decorator
-def require_auth(func):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        if 'username' not in st.session_state:
-            st.warning("Please log in to access this feature")
-            st.stop()
-        return func(*args, **kwargs)
-    return wrapper
-
-# UI Components
-def show_login_signup():
-    tab1, tab2 = st.tabs(["Login", "Sign Up"])
-    
-    with tab1:
-        with st.form("login_form"):
-            username = st.text_input("Username")
-            password = st.text_input("Password", type="password")
-            submitted = st.form_submit_button("Login")
-            
-            if submitted:
-                user = verify_user(username, password)
-                if user:
-                    st.session_state['username'] = username
-                    st.success("Logged in successfully!")
-                    st.rerun()
-                else:
-                    st.error("Invalid username or password")
-    
-    with tab2:
-        with st.form("signup_form"):
-            new_username = st.text_input("Choose Username")
-            new_password = st.text_input("Choose Password", type="password")
-            submitted = st.form_submit_button("Sign Up")
-            
-            if submitted:
-                if create_user(new_username, new_password):
-                    st.success("Account created successfully! Please log in.")
-                else:
-                    st.error("Username already exists")
-
+# Modificar a função show_subscription_options
 def show_subscription_options():
-    st.subheader("Subscription Plans")
+    st.subheader("Planos de Assinatura")
     
     col1, col2, col3 = st.columns(3)
     
     with col1:
         st.markdown("### Free")
-        st.write("- 1 analysis per month")
-        st.write("- Basic features")
-        st.write("- Single market")
-        if st.button("Current Plan" if st.session_state.get('subscription_level') == 'free' else "Select Free"):
-            st.session_state['subscription_level'] = 'free'
+        st.write("- 1 análise por mês")
+        st.write("- Mercado único")
+        if st.button("Selecionar Free"):
+            conn = sqlite3.connect('users.db')
+            c = conn.cursor()
+            c.execute("""
+                UPDATE users 
+                SET subscription_level = 'free' 
+                WHERE username = ?
+            """, (st.session_state['username'],))
+            conn.commit()
+            conn.close()
+            st.success("Plano alterado para Free!")
+            st.rerun()
     
     with col2:
         st.markdown("### Pro")
-        st.write("- 30 analyses per month")
-        st.write("- All features")
-        st.write("- Multiple markets")
-        price = "$9.99/month"
-        if st.button("Upgrade to Pro"):
-            checkout_session = create_checkout_session(st.secrets["STRIPE_PRO_PRICE_ID"])
-            if checkout_session:
-                st.markdown(f"[Proceed to Payment]({checkout_session.url})")
+        st.write("- 30 análises por mês")
+        st.write("- Todos os mercados")
+        if st.button("Upgrade para Pro"):
+            if STRIPE_ENABLED:
+                checkout_session = create_checkout_session(st.secrets.get("STRIPE_PRO_PRICE_ID"))
+                if checkout_session:
+                    st.markdown(f"[Proceed to Payment]({checkout_session.url})")
+            else:
+                # Modo desenvolvimento - atualiza direto
+                conn = sqlite3.connect('users.db')
+                c = conn.cursor()
+                c.execute("""
+                    UPDATE users 
+                    SET subscription_level = 'pro' 
+                    WHERE username = ?
+                """, (st.session_state['username'],))
+                conn.commit()
+                conn.close()
+                st.success("Plano alterado para Pro! (Modo Desenvolvimento)")
+                st.rerun()
     
     with col3:
         st.markdown("### Unlimited")
-        st.write("- Unlimited analyses")
-        st.write("- Priority support")
-        st.write("- All features")
-        price = "$29.99/month"
-        if st.button("Upgrade to Unlimited"):
-            checkout_session = create_checkout_session(st.secrets["STRIPE_UNLIMITED_PRICE_ID"])
-            if checkout_session:
-                st.markdown(f"[Proceed to Payment]({checkout_session.url})")
-
-# Modified main function
-def main():
-    st.set_page_config(page_title="Sports Betting Analysis", layout="wide")
-    
-    # Initialize database
-    init_db()
-    
-    # Show login/signup if not authenticated
-    if 'username' not in st.session_state:
-        show_login_signup()
-        return
-    
-    # Sidebar with user info and subscription
-    with st.sidebar:
-        st.write(f"Welcome, {st.session_state['username']}!")
-        if st.button("Logout"):
-            del st.session_state['username']
-            st.rerun()
-        
-        st.divider()
-        show_subscription_options()
-    
-    # Check subscription limits before analysis
-    if not check_subscription_limits(st.session_state['username']):
-        st.warning("You have reached your monthly analysis limit. Please upgrade your subscription to continue.")
-        return
+        st.write("- Análises ilimitadas")
+        st.write("- Todos os recursos")
+        if st.button("Upgrade para Unlimited"):
+            if STRIPE_ENABLED:
+                checkout_session = create_checkout_session(st.secrets.get("STRIPE_UNLIMITED_PRICE_ID"))
+                if checkout_session:
+                    st.markdown(f"[Proceed to Payment]({checkout_session.url})")
+            else:
+                # Modo desenvolvimento - atualiza direto
+                conn = sqlite3.connect('users.db')
+                c = conn.cursor()
+                c.execute("""
+                    UPDATE users 
+                    SET subscription_level = 'unlimited' 
+                    WHERE username = ?
+                """, (st.session_state['username'],))
+                conn.commit()
+                conn.close()
+                st.success("Plano alterado para Unlimited! (Modo Desenvolvimento)")
+                st.rerun()
 
 # Definição das URLs do FBref
 FBREF_URLS = {
@@ -778,6 +671,32 @@ def show_test_panel():
 
 
 def main():
+    st.set_page_config(page_title="Sports Betting Analysis", layout="wide")
+    
+    # Initialize database
+    init_db()
+    
+    # Show login/signup if not authenticated
+    if 'username' not in st.session_state:
+        show_login_signup()
+        return
+    
+    # Sidebar with user info and subscription
+    with st.sidebar:
+        st.write(f"Welcome, {st.session_state['username']}!")
+        if st.button("Logout"):
+            del st.session_state['username']
+            st.rerun()
+        
+        st.divider()
+        show_subscription_options()
+    
+    # Check subscription limits before analysis
+    if not check_subscription_limits(st.session_state['username']):
+        st.warning("You have reached your monthly analysis limit. Please upgrade your subscription to continue.")
+        return
+
+    
     try:
         # Configuração inicial do Streamlit
         st.set_page_config(
