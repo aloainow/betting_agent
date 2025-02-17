@@ -503,16 +503,66 @@ PROBABILIDADES CALCULADAS:
         st.error(f"Erro ao formatar prompt: {str(e)}")
         return None
 def main():
-    try:
-        # Configuração inicial do Streamlit
-        st.set_page_config(
-            page_title="Análise de Apostas Esportivas",
-            page_icon="⚽",
-            layout="wide",
-            initial_sidebar_state="expanded"
-        )
-        
-        # Título principal na sidebar
+    # Configuração inicial do Streamlit
+    st.set_page_config(
+        page_title="Análise de Apostas Esportivas",
+        page_icon="⚽",
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
+    
+    # CSS para corrigir o layout
+    st.markdown("""
+        <style>
+            .block-container {
+                padding-top: 1rem;
+                padding-bottom: 1rem;
+                padding-left: 1rem;
+                padding-right: 1rem;
+                max-width: 100% !important;
+            }
+            
+            .stMarkdown {
+                max-width: 100% !important;
+                text-align: left !important;
+            }
+            
+            .element-container, .stMarkdown > div {
+                width: 100% !important;
+                max-width: 100% !important;
+                text-align: left !important;
+            }
+            
+            h1, h2, h3 {
+                text-align: left !important;
+                width: 100% !important;
+            }
+            
+            p {
+                text-align: left !important;
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+            
+            .row-widget {
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+            
+            div[data-testid="stVerticalBlock"] {
+                width: 100% !important;
+                max-width: 100% !important;
+                gap: 1rem !important;
+            }
+            
+            div[data-testid="column"] {
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+    
+    # Título principal na sidebar
         st.sidebar.title("Análise de Apostas Esportivas")
         
         # Configurações na sidebar
@@ -621,9 +671,15 @@ def main():
                             return
                             
                         # Sucesso - mostrar resultado
-                        status.success("Análise concluída!")
-                        st.markdown("## Resultado da Análise")
-                        st.markdown(analysis)
+if analysis:
+    st.markdown('<div style="width: 100%; max-width: 100%; text-align: left;">', unsafe_allow_html=True)
+    st.markdown("## Resultado da Análise")
+    st.markdown(f'''
+    <div style="width: 100%; max-width: 100%; text-align: left; padding: 1rem;">
+        {analysis}
+    </div>
+    ''', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
                         
                     except Exception as e:
                         status.error(f"Erro durante a análise: {str(e)}")
