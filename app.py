@@ -504,7 +504,7 @@ PROBABILIDADES CALCULADAS:
         return None
 def main():
     try:
-        # Configuração inicial do Streamlit para layout mais largo
+        # Configuração inicial do Streamlit
         st.set_page_config(
             page_title="Análise de Apostas Esportivas",
             page_icon="⚽",
@@ -512,66 +512,6 @@ def main():
             initial_sidebar_state="expanded"
         )
         
-        st.markdown("""
-            <style>
-                .block-container {
-                    max-width: 100% !important;
-                    width: 100% !important;
-                    padding: 2rem !important;
-                }
-
-                .main > div {
-                    max-width: 100% !important;
-                    width: 100% !important;
-                    padding: 0 !important;
-                }
-
-                .stMarkdown {
-                    max-width: 100% !important;
-                    width: 100% !important;
-                }
-
-                .report-container {
-                    width: 100% !important;
-                    max-width: 100% !important;
-                    margin: 0 !important;
-                    padding: 2rem !important;
-                }
-
-                .stMarkdown h1,
-                .stMarkdown h2,
-                .stMarkdown h3 {
-                    width: 100% !important;
-                    padding: 1rem 0 !important;
-                }
-
-                .stMarkdown p {
-                    width: 100% !important;
-                    font-size: 1rem !important;
-                }
-
-                [data-testid="stVerticalBlock"] {
-                    width: 100% !important;
-                    max-width: 100% !important;
-                    padding: 0 !important;
-                }
-
-                .css-1d391kg, 
-                .css-12oz5g7 {
-                    padding: 1rem 0 !important;
-                }
-
-                .streamlit-expanderHeader {
-                    width: 100% !important;
-                }
-
-                div[data-testid="stExpander"] {
-                    width: 100% !important;
-                    max-width: 100% !important;
-                }
-            </style>
-        """, unsafe_allow_html=True)
-
         # Título principal na sidebar
         st.sidebar.title("Análise de Apostas Esportivas")
         
@@ -647,55 +587,49 @@ def main():
             # Botão de análise centralizado
             col1, col2, col3 = st.columns([1,1,1])
             with col2:
-               # No botão de análise:
-if st.button("Analisar Partida", type="primary"):
-    if not any(selected_markets.values()):
-        st.error("Selecione pelo menos um mercado para análise.")
-        return
-        
-    if not odds_data:
-        st.error("Configure as odds para os mercados selecionados.")
-        return
-        
-    # Criar um placeholder para o status
-    status = st.empty()
-    
-    try:
-        # Etapa 1: Carregar dados
-        status.info("Carregando dados dos times...")
-        stats_html = fetch_fbref_data(FBREF_URLS[selected_league]["stats"])
-        if not stats_html:
-            status.error("Falha ao carregar dados")
-            return
-            
-        # Etapa 2: Processar dados
-        status.info("Processando estatísticas...")
-        team_stats_df = parse_team_stats(stats_html)
-        if team_stats_df is None:
-            status.error("Falha ao processar estatísticas")
-            return
-            
-        # Etapa 3: Formatar prompt
-        status.info("Preparando análise...")
-        prompt = format_prompt(team_stats_df, home_team, away_team, odds_data)
-        if not prompt:
-            status.error("Falha ao preparar análise")
-            return
-            
-        # Etapa 4: Análise GPT
-        status.info("Realizando análise com IA...")
-        analysis = analyze_with_gpt(prompt)
-        if not analysis:
-            status.error("Falha na análise")
-            return
-            
-        # Sucesso - mostrar resultado
-        status.success("Análise concluída!")
-        st.markdown("## Resultado da Análise")
-        st.markdown(analysis)
-        
+                if st.button("Analisar Partida", type="primary"):
+                    if not any(selected_markets.values()):
+                        st.error("Por favor, selecione pelo menos um mercado para análise.")
+                        return
+                        
+                    if not odds_data:
+                        st.error("Por favor, configure as odds para os mercados selecionados.")
+                        return
+                        
+                    # Criar um placeholder para o status
+                    status = st.empty()
+                    
+                    try:
+                        # Etapa 1: Carregar dados
+                        status.info("Carregando dados dos times...")
+                        if not stats_html or not team_stats_df is not None:
+                            status.error("Falha ao carregar dados")
+                            return
+                            
+                        # Etapa 2: Formatar prompt
+                        status.info("Preparando análise...")
+                        prompt = format_prompt(team_stats_df, home_team, away_team, odds_data)
+                        if not prompt:
+                            status.error("Falha ao preparar análise")
+                            return
+                            
+                        # Etapa 3: Análise GPT
+                        status.info("Realizando análise com IA...")
+                        analysis = analyze_with_gpt(prompt)
+                        if not analysis:
+                            status.error("Falha na análise")
+                            return
+                            
+                        # Sucesso - mostrar resultado
+                        status.success("Análise concluída!")
+                        st.markdown("## Resultado da Análise")
+                        st.markdown(analysis)
+                        
+                    except Exception as e:
+                        status.error(f"Erro durante a análise: {str(e)}")
+
     except Exception as e:
-        status.error(f"Erro durante a análise: {str(e)}")
+        st.error(f"Erro geral na aplicação: {str(e)}")
 
 if __name__ == "__main__":
     main()
