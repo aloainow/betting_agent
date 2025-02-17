@@ -503,60 +503,73 @@ PROBABILIDADES CALCULADAS:
         st.error(f"Erro ao formatar prompt: {str(e)}")
         return None
 def main():
-    try:
-        # Configuração inicial do Streamlit
-        st.set_page_config(
-            page_title="Análise de Apostas Esportivas",
-            page_icon="⚽",
-            layout="wide",
-            initial_sidebar_state="expanded"
-        )
-        
-        # CSS para corrigir o layout
-        st.markdown("""
-            <style>
-                .block-container {
-                    max-width: 100% !important;
-                    padding: 2rem !important;
-                }
-                
-                .main > div {
-                    max-width: 100% !important;
-                    padding: 0 !important;
-                }
-                
-                .stMarkdown {
-                    max-width: 100% !important;
-                }
-                
-                div[data-testid="stVerticalBlock"] > div {
-                    max-width: 100% !important;
-                    width: 100% !important;
-                }
-                
-                .element-container {
-                    max-width: 100% !important;
-                }
-                
-                .css-1kyxreq {
-                    max-width: 100% !important;
-                    width: 100% !important;
-                }
-                
-                .css-1d391kg {
-                    width: 100% !important;
-                }
-                
-                .stMarkdown > div > p {
-                    text-align: left !important;
-                }
-                
-                h1, h2, h3, h4, h5, h6 {
-                    text-align: left !important;
-                    width: 100% !important;
-                }
-            </style>
-        """, unsafe_allow_html=True)
+    # Configuração inicial do Streamlit com layout wide
+    st.set_page_config(
+        page_title="Análise de Apostas Esportivas",
+        page_icon="⚽",
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
+    
+    # CSS melhorado para garantir largura total
+    st.markdown("""
+        <style>
+            /* Força largura total para todos os containers */
+            .main .block-container {
+                max-width: none;
+                width: 100%;
+                padding: 2rem;
+            }
+
+            /* Força largura total para elementos markdown */
+            .stMarkdown > div {
+                width: 100% !important;
+                max-width: none !important;
+            }
+
+            /* Remove padding excessivo */
+            .css-12oz5g7 {
+                padding-top: 0;
+                padding-bottom: 0;
+            }
+
+            /* Garante que colunas ocupem espaço total */
+            [data-testid="column"] {
+                width: 100% !important;
+                flex: 1 1 auto !important;
+            }
+
+            /* Remove restrições de largura do streamlit */
+            .css-1y4p8pa {
+                max-width: none !important;
+                width: 100% !important;
+            }
+
+            /* Ajusta alinhamento do texto */
+            .streamlit-expanderHeader,
+            .stMarkdown p, 
+            .stMarkdown h1,
+            .stMarkdown h2,
+            .stMarkdown h3 {
+                text-align: left !important;
+                width: 100% !important;
+            }
+
+            /* Ajusta largura dos containers de resultado */
+            div[data-testid="stVerticalBlock"] > div {
+                width: 100% !important;
+                max-width: none !important;
+            }
+
+            /* Remove margens laterais */
+            .element-container {
+                width: 100% !important;
+                max-width: none !important;
+                margin-left: 0 !important;
+                margin-right: 0 !important;
+            }
+        </style>
+    """, unsafe_allow_html=True)
         
         # Título principal na sidebar
         st.sidebar.title("Análise de Apostas Esportivas")
@@ -667,16 +680,19 @@ def main():
                             return
                             
                         # Sucesso - mostrar resultado
-                        if analysis:
-                            st.markdown('<div style="width: 100%; max-width: 100%; text-align: left;">', unsafe_allow_html=True)
-                            st.markdown("## Resultado da Análise")
-                            st.markdown(f'''
-                            <div style="width: 100%; max-width: 100%; text-align: left; padding: 1rem;">
-                                {analysis}
-                            </div>
-                            ''', unsafe_allow_html=True)
-                            st.markdown('</div>', unsafe_allow_html=True)
+if analysis:
+                            st.markdown(f"""
+                                <div style="width: 100vw; max-width: none; margin: 0; padding: 2rem; box-sizing: border-box;">
+                                    <h1 style="width: 100%; text-align: left;">Resultado da Análise</h1>
+                                    <div style="width: 100%; text-align: left;">
+                                        {analysis.replace('# ', '## ')}
+                                    </div>
+                                </div>
+                            """, unsafe_allow_html=True)
+                        # ATÉ AQUI
                             
+                    except Exception as e:
+                        status.error(f"Erro durante a análise: {str(e)}")
                     except Exception as e:
                         status.error(f"Erro durante a análise: {str(e)}")
 
