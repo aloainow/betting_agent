@@ -10,6 +10,214 @@ import numpy as np
 import time
 from functools import wraps
 
+# Initialize Stripe
+stripe.api_key = st.secrets["STRIPE_SECRET_KEY"]
+
+# Database setup
+def init_db():
+    conn = sqlite3.connect('users.db')
+    c = conn.cursor()
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY,
+            username TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            subscription_level TEXT DEFAULT 'free',
+            subscription_id TEXT,
+            usage_count INTEGER DEFAULT 0,
+            last_reset_date TEXT
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+# User management functions
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def create_user(username, password, subscription_level='free'):
+    conn = sqlite3.connect('users.db')
+    c = conn.cursor()
+    try:
+        c.execute(
+            "INSERT INTO users (username, password, subscription_level, usage_count, last_reset_date) VALUES (?, ?, ?, ?, ?)",
+            (username, hash_password(password), subscription_level, 0, datetime.now().strftime('%Y-%m'))
+        )
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False
+    finally:
+        conn.close()
+
+def verify_user(username, password):
+    conn = sqlite3.connect('users.db')
+    c = conn.cursor()
+    c.execute("SELECT * FROM users WHERE username=? AND password=?", 
+              (username, hash_password(password)))
+    user = c.fetchone()
+    conn.close()
+    return user
+
+def get_user_subscription(username):
+    conn = sqlite3.connect('users.db')
+    c = conn.cursor()
+    c.execute("SELECT subscription_level, usage_count, last_reset_date FROM users WHERE username=?", (username,))
+    result = c.fetchone()
+    conn.close()
+    return result if result else (None, None, None)
+
+def update_usage_count(username):
+    conn = sqlite3.connect('users.db')
+    c = conn.cursor()
+    current_month = datetime.now().strftime('%Y-%m')
+    
+    # Check if we need to reset the counter for a new month
+    c.execute("SELECT usage_count, last_reset_date FROM users WHERE username=?", (username,))
+    count, last_reset = c.fetchone()
+    
+    if last_reset != current_month:
+        c.execute("UPDATE users SET usage_count=1, last_reset_date=? WHERE username=?",
+                 (current_month, username))
+    else:
+        c.execute("UPDATE users SET usage_count=usage_count+1 WHERE username=?", (username,))
+    
+    conn.commit()
+    conn.close()
+
+# Subscription management
+def create_checkout_session(price_id):
+    try:
+        checkout_session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{'price': price_id, 'quantity': 1}],
+            mode='subscription',
+            success_url=st.secrets["DOMAIN"] + '/success',
+            cancel_url=st.secrets["DOMAIN"] + '/cancel',
+        )
+        return checkout_session
+    except Exception as e:
+        st.error(f"Error creating checkout session: {str(e)}")
+        return None
+
+def check_subscription_limits(username):
+    subscription_level, usage_count, last_reset_date = get_user_subscription(username)
+    current_month = datetime.now().strftime('%Y-%m')
+    
+    # Reset usage count if it's a new month
+    if last_reset_date != current_month:
+        usage_count = 0
+    
+    limits = {
+        'free': 1,
+        'pro': 30,
+        'unlimited': float('inf')
+    }
+    
+    return usage_count < limits.get(subscription_level, 0)
+
+# Authentication decorator
+def require_auth(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        if 'username' not in st.session_state:
+            st.warning("Please log in to access this feature")
+            st.stop()
+        return func(*args, **kwargs)
+    return wrapper
+
+# UI Components
+def show_login_signup():
+    tab1, tab2 = st.tabs(["Login", "Sign Up"])
+    
+    with tab1:
+        with st.form("login_form"):
+            username = st.text_input("Username")
+            password = st.text_input("Password", type="password")
+            submitted = st.form_submit_button("Login")
+            
+            if submitted:
+                user = verify_user(username, password)
+                if user:
+                    st.session_state['username'] = username
+                    st.success("Logged in successfully!")
+                    st.rerun()
+                else:
+                    st.error("Invalid username or password")
+    
+    with tab2:
+        with st.form("signup_form"):
+            new_username = st.text_input("Choose Username")
+            new_password = st.text_input("Choose Password", type="password")
+            submitted = st.form_submit_button("Sign Up")
+            
+            if submitted:
+                if create_user(new_username, new_password):
+                    st.success("Account created successfully! Please log in.")
+                else:
+                    st.error("Username already exists")
+
+def show_subscription_options():
+    st.subheader("Subscription Plans")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("### Free")
+        st.write("- 1 analysis per month")
+        st.write("- Basic features")
+        st.write("- Single market")
+        if st.button("Current Plan" if st.session_state.get('subscription_level') == 'free' else "Select Free"):
+            st.session_state['subscription_level'] = 'free'
+    
+    with col2:
+        st.markdown("### Pro")
+        st.write("- 30 analyses per month")
+        st.write("- All features")
+        st.write("- Multiple markets")
+        price = "$9.99/month"
+        if st.button("Upgrade to Pro"):
+            checkout_session = create_checkout_session(st.secrets["STRIPE_PRO_PRICE_ID"])
+            if checkout_session:
+                st.markdown(f"[Proceed to Payment]({checkout_session.url})")
+    
+    with col3:
+        st.markdown("### Unlimited")
+        st.write("- Unlimited analyses")
+        st.write("- Priority support")
+        st.write("- All features")
+        price = "$29.99/month"
+        if st.button("Upgrade to Unlimited"):
+            checkout_session = create_checkout_session(st.secrets["STRIPE_UNLIMITED_PRICE_ID"])
+            if checkout_session:
+                st.markdown(f"[Proceed to Payment]({checkout_session.url})")
+
+# Modified main function
+def main():
+    st.set_page_config(page_title="Sports Betting Analysis", layout="wide")
+    
+    # Initialize database
+    init_db()
+    
+    # Show login/signup if not authenticated
+    if 'username' not in st.session_state:
+        show_login_signup()
+        return
+    
+    # Sidebar with user info and subscription
+    with st.sidebar:
+        st.write(f"Welcome, {st.session_state['username']}!")
+        if st.button("Logout"):
+            del st.session_state['username']
+            st.rerun()
+        
+        st.divider()
+        show_subscription_options()
+    
+    # Check subscription limits before analysis
+    if not check_subscription_limits(st.session_state['username']):
+        st.warning("You have reached your monthly analysis limit. Please upgrade your subscription to continue.")
+        return
 
 # Definição das URLs do FBref
 FBREF_URLS = {
@@ -512,6 +720,9 @@ def main():
             initial_sidebar_state="expanded"
         )
         
+        # Initialize database
+        init_db()
+        
         # CSS melhorado
         st.markdown("""
             <style>
@@ -527,16 +738,39 @@ def main():
             </style>
         """, unsafe_allow_html=True)
 
-        # Título principal na sidebar
-        st.sidebar.title("Análise de Apostas Esportivas")
-        
-        # Configurações na sidebar
-        st.sidebar.title("Configurações")
-        selected_league = st.sidebar.selectbox(
-            "Escolha o campeonato:",
-            list(FBREF_URLS.keys())
-        )
-        
+        # Verificar autenticação antes de mostrar o conteúdo principal
+        if 'username' not in st.session_state:
+            show_login_signup()
+            return
+
+        # Sidebar com informações do usuário e assinatura
+        with st.sidebar:
+            st.title("Análise de Apostas Esportivas")
+            st.write(f"Bem-vindo, {st.session_state['username']}!")
+            
+            subscription_level, usage_count, _ = get_user_subscription(st.session_state['username'])
+            st.write(f"Plano atual: {subscription_level.capitalize()}")
+            st.write(f"Análises utilizadas este mês: {usage_count}")
+            
+            if st.button("Logout"):
+                del st.session_state['username']
+                st.rerun()
+            
+            st.divider()
+            show_subscription_options()
+            
+            # Verificar limites da assinatura
+            if not check_subscription_limits(st.session_state['username']):
+                st.warning("Você atingiu seu limite mensal de análises. Por favor, atualize sua assinatura para continuar.")
+                return
+            
+            # Configurações
+            st.title("Configurações")
+            selected_league = st.selectbox(
+                "Escolha o campeonato:",
+                list(FBREF_URLS.keys())
+            )
+
         # Container de status para mensagens
         status_container = st.sidebar.empty()
         
@@ -577,21 +811,34 @@ def main():
         with st.expander("Mercados Disponíveis", expanded=True):
             st.markdown("### Seleção de Mercados")
             
+            # Verificar limite de mercados para usuários free
+            is_free_user = subscription_level == 'free'
+            max_markets = 1 if is_free_user else 6
+            
             col1, col2 = st.columns(2)
             
             with col1:
                 selected_markets = {
-                    "money_line": st.checkbox("Money Line (1X2)", value=True, key='ml'),
-                    "over_under": st.checkbox("Over/Under", key='ou'),
-                    "chance_dupla": st.checkbox("Chance Dupla", key='cd')
+                    "money_line": st.checkbox("Money Line (1X2)", value=True, key='ml', 
+                                           disabled=is_free_user and any(selected_markets.values())),
+                    "over_under": st.checkbox("Over/Under", key='ou',
+                                           disabled=is_free_user and any(selected_markets.values())),
+                    "chance_dupla": st.checkbox("Chance Dupla", key='cd',
+                                             disabled=is_free_user and any(selected_markets.values()))
                 }
             
             with col2:
                 selected_markets.update({
-                    "ambos_marcam": st.checkbox("Ambos Marcam", key='btts'),
-                    "escanteios": st.checkbox("Total de Escanteios", key='corners'),
-                    "cartoes": st.checkbox("Total de Cartões", key='cards')
+                    "ambos_marcam": st.checkbox("Ambos Marcam", key='btts',
+                                             disabled=is_free_user and any(selected_markets.values())),
+                    "escanteios": st.checkbox("Total de Escanteios", key='corners',
+                                           disabled=is_free_user and any(selected_markets.values())),
+                    "cartoes": st.checkbox("Total de Cartões", key='cards',
+                                        disabled=is_free_user and any(selected_markets.values()))
                 })
+            
+            if is_free_user:
+                st.info("Usuários do plano gratuito podem selecionar apenas 1 mercado. Faça upgrade para acessar mais mercados!")
 
         # Inputs de odds em container separado
         odds_data = None
@@ -637,6 +884,9 @@ def main():
                     
                     # Etapa 4: Mostrar resultado
                     if analysis:
+                        # Atualizar contador de uso
+                        update_usage_count(st.session_state['username'])
+                        
                         # Primeiro aplica o estilo
                         st.markdown("""
                             <style>
