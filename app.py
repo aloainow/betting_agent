@@ -512,81 +512,55 @@ def main():
             initial_sidebar_state="expanded"
         )
         
-st.markdown("""
-    <style>
-        /* Reset de largura para todos os containers */
-        .block-container {
-            padding: 0 !important;
-            max-width: 100% !important;
-        }
-
-        /* Ajusta o container principal */
-        .css-1d391kg, .css-12oz5g7 {
-            padding: 0 !important;
-            width: 100% !important;
-            max-width: 100% !important;
-        }
-
-        /* Força largura total para todos os elementos */
-        .stMarkdown, .stMarkdown > div {
-            width: 100% !important;
-            max-width: 100% !important;
-            padding-left: 0 !important;
-            padding-right: 0 !important;
-        }
-
-        /* Ajusta alinhamento e largura do texto */
-        h1, h2, h3, p, ul, ol {
-            width: 100% !important;
-            max-width: 100% !important;
-            text-align: left !important;
-            padding: 0 1rem !important;
-            box-sizing: border-box !important;
-        }
-
-        /* Ajusta containers específicos do Streamlit */
-        div[data-testid="stVerticalBlock"] {
-            width: 100% !important;
-            max-width: 100% !important;
-            padding: 0 !important;
-        }
-
-        .css-ocqkz7 {
-            max-width: 100% !important;
-            width: 100% !important;
-        }
-
-        .css-qrbaxs {
-            max-width: 100% !important;
-            width: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-        }
-
-        /* Container específico para a análise */
-        .analysis-container {
-            width: 100% !important;
-            max-width: 100% !important;
-            margin: 0 !important;
-            padding: 1rem 2rem !important;
-            box-sizing: border-box !important;
-        }
-
-        /* Força largura total para divs dentro da análise */
-        .analysis-container > div {
-            width: 100% !important;
-            max-width: 100% !important;
-        }
-
-        /* Remove margens laterais */
-        .css-1y4p8pa {
-            margin-right: 0 !important;
-            margin-left: 0 !important;
-            max-width: 100% !important;
-        }
-    </style>
-""", unsafe_allow_html=True)
-
+        # CSS melhorado
+        st.markdown("""
+            <style>
+                /* Reset de largura para todos os containers */
+                .block-container {
+                    padding: 0 !important;
+                    max-width: 100% !important;
+                }
+                
+                /* Ajusta o container principal */
+                .css-1d391kg, .css-12oz5g7 {
+                    padding: 0 !important;
+                    width: 100% !important;
+                    max-width: 100% !important;
+                }
+                
+                /* Força largura total para todos os elementos */
+                .stMarkdown, .stMarkdown > div {
+                    width: 100% !important;
+                    max-width: 100% !important;
+                    padding-left: 0 !important;
+                    padding-right: 0 !important;
+                }
+                
+                /* Ajusta containers específicos do Streamlit */
+                div[data-testid="stVerticalBlock"] {
+                    width: 100% !important;
+                    max-width: 100% !important;
+                    padding: 0 !important;
+                }
+                
+                /* Remove margens laterais */
+                .css-1y4p8pa {
+                    margin-right: 0 !important;
+                    margin-left: 0 !important;
+                    max-width: 100% !important;
+                }
+                
+                /* Container específico para a análise */
+                .analysis-container {
+                    width: 100% !important;
+                    max-width: 100% !important;
+                    margin: 0 !important;
+                    padding: 1rem 2rem !important;
+                    box-sizing: border-box !important;
+                }
+            </style>
+        """, unsafe_allow_html=True)
+        
         # Título principal na sidebar
         st.sidebar.title("Análise de Apostas Esportivas")
         
@@ -663,7 +637,7 @@ st.markdown("""
         col1, col2, col3 = st.columns([1,1,1])
         with col2:
             if st.button("Analisar Partida", type="primary"):
-                if not any(selected_markets.values()):
+                try: (selected_markets.values()):
                     st.error("Por favor, selecione pelo menos um mercado para análise.")
                     return
                     
@@ -696,38 +670,31 @@ st.markdown("""
                         return
                     
                     # Sucesso - mostrar resultado
-if analysis:
-    st.markdown("""
-        <style>
-            .analysis-result {
-                width: 100% !important;
-                max-width: 100% !important;
-                padding: 1rem 2rem !important;
-                margin: 0 !important;
-                box-sizing: border-box !important;
-            }
-            .analysis-title {
-                width: 100% !important;
-                text-align: left !important;
-                padding: 0 !important;
-                margin-bottom: 1rem !important;
-            }
-            .analysis-content {
-                width: 100% !important;
-                text-align: left !important;
-                padding: 0 !important;
-            }
-        </style>
-        <div class="analysis-result">
-            <h1 class="analysis-title">Resultado da Análise</h1>
-            <div class="analysis-content">
-                {}
-            </div>
-        </div>
-    """.format(analysis.replace('# ', '## ')), unsafe_allow_html=True)                
-                except Exception as e:
-                    status.error(f"Erro durante a análise: {str(e)}")
-
+# Quando for mostrar o resultado:
+                if analysis:
+                    st.markdown("""
+                        <style>
+                            .analysis-result {
+                                width: 100% !important;
+                                max-width: 100% !important;
+                                padding: 1rem 2rem !important;
+                                margin: 0 !important;
+                                box-sizing: border-box !important;
+                            }
+                            .analysis-content {
+                                width: 100% !important;
+                                text-align: left !important;
+                                padding: 0 !important;
+                            }
+                        </style>
+                        <div class="analysis-result">
+                            <div class="analysis-content">
+                                {}
+                            </div>
+                        </div>
+                    """.format(analysis), unsafe_allow_html=True)
+            except Exception as e:
+                st.error(f"Erro durante a análise: {str(e)}")
     except Exception as e:
         st.error(f"Erro geral na aplicação: {str(e)}")
 
