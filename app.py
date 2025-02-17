@@ -193,43 +193,36 @@ def get_openai_client():
 
 
 def analyze_with_gpt(prompt):
-    """Analisa com GPT com melhor tratamento de erros e feedback"""
     try:
-        # Verificar se temos a chave da API
-        if "OPENAI_API_KEY" not in st.secrets:
-            st.error("Chave da API OpenAI não configurada")
-            return None
-            
         client = get_openai_client()
         if not client:
-            st.error("Falha ao inicializar cliente OpenAI")
+            st.error("Cliente OpenAI não inicializado")
             return None
             
-        with st.spinner("Analisando com GPT-4..."):
-            response = client.chat.completions.create(
-                model="gpt-4",
-                messages=[
-                    {"role": "system", "content": "Você é um Agente Analista de Probabilidades Esportivas especializado."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.3,
-                timeout=30  # 30 segundos de timeout
-            )
-            
-            if not response or not response.choices:
-                st.error("Resposta inválida da API OpenAI")
-                return None
-                
-            return response.choices[0].message.content
-            
+        st.write("Enviando requisição para API...")  # Log para debug
+        response = client.chat.completions.create(
+            model="gpt-4",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "Você é um Agente Analista de Probabilidades Esportivas especializado."
+                },
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.3,
+            timeout=60  # Timeout de 60 segundos
+        )
+        st.write("Resposta recebida da API!")  # Log para debug
+        return response.choices[0].message.content
     except OpenAIError as e:
         st.error(f"Erro na API OpenAI: {str(e)}")
         return None
     except Exception as e:
         st.error(f"Erro inesperado: {str(e)}")
+        st.write(f"Traceback completo: {traceback.format_exc()}")  # Log detalhado do erro
         return None
         
-        def parse_team_stats(html_content):
+def parse_team_stats(html_content):
     """Processa os dados do time com tratamento melhorado para extrair estatísticas"""
     try:
         soup = BeautifulSoup(html_content, 'html.parser')
