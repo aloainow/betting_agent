@@ -672,33 +672,16 @@ def main():
                     # Sucesso - mostrar resultado
                     # Substitua o bloco de código dentro do if analysis: por este:
 if analysis:
-    # Primeiro aplica o estilo
     st.markdown("""
         <style>
-            .analysis-result {
+            .stMarkdown {
                 width: 100% !important;
                 max-width: 100% !important;
-                padding: 1rem 2rem !important;
-                margin: 0 !important;
-                box-sizing: border-box !important;
-            }
-            .analysis-content {
-                width: 100% !important;
-                text-align: left !important;
-                padding: 0 !important;
             }
         </style>
     """, unsafe_allow_html=True)
     
-    # Depois mostra o conteúdo da análise
-    st.markdown(f"""
-        <div class="analysis-result">
-            <div class="analysis-content">
-                {analysis}
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
-    
+    st.markdown(analysis, unsafe_allow_html=True)    
                 except Exception as e:
                     status.error(f"Erro durante a análise: {str(e)}")
 
