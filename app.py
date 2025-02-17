@@ -515,48 +515,14 @@ def main():
         # CSS melhorado
         st.markdown("""
             <style>
-                /* Reset de largura para todos os containers */
-                .block-container {
-                    padding: 0 !important;
-                    max-width: 100% !important;
+                .main .block-container {
+                    max-width: none !important;
+                    width: 100% !important;
+                    padding: 1rem !important;
                 }
-                
-                /* Ajusta o container principal */
-                .css-1d391kg, .css-12oz5g7 {
-                    padding: 0 !important;
+                .stMarkdown {
                     width: 100% !important;
                     max-width: 100% !important;
-                }
-                
-                /* Força largura total para todos os elementos */
-                .stMarkdown, .stMarkdown > div {
-                    width: 100% !important;
-                    max-width: 100% !important;
-                    padding-left: 0 !important;
-                    padding-right: 0 !important;
-                }
-                
-                /* Ajusta containers específicos do Streamlit */
-                div[data-testid="stVerticalBlock"] {
-                    width: 100% !important;
-                    max-width: 100% !important;
-                    padding: 0 !important;
-                }
-                
-                /* Remove margens laterais */
-                .css-1y4p8pa {
-                    margin-right: 0 !important;
-                    margin-left: 0 !important;
-                    max-width: 100% !important;
-                }
-                
-                /* Container específico para a análise */
-                .analysis-container {
-                    width: 100% !important;
-                    max-width: 100% !important;
-                    margin: 0 !important;
-                    padding: 1rem 2rem !important;
-                    box-sizing: border-box !important;
                 }
             </style>
         """, unsafe_allow_html=True)
@@ -645,10 +611,10 @@ def main():
                     st.error("Por favor, configure as odds para os mercados selecionados.")
                     return
                     
+                # Criar um placeholder para o status
+                status = st.empty()
+                
                 try:
-                    # Criar um placeholder para o status
-                    status = st.empty()
-                    
                     # Etapa 1: Carregar dados
                     status.info("Carregando dados dos times...")
                     if not stats_html or not team_stats_df is not None:
@@ -669,19 +635,22 @@ def main():
                         status.error("Falha na análise")
                         return
                     
-                    # Sucesso - mostrar resultado
-                    # Substitua o bloco de código dentro do if analysis: por este:
-if analysis:
-    st.markdown("""
-        <style>
-            .stMarkdown {
-                width: 100% !important;
-                max-width: 100% !important;
-            }
-        </style>
-    """, unsafe_allow_html=True)
-    
-    st.markdown(analysis, unsafe_allow_html=True)    
+                    # Etapa 4: Mostrar resultado
+                    if analysis:
+                        # Primeiro aplica o estilo
+                        st.markdown("""
+                            <style>
+                                .analysis-result {
+                                    width: 100% !important;
+                                    max-width: 100% !important;
+                                    padding: 1rem !important;
+                                }
+                            </style>
+                        """, unsafe_allow_html=True)
+                        
+                        # Depois mostra o conteúdo
+                        st.markdown(f'<div class="analysis-result">{analysis}</div>', unsafe_allow_html=True)
+                        
                 except Exception as e:
                     status.error(f"Erro durante a análise: {str(e)}")
 
