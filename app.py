@@ -9,6 +9,302 @@ import traceback
 import numpy as np
 import time
 from functools import wraps
+import streamlit as st
+import datetime
+from typing import Optional, Dict, List
+import json
+import os
+import hashlib
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+import streamlit as st
+from auth_system import init_session_state
+import time
+
+def show_login():
+    """Display login form"""
+    st.title("Login")
+    
+    # Login form
+    with st.form("login_form"):
+        email = st.text_input("Email")
+        password = st.text_input("Password", type="password")
+        submitted = st.form_submit_button("Login")
+        
+        if submitted:
+            if st.session_state.user_manager.authenticate(email, password):
+                st.session_state.authenticated = True
+                st.session_state.email = email
+                st.success("Login successful!")
+                time.sleep(1)
+                st.experimental_rerun()
+            else:
+                st.error("Invalid credentials")
+    
+    # Registration link
+    if st.button("Don't have an account? Register here"):
+        st.session_state.show_register = True
+        st.experimental_rerun()
+
+def show_register():
+    """Display registration form"""
+    st.title("Register")
+    
+    with st.form("register_form"):
+        email = st.text_input("Email")
+        password = st.text_input("Password", type="password")
+        tier = st.selectbox("Select Tier", ["free", "pro", "premium"])
+        submitted = st.form_submit_button("Register")
+        
+        if submitted:
+            success, message = st.session_state.user_manager.register_user(email, password, tier)
+            if success:
+                st.success(message)
+                st.session_state.show_register = False
+                time.sleep(1)
+                st.experimental_rerun()
+            else:
+                st.error(message)
+
+def show_usage_stats():
+    """Display usage statistics"""
+    stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
+    
+    st.sidebar.markdown("### Usage Statistics")
+    st.sidebar.markdown(f"**Current Tier:** {stats['tier'].capitalize()}")
+    
+    if stats['daily_limit']:
+        st.sidebar.markdown(f"**Daily Usage:** {stats['daily_usage']}/{stats['daily_limit']}")
+    
+    if stats['monthly_limit']:
+        st.sidebar.markdown(f"**Monthly Usage:** {stats['monthly_usage']}/{stats['monthly_limit']}")
+    
+    st.sidebar.markdown(f"**Markets per Analysis:** {stats['market_limit']}")
+    user_stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
+if user_stats['tier'] == 'free':
+    st.sidebar.warning("🔒 Plano Free:\n- 1 análise por dia\n- 1 mercado por análise")
+elif user_stats['tier'] == 'pro':
+    remaining = 60 - user_stats['monthly_usage']
+    st.sidebar.info(f"⭐ Plano Pro:\n- {remaining} análises restantes este mês\n- Múltiplos mercados por análise")
+elif user_stats['tier'] == 'premium':
+    st.sidebar.success("💎 Plano Premium:\n- Análises ilimitadas\n- Múltiplos mercados por análise")
+
+def check_analysis_limits(selected_markets):
+    """Check if user can perform analysis with selected markets"""
+    num_markets = sum(1 for v in selected_markets.values() if v)
+    stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
+    
+    if stats['tier'] == 'free':
+        if num_markets > 1:
+            st.error("❌ Plano Free permite apenas 1 mercado por análise")
+            return False
+        if stats['daily_usage'] >= 1:
+            next_analysis = datetime.now() + timedelta(days=1)
+            next_analysis = next_analysis.replace(hour=0, minute=0, second=0, microsecond=0)
+            time_remaining = next_analysis - datetime.now()
+            hours = int(time_remaining.total_seconds() // 3600)
+            minutes = int((time_remaining.total_seconds() % 3600) // 60)
+            st.error(f"❌ Limite diário atingido. Próxima análise disponível em {hours}h {minutes}min")
+            return False
+    elif stats['tier'] == 'pro':
+        remaining = 60 - stats['monthly_usage']
+        if num_markets > remaining:
+            next_month = (datetime.now() + timedelta(days=32)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            days_remaining = (next_month - datetime.now()).days
+            st.error(f"❌ Você tem apenas {remaining} análises restantes este mês. Renovação em {days_remaining} dias")
+            return False
+            
+    return True
+
+
+@dataclass
+class UserTier:
+    name: str
+    daily_limit: Optional[int]
+    monthly_limit: Optional[int]
+    market_limit: int
+
+class UserManager:
+    def __init__(self, storage_path: str = ".streamlit/users.json"):
+        self.storage_path = storage_path
+        self.users = self._load_users()
+        
+        # Define user tiers
+        self.tiers = {
+            "free": UserTier("free", 1, None, 1),
+            "pro": UserTier("pro", None, 60, float('inf')),
+            "premium": UserTier("premium", None, None, float('inf'))
+        }
+        
+    def _load_users(self) -> Dict:
+        """Load users from JSON file"""
+        if os.path.exists(self.storage_path):
+            with open(self.storage_path, 'r') as f:
+                return json.load(f)
+        return {}
+    
+    def _save_users(self):
+    """Save users to JSON file"""
+    try:
+        # Criar diretório se não existir
+        os.makedirs(os.path.dirname(self.storage_path), exist_ok=True)
+        
+        # Criar backup antes de salvar
+        if os.path.exists(self.storage_path):
+            backup_path = f"{self.storage_path}.backup"
+            with open(self.storage_path, 'r') as src, open(backup_path, 'w') as dst:
+                dst.write(src.read())
+                
+        # Salvar dados atualizados
+        with open(self.storage_path, 'w') as f:
+            json.dump(self.users, f, indent=2)
+    except Exception as e:
+        st.error(f"Erro ao salvar dados dos usuários: {str(e)}")
+    
+    def _hash_password(self, password: str) -> str:
+        """Hash password using SHA-256"""
+        return hashlib.sha256(password.encode()).hexdigest()
+    
+   def register_user(self, email: str, password: str, tier: str = "free") -> tuple[bool, str]:
+    """Register a new user"""
+    if not self._validate_email(email):
+        return False, "Email inválido"
+    if email in self.users:
+        return False, "Email já registrado"
+    if len(password) < 6:
+        return False, "Senha deve ter no mínimo 6 caracteres"
+    if tier not in self.tiers:
+        return False, "Tipo de usuário inválido"
+        
+    self.users[email] = {
+        "password": self._hash_password(password),
+        "tier": tier,
+        "usage": {
+            "daily": [],
+            "monthly": []
+        },
+        "created_at": datetime.now().isoformat()
+    }
+    self._save_users()
+    return True, "Registro realizado com sucesso"
+       
+    def _validate_email(self, email: str) -> bool:
+    """Validate email format"""
+    import re
+    pattern = r'^[\w\.-]+@[\w\.-]+\.\w+$'
+    return bool(re.match(pattern, email))
+    
+    def authenticate(self, email: str, password: str) -> bool:
+        """Authenticate a user"""
+        if email not in self.users:
+            return False
+        return self.users[email]["password"] == self._hash_password(password)
+    
+    def can_analyze(self, email: str, num_markets: int) -> bool:
+        """Check if user can perform analysis"""
+        if email not in self.users:
+            return False
+            
+        user = self.users[email]
+        tier = self.tiers[user["tier"]]
+        
+        # Check market limit
+        if num_markets > tier.market_limit:
+            return False
+            
+        # Premium users have no limits
+        if tier.name == "premium":
+            return True
+            
+        today = datetime.now().date()
+        this_month = today.replace(day=1)
+        
+        # Clean old usage data
+        user["usage"]["daily"] = [
+            u for u in user["usage"]["daily"]
+            if datetime.strptime(u["date"], "%Y-%m-%d").date() == today
+        ]
+        user["usage"]["monthly"] = [
+            u for u in user["usage"]["monthly"]
+            if datetime.strptime(u["date"], "%Y-%m-%d").date().replace(day=1) == this_month
+        ]
+        
+        # Check daily limit for free users
+        if tier.daily_limit:
+            daily_usage = sum(u["markets"] for u in user["usage"]["daily"])
+            if daily_usage + num_markets > tier.daily_limit:
+                return False
+                
+        # Check monthly limit for pro users
+        if tier.monthly_limit:
+            monthly_usage = sum(u["markets"] for u in user["usage"]["monthly"])
+            if monthly_usage + num_markets > tier.monthly_limit:
+                return False
+                
+        return True
+    
+    def record_usage(self, email: str, num_markets: int):
+        """Record usage for a user"""
+        if email not in self.users:
+            return
+            
+        today = datetime.now().date().isoformat()
+        usage = {
+            "date": today,
+            "markets": num_markets
+        }
+        
+        self.users[email]["usage"]["daily"].append(usage)
+        self.users[email]["usage"]["monthly"].append(usage)
+        self._save_users()
+    
+    def get_usage_stats(self, email: str) -> Dict:
+        """Get usage statistics for a user"""
+        if email not in self.users:
+            return {}
+            
+        user = self.users[email]
+        today = datetime.now().date()
+        this_month = today.replace(day=1)
+        
+        daily_usage = sum(
+            u["markets"] for u in user["usage"]["daily"]
+            if datetime.strptime(u["date"], "%Y-%m-%d").date() == today
+        )
+        
+        monthly_usage = sum(
+            u["markets"] for u in user["usage"]["monthly"]
+            if datetime.strptime(u["date"], "%Y-%m-%d").date().replace(day=1) == this_month
+        )
+        
+        tier = self.tiers[user["tier"]]
+        
+        return {
+            "tier": user["tier"],
+            "daily_usage": daily_usage,
+            "monthly_usage": monthly_usage,
+            "daily_limit": tier.daily_limit,
+            "monthly_limit": tier.monthly_limit,
+            "market_limit": tier.market_limit
+        }
+
+def init_session_state():
+    """Initialize session state variables"""
+    if "user_manager" not in st.session_state:
+        st.session_state.user_manager = UserManager()
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+    if "email" not in st.session_state:
+        st.session_state.email = None
+    if "last_activity" not in st.session_state:
+        st.session_state.last_activity = datetime.now()
+    elif (datetime.now() - st.session_state.last_activity).total_seconds() > 3600:  # 1 hora
+        st.session_state.authenticated = False
+        st.session_state.email = None
+        st.warning("Sua sessão expirou. Por favor, faça login novamente.")
+    
+    st.session_state.last_activity = datetime.now()
+
 
 
 # Definição das URLs do FBref
@@ -502,8 +798,21 @@ PROBABILIDADES CALCULADAS:
     except Exception as e:
         st.error(f"Erro ao formatar prompt: {str(e)}")
         return None
+
+def _save_users(self):
+    """Save users to JSON file"""
+    try:
+        os.makedirs(os.path.dirname(self.storage_path), exist_ok=True)
+        with open(self.storage_path, 'w') as f:
+            json.dump(self.users, f)
+    except Exception as e:
+        st.error(f"Erro ao salvar dados dos usuários: {str(e)}")
+
 def main():
     try:
+        # Initialize session state
+        init_session_state()
+        
         # Configuração inicial do Streamlit
         st.set_page_config(
             page_title="Análise de Apostas Esportivas",
@@ -527,8 +836,28 @@ def main():
             </style>
         """, unsafe_allow_html=True)
 
+        # Autenticação
+        if not st.session_state.authenticated:
+            if not hasattr(st.session_state, 'show_register'):
+                st.session_state.show_register = False
+                
+            if st.session_state.show_register:
+                show_register()
+            else:
+                show_login()
+            return
+
+        # Show usage stats in sidebar
+        show_usage_stats()
+        
         # Título principal na sidebar
         st.sidebar.title("Análise de Apostas Esportivas")
+        
+        # Add logout button
+        if st.sidebar.button("Logout"):
+            st.session_state.authenticated = False
+            st.session_state.email = None
+            st.experimental_rerun()
         
         # Configurações na sidebar
         st.sidebar.title("Configurações")
@@ -573,9 +902,16 @@ def main():
             away_teams = [team for team in teams if team != home_team]
             away_team = st.selectbox("Time Visitante:", away_teams, key='away_team')
 
+        # Get user tier limits
+        user_stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
+        max_markets = user_stats['market_limit']
+
         # Seleção de mercados em container separado
         with st.expander("Mercados Disponíveis", expanded=True):
             st.markdown("### Seleção de Mercados")
+            
+            # Mostrar limite de mercados baseado no tier
+            st.info(f"Seu plano permite {max_markets} mercado(s) por análise")
             
             col1, col2 = st.columns(2)
             
@@ -593,6 +929,12 @@ def main():
                     "cartoes": st.checkbox("Total de Cartões", key='cards')
                 })
 
+            # Verificar número de mercados selecionados
+            num_selected_markets = sum(1 for v in selected_markets.values() if v)
+            if num_selected_markets > max_markets:
+                st.error(f"Você selecionou {num_selected_markets} mercados, mas seu plano permite apenas {max_markets}.")
+                return
+
         # Inputs de odds em container separado
         odds_data = None
         if any(selected_markets.values()):
@@ -602,13 +944,19 @@ def main():
         # Botão de análise centralizado
         col1, col2, col3 = st.columns([1,1,1])
         with col2:
-            if st.button("Analisar Partida", type="primary"):
+            analyze_button = st.button("Analisar Partida", type="primary")
+            
+            if analyze_button:
                 if not any(selected_markets.values()):
                     st.error("Por favor, selecione pelo menos um mercado para análise.")
                     return
                     
                 if not odds_data:
                     st.error("Por favor, configure as odds para os mercados selecionados.")
+                    return
+                
+                # Verificar limites de análise
+                if not check_analysis_limits(selected_markets):
                     return
                     
                 # Criar um placeholder para o status
@@ -650,6 +998,13 @@ def main():
                         
                         # Depois mostra o conteúdo
                         st.markdown(f'<div class="analysis-result">{analysis}</div>', unsafe_allow_html=True)
+                        
+                        # Registrar uso após análise bem-sucedida
+                        num_markets = sum(1 for v in selected_markets.values() if v)
+                        st.session_state.user_manager.record_usage(st.session_state.email, num_markets)
+                        
+                        # Atualizar estatísticas de uso
+                        show_usage_stats()
                         
                 except Exception as e:
                     status.error(f"Erro durante a análise: {str(e)}")
