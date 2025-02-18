@@ -16,3 +16,4 @@ certifi>=2023.7.22
 # Cache and performance
 cachetools==5.3.2
 aiohttp==3.9.1
+python-dotenv==1.0.0
