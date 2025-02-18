@@ -18,8 +18,66 @@ import requests
 from bs4 import BeautifulSoup
 from openai import OpenAI, OpenAIError
 
-# Local imports
-from auth_system import init_session_state  # Se este arquivo existir
+
+# Definição das URLs do FBref
+FBREF_URLS = {
+    "Premier League": {
+        "stats": "https://fbref.com/en/comps/9/Premier-League-Stats",
+        "fixtures": "https://fbref.com/en/comps/9/schedule/Premier-League-Scores-and-Fixtures"
+    },
+    "La Liga": {
+        "stats": "https://fbref.com/en/comps/12/La-Liga-Stats",
+        "fixtures": "https://fbref.com/en/comps/12/schedule/La-Liga-Scores-and-Fixtures"
+    },
+    "Serie A": {
+        "stats": "https://fbref.com/en/comps/11/Serie-A-Stats",
+        "fixtures": "https://fbref.com/en/comps/11/schedule/Serie-A-Scores-and-Fixtures"
+    },
+    "Bundesliga": {
+        "stats": "https://fbref.com/en/comps/20/Bundesliga-Stats",
+        "fixtures": "https://fbref.com/en/comps/20/schedule/Bundesliga-Scores-and-Fixtures"
+    },
+    "Ligue 1": {
+        "stats": "https://fbref.com/en/comps/13/Ligue-1-Stats",
+        "fixtures": "https://fbref.com/en/comps/13/schedule/Ligue-1-Scores-and-Fixtures"
+    },
+    "Champions League": {
+        "stats": "https://fbref.com/en/comps/8/Champions-League-Stats",
+        "fixtures": "https://fbref.com/en/comps/8/schedule/Champions-League-Scores-and-Fixtures"
+    }
+}
+
+
+@dataclass
+class UserTier:
+    name: str
+    daily_limit: Optional[int]
+    monthly_limit: Optional[int]
+    market_limit: int
+
+# Função init_session_state deve vir ANTES da classe UserManager
+def init_session_state():
+    """Initialize session state variables"""
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+    
+    if "email" not in st.session_state:
+        st.session_state.email = None
+    
+    if "last_activity" not in st.session_state:
+        st.session_state.last_activity = datetime.now()
+    elif (datetime.now() - st.session_state.last_activity).total_seconds() > 3600:  # 1 hora
+        st.session_state.authenticated = False
+        st.session_state.email = None
+        st.warning("Sua sessão expirou. Por favor, faça login novamente.")
+    
+    # UserManager deve ser o último a ser inicializado
+    if "user_manager" not in st.session_state:
+        st.session_state.user_manager = UserManager()
+    
+    # Atualizar timestamp de última atividade
+    st.session_state.last_activity = datetime.now()
+
 
 def show_login():
     """Display login form"""
@@ -51,9 +109,17 @@ def show_register():
     st.title("Register")
     
     with st.form("register_form"):
-        email = st.text_input("Email")
-        password = st.text_input("Password", type="password")
-        tier = st.selectbox("Select Tier", ["free", "pro", "premium"])
+        col1, col2 = st.columns(2)
+        with col1:
+            email = st.text_input("Email")
+            password = st.text_input("Password", type="password")
+        with col2:
+            st.markdown("### Planos Disponíveis")
+            st.markdown("🔒 **Free:** 1 análise/dia, 1 mercado")
+            st.markdown("⭐ **Pro:** 60 análises/mês, múltiplos mercados")
+            st.markdown("💎 **Premium:** Análises ilimitadas")
+            tier = st.selectbox("Selecione seu Plano", ["free", "pro", "premium"])
+        
         submitted = st.form_submit_button("Register")
         
         if submitted:
@@ -65,7 +131,11 @@ def show_register():
                 st.experimental_rerun()
             else:
                 st.error(message)
-
+    
+    if st.button("Already have an account? Login here"):
+        st.session_state.show_register = False
+        st.experimental_rerun()
+        
 def show_usage_stats():
     """Display usage statistics"""
     stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
@@ -80,15 +150,16 @@ def show_usage_stats():
         st.sidebar.markdown(f"**Monthly Usage:** {stats['monthly_usage']}/{stats['monthly_limit']}")
     
     st.sidebar.markdown(f"**Markets per Analysis:** {stats['market_limit']}")
-    user_stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
-if user_stats['tier'] == 'free':
-    st.sidebar.warning("🔒 Plano Free:\n- 1 análise por dia\n- 1 mercado por análise")
-elif user_stats['tier'] == 'pro':
-    remaining = 60 - user_stats['monthly_usage']
-    st.sidebar.info(f"⭐ Plano Pro:\n- {remaining} análises restantes este mês\n- Múltiplos mercados por análise")
-elif user_stats['tier'] == 'premium':
-    st.sidebar.success("💎 Plano Premium:\n- Análises ilimitadas\n- Múltiplos mercados por análise")
 
+    # Adicionar informações detalhadas do plano
+    if stats['tier'] == 'free':
+        st.sidebar.warning("🔒 Plano Free:\n- 1 análise por dia\n- 1 mercado por análise")
+    elif stats['tier'] == 'pro':
+        remaining = 60 - stats['monthly_usage']
+        st.sidebar.info(f"⭐ Plano Pro:\n- {remaining} análises restantes este mês\n- Múltiplos mercados por análise")
+    elif stats['tier'] == 'premium':
+        st.sidebar.success("💎 Plano Premium:\n- Análises ilimitadas\n- Múltiplos mercados por análise")
+        
 def check_analysis_limits(selected_markets):
     """Check if user can perform analysis with selected markets"""
     num_markets = sum(1 for v in selected_markets.values() if v)
@@ -116,14 +187,7 @@ def check_analysis_limits(selected_markets):
             
     return True
 
-
-@dataclass
-class UserTier:
-    name: str
-    daily_limit: Optional[int]
-    monthly_limit: Optional[int]
-    market_limit: int
-
+        
 class UserManager:
     def __init__(self, storage_path: str = ".streamlit/users.json"):
         self.storage_path = storage_path
@@ -167,7 +231,6 @@ class UserManager:
     
     def _validate_email(self, email: str) -> bool:
         """Validate email format"""
-        import re
         pattern = r'^[\w\.-]+@[\w\.-]+\.\w+$'
         return bool(re.match(pattern, email))
     
@@ -287,52 +350,6 @@ class UserManager:
             "monthly_limit": tier.monthly_limit,
             "market_limit": tier.market_limit
         }
-def init_session_state():
-    """Initialize session state variables"""
-    if "user_manager" not in st.session_state:
-        st.session_state.user_manager = UserManager()
-    if "authenticated" not in st.session_state:
-        st.session_state.authenticated = False
-    if "email" not in st.session_state:
-        st.session_state.email = None
-    if "last_activity" not in st.session_state:
-        st.session_state.last_activity = datetime.now()
-    elif (datetime.now() - st.session_state.last_activity).total_seconds() > 3600:  # 1 hora
-        st.session_state.authenticated = False
-        st.session_state.email = None
-        st.warning("Sua sessão expirou. Por favor, faça login novamente.")
-    
-    st.session_state.last_activity = datetime.now()
-
-
-
-# Definição das URLs do FBref
-FBREF_URLS = {
-    "Premier League": {
-        "stats": "https://fbref.com/en/comps/9/Premier-League-Stats",
-        "fixtures": "https://fbref.com/en/comps/9/schedule/Premier-League-Scores-and-Fixtures"
-    },
-    "La Liga": {
-        "stats": "https://fbref.com/en/comps/12/La-Liga-Stats",
-        "fixtures": "https://fbref.com/en/comps/12/schedule/La-Liga-Scores-and-Fixtures"
-    },
-    "Serie A": {
-        "stats": "https://fbref.com/en/comps/11/Serie-A-Stats",
-        "fixtures": "https://fbref.com/en/comps/11/schedule/Serie-A-Scores-and-Fixtures"
-    },
-    "Bundesliga": {
-        "stats": "https://fbref.com/en/comps/20/Bundesliga-Stats",
-        "fixtures": "https://fbref.com/en/comps/20/schedule/Bundesliga-Scores-and-Fixtures"
-    },
-    "Ligue 1": {
-        "stats": "https://fbref.com/en/comps/13/Ligue-1-Stats",
-        "fixtures": "https://fbref.com/en/comps/13/schedule/Ligue-1-Scores-and-Fixtures"
-    },
-    "Champions League": {
-        "stats": "https://fbref.com/en/comps/8/Champions-League-Stats",
-        "fixtures": "https://fbref.com/en/comps/8/schedule/Champions-League-Scores-and-Fixtures"
-    }
-}
 
 def get_odds_data(selected_markets):
     """Função para coletar e formatar os dados das odds"""
