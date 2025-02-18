@@ -125,7 +125,6 @@ class UserTier:
     market_limit: int
 
 class UserManager:
-    class UserManager:
     def __init__(self, storage_path: str = ".streamlit/users.json"):
         self.storage_path = storage_path
         self.users = self._load_users()
