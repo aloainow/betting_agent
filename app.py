@@ -1,116 +1,15 @@
-# Substitua o início do seu código por este:
 import streamlit as st
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 import time
+from openai import OpenAI
 from openai import OpenAI, OpenAIError
 import traceback
 import numpy as np
+import time
 from functools import wraps
-from datetime import datetime
-import json
-from pathlib import Path
-import sqlite3
-import hashlib
 
-# Configuração segura do Stripe
-STRIPE_ENABLED = False
-try:
-    import stripe
-    if "STRIPE_SECRET_KEY" in st.secrets:
-        stripe.api_key = st.secrets["STRIPE_SECRET_KEY"]
-        STRIPE_ENABLED = True
-except Exception as e:
-    st.warning("Executando em modo de desenvolvimento sem Stripe")
-
-# Modificar a função create_checkout_session
-def create_checkout_session(price_id):
-    if not STRIPE_ENABLED:
-        st.info("Modo de desenvolvimento: Simulando upgrade de plano")
-        return {"url": "#"}
-        
-    try:
-        checkout_session = stripe.checkout.Session.create(
-            payment_method_types=['card'],
-            line_items=[{'price': price_id, 'quantity': 1}],
-            mode='subscription',
-            success_url=st.secrets.get("DOMAIN", "http://localhost:8501") + '/success',
-            cancel_url=st.secrets.get("DOMAIN", "http://localhost:8501") + '/cancel',
-        )
-        return checkout_session
-    except Exception as e:
-        st.error(f"Erro ao criar sessão de checkout: {str(e)}")
-        return None
-
-# Modificar a função show_subscription_options
-def show_subscription_options():
-    st.subheader("Planos de Assinatura")
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.markdown("### Free")
-        st.write("- 1 análise por mês")
-        st.write("- Mercado único")
-        if st.button("Selecionar Free"):
-            conn = sqlite3.connect('users.db')
-            c = conn.cursor()
-            c.execute("""
-                UPDATE users 
-                SET subscription_level = 'free' 
-                WHERE username = ?
-            """, (st.session_state['username'],))
-            conn.commit()
-            conn.close()
-            st.success("Plano alterado para Free!")
-            st.rerun()
-    
-    with col2:
-        st.markdown("### Pro")
-        st.write("- 30 análises por mês")
-        st.write("- Todos os mercados")
-        if st.button("Upgrade para Pro"):
-            if STRIPE_ENABLED:
-                checkout_session = create_checkout_session(st.secrets.get("STRIPE_PRO_PRICE_ID"))
-                if checkout_session:
-                    st.markdown(f"[Proceed to Payment]({checkout_session.url})")
-            else:
-                # Modo desenvolvimento - atualiza direto
-                conn = sqlite3.connect('users.db')
-                c = conn.cursor()
-                c.execute("""
-                    UPDATE users 
-                    SET subscription_level = 'pro' 
-                    WHERE username = ?
-                """, (st.session_state['username'],))
-                conn.commit()
-                conn.close()
-                st.success("Plano alterado para Pro! (Modo Desenvolvimento)")
-                st.rerun()
-    
-    with col3:
-        st.markdown("### Unlimited")
-        st.write("- Análises ilimitadas")
-        st.write("- Todos os recursos")
-        if st.button("Upgrade para Unlimited"):
-            if STRIPE_ENABLED:
-                checkout_session = create_checkout_session(st.secrets.get("STRIPE_UNLIMITED_PRICE_ID"))
-                if checkout_session:
-                    st.markdown(f"[Proceed to Payment]({checkout_session.url})")
-            else:
-                # Modo desenvolvimento - atualiza direto
-                conn = sqlite3.connect('users.db')
-                c = conn.cursor()
-                c.execute("""
-                    UPDATE users 
-                    SET subscription_level = 'unlimited' 
-                    WHERE username = ?
-                """, (st.session_state['username'],))
-                conn.commit()
-                conn.close()
-                st.success("Plano alterado para Unlimited! (Modo Desenvolvimento)")
-                st.rerun()
 
 # Definição das URLs do FBref
 FBREF_URLS = {
@@ -602,101 +501,8 @@ PROBABILIDADES CALCULADAS:
 
     except Exception as e:
         st.error(f"Erro ao formatar prompt: {str(e)}")
-    return None
-
-def setup_test_environment():
-    """Configuração do ambiente de testes"""
-    try:
-        conn = sqlite3.connect('users.db')
-        c = conn.cursor()
-        
-        # Criar usuários de teste para cada plano
-        test_users = [
-            ('user_free', hash_password('test123'), 'free', 0),
-            ('user_pro', hash_password('test123'), 'pro', 0),
-            ('user_unlimited', hash_password('test123'), 'unlimited', 0)
-        ]
-        
-        for username, password, plan, usage in test_users:
-            try:
-                c.execute("""
-                    INSERT OR REPLACE INTO users 
-                    (username, password, subscription_level, usage_count, last_reset_date) 
-                    VALUES (?, ?, ?, ?, ?)
-                """, (username, password, plan, usage, datetime.now().strftime('%Y-%m')))
-            except sqlite3.IntegrityError:
-                pass
-                
-        conn.commit()
-        conn.close()
-        return True
-    except Exception as e:
-        st.error(f"Erro na configuração do ambiente de teste: {str(e)}")
-        return False
-
-def show_test_panel():
-    """Painel de controle para testes"""
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("### Painel de Testes")
-    
-    # Botão para configurar ambiente de teste
-    if st.sidebar.button("Configurar Usuários de Teste"):
-        if setup_test_environment():
-            st.sidebar.success("""
-            Usuários de teste criados:
-            - Free: user_free / test123
-            - Pro: user_pro / test123
-            - Unlimited: user_unlimited / test123
-            """)
-    
-    # Simulador de uso
-    if 'username' in st.session_state:
-        st.sidebar.markdown("### Simulador de Uso")
-        if st.sidebar.button("Simular +1 Análise"):
-            update_usage_count(st.session_state['username'])
-            st.rerun()
-        
-        # Reset de contagem
-        if st.sidebar.button("Resetar Contagem"):
-            conn = sqlite3.connect('users.db')
-            c = conn.cursor()
-            c.execute("""
-                UPDATE users 
-                SET usage_count = 0 
-                WHERE username = ?
-            """, (st.session_state['username'],))
-            conn.commit()
-            conn.close()
-            st.rerun()
-
-
+        return None
 def main():
-    st.set_page_config(page_title="Sports Betting Analysis", layout="wide")
-    
-    # Initialize database
-    init_db()
-    
-    # Show login/signup if not authenticated
-    if 'username' not in st.session_state:
-        show_login_signup()
-        return
-    
-    # Sidebar with user info and subscription
-    with st.sidebar:
-        st.write(f"Welcome, {st.session_state['username']}!")
-        if st.button("Logout"):
-            del st.session_state['username']
-            st.rerun()
-        
-        st.divider()
-        show_subscription_options()
-    
-    # Check subscription limits before analysis
-    if not check_subscription_limits(st.session_state['username']):
-        st.warning("You have reached your monthly analysis limit. Please upgrade your subscription to continue.")
-        return
-
-    
     try:
         # Configuração inicial do Streamlit
         st.set_page_config(
@@ -705,9 +511,6 @@ def main():
             layout="wide",
             initial_sidebar_state="expanded"
         )
-        
-        # Initialize database
-        init_db()
         
         # CSS melhorado
         st.markdown("""
@@ -724,39 +527,16 @@ def main():
             </style>
         """, unsafe_allow_html=True)
 
-        # Verificar autenticação antes de mostrar o conteúdo principal
-        if 'username' not in st.session_state:
-            show_login_signup()
-            return
-
-        # Sidebar com informações do usuário e assinatura
-        with st.sidebar:
-            st.title("Análise de Apostas Esportivas")
-            st.write(f"Bem-vindo, {st.session_state['username']}!")
-            
-            subscription_level, usage_count, _ = get_user_subscription(st.session_state['username'])
-            st.write(f"Plano atual: {subscription_level.capitalize()}")
-            st.write(f"Análises utilizadas este mês: {usage_count}")
-            
-            if st.button("Logout"):
-                del st.session_state['username']
-                st.rerun()
-            
-            st.divider()
-            show_subscription_options()
-            
-            # Verificar limites da assinatura
-            if not check_subscription_limits(st.session_state['username']):
-                st.warning("Você atingiu seu limite mensal de análises. Por favor, atualize sua assinatura para continuar.")
-                return
-            
-            # Configurações
-            st.title("Configurações")
-            selected_league = st.selectbox(
-                "Escolha o campeonato:",
-                list(FBREF_URLS.keys())
-            )
-
+        # Título principal na sidebar
+        st.sidebar.title("Análise de Apostas Esportivas")
+        
+        # Configurações na sidebar
+        st.sidebar.title("Configurações")
+        selected_league = st.sidebar.selectbox(
+            "Escolha o campeonato:",
+            list(FBREF_URLS.keys())
+        )
+        
         # Container de status para mensagens
         status_container = st.sidebar.empty()
         
@@ -797,34 +577,21 @@ def main():
         with st.expander("Mercados Disponíveis", expanded=True):
             st.markdown("### Seleção de Mercados")
             
-            # Verificar limite de mercados para usuários free
-            is_free_user = subscription_level == 'free'
-            max_markets = 1 if is_free_user else 6
-            
             col1, col2 = st.columns(2)
             
             with col1:
                 selected_markets = {
-                    "money_line": st.checkbox("Money Line (1X2)", value=True, key='ml', 
-                                           disabled=is_free_user and any(selected_markets.values())),
-                    "over_under": st.checkbox("Over/Under", key='ou',
-                                           disabled=is_free_user and any(selected_markets.values())),
-                    "chance_dupla": st.checkbox("Chance Dupla", key='cd',
-                                             disabled=is_free_user and any(selected_markets.values()))
+                    "money_line": st.checkbox("Money Line (1X2)", value=True, key='ml'),
+                    "over_under": st.checkbox("Over/Under", key='ou'),
+                    "chance_dupla": st.checkbox("Chance Dupla", key='cd')
                 }
             
             with col2:
                 selected_markets.update({
-                    "ambos_marcam": st.checkbox("Ambos Marcam", key='btts',
-                                             disabled=is_free_user and any(selected_markets.values())),
-                    "escanteios": st.checkbox("Total de Escanteios", key='corners',
-                                           disabled=is_free_user and any(selected_markets.values())),
-                    "cartoes": st.checkbox("Total de Cartões", key='cards',
-                                        disabled=is_free_user and any(selected_markets.values()))
+                    "ambos_marcam": st.checkbox("Ambos Marcam", key='btts'),
+                    "escanteios": st.checkbox("Total de Escanteios", key='corners'),
+                    "cartoes": st.checkbox("Total de Cartões", key='cards')
                 })
-            
-            if is_free_user:
-                st.info("Usuários do plano gratuito podem selecionar apenas 1 mercado. Faça upgrade para acessar mais mercados!")
 
         # Inputs de odds em container separado
         odds_data = None
@@ -870,9 +637,6 @@ def main():
                     
                     # Etapa 4: Mostrar resultado
                     if analysis:
-                        # Atualizar contador de uso
-                        update_usage_count(st.session_state['username'])
-                        
                         # Primeiro aplica o estilo
                         st.markdown("""
                             <style>
