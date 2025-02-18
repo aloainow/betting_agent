@@ -1,25 +1,25 @@
+# Standard library imports
+import os
+import json
+import hashlib
+import time
+import re
+import traceback
+from datetime import datetime, timedelta
+from functools import wraps
+from typing import Optional, Dict, List, Tuple
+from dataclasses import dataclass
+
+# Third party imports
 import streamlit as st
 import pandas as pd
+import numpy as np
 import requests
 from bs4 import BeautifulSoup
-import time
-from openai import OpenAI
 from openai import OpenAI, OpenAIError
-import traceback
-import numpy as np
-import time
-from functools import wraps
-import streamlit as st
-import datetime
-from typing import Optional, Dict, List
-import json
-import os
-import hashlib
-from dataclasses import dataclass
-from datetime import datetime, timedelta
-import streamlit as st
-from auth_system import init_session_state
-import time
+
+# Local imports
+from auth_system import init_session_state  # Se este arquivo existir
 
 def show_login():
     """Display login form"""
@@ -125,6 +125,7 @@ class UserTier:
     market_limit: int
 
 class UserManager:
+    class UserManager:
     def __init__(self, storage_path: str = ".streamlit/users.json"):
         self.storage_path = storage_path
         self.users = self._load_users()
@@ -144,55 +145,55 @@ class UserManager:
         return {}
     
     def _save_users(self):
-    """Save users to JSON file"""
-    try:
-        # Criar diretório se não existir
-        os.makedirs(os.path.dirname(self.storage_path), exist_ok=True)
-        
-        # Criar backup antes de salvar
-        if os.path.exists(self.storage_path):
-            backup_path = f"{self.storage_path}.backup"
-            with open(self.storage_path, 'r') as src, open(backup_path, 'w') as dst:
-                dst.write(src.read())
-                
-        # Salvar dados atualizados
-        with open(self.storage_path, 'w') as f:
-            json.dump(self.users, f, indent=2)
-    except Exception as e:
-        st.error(f"Erro ao salvar dados dos usuários: {str(e)}")
+        """Save users to JSON file"""
+        try:
+            # Criar diretório se não existir
+            os.makedirs(os.path.dirname(self.storage_path), exist_ok=True)
+            
+            # Criar backup antes de salvar
+            if os.path.exists(self.storage_path):
+                backup_path = f"{self.storage_path}.backup"
+                with open(self.storage_path, 'r') as src, open(backup_path, 'w') as dst:
+                    dst.write(src.read())
+                    
+            # Salvar dados atualizados
+            with open(self.storage_path, 'w') as f:
+                json.dump(self.users, f, indent=2)
+        except Exception as e:
+            st.error(f"Erro ao salvar dados dos usuários: {str(e)}")
     
     def _hash_password(self, password: str) -> str:
         """Hash password using SHA-256"""
         return hashlib.sha256(password.encode()).hexdigest()
     
-   def register_user(self, email: str, password: str, tier: str = "free") -> tuple[bool, str]:
-    """Register a new user"""
-    if not self._validate_email(email):
-        return False, "Email inválido"
-    if email in self.users:
-        return False, "Email já registrado"
-    if len(password) < 6:
-        return False, "Senha deve ter no mínimo 6 caracteres"
-    if tier not in self.tiers:
-        return False, "Tipo de usuário inválido"
-        
-    self.users[email] = {
-        "password": self._hash_password(password),
-        "tier": tier,
-        "usage": {
-            "daily": [],
-            "monthly": []
-        },
-        "created_at": datetime.now().isoformat()
-    }
-    self._save_users()
-    return True, "Registro realizado com sucesso"
-       
     def _validate_email(self, email: str) -> bool:
-    """Validate email format"""
-    import re
-    pattern = r'^[\w\.-]+@[\w\.-]+\.\w+$'
-    return bool(re.match(pattern, email))
+        """Validate email format"""
+        import re
+        pattern = r'^[\w\.-]+@[\w\.-]+\.\w+$'
+        return bool(re.match(pattern, email))
+    
+    def register_user(self, email: str, password: str, tier: str = "free") -> tuple[bool, str]:
+        """Register a new user"""
+        if not self._validate_email(email):
+            return False, "Email inválido"
+        if email in self.users:
+            return False, "Email já registrado"
+        if len(password) < 6:
+            return False, "Senha deve ter no mínimo 6 caracteres"
+        if tier not in self.tiers:
+            return False, "Tipo de usuário inválido"
+            
+        self.users[email] = {
+            "password": self._hash_password(password),
+            "tier": tier,
+            "usage": {
+                "daily": [],
+                "monthly": []
+            },
+            "created_at": datetime.now().isoformat()
+        }
+        self._save_users()
+        return True, "Registro realizado com sucesso"
     
     def authenticate(self, email: str, password: str) -> bool:
         """Authenticate a user"""
@@ -287,7 +288,6 @@ class UserManager:
             "monthly_limit": tier.monthly_limit,
             "market_limit": tier.market_limit
         }
-
 def init_session_state():
     """Initialize session state variables"""
     if "user_manager" not in st.session_state:
