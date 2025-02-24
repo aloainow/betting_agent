@@ -120,7 +120,7 @@ def show_landing_page():
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                margin-bottom: 2rem;
+                margin-bottom: 1.5rem;
             }
             .logo {
                 display: flex;
@@ -128,67 +128,84 @@ def show_landing_page():
                 gap: 10px;
             }
             .logo-text {
-                font-size: 2.2rem;
+                font-size: 2.5rem !important;
                 font-weight: bold;
                 color: #FFFFFF;
             }
             .logo-v {
                 color: #3F3F45;
-                font-size: 2.5rem;
+                font-size: 3rem !important;
                 font-weight: bold;
             }
             .logo-container {
                 background-color: #fd7014;
-                padding: 10px 20px;
+                padding: 12px 25px !important;
                 border-radius: 8px;
                 display: flex;
                 align-items: center;
                 gap: 5px;
             }
             .hero {
-                margin: 3rem 0;
-                text-align: center;
+                margin: 2rem 0;
+                text-align: left;
             }
             .hero h1 {
-                font-size: 3rem;
+                font-size: 2.8rem;
                 color: #fd7014;
-                margin-bottom: 1.5rem;
+                margin-bottom: 1rem;
             }
             .hero p {
                 font-size: 1.25rem;
                 color: #FFFFFF;
-                max-width: 800px;
-                margin: 0 auto;
+                max-width: 90%;
+                margin-left: 0;
             }
             .about-section {
-                margin: 3rem 0;
+                margin: 2rem 0;
                 background-color: #575760;
                 padding: 2rem;
                 border-radius: 10px;
                 border: 1px solid #6b6b74;
+                max-width: 90%;
+                margin-left: 0;
             }
             .about-content {
-                max-width: 800px;
-                margin: 0 auto;
+                max-width: 100%;
+                margin-left: 0;
                 line-height: 1.6;
             }
             .about-content h2 {
                 color: #fd7014;
-                margin-bottom: 1.5rem;
+                margin-bottom: 0.8rem;
+                text-align: left;
             }
             .footer {
-                margin-top: 3rem;
+                margin-top: 2rem;
                 text-align: center;
                 color: #b0b0b0;
             }
             .btn-container {
                 display: flex;
-                justify-content: center;
+                justify-content: flex-start;
                 gap: 20px;
-                margin-top: 2rem;
+                margin-top: 1.5rem;
             }
             p, li {
                 color: #FFFFFF !important;
+            }
+            /* Estilo para TODOS os botões - LARANJA COM TEXTO BRANCO */
+            div.stButton > button {
+                background-color: #fd7014 !important;
+                color: #FFFFFF !important;
+                border: none !important;
+                border-radius: 4px;
+                font-weight: bold;
+                transition: background-color 0.3s ease;
+            }
+            
+            div.stButton > button:hover {
+                background-color: #27272a !important; /* Cinza escuro no hover */
+                color: white !important;
             }
         </style>
     """, unsafe_allow_html=True)
@@ -214,7 +231,7 @@ def show_landing_page():
         </div>
     """, unsafe_allow_html=True)
     
-    # Seção Sobre
+    # Seção Sobre - AJUSTADA PARA FICAR MAIS À ESQUERDA
     st.markdown("""
         <div class="about-section">
             <div class="about-content">
@@ -257,8 +274,8 @@ def show_landing_page():
 
 def show_login():
     """Display login form"""
-    # Header com a logo
-    st.markdown('<div class="logo-container" style="width: fit-content;"><span class="logo-v">V</span><span class="logo-text">ValueHunter</span></div>', unsafe_allow_html=True)
+    # Header com a logo - MAIOR
+    st.markdown('<div class="logo-container" style="width: fit-content; padding: 12px 25px;"><span class="logo-v" style="font-size: 3rem;">V</span><span class="logo-text" style="font-size: 2.5rem;">ValueHunter</span></div>', unsafe_allow_html=True)
     st.title("Login")
     
     # Botão para voltar à página inicial
@@ -290,8 +307,8 @@ def show_login():
 
 def show_register():
     """Display registration form"""
-    # Header com a logo
-    st.markdown('<div class="logo-container" style="width: fit-content;"><span class="logo-v">V</span><span class="logo-text">ValueHunter</span></div>', unsafe_allow_html=True)
+    # Header com a logo - MAIOR
+    st.markdown('<div class="logo-container" style="width: fit-content; padding: 12px 25px;"><span class="logo-v" style="font-size: 3rem;">V</span><span class="logo-text" style="font-size: 2.5rem;">ValueHunter</span></div>', unsafe_allow_html=True)
     st.title("Register")
     
     # Botão para voltar à página inicial
@@ -404,8 +421,8 @@ def show_main_dashboard():
     # Container de status para mensagens
     status_container = st.sidebar.empty()
     
-    # Header com a logo na área principal
-    st.markdown('<div class="logo-container" style="width: fit-content;"><span class="logo-v">V</span><span class="logo-text">ValueHunter</span></div>', unsafe_allow_html=True)
+    # Header com a logo na área principal - LOGO AUMENTADO
+    st.markdown('<div class="logo-container" style="width: fit-content; padding: 12px 25px;"><span class="logo-v" style="font-size: 3rem;">V</span><span class="logo-text" style="font-size: 2.5rem;">ValueHunter</span></div>', unsafe_allow_html=True)
     
     # Busca dados do campeonato
     with st.spinner("Carregando dados do campeonato..."):
@@ -663,7 +680,7 @@ class UserManager:
         # Check monthly limit for pro users
         if tier.monthly_limit:
             monthly_usage = sum(u["markets"] for u in user["usage"]["monthly"])
-            if monthly_usage + num_markets > tier.monthly_limit:
+        if monthly_usage + num_markets > tier.monthly_limit:
                 return False
                 
         return True
@@ -696,6 +713,7 @@ class UserManager:
             u["markets"] for u in user["usage"]["daily"]
             if datetime.strptime(u["date"], "%Y-%m-%d").date() == today
         )
+        
         monthly_usage = sum(
             u["markets"] for u in user["usage"]["monthly"]
             if datetime.strptime(u["date"], "%Y-%m-%d").date().replace(day=1) == this_month
@@ -868,7 +886,6 @@ def analyze_with_gpt(prompt):
         st.error(f"Erro inesperado: {str(e)}")
         st.write(f"Traceback completo: {traceback.format_exc()}")  # Log detalhado do erro
         return None
-        
 def parse_team_stats(html_content):
     """Processa os dados do time com tratamento melhorado para extrair estatísticas"""
     try:
@@ -1046,6 +1063,7 @@ def get_stat(stats, col, default='N/A'):
         return default
     except:
         return default
+
 def format_prompt(stats_df, home_team, away_team, odds_data):
     """Formata o prompt para o GPT-4 com os dados coletados"""
     try:
@@ -1196,26 +1214,39 @@ def main():
                     color: #fd7014 !important;
                 }
                 
-                /* Ajustes na logo */
+                /* Ajustes na logo - AUMENTADO TAMANHO */
                 .logo-container {
                     background-color: #fd7014;
+                    padding: 12px 25px !important; /* Maior padding */
+                    border-radius: 8px;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    width: fit-content;
                 }
                 .logo-text {
+                    font-size: 2.5rem !important; /* Maior fonte */
+                    font-weight: bold;
                     color: #FFFFFF !important;
                 }
                 .logo-v {
                     color: #3F3F45 !important;
+                    font-size: 3rem !important; /* Maior fonte */
+                    font-weight: bold;
                 }
                 
-                /* Estilo para botões */
+                /* NOVO: Estilo para TODOS os botões - LARANJA COM TEXTO BRANCO */
                 div.stButton > button {
-                    border: 1px solid #fd7014;
-                    background-color: #575760;
+                    background-color: #fd7014 !important;
                     color: #FFFFFF !important;
+                    border: none !important;
+                    border-radius: 4px;
+                    font-weight: bold;
+                    transition: background-color 0.3s ease;
                 }
                 
                 div.stButton > button:hover {
-                    background-color: #fd7014;
+                    background-color: #27272a !important; /* Cinza escuro no hover */
                     color: white !important;
                 }
                 
@@ -1223,6 +1254,8 @@ def main():
                 button[kind="primary"] {
                     background-color: #fd7014 !important;
                     color: white !important;
+                    font-size: 1.1rem !important;
+                    padding: 0.6rem 1.2rem !important;
                 }
                 
                 /* Ajuste do contraste da sidebar */
@@ -1237,6 +1270,34 @@ def main():
                     padding: 1rem !important;
                 }
                 
+                /* AJUSTES DE ESPAÇAMENTO - Reduzir espaçamento e alinhar à esquerda */
+                .about-section {
+                    margin: 2rem 0 !important; /* Reduzido de 3rem para 2rem */
+                    background-color: #575760;
+                    padding: 2rem;
+                    border-radius: 10px;
+                    border: 1px solid #6b6b74;
+                    max-width: 90% !important; /* Reduzindo largura máxima */
+                    margin-left: 0 !important; /* Alinhando à esquerda */
+                }
+                
+                .about-content {
+                    max-width: 100% !important; /* Ocupar todo o espaço disponível */
+                    margin-left: 0 !important; /* Alinhando à esquerda */
+                    line-height: 1.6;
+                }
+                
+                /* Reduzir espaçamento entre títulos e conteúdo */
+                h1, h2, h3 {
+                    margin-bottom: 0.8rem !important;
+                }
+                
+                /* Ajustar espaçamento entre seções */
+                .hero {
+                    margin: 2rem 0 !important; /* Reduzido de 3rem para 2rem */
+                    text-align: left !important; /* Alinhado à esquerda */
+                }
+                
                 /* Melhorar contraste dos widgets */
                 .stSelectbox > div > div,
                 .stNumberInput > div > div {
@@ -1246,6 +1307,18 @@ def main():
                 /* Cores das mensagens e alertas - manter para legibilidade */
                 .stAlert p {
                     color: inherit !important;
+                }
+                
+                /* Ajuste no tamanho do título principal */
+                .hero h1 {
+                    font-size: 2.8rem !important;
+                    color: #fd7014 !important;
+                    margin-bottom: 1rem !important;
+                }
+                
+                /* Ajustar margens para título principal */
+                h1:first-of-type {
+                    margin-top: 0.5rem !important;
                 }
             </style>
         """, unsafe_allow_html=True)
@@ -1274,4 +1347,4 @@ def main():
         st.error(f"Erro geral na aplicação: {str(e)}")
 
 if __name__ == "__main__":
-    main()        
+    main()
