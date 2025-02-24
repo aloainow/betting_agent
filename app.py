@@ -84,7 +84,7 @@ def init_session_state():
     
     # Atualizar timestamp de última atividade
     st.session_state.last_activity = datetime.now()
-
+    
 def go_to_login():
     """Navigate to login page"""
     st.session_state.page = "login"
@@ -290,7 +290,6 @@ def show_login():
     st.markdown("<div style='text-align: center;'>Não tem uma conta?</div>", unsafe_allow_html=True)
     if st.button("Registre-se aqui", use_container_width=True):
         go_to_register()
-
 def show_register():
     """Display registration form"""
     # Header com a logo - MAIOR
@@ -330,6 +329,241 @@ def show_register():
     st.markdown("<div style='text-align: center;'>Já tem uma conta?</div>", unsafe_allow_html=True)
     if st.button("Fazer login", use_container_width=True):
         go_to_login()
+def show_plans_page():
+    """Display pricing plans page for subscription options"""
+    # Header com a logo
+    st.markdown('<div class="logo-container" style="width: fit-content; padding: 12px 25px;"><span class="logo-v" style="font-size: 3rem;">V</span><span class="logo-text" style="font-size: 2.5rem;">ValueHunter</span></div>', unsafe_allow_html=True)
+    
+    st.title("Planos de Assinatura")
+    st.markdown("Escolha o plano que melhor atende às suas necessidades de análises esportivas.")
+    
+    # Obter informações do usuário atual
+    user_stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
+    current_plan = user_stats['tier']
+    
+    # CSS específico para os cartões de planos
+    st.markdown("""
+    <style>
+        .plan-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 2rem;
+        }
+        .plan-card {
+            background-color: #ffffff;
+            border-radius: 10px;
+            padding: 1.5rem;
+            width: 250px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #e2e8f0;
+        }
+        .plan-card.free {
+            border-top: 4px solid #e44d87;
+        }
+        .plan-card.pro {
+            border-top: 4px solid #0077b6;
+            transform: scale(1.05);
+        }
+        .plan-card.premium {
+            border-top: 4px solid #0abab5;
+        }
+        .plan-title {
+            color: #222831;
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+        }
+        .plan-price {
+            color: #222831;
+            font-size: 2.2rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+        .plan-period {
+            color: #64748b;
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+        }
+        .plan-feature {
+            color: #222831;
+            text-align: left;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+        }
+        .plan-feature i {
+            color: #0abab5;
+            margin-right: 10px;
+        }
+        .plan-button {
+            background-color: #fd7014;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 0.75rem 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: auto;
+            transition: background-color 0.3s;
+        }
+        .plan-button:hover {
+            background-color: #e05f00;
+        }
+        .plan-button.current {
+            background-color: #27272a;
+            cursor: default;
+        }
+        .plan-popular {
+            position: absolute;
+            top: -10px;
+            right: 20px;
+            background-color: #e44d87;
+            color: white;
+            font-size: 0.8rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+        }
+        .plan-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+        .free-icon {
+            color: #e44d87;
+        }
+        .pro-icon {
+            color: #0077b6;
+        }
+        .premium-icon {
+            color: #0abab5;
+        }
+        .plan-card-container {
+            position: relative;
+            padding-top: 10px;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Layout dos cartões de plano usando colunas
+    col1, col2, col3 = st.columns([1, 1, 1])
+    
+    with col1:
+        st.markdown("""
+        <div class="plan-card-container">
+            <div class="plan-card free">
+                <div class="plan-title">Free</div>
+                <div class="plan-icon free-icon">🏠</div>
+                <div class="plan-price">Grátis</div>
+                <div class="plan-period">para sempre</div>
+                <div class="plan-feature"><i>✓</i> 1 análise por dia</div>
+                <div class="plan-feature"><i>✓</i> 1 mercado por análise</div>
+                <div class="plan-feature"><i>✓</i> Acesso à análise básica</div>
+                <div class="plan-feature"><i>✓</i> Suporte ao cliente</div>
+                <br>
+        """, unsafe_allow_html=True)
+        
+        if current_plan == 'free':
+            st.markdown('<div class="plan-button current">Plano Atual</div></div></div>', unsafe_allow_html=True)
+        else:
+            # Botão para downgrade (não faz nada neste exemplo)
+            if st.button("Selecionar Plano Free", key="select_free"):
+                st.session_state.user_manager._downgrade_to_free(st.session_state.email)
+                st.success("Plano alterado para Free com sucesso!")
+                time.sleep(1)
+                st.experimental_rerun()
+            st.markdown('</div></div>', unsafe_allow_html=True)
+
+    with col2:
+        st.markdown("""
+        <div class="plan-card-container">
+            <div class="plan-popular">Popular</div>
+            <div class="plan-card pro">
+                <div class="plan-title">Pro</div>
+                <div class="plan-icon pro-icon">🏢</div>
+                <div class="plan-price">R$ 9,99</div>
+                <div class="plan-period">por mês</div>
+                <div class="plan-feature"><i>✓</i> 60 análises por mês</div>
+                <div class="plan-feature"><i>✓</i> Múltiplos mercados</div>
+                <div class="plan-feature"><i>✓</i> Análise avançada</div>
+                <div class="plan-feature"><i>✓</i> Suporte prioritário</div>
+                <div class="plan-feature"><i>✓</i> Acesso ao histórico</div>
+                <br>
+        """, unsafe_allow_html=True)
+        
+        if current_plan == 'pro':
+            st.markdown('<div class="plan-button current">Plano Atual</div></div></div>', unsafe_allow_html=True)
+        else:
+            # Botão para upgrade/downgrade
+            if st.button("Selecionar Plano Pro", key="select_pro"):
+                st.session_state.user_manager._upgrade_to_pro(st.session_state.email)
+                st.success("Plano alterado para Pro com sucesso!")
+                time.sleep(1)
+                st.experimental_rerun()
+            st.markdown('</div></div>', unsafe_allow_html=True)
+
+    with col3:
+        st.markdown("""
+        <div class="plan-card-container">
+            <div class="plan-card premium">
+                <div class="plan-title">Premium</div>
+                <div class="plan-icon premium-icon">🏰</div>
+                <div class="plan-price">R$ 29,99</div>
+                <div class="plan-period">por mês</div>
+                <div class="plan-feature"><i>✓</i> Análises ilimitadas</div>
+                <div class="plan-feature"><i>✓</i> Todos os mercados</div>
+                <div class="plan-feature"><i>✓</i> Análise premium</div>
+                <div class="plan-feature"><i>✓</i> Suporte VIP</div>
+                <div class="plan-feature"><i>✓</i> Dados históricos completos</div>
+                <div class="plan-feature"><i>✓</i> Alertas personalizados</div>
+                <br>
+        """, unsafe_allow_html=True)
+        
+        if current_plan == 'premium':
+            st.markdown('<div class="plan-button current">Plano Atual</div></div></div>', unsafe_allow_html=True)
+        else:
+            # Botão para upgrade
+            if st.button("Selecionar Plano Premium", key="select_premium"):
+                st.session_state.user_manager._upgrade_to_premium(st.session_state.email)
+                st.success("Plano alterado para Premium com sucesso!")
+                time.sleep(1)
+                st.experimental_rerun()
+            st.markdown('</div></div>', unsafe_allow_html=True)
+    
+    # Botão para voltar
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("← Voltar para análises", key="back_to_analysis"):
+        st.session_state.page = "main"
+        st.experimental_rerun()
+def _upgrade_to_pro(self, email: str) -> bool:
+    """Upgrade a user to Pro plan"""
+    if email not in self.users:
+        return False
+        
+    self.users[email]["tier"] = "pro"
+    self._save_users()
+    return True
+    
+def _upgrade_to_premium(self, email: str) -> bool:
+    """Upgrade a user to Premium plan"""
+    if email not in self.users:
+        return False
+        
+    self.users[email]["tier"] = "premium"
+    self._save_users()
+    return True
+    
+def _downgrade_to_free(self, email: str) -> bool:
+    """Downgrade a user to Free plan"""
+    if email not in self.users:
+        return False
+        
+    self.users[email]["tier"] = "free"
+    self._save_users()
+    return True
 
 def show_usage_stats():
     """Display usage statistics"""
@@ -396,6 +630,22 @@ def show_main_dashboard():
         st.session_state.email = None
         st.session_state.page = "landing"
         st.experimental_rerun()
+        
+    # Obter informações do usuário atual
+    user_stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
+    
+    # Adicionar botão de Subscribe para usuários Free e Pro
+    if user_stats['tier'] in ['free', 'pro']:
+        st.sidebar.markdown("---")
+        
+        if user_stats['tier'] == 'free':
+            st.sidebar.info("🔄 Faça upgrade para o plano **Pro** ou **Premium** para mais análises!")
+        else:  # Pro
+            st.sidebar.info("🔄 Faça upgrade para o plano **Premium** para análises ilimitadas!")
+            
+        if st.sidebar.button("🚀 Upgrade de Plano", key="subscribe_button", use_container_width=True):
+            st.session_state.page = "plans"  # Nova página de planos
+            st.experimental_rerun()
     
     # Configurações na sidebar
     st.sidebar.title("Configurações")
@@ -409,7 +659,7 @@ def show_main_dashboard():
     
     # Header com a logo na área principal - LOGO AUMENTADO
     st.markdown('<div class="logo-container" style="width: fit-content; padding: 12px 25px;"><span class="logo-v" style="font-size: 3rem;">V</span><span class="logo-text" style="font-size: 2.5rem;">ValueHunter</span></div>', unsafe_allow_html=True)
-    
+        
     # Busca dados do campeonato
     with st.spinner("Carregando dados do campeonato..."):
         stats_html = fetch_fbref_data(FBREF_URLS[selected_league]["stats"])
@@ -1310,6 +1560,109 @@ def main():
                     border-radius: 8px;
                     border: 1px solid #6b6b74;
                 }
+
+                /* Estilos para a página de planos */
+                .plan-container {
+                    display: flex;
+                    flex-wrap: wrap;
+                    justify-content: center;
+                    gap: 20px;
+                    margin-top: 2rem;
+                }
+                .plan-card {
+                    background-color: #ffffff;
+                    border-radius: 10px;
+                    padding: 1.5rem;
+                    width: 250px;
+                    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                    text-align: center;
+                    display: flex;
+                    flex-direction: column;
+                    border: 1px solid #e2e8f0;
+                }
+                .plan-card.free {
+                    border-top: 4px solid #e44d87;
+                }
+                .plan-card.pro {
+                    border-top: 4px solid #0077b6;
+                    transform: scale(1.05);
+                }
+                .plan-card.premium {
+                    border-top: 4px solid #0abab5;
+                }
+                .plan-title {
+                    color: #222831;
+                    font-size: 1.5rem;
+                    font-weight: bold;
+                    margin-bottom: 1rem;
+                }
+                .plan-price {
+                    color: #222831;
+                    font-size: 2.2rem;
+                    font-weight: bold;
+                    margin-bottom: 0.5rem;
+                }
+                .plan-period {
+                    color: #64748b;
+                    font-size: 0.9rem;
+                    margin-bottom: 1.5rem;
+                }
+                .plan-feature {
+                    color: #222831;
+                    text-align: left;
+                    margin-bottom: 0.5rem;
+                    display: flex;
+                    align-items: center;
+                }
+                .plan-feature i {
+                    color: #0abab5;
+                    margin-right: 10px;
+                }
+                .plan-button {
+                    background-color: #fd7014;
+                    color: white;
+                    border: none;
+                    border-radius: 5px;
+                    padding: 0.75rem 1rem;
+                    font-weight: bold;
+                    cursor: pointer;
+                    margin-top: auto;
+                    transition: background-color 0.3s;
+                }
+                .plan-button:hover {
+                    background-color: #e05f00;
+                }
+                .plan-button.current {
+                    background-color: #27272a;
+                    cursor: default;
+                }
+                .plan-popular {
+                    position: absolute;
+                    top: -10px;
+                    right: 20px;
+                    background-color: #e44d87;
+                    color: white;
+                    font-size: 0.8rem;
+                    padding: 0.25rem 0.75rem;
+                    border-radius: 20px;
+                }
+                .plan-icon {
+                    font-size: 3rem;
+                    margin-bottom: 1rem;
+                }
+                .free-icon {
+                    color: #e44d87;
+                }
+                .pro-icon {
+                    color: #0077b6;
+                }
+                .premium-icon {
+                    color: #0abab5;
+                }
+                .plan-card-container {
+                    position: relative;
+                    padding-top: 10px;
+                }
             </style>
         """, unsafe_allow_html=True)
         
@@ -1328,27 +1681,14 @@ def main():
                 
             # Mostrar dashboard principal
             show_main_dashboard()
-        else:
-            # Página padrão - redirecionando para landing
-            st.session_state.page = "landing"
-            st.experimental_rerun()
-
-    except Exception as e:
-        st.error(f"Erro geral na aplicação: {str(e)}")        # Lógica de roteamento de páginas
-        if st.session_state.page == "landing":
-            show_landing_page()
-        elif st.session_state.page == "login":
-            show_login()
-        elif st.session_state.page == "register":
-            show_register()
-        elif st.session_state.page == "main":
+        elif st.session_state.page == "plans":
             if not st.session_state.authenticated:
-                st.warning("Sua sessão expirou. Por favor, faça login novamente.")
+                st.warning("Você precisa fazer login para acessar os planos.")
                 go_to_login()
                 return
                 
-            # Mostrar dashboard principal
-            show_main_dashboard()
+            # Mostrar página de planos
+            show_plans_page()
         else:
             # Página padrão - redirecionando para landing
             st.session_state.page = "landing"
