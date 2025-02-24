@@ -107,6 +107,10 @@ def show_landing_page():
     # Custom CSS para a página de landing
     st.markdown("""
         <style>
+            body {
+                background-color: #FFFFFF;
+                color: #333333;
+            }
             .landing-container {
                 max-width: 1200px;
                 margin: 0 auto;
@@ -119,9 +123,9 @@ def show_landing_page():
                 margin-bottom: 2rem;
             }
             .logo {
-                font-size: 2rem;
+                font-size: 2.2rem;
                 font-weight: bold;
-                color: #1E3A8A;
+                color: #2563EB;
             }
             .hero {
                 margin: 3rem 0;
@@ -129,7 +133,7 @@ def show_landing_page():
             }
             .hero h1 {
                 font-size: 3rem;
-                color: #1E3A8A;
+                color: #2563EB;
                 margin-bottom: 1.5rem;
             }
             .hero p {
@@ -140,9 +144,10 @@ def show_landing_page():
             }
             .about-section {
                 margin: 3rem 0;
-                background-color: #F3F4F6;
+                background-color: #F3F7FF;
                 padding: 2rem;
                 border-radius: 10px;
+                border: 1px solid #E2E8F0;
             }
             .about-content {
                 max-width: 800px;
@@ -150,7 +155,7 @@ def show_landing_page():
                 line-height: 1.6;
             }
             .about-content h2 {
-                color: #1E3A8A;
+                color: #2563EB;
                 margin-bottom: 1.5rem;
             }
             .footer {
@@ -168,15 +173,17 @@ def show_landing_page():
     """, unsafe_allow_html=True)
     
     # Logo e botões de navegação
-    col1, col2, col3 = st.columns([4, 1, 1])
+    col1, col2 = st.columns([5, 1])
     with col1:
         st.markdown('<div class="logo">ValueHunter</div>', unsafe_allow_html=True)
     with col2:
-        if st.button("Sign In", key="signin_btn"):
-            go_to_login()
-    with col3:
-        if st.button("Sign Up", key="signup_btn"):
-            go_to_register()
+        c1, c2 = st.columns([1, 1], gap="small")
+        with c1:
+            if st.button("Sign In", key="signin_btn"):
+                go_to_login()
+        with c2:
+            if st.button("Sign Up", key="signup_btn"):
+                go_to_register()
             
     # Conteúdo principal
     st.markdown("""
@@ -251,7 +258,9 @@ def show_login():
                 st.error("Invalid credentials")
     
     # Registration link
-    if st.button("Don't have an account? Register here"):
+    st.markdown("---")
+    st.markdown("<div style='text-align: center;'>Não tem uma conta?</div>", unsafe_allow_html=True)
+    if st.button("Registre-se aqui", use_container_width=True):
         go_to_register()
 
 def show_register():
@@ -287,7 +296,9 @@ def show_register():
             else:
                 st.error(message)
     
-    if st.button("Already have an account? Login here"):
+    st.markdown("---")
+    st.markdown("<div style='text-align: center;'>Já tem uma conta?</div>", unsafe_allow_html=True)
+    if st.button("Fazer login", use_container_width=True):
         go_to_login()
 
 
@@ -311,6 +322,10 @@ def main():
         # CSS melhorado
         st.markdown("""
             <style>
+                body {
+                    background-color: #FFFFFF;
+                    color: #333333;
+                }
                 .main .block-container {
                     max-width: none !important;
                     width: 100% !important;
@@ -325,14 +340,15 @@ def main():
                 }
                 div.stButton > button {
                     font-weight: bold;
+                    border-radius: 4px;
                 }
                 div.stButton > button:first-child {
-                    border: 1px solid #1E3A8A;
+                    border: 1px solid #2563EB;
                     background-color: white;
-                    color: #1E3A8A;
+                    color: #2563EB;
                 }
                 div.stButton > button:nth-child(2) {
-                    background-color: #1E3A8A;
+                    background-color: #2563EB;
                     color: white;
                 }
                 div.btn-container div.stButton > button {
@@ -340,6 +356,19 @@ def main():
                     color: white;
                     font-size: 1.2rem;
                     padding: 0.75rem 1.5rem;
+                }
+                /* Estilos para botões mais juntos */
+                [data-testid="column"][style*="flex: 1"] > div {
+                    display: flex;
+                    justify-content: flex-end;
+                }
+                [data-testid="column"][style*="flex: 1"] > div > div {
+                    display: flex;
+                    gap: 8px;
+                }
+                [data-testid="column"][style*="flex: 1"] button {
+                    padding: 0.3rem 0.8rem;
+                    min-height: 0;
                 }
             </style>
         """, unsafe_allow_html=True)
