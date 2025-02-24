@@ -206,18 +206,20 @@ def show_landing_page():
     """, unsafe_allow_html=True)
     
     # Logo e botões de navegação
-    col1, col2 = st.columns([5, 1])
+   col1, col2 = st.columns([5, 1])
     with col1:
         st.markdown('<div class="logo-container"><span class="logo-v">V</span><span class="logo-text">ValueHunter</span></div>', unsafe_allow_html=True)
     with col2:
         c1, c2 = st.columns([1, 1], gap="small")
         with c1:
-            if st.button("Sign In", key="signin_btn"):
+            # Mudando a chave do botão para evitar duplicação
+            if st.button("Sign In", key="landing_signin_btn"):
                 go_to_login()
         with c2:
-            if st.button("Sign Up", key="signup_btn"):
+            # Também vamos atualizar essa chave por precaução
+            if st.button("Sign Up", key="landing_signup_btn"):
                 go_to_register()
-            
+                
     # Conteúdo principal
     st.markdown("""
         <div class="hero">
