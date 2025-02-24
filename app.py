@@ -108,8 +108,8 @@ def show_landing_page():
     st.markdown("""
         <style>
             body {
-                background-color: #FFFFFF;
-                color: #222831;
+                background-color: #3F3F45;
+                color: #FFFFFF;
             }
             .landing-container {
                 max-width: 1200px;
@@ -133,7 +133,7 @@ def show_landing_page():
                 color: #FFFFFF;
             }
             .logo-v {
-                color: #222831;
+                color: #3F3F45;
                 font-size: 2.5rem;
                 font-weight: bold;
             }
@@ -156,16 +156,16 @@ def show_landing_page():
             }
             .hero p {
                 font-size: 1.25rem;
-                color: #222831;
+                color: #FFFFFF;
                 max-width: 800px;
                 margin: 0 auto;
             }
             .about-section {
                 margin: 3rem 0;
-                background-color: #f8f9fa;
+                background-color: #575760;
                 padding: 2rem;
                 border-radius: 10px;
-                border: 1px solid #e2e8f0;
+                border: 1px solid #6b6b74;
             }
             .about-content {
                 max-width: 800px;
@@ -179,7 +179,7 @@ def show_landing_page():
             .footer {
                 margin-top: 3rem;
                 text-align: center;
-                color: #6B7280;
+                color: #b0b0b0;
             }
             .btn-container {
                 display: flex;
@@ -188,7 +188,7 @@ def show_landing_page():
                 margin-top: 2rem;
             }
             p, li {
-                color: #222831 !important;
+                color: #FFFFFF !important;
             }
         </style>
     """, unsafe_allow_html=True)
@@ -210,7 +210,7 @@ def show_landing_page():
     st.markdown("""
         <div class="hero">
             <h1>Maximize o Valor em Apostas Esportivas</h1>
-            <p style="color: #222831;">Identifique oportunidades de valor com precisão matemática e análise de dados avançada.</p>
+            <p style="color: #FFFFFF;">Identifique oportunidades de valor com precisão matemática e análise de dados avançada.</p>
         </div>
     """, unsafe_allow_html=True)
     
@@ -225,21 +225,21 @@ def show_landing_page():
     
     # Conteúdo da seção sobre (usando elementos nativos do Streamlit para evitar problemas de renderização)
     with st.container():
-        st.markdown('<p style="color: #222831;">O ValueHunter se fundamenta em um princípio crucial: "Ganhar não é sobre escolher o vencedor e sim conseguir o preço certo e depois deixar a variância fazer o trabalho dela."</p>', unsafe_allow_html=True)
-        st.markdown('<p style="color: #222831;">Percebemos que o sucesso nas apostas esportivas não depende de prever corretamente cada resultado individual. Em vez disso, o ValueHunter busca identificar sistematicamente quando existe uma discrepância favorável entre o valor real, calculado pela nossa Engine e o valor implícito, oferecido pelas casas de apostas.</p>', unsafe_allow_html=True)
-        st.markdown('<p style="color: #222831;">ValueHunter opera na interseção entre análise de dados e apostas esportivas. O ValueHunter trabalha para:</p>', unsafe_allow_html=True)
+        st.markdown('<p style="color: #FFFFFF;">O ValueHunter se fundamenta em um princípio crucial: "Ganhar não é sobre escolher o vencedor e sim conseguir o preço certo e depois deixar a variância fazer o trabalho dela."</p>', unsafe_allow_html=True)
+        st.markdown('<p style="color: #FFFFFF;">Percebemos que o sucesso nas apostas esportivas não depende de prever corretamente cada resultado individual. Em vez disso, o ValueHunter busca identificar sistematicamente quando existe uma discrepância favorável entre o valor real, calculado pela nossa Engine e o valor implícito, oferecido pelas casas de apostas.</p>', unsafe_allow_html=True)
+        st.markdown('<p style="color: #FFFFFF;">ValueHunter opera na interseção entre análise de dados e apostas esportivas. O ValueHunter trabalha para:</p>', unsafe_allow_html=True)
         
         st.markdown("""
-        <ol style="color: #222831;">
+        <ol style="color: #FFFFFF;">
             <li>Calcular probabilidades reais de eventos esportivos baseadas em modelos matemáticos e análise de dados</li>
             <li>Comparar essas probabilidades com as odds implícitas oferecidas pelas casas de apostas</li>
             <li>Identificar oportunidades onde existe uma vantagem estatística significativa</li>
         </ol>
         """, unsafe_allow_html=True)
         
-        st.markdown('<p style="color: #222831;">Quando a probabilidade real calculada pelo ValueHunter é maior que a probabilidade implícita nas odds da casa, ele encontra uma "oportunidade" - uma aposta com valor positivo esperado a longo prazo.</p>', unsafe_allow_html=True)
-        st.markdown('<p style="color: #222831;">Esta abordagem reconhece que, embora cada evento individual seja incerto, a matemática da expectativa estatística garante que, com disciplina e paciência suficientes, apostar consistentemente em situações com valor positivo me levará a lucros no longo prazo, desde que o agente de IA esteja calibrado adequadamente.</p>', unsafe_allow_html=True)
-        st.markdown('<p style="color: #222831;">Em resumo, meu agente não tenta "vencer o jogo" prevendo resultados individuais, mas sim "vencer o mercado" identificando inconsistências nas avaliações de probabilidade, permitindo que a variância natural do esporte trabalhe a meu favor através de uma vantagem matemática consistente.</p>', unsafe_allow_html=True)
+        st.markdown('<p style="color: #FFFFFF;">Quando a probabilidade real calculada pelo ValueHunter é maior que a probabilidade implícita nas odds da casa, ele encontra uma "oportunidade" - uma aposta com valor positivo esperado a longo prazo.</p>', unsafe_allow_html=True)
+        st.markdown('<p style="color: #FFFFFF;">Esta abordagem reconhece que, embora cada evento individual seja incerto, a matemática da expectativa estatística garante que, com disciplina e paciência suficientes, apostar consistentemente em situações com valor positivo me levará a lucros no longo prazo, desde que o agente de IA esteja calibrado adequadamente.</p>', unsafe_allow_html=True)
+        st.markdown('<p style="color: #FFFFFF;">Em resumo, meu agente não tenta "vencer o jogo" prevendo resultados individuais, mas sim "vencer o mercado" identificando inconsistências nas avaliações de probabilidade, permitindo que a variância natural do esporte trabalhe a meu favor através de uma vantagem matemática consistente.</p>', unsafe_allow_html=True)
     
     # Botão centralizado
     st.markdown('<div class="btn-container"></div>', unsafe_allow_html=True)
@@ -251,7 +251,7 @@ def show_landing_page():
     # Footer
     st.markdown("""
         <div class="footer">
-            <p style="color: #6B7280;">© 2025 ValueHunter. Todos os direitos reservados.</p>
+            <p style="color: #b0b0b0;">© 2025 ValueHunter. Todos os direitos reservados.</p>
         </div>
     """, unsafe_allow_html=True)
 
@@ -530,9 +530,9 @@ def show_main_dashboard():
                                 width: 100% !important;
                                 max-width: 100% !important;
                                 padding: 1rem !important;
-                                background-color: #f8f9fa;
+                                background-color: #575760;
                                 border-radius: 8px;
-                                border: 1px solid #e2e8f0;
+                                border: 1px solid #6b6b74;
                             }
                         </style>
                     """, unsafe_allow_html=True)
@@ -696,7 +696,6 @@ class UserManager:
             u["markets"] for u in user["usage"]["daily"]
             if datetime.strptime(u["date"], "%Y-%m-%d").date() == today
         )
-        
         monthly_usage = sum(
             u["markets"] for u in user["usage"]["monthly"]
             if datetime.strptime(u["date"], "%Y-%m-%d").date().replace(day=1) == this_month
@@ -1047,7 +1046,6 @@ def get_stat(stats, col, default='N/A'):
         return default
     except:
         return default
-
 def format_prompt(stats_df, home_team, away_team, odds_data):
     """Formata o prompt para o GPT-4 com os dados coletados"""
     try:
@@ -1164,156 +1162,90 @@ def main():
             initial_sidebar_state="expanded"
         )
         
-        # CSS global para fundo claro
+        # CSS global para fundo chumbo (#3F3F45) e texto branco
         st.markdown("""
             <style>
+                /* Estilo geral da aplicação - background principal */
                 .stApp {
-                    background-color: #FFFFFF;
+                    background-color: #3F3F45;
                 }
-                .st-emotion-cache-ffhzg2 {
-                    background-color: #FFFFFF;
-                }
-                .st-emotion-cache-16txtl3 {
-                    background-color: #F8F9FA;
-                }
-                .sidebar .sidebar-content {
-                    background-color: #F8F9FA;
-                }
-                h1, h2, h3 {
-                    color: #fd7014;
-                }
+                
+                /* Contêineres e elementos de fundo */
+                .st-emotion-cache-ffhzg2,
+                .st-emotion-cache-16txtl3,
+                section[data-testid="stSidebar"],
+                .sidebar .sidebar-content,
                 .st-cx {
-                    background-color: #F8F9FA;
+                    background-color: #3F3F45;
                 }
-                .st-emotion-cache-16idsys p {
-                    color: #222831;
+                
+                /* Texto branco para todos os elementos */
+                p, div, span, li, a, label, text, .st-emotion-cache-16idsys p, .st-emotion-cache-16idsys {
+                    color: #FFFFFF !important;
                 }
-                .st-emotion-cache-16idsys {
-                    color: #222831;
+                
+                /* Textos nos inputs */
+                .stTextInput>div>div>input, .stSelectbox {
+                    color: #FFFFFF !important;
+                    background-color: #575760 !important;
+                    border: 1px solid #6b6b74 !important;
                 }
-            </style>
-        """, unsafe_allow_html=True)
-        
-        # Outros estilos específicos para componentes
-        st.markdown("""
-            <style>
-                body {
-                    background-color: #FFFFFF;
-                    color: #222831;
-                }
-                .main .block-container {
-                    max-width: none !important;
-                    width: 100% !important;
-                    padding: 1rem !important;
-                    background-color: #FFFFFF;
-                }
-                .stMarkdown {
-                    width: 100% !important;
-                    max-width: 100% !important;
-                }
-                div[data-testid="stHorizontalBlock"] {
-                    align-items: center;
-                }
-                div.stButton > button {
-                    font-weight: bold;
-                    border-radius: 4px;
-                }
-                div.stButton > button:first-child {
-                    border: 1px solid #fd7014;
-                    background-color: white;
-                    color: #fd7014;
-                }
-                div.stButton > button:nth-child(2) {
-                    background-color: #fd7014;
-                    color: white;
-                }
-                div.btn-container div.stButton > button {
-                    background-color: #fd7014;
-                    color: white;
-                    font-size: 1.2rem;
-                    padding: 0.75rem 1.5rem;
-                }
-                /* Estilos para botões mais juntos */
-                [data-testid="column"][style*="flex: 1"] > div {
-                    display: flex;
-                    justify-content: flex-end;
-                }
-                [data-testid="column"][style*="flex: 1"] > div > div {
-                    display: flex;
-                    gap: 8px;
-                }
-                [data-testid="column"][style*="flex: 1"] button {
-                    padding: 0.3rem 0.8rem;
-                    min-height: 0;
-                }
-                /* Forçar cor do texto escura em todos os elementos */
-                p, div, span, li, a, label, text {
-                    color: #222831 !important;
-                }
-                /* Exceções para elementos específicos onde queremos outras cores */
+                
+                /* Manter o laranja para títulos e botões principais */
                 h1, h2, h3, h4, h5, h6 {
                     color: #fd7014 !important;
                 }
-                div.stButton > button {
-                    color: #fd7014 !important;
+                
+                /* Ajustes na logo */
+                .logo-container {
+                    background-color: #fd7014;
                 }
-                div.stButton > button:nth-child(2), div.btn-container div.stButton > button {
-                    color: white !important;
-                }
-                .footer p {
-                    color: #6B7280 !important;
-                }
-                /* Elementos do streamlit */
-                .stTextInput>div>div>input, .stSelectbox {
-                    color: #222831 !important;
-                }
-                .stAlert p {
-                    color: inherit !important;
-                }
-                /* Específico para textos no markdown */
-                .st-emotion-cache-16idsys p {
-                    color: #222831 !important;
-                }
-                /* Sidebar */
-                section[data-testid="stSidebar"] {
-                    background-color: #374141 !important;
-                    border-right: 1px solid #222831;
-                }
-                section[data-testid="stSidebar"] p {
+                .logo-text {
                     color: #FFFFFF !important;
                 }
-                section[data-testid="stSidebar"] h1, section[data-testid="stSidebar"] h2, section[data-testid="stSidebar"] h3 {
-                    color: #fd7014 !important;
+                .logo-v {
+                    color: #3F3F45 !important;
                 }
-                section[data-testid="stSidebar"] .stButton > button {
+                
+                /* Estilo para botões */
+                div.stButton > button {
+                    border: 1px solid #fd7014;
+                    background-color: #575760;
+                    color: #FFFFFF !important;
+                }
+                
+                div.stButton > button:hover {
                     background-color: #fd7014;
                     color: white !important;
-                    border: none;
                 }
+                
                 /* Estilo para botão primário */
                 button[kind="primary"] {
                     background-color: #fd7014 !important;
                     color: white !important;
                 }
                 
-                /* Estilo logo */
-                .logo-container {
-                    background-color: #fd7014;
-                    padding: 10px 20px;
-                    border-radius: 8px;
-                    display: flex;
-                    align-items: center;
-                    gap: 5px;
+                /* Ajuste do contraste da sidebar */
+                section[data-testid="stSidebar"] {
+                    background-color: #27272a !important;
+                    border-right: 1px solid #fd7014;
                 }
-                .logo-text {
-                    font-size: 2.2rem;
-                    font-weight: bold;
-                    color: #FFFFFF !important;
+                
+                /* Container principal mais escuro */
+                .main .block-container {
+                    background-color: #3F3F45;
+                    padding: 1rem !important;
                 }
-                .logo-v {
-                    color: #222831 !important;
-                    font-size: 2.5rem;
-                    font-weight: bold;
+                
+                /* Melhorar contraste dos widgets */
+                .stSelectbox > div > div,
+                .stNumberInput > div > div {
+                    background-color: #575760 !important;
+                }
+                
+                /* Cores das mensagens e alertas - manter para legibilidade */
+                .stAlert p {
+                    color: inherit !important;
                 }
             </style>
         """, unsafe_allow_html=True)
@@ -1342,4 +1274,4 @@ def main():
         st.error(f"Erro geral na aplicação: {str(e)}")
 
 if __name__ == "__main__":
-    main()
+    main()        
