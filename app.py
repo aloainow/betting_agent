@@ -1230,9 +1230,7 @@ def main():
             layout="wide",
             initial_sidebar_state="expanded"
         )
-        
-        # CSS global para fundo chumbo (#3F3F45) e texto branco
-# CSS global atualizado para remover o retângulo cinza ao redor do título "Sobre o ValueHunter"
+        # CSS global atualizado para remover o retângulo cinza ao redor do título "Sobre o ValueHunter"
     st.markdown("""
         <style>
             /* Estilo geral da aplicação - background principal */
