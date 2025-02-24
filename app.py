@@ -1,4 +1,61 @@
-# Standard library imports
+def show_main_dashboard():
+    """Show the main dashboard after login"""
+    # Show usage stats in sidebar
+    show_usage_stats()
+    
+    # Título principal na sidebar
+    st.sidebar.title("Análise de Apostas")
+    
+    # Add logout button
+    if st.sidebar.button("Logout"):
+        st.session_state.authenticated = False
+        st.session_state.email = None
+        st.session_state.page = "landing"
+        st.experimental_rerun()
+    
+    # Configurações na sidebar
+    st.sidebar.title("Configurações")
+    selected_league = st.sidebar.selectbox(
+        "Escolha o campeonato:",
+        list(FBREF_URLS.keys())
+    )
+    
+    # Container de status para mensagens
+    status_container = st.sidebar.empty()
+    
+    # Header com a logo na área principal
+    st.markdown('<div class="logo-container" style="width: fit-content;"><span class="logo-v">V</span><span class="logo-text">ValueHunter</span></div>', unsafe_allow_html=True)
+    
+    # Busca dados do campeonato
+    with st.spinner("Carregando dados do campeonato..."):
+        stats_html = fetch_fbref_data(FBREF_URLS[selected_league]["stats"])
+        
+        if not stats_html:
+            st.error("Não foi possível carregar os dados do campeonato")
+            return
+        
+        team_stats_df = parse_team_stats(stats_html)
+        
+        if team_stats_df is None or 'Squad' not in team_stats_df.columns:
+            st.error("Erro ao processar dados dos times")
+            return
+        
+        status_container.success("Dados carregados com sucesso!")
+        
+        teams = team_stats_df['Squad'].dropna().unique().tolist()
+        
+        if not teams:
+            st.error("Não foi possível encontrar os times do campeonato")
+            return
+    
+    # Área principal
+    st.title("Seleção de Times")
+    
+    # Seleção dos times em duas colunas
+    col1, col2 = st.columns(2)
+    with col1:
+        home_team = st.selectbox("Time da Casa:", teams, key='home_team')
+    with col2# Standard library imports
 import os
 import json
 import hashlib
@@ -109,7 +166,7 @@ def show_landing_page():
         <style>
             body {
                 background-color: #FFFFFF;
-                color: #333333;
+                color: #222831;
             }
             .landing-container {
                 max-width: 1200px;
@@ -123,9 +180,27 @@ def show_landing_page():
                 margin-bottom: 2rem;
             }
             .logo {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+            .logo-text {
                 font-size: 2.2rem;
                 font-weight: bold;
-                color: #2563EB;
+                color: #FFFFFF;
+            }
+            .logo-v {
+                color: #222831;
+                font-size: 2.5rem;
+                font-weight: bold;
+            }
+            .logo-container {
+                background-color: #fd7014;
+                padding: 10px 20px;
+                border-radius: 8px;
+                display: flex;
+                align-items: center;
+                gap: 5px;
             }
             .hero {
                 margin: 3rem 0;
@@ -133,21 +208,21 @@ def show_landing_page():
             }
             .hero h1 {
                 font-size: 3rem;
-                color: #2563EB;
+                color: #fd7014;
                 margin-bottom: 1.5rem;
             }
             .hero p {
                 font-size: 1.25rem;
-                color: #4B5563;
+                color: #222831;
                 max-width: 800px;
                 margin: 0 auto;
             }
             .about-section {
                 margin: 3rem 0;
-                background-color: #F3F7FF;
+                background-color: #f8f9fa;
                 padding: 2rem;
                 border-radius: 10px;
-                border: 1px solid #E2E8F0;
+                border: 1px solid #e2e8f0;
             }
             .about-content {
                 max-width: 800px;
@@ -155,7 +230,7 @@ def show_landing_page():
                 line-height: 1.6;
             }
             .about-content h2 {
-                color: #2563EB;
+                color: #fd7014;
                 margin-bottom: 1.5rem;
             }
             .footer {
@@ -169,13 +244,16 @@ def show_landing_page():
                 gap: 20px;
                 margin-top: 2rem;
             }
+            p, li {
+                color: #222831 !important;
+            }
         </style>
     """, unsafe_allow_html=True)
     
     # Logo e botões de navegação
     col1, col2 = st.columns([5, 1])
     with col1:
-        st.markdown('<div class="logo">ValueHunter</div>', unsafe_allow_html=True)
+        st.markdown('<div class="logo-container"><span class="logo-v">V</span><span class="logo-text">ValueHunter</span></div>', unsafe_allow_html=True)
     with col2:
         c1, c2 = st.columns([1, 1], gap="small")
         with c1:
@@ -189,7 +267,7 @@ def show_landing_page():
     st.markdown("""
         <div class="hero">
             <h1>Maximize o Valor em Apostas Esportivas</h1>
-            <p>Identifique oportunidades de valor com precisão matemática e análise de dados avançada.</p>
+            <p style="color: #222831;">Identifique oportunidades de valor com precisão matemática e análise de dados avançada.</p>
         </div>
     """, unsafe_allow_html=True)
     
@@ -204,19 +282,21 @@ def show_landing_page():
     
     # Conteúdo da seção sobre (usando elementos nativos do Streamlit para evitar problemas de renderização)
     with st.container():
-        st.write("O ValueHunter se fundamenta em um princípio crucial: \"Ganhar não é sobre escolher o vencedor e sim conseguir o preço certo e depois deixar a variância fazer o trabalho dela.\"")
-        st.write("Percebemos que o sucesso nas apostas esportivas não depende de prever corretamente cada resultado individual. Em vez disso, o ValueHunter busca identificar sistematicamente quando existe uma discrepância favorável entre o valor real, calculado pela nossa Engine e o valor implícito, oferecido pelas casas de apostas.")
-        st.write("ValueHunter opera na interseção entre análise de dados e apostas esportivas. O ValueHunter trabalha para:")
+        st.markdown('<p style="color: #222831;">O ValueHunter se fundamenta em um princípio crucial: "Ganhar não é sobre escolher o vencedor e sim conseguir o preço certo e depois deixar a variância fazer o trabalho dela."</p>', unsafe_allow_html=True)
+        st.markdown('<p style="color: #222831;">Percebemos que o sucesso nas apostas esportivas não depende de prever corretamente cada resultado individual. Em vez disso, o ValueHunter busca identificar sistematicamente quando existe uma discrepância favorável entre o valor real, calculado pela nossa Engine e o valor implícito, oferecido pelas casas de apostas.</p>', unsafe_allow_html=True)
+        st.markdown('<p style="color: #222831;">ValueHunter opera na interseção entre análise de dados e apostas esportivas. O ValueHunter trabalha para:</p>', unsafe_allow_html=True)
         
         st.markdown("""
-        1. Calcular probabilidades reais de eventos esportivos baseadas em modelos matemáticos e análise de dados
-        2. Comparar essas probabilidades com as odds implícitas oferecidas pelas casas de apostas
-        3. Identificar oportunidades onde existe uma vantagem estatística significativa
-        """)
+        <ol style="color: #222831;">
+            <li>Calcular probabilidades reais de eventos esportivos baseadas em modelos matemáticos e análise de dados</li>
+            <li>Comparar essas probabilidades com as odds implícitas oferecidas pelas casas de apostas</li>
+            <li>Identificar oportunidades onde existe uma vantagem estatística significativa</li>
+        </ol>
+        """, unsafe_allow_html=True)
         
-        st.write("Quando a probabilidade real calculada pelo ValueHunter é maior que a probabilidade implícita nas odds da casa, ele encontra uma \"oportunidade\" - uma aposta com valor positivo esperado a longo prazo.")
-        st.write("Esta abordagem reconhece que, embora cada evento individual seja incerto, a matemática da expectativa estatística garante que, com disciplina e paciência suficientes, apostar consistentemente em situações com valor positivo me levará a lucros no longo prazo, desde que o agente de IA esteja calibrado adequadamente.")
-        st.write("Em resumo, meu agente não tenta \"vencer o jogo\" prevendo resultados individuais, mas sim \"vencer o mercado\" identificando inconsistências nas avaliações de probabilidade, permitindo que a variância natural do esporte trabalhe a meu favor através de uma vantagem matemática consistente.")
+        st.markdown('<p style="color: #222831;">Quando a probabilidade real calculada pelo ValueHunter é maior que a probabilidade implícita nas odds da casa, ele encontra uma "oportunidade" - uma aposta com valor positivo esperado a longo prazo.</p>', unsafe_allow_html=True)
+        st.markdown('<p style="color: #222831;">Esta abordagem reconhece que, embora cada evento individual seja incerto, a matemática da expectativa estatística garante que, com disciplina e paciência suficientes, apostar consistentemente em situações com valor positivo me levará a lucros no longo prazo, desde que o agente de IA esteja calibrado adequadamente.</p>', unsafe_allow_html=True)
+        st.markdown('<p style="color: #222831;">Em resumo, meu agente não tenta "vencer o jogo" prevendo resultados individuais, mas sim "vencer o mercado" identificando inconsistências nas avaliações de probabilidade, permitindo que a variância natural do esporte trabalhe a meu favor através de uma vantagem matemática consistente.</p>', unsafe_allow_html=True)
     
     # Botão centralizado
     st.markdown('<div class="btn-container"></div>', unsafe_allow_html=True)
@@ -228,12 +308,14 @@ def show_landing_page():
     # Footer
     st.markdown("""
         <div class="footer">
-            <p>© 2025 ValueHunter. Todos os direitos reservados.</p>
+            <p style="color: #6B7280;">© 2025 ValueHunter. Todos os direitos reservados.</p>
         </div>
     """, unsafe_allow_html=True)
 
 def show_login():
     """Display login form"""
+    # Header com a logo
+    st.markdown('<div class="logo-container" style="width: fit-content;"><span class="logo-v">V</span><span class="logo-text">ValueHunter</span></div>', unsafe_allow_html=True)
     st.title("Login")
     
     # Botão para voltar à página inicial
@@ -265,6 +347,8 @@ def show_login():
 
 def show_register():
     """Display registration form"""
+    # Header com a logo
+    st.markdown('<div class="logo-container" style="width: fit-content;"><span class="logo-v">V</span><span class="logo-text">ValueHunter</span></div>', unsafe_allow_html=True)
     st.title("Register")
     
     # Botão para voltar à página inicial
@@ -354,7 +438,7 @@ def main():
             <style>
                 body {
                     background-color: #FFFFFF;
-                    color: #333333;
+                    color: #222831;
                 }
                 .main .block-container {
                     max-width: none !important;
@@ -374,16 +458,16 @@ def main():
                     border-radius: 4px;
                 }
                 div.stButton > button:first-child {
-                    border: 1px solid #2563EB;
+                    border: 1px solid #fd7014;
                     background-color: white;
-                    color: #2563EB;
+                    color: #fd7014;
                 }
                 div.stButton > button:nth-child(2) {
-                    background-color: #2563EB;
+                    background-color: #fd7014;
                     color: white;
                 }
                 div.btn-container div.stButton > button {
-                    background-color: #10B981;
+                    background-color: #fd7014;
                     color: white;
                     font-size: 1.2rem;
                     padding: 0.75rem 1.5rem;
@@ -400,6 +484,55 @@ def main():
                 [data-testid="column"][style*="flex: 1"] button {
                     padding: 0.3rem 0.8rem;
                     min-height: 0;
+                }
+                /* Forçar cor do texto escura em todos os elementos */
+                p, div, span, li, a, label, text {
+                    color: #222831 !important;
+                }
+                /* Exceções para elementos específicos onde queremos outras cores */
+                h1, h2, h3, h4, h5, h6 {
+                    color: #fd7014 !important;
+                }
+                div.stButton > button {
+                    color: #fd7014 !important;
+                }
+                div.stButton > button:nth-child(2), div.btn-container div.stButton > button {
+                    color: white !important;
+                }
+                .footer p {
+                    color: #6B7280 !important;
+                }
+                /* Elementos do streamlit */
+                .stTextInput>div>div>input, .stSelectbox {
+                    color: #222831 !important;
+                }
+                .stAlert p {
+                    color: inherit !important;
+                }
+                /* Específico para textos no markdown */
+                .st-emotion-cache-16idsys p {
+                    color: #222831 !important;
+                }
+                /* Sidebar */
+                section[data-testid="stSidebar"] {
+                    background-color: #374141 !important;
+                    border-right: 1px solid #222831;
+                }
+                section[data-testid="stSidebar"] p {
+                    color: #FFFFFF !important;
+                }
+                section[data-testid="stSidebar"] h1, section[data-testid="stSidebar"] h2, section[data-testid="stSidebar"] h3 {
+                    color: #fd7014 !important;
+                }
+                section[data-testid="stSidebar"] .stButton > button {
+                    background-color: #fd7014;
+                    color: white !important;
+                    border: none;
+                }
+                /* Estilo para botão primário */
+                button[kind="primary"] {
+                    background-color: #fd7014 !important;
+                    color: white !important;
                 }
             </style>
         """, unsafe_allow_html=True)
