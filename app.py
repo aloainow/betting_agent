@@ -58,6 +58,9 @@ class UserTier:
 # Função init_session_state deve vir ANTES da classe UserManager
 def init_session_state():
     """Initialize session state variables"""
+    if "page" not in st.session_state:
+        st.session_state.page = "landing"  # Nova variável para controlar a página atual
+        
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
     
@@ -71,6 +74,10 @@ def init_session_state():
         st.session_state.email = None
         st.warning("Sua sessão expirou. Por favor, faça login novamente.")
     
+    # Variáveis para a página de landing
+    if "show_register" not in st.session_state:
+        st.session_state.show_register = False
+    
     # UserManager deve ser o último a ser inicializado
     if "user_manager" not in st.session_state:
         st.session_state.user_manager = UserManager()
@@ -78,10 +85,183 @@ def init_session_state():
     # Atualizar timestamp de última atividade
     st.session_state.last_activity = datetime.now()
 
+def go_to_login():
+    """Navigate to login page"""
+    st.session_state.page = "login"
+    st.session_state.show_register = False
+    st.experimental_rerun()
+
+def go_to_register():
+    """Navigate to register page"""
+    st.session_state.page = "register"
+    st.session_state.show_register = True
+    st.experimental_rerun()
+
+def go_to_landing():
+    """Navigate to landing page"""
+    st.session_state.page = "landing"
+    st.experimental_rerun()
+
+def show_landing_page():
+    """Display landing page with about content and login/register buttons"""
+    # Custom CSS para a página de landing
+    st.markdown("""
+        <style>
+            .landing-container {
+                max-width: 1200px;
+                margin: 0 auto;
+                padding: 2rem;
+            }
+            .navbar {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 2rem;
+            }
+            .logo {
+                font-size: 2rem;
+                font-weight: bold;
+                color: #1E3A8A;
+            }
+            .nav-buttons {
+                display: flex;
+                gap: 1rem;
+            }
+            .nav-button {
+                padding: 0.5rem 1rem;
+                border-radius: 5px;
+                font-weight: bold;
+                cursor: pointer;
+                text-decoration: none;
+            }
+            .signin-btn {
+                background-color: transparent;
+                color: #1E3A8A;
+                border: 1px solid #1E3A8A;
+            }
+            .signup-btn {
+                background-color: #1E3A8A;
+                color: white;
+                border: none;
+            }
+            .hero {
+                margin: 3rem 0;
+                text-align: center;
+            }
+            .hero h1 {
+                font-size: 3rem;
+                color: #1E3A8A;
+                margin-bottom: 1.5rem;
+            }
+            .hero p {
+                font-size: 1.25rem;
+                color: #4B5563;
+                max-width: 800px;
+                margin: 0 auto;
+            }
+            .about-section {
+                margin: 3rem 0;
+                background-color: #F3F4F6;
+                padding: 2rem;
+                border-radius: 10px;
+            }
+            .about-content {
+                max-width: 800px;
+                margin: 0 auto;
+                line-height: 1.6;
+            }
+            .about-content h2 {
+                color: #1E3A8A;
+                margin-bottom: 1.5rem;
+            }
+            .try-free-btn {
+                background-color: #10B981;
+                color: white;
+                padding: 1rem 2rem;
+                font-size: 1.25rem;
+                font-weight: bold;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;
+                margin-top: 2rem;
+                display: inline-block;
+            }
+            .footer {
+                margin-top: 3rem;
+                text-align: center;
+                color: #6B7280;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+    
+    # Conteúdo da página de landing
+    st.markdown("""
+        <div class="landing-container">
+            <div class="navbar">
+                <div class="logo">ValueHunter</div>
+                <div class="nav-buttons">
+                    <a href="#" class="nav-button signin-btn" onclick="goToLogin(); return false;">Sign In</a>
+                    <a href="#" class="nav-button signup-btn" onclick="goToRegister(); return false;">Sign Up</a>
+                </div>
+            </div>
+            
+            <div class="hero">
+                <h1>Maximize o Valor em Apostas Esportivas</h1>
+                <p>Identifique oportunidades de valor com precisão matemática e análise de dados avançada.</p>
+            </div>
+            
+            <div class="about-section">
+                <div class="about-content">
+                    <h2>Sobre o ValueHunter</h2>
+                    <p>O ValueHunter se fundamenta em um princípio crucial: "Ganhar não é sobre escolher o vencedor e sim conseguir o preço certo e depois deixar a variância fazer o trabalho dela."</p>
+                    <p>Percebemos que o sucesso nas apostas esportivas não depende de prever corretamente cada resultado individual. Em vez disso, o ValueHunter busca identificar sistematicamente quando existe uma discrepância favorável entre o valor real, calculado pela nossa Engine e o valor implícito, oferecido pelas casas de apostas.</p>
+                    <p>ValueHunter opera na interseção entre análise de dados e apostas esportivas. O ValueHunter trabalha para:</p>
+                    <ol>
+                        <li>Calcular probabilidades reais de eventos esportivos baseadas em modelos matemáticos e análise de dados</li>
+                        <li>Comparar essas probabilidades com as odds implícitas oferecidas pelas casas de apostas</li>
+                        <li>Identificar oportunidades onde existe uma vantagem estatística significativa</li>
+                    </ol>
+                    <p>Quando a probabilidade real calculada pelo ValueHunter é maior que a probabilidade implícita nas odds da casa, ele encontra uma "oportunidade" - uma aposta com valor positivo esperado a longo prazo.</p>
+                    <p>Esta abordagem reconhece que, embora cada evento individual seja incerto, a matemática da expectativa estatística garante que, com disciplina e paciência suficientes, apostar consistentemente em situações com valor positivo me levará a lucros no longo prazo, desde que o agente de IA esteja calibrado adequadamente.</p>
+                    <p>Em resumo, meu agente não tenta "vencer o jogo" prevendo resultados individuais, mas sim "vencer o mercado" identificando inconsistências nas avaliações de probabilidade, permitindo que a variância natural do esporte trabalhe a meu favor através de uma vantagem matemática consistente.</p>
+                    
+                    <a href="#" class="try-free-btn" onclick="goToRegister(); return false;">Faça seu teste grátis</a>
+                </div>
+            </div>
+            
+            <div class="footer">
+                <p>© 2025 ValueHunter. Todos os direitos reservados.</p>
+            </div>
+        </div>
+        
+        <script>
+            function goToLogin() {
+                window.parent.postMessage({type: 'streamlit:setComponentValue', value: 'login'}, '*');
+            }
+            
+            function goToRegister() {
+                window.parent.postMessage({type: 'streamlit:setComponentValue', value: 'register'}, '*');
+            }
+        </script>
+    """, unsafe_allow_html=True)
+    
+    # Capturar cliques nos botões de navegação
+    if st.button("Sign In", key="signin_btn", style="visibility: hidden;"):
+        go_to_login()
+        
+    if st.button("Sign Up", key="signup_btn", style="visibility: hidden;"):
+        go_to_register()
+        
+    if st.button("Faça seu teste grátis", key="try_free_btn", style="visibility: hidden;"):
+        go_to_register()
 
 def show_login():
     """Display login form"""
     st.title("Login")
+    
+    # Botão para voltar à página inicial
+    if st.button("← Voltar para a página inicial"):
+        go_to_landing()
     
     # Login form
     with st.form("login_form"):
@@ -94,6 +274,7 @@ def show_login():
                 st.session_state.authenticated = True
                 st.session_state.email = email
                 st.success("Login successful!")
+                st.session_state.page = "main"  # Ir para a página principal
                 time.sleep(1)
                 st.experimental_rerun()
             else:
@@ -101,12 +282,15 @@ def show_login():
     
     # Registration link
     if st.button("Don't have an account? Register here"):
-        st.session_state.show_register = True
-        st.experimental_rerun()
+        go_to_register()
 
 def show_register():
     """Display registration form"""
     st.title("Register")
+    
+    # Botão para voltar à página inicial
+    if st.button("← Voltar para a página inicial"):
+        go_to_landing()
     
     with st.form("register_form"):
         col1, col2 = st.columns(2)
@@ -126,6 +310,7 @@ def show_register():
             success, message = st.session_state.user_manager.register_user(email, password, tier)
             if success:
                 st.success(message)
+                st.session_state.page = "login"
                 st.session_state.show_register = False
                 time.sleep(1)
                 st.experimental_rerun()
@@ -133,9 +318,73 @@ def show_register():
                 st.error(message)
     
     if st.button("Already have an account? Login here"):
-        st.session_state.show_register = False
-        st.experimental_rerun()
+        go_to_login()
+
+
+# O resto do código permanece igual (UserManager, parse_team_stats, etc.)
+# ...
+
+# Alteração na função main para incluir a nova página de landing
+def main():
+    try:
+        # Initialize session state
+        init_session_state()
         
+        # Configuração inicial do Streamlit
+        st.set_page_config(
+            page_title="ValueHunter - Análise de Apostas Esportivas",
+            page_icon="⚽",
+            layout="wide",
+            initial_sidebar_state="expanded"
+        )
+        
+        # CSS melhorado
+        st.markdown("""
+            <style>
+                .main .block-container {
+                    max-width: none !important;
+                    width: 100% !important;
+                    padding: 1rem !important;
+                }
+                .stMarkdown {
+                    width: 100% !important;
+                    max-width: 100% !important;
+                }
+                button[kind="secondary"] {
+                    background-color: transparent;
+                    color: #1E3A8A;
+                    border: 1px solid #1E3A8A;
+                }
+                button[kind="primary"] {
+                    background-color: #1E3A8A;
+                    color: white;
+                }
+            </style>
+        """, unsafe_allow_html=True)
+        
+        # Lógica de roteamento de páginas
+        if st.session_state.page == "landing":
+            show_landing_page()
+        elif st.session_state.page == "login":
+            show_login()
+        elif st.session_state.page == "register":
+            show_register()
+        elif st.session_state.page == "main":
+            if not st.session_state.authenticated:
+                st.warning("Sua sessão expirou. Por favor, faça login novamente.")
+                go_to_login()
+                return
+                
+            # Mostrar dashboard principal
+            show_main_dashboard()
+        else:
+            # Página padrão - redirecionando para landing
+            st.session_state.page = "landing"
+            st.experimental_rerun()
+
+    except Exception as e:
+        st.error(f"Erro geral na aplicação: {str(e)}")
+
 def show_usage_stats():
     """Display usage statistics"""
     stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
@@ -187,7 +436,174 @@ def check_analysis_limits(selected_markets):
             
     return True
 
+def show_main_dashboard():
+    """Show the main dashboard after login"""
+    # Show usage stats in sidebar
+    show_usage_stats()
+    
+    # Título principal na sidebar
+    st.sidebar.title("Análise de Apostas Esportivas")
+    
+    # Add logout button
+    if st.sidebar.button("Logout"):
+        st.session_state.authenticated = False
+        st.session_state.email = None
+        st.session_state.page = "landing"
+        st.experimental_rerun()
+    
+    # Configurações na sidebar
+    st.sidebar.title("Configurações")
+    selected_league = st.sidebar.selectbox(
+        "Escolha o campeonato:",
+        list(FBREF_URLS.keys())
+    )
+    
+    # Container de status para mensagens
+    status_container = st.sidebar.empty()
+    
+    # Busca dados do campeonato
+    with st.spinner("Carregando dados do campeonato..."):
+        stats_html = fetch_fbref_data(FBREF_URLS[selected_league]["stats"])
         
+        if not stats_html:
+            st.error("Não foi possível carregar os dados do campeonato")
+            return
+        
+        team_stats_df = parse_team_stats(stats_html)
+        
+        if team_stats_df is None or 'Squad' not in team_stats_df.columns:
+            st.error("Erro ao processar dados dos times")
+            return
+        
+        status_container.success("Dados carregados com sucesso!")
+        
+        teams = team_stats_df['Squad'].dropna().unique().tolist()
+        
+        if not teams:
+            st.error("Não foi possível encontrar os times do campeonato")
+            return
+    
+    # Área principal
+    st.title("Seleção de Times")
+    
+    # Seleção dos times em duas colunas
+    col1, col2 = st.columns(2)
+    with col1:
+        home_team = st.selectbox("Time da Casa:", teams, key='home_team')
+    with col2:
+        away_teams = [team for team in teams if team != home_team]
+        away_team = st.selectbox("Time Visitante:", away_teams, key='away_team')
+
+    # Get user tier limits
+    user_stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
+    max_markets = user_stats['market_limit']
+
+    # Seleção de mercados em container separado
+    with st.expander("Mercados Disponíveis", expanded=True):
+        st.markdown("### Seleção de Mercados")
+        
+        # Mostrar limite de mercados baseado no tier
+        st.info(f"Seu plano permite {max_markets} mercado(s) por análise")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            selected_markets = {
+                "money_line": st.checkbox("Money Line (1X2)", value=True, key='ml'),
+                "over_under": st.checkbox("Over/Under", key='ou'),
+                "chance_dupla": st.checkbox("Chance Dupla", key='cd')
+            }
+        
+        with col2:
+            selected_markets.update({
+                "ambos_marcam": st.checkbox("Ambos Marcam", key='btts'),
+                "escanteios": st.checkbox("Total de Escanteios", key='corners'),
+                "cartoes": st.checkbox("Total de Cartões", key='cards')
+            })
+
+        # Verificar número de mercados selecionados
+        num_selected_markets = sum(1 for v in selected_markets.values() if v)
+        if num_selected_markets > max_markets:
+            st.error(f"Você selecionou {num_selected_markets} mercados, mas seu plano permite apenas {max_markets}.")
+            return
+
+    # Inputs de odds em container separado
+    odds_data = None
+    if any(selected_markets.values()):
+        with st.expander("Configuração de Odds", expanded=True):
+            odds_data = get_odds_data(selected_markets)
+
+    # Botão de análise centralizado
+    col1, col2, col3 = st.columns([1,1,1])
+    with col2:
+        analyze_button = st.button("Analisar Partida", type="primary")
+        
+        if analyze_button:
+            if not any(selected_markets.values()):
+                st.error("Por favor, selecione pelo menos um mercado para análise.")
+                return
+                
+            if not odds_data:
+                st.error("Por favor, configure as odds para os mercados selecionados.")
+                return
+            
+            # Verificar limites de análise
+            if not check_analysis_limits(selected_markets):
+                return
+                
+            # Criar um placeholder para o status
+            status = st.empty()
+            
+            try:
+                # Etapa 1: Carregar dados
+                status.info("Carregando dados dos times...")
+                if not stats_html or not team_stats_df is not None:
+                    status.error("Falha ao carregar dados")
+                    return
+                    
+                # Etapa 2: Formatar prompt
+                status.info("Preparando análise...")
+                prompt = format_prompt(team_stats_df, home_team, away_team, odds_data)
+                if not prompt:
+                    status.error("Falha ao preparar análise")
+                    return
+                    
+                # Etapa 3: Análise GPT
+                status.info("Realizando análise com IA...")
+                analysis = analyze_with_gpt(prompt)
+                if not analysis:
+                    status.error("Falha na análise")
+                    return
+                
+                # Etapa 4: Mostrar resultado
+                if analysis:
+                    # Primeiro aplica o estilo
+                    st.markdown("""
+                        <style>
+                            .analysis-result {
+                                width: 100% !important;
+                                max-width: 100% !important;
+                                padding: 1rem !important;
+                            }
+                        </style>
+                    """, unsafe_allow_html=True)
+                    
+                    # Depois mostra o conteúdo
+                    st.markdown(f'<div class="analysis-result">{analysis}</div>', unsafe_allow_html=True)
+                    
+                    # Registrar uso após análise bem-sucedida
+                    num_markets = sum(1 for v in selected_markets.values() if v)
+                    st.session_state.user_manager.record_usage(st.session_state.email, num_markets)
+                    
+                    # Atualizar estatísticas de uso
+                    show_usage_stats()
+                    
+            except Exception as e:
+                status.error(f"Erro durante a análise: {str(e)}")
+        
+# Aqui devem ser copiadas as demais funções do seu código original
+# (UserManager, get_odds_data, fetch_fbref_data, etc.)
+
 class UserManager:
     def __init__(self, storage_path: str = ".streamlit/users.json"):
         self.storage_path = storage_path
@@ -464,35 +880,9 @@ def get_odds_data(selected_markets):
         
     return "\n\n".join(odds_text)
 
-    
 def get_fbref_urls():
     """Retorna o dicionário de URLs do FBref"""
-    return {
-        "Premier League": {
-            "stats": "https://fbref.com/en/comps/9/Premier-League-Stats",
-            "fixtures": "https://fbref.com/en/comps/9/schedule/Premier-League-Scores-and-Fixtures"
-        },
-        "La Liga": {
-            "stats": "https://fbref.com/en/comps/12/La-Liga-Stats",
-            "fixtures": "https://fbref.com/en/comps/12/schedule/La-Liga-Scores-and-Fixtures"
-        },
-        "Serie A": {
-            "stats": "https://fbref.com/en/comps/11/Serie-A-Stats",
-            "fixtures": "https://fbref.com/en/comps/11/schedule/Serie-A-Scores-and-Fixtures"
-        },
-        "Bundesliga": {
-            "stats": "https://fbref.com/en/comps/20/Bundesliga-Stats",
-            "fixtures": "https://fbref.com/en/comps/20/schedule/Bundesliga-Scores-and-Fixtures"
-        },
-        "Ligue 1": {
-            "stats": "https://fbref.com/en/comps/13/Ligue-1-Stats",
-            "fixtures": "https://fbref.com/en/comps/13/schedule/Ligue-1-Scores-and-Fixtures"
-        },
-        "Champions League": {
-            "stats": "https://fbref.com/en/comps/8/Champions-League-Stats",
-            "fixtures": "https://fbref.com/en/comps/8/schedule/Champions-League-Scores-and-Fixtures"
-        }
-    }
+    return FBREF_URLS
 
 @st.cache_resource
 def get_openai_client():
@@ -664,7 +1054,7 @@ def rate_limit(seconds):
         def wrapper(*args, **kwargs):
             elapsed = time.time() - last_called[0]
             if elapsed < seconds:
-                sleep(seconds - elapsed)
+                time.sleep(seconds - elapsed)
             result = func(*args, **kwargs)
             last_called[0] = time.time()
             return result
@@ -814,219 +1204,6 @@ PROBABILIDADES CALCULADAS:
     except Exception as e:
         st.error(f"Erro ao formatar prompt: {str(e)}")
         return None
-
-def _save_users(self):
-    """Save users to JSON file"""
-    try:
-        os.makedirs(os.path.dirname(self.storage_path), exist_ok=True)
-        with open(self.storage_path, 'w') as f:
-            json.dump(self.users, f)
-    except Exception as e:
-        st.error(f"Erro ao salvar dados dos usuários: {str(e)}")
-
-def main():
-    try:
-        # Initialize session state
-        init_session_state()
-        
-        # Configuração inicial do Streamlit
-        st.set_page_config(
-            page_title="Análise de Apostas Esportivas",
-            page_icon="⚽",
-            layout="wide",
-            initial_sidebar_state="expanded"
-        )
-        
-        # CSS melhorado
-        st.markdown("""
-            <style>
-                .main .block-container {
-                    max-width: none !important;
-                    width: 100% !important;
-                    padding: 1rem !important;
-                }
-                .stMarkdown {
-                    width: 100% !important;
-                    max-width: 100% !important;
-                }
-            </style>
-        """, unsafe_allow_html=True)
-
-        # Autenticação
-        if not st.session_state.authenticated:
-            if not hasattr(st.session_state, 'show_register'):
-                st.session_state.show_register = False
-                
-            if st.session_state.show_register:
-                show_register()
-            else:
-                show_login()
-            return
-
-        # Show usage stats in sidebar
-        show_usage_stats()
-        
-        # Título principal na sidebar
-        st.sidebar.title("Análise de Apostas Esportivas")
-        
-        # Add logout button
-        if st.sidebar.button("Logout"):
-            st.session_state.authenticated = False
-            st.session_state.email = None
-            st.experimental_rerun()
-        
-        # Configurações na sidebar
-        st.sidebar.title("Configurações")
-        selected_league = st.sidebar.selectbox(
-            "Escolha o campeonato:",
-            list(FBREF_URLS.keys())
-        )
-        
-        # Container de status para mensagens
-        status_container = st.sidebar.empty()
-        
-        # Busca dados do campeonato
-        with st.spinner("Carregando dados do campeonato..."):
-            stats_html = fetch_fbref_data(FBREF_URLS[selected_league]["stats"])
-            
-            if not stats_html:
-                st.error("Não foi possível carregar os dados do campeonato")
-                return
-            
-            team_stats_df = parse_team_stats(stats_html)
-            
-            if team_stats_df is None or 'Squad' not in team_stats_df.columns:
-                st.error("Erro ao processar dados dos times")
-                return
-            
-            status_container.success("Dados carregados com sucesso!")
-            
-            teams = team_stats_df['Squad'].dropna().unique().tolist()
-            
-            if not teams:
-                st.error("Não foi possível encontrar os times do campeonato")
-                return
-        
-        # Área principal
-        st.title("Seleção de Times")
-        
-        # Seleção dos times em duas colunas
-        col1, col2 = st.columns(2)
-        with col1:
-            home_team = st.selectbox("Time da Casa:", teams, key='home_team')
-        with col2:
-            away_teams = [team for team in teams if team != home_team]
-            away_team = st.selectbox("Time Visitante:", away_teams, key='away_team')
-
-        # Get user tier limits
-        user_stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
-        max_markets = user_stats['market_limit']
-
-        # Seleção de mercados em container separado
-        with st.expander("Mercados Disponíveis", expanded=True):
-            st.markdown("### Seleção de Mercados")
-            
-            # Mostrar limite de mercados baseado no tier
-            st.info(f"Seu plano permite {max_markets} mercado(s) por análise")
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                selected_markets = {
-                    "money_line": st.checkbox("Money Line (1X2)", value=True, key='ml'),
-                    "over_under": st.checkbox("Over/Under", key='ou'),
-                    "chance_dupla": st.checkbox("Chance Dupla", key='cd')
-                }
-            
-            with col2:
-                selected_markets.update({
-                    "ambos_marcam": st.checkbox("Ambos Marcam", key='btts'),
-                    "escanteios": st.checkbox("Total de Escanteios", key='corners'),
-                    "cartoes": st.checkbox("Total de Cartões", key='cards')
-                })
-
-            # Verificar número de mercados selecionados
-            num_selected_markets = sum(1 for v in selected_markets.values() if v)
-            if num_selected_markets > max_markets:
-                st.error(f"Você selecionou {num_selected_markets} mercados, mas seu plano permite apenas {max_markets}.")
-                return
-
-        # Inputs de odds em container separado
-        odds_data = None
-        if any(selected_markets.values()):
-            with st.expander("Configuração de Odds", expanded=True):
-                odds_data = get_odds_data(selected_markets)
-
-        # Botão de análise centralizado
-        col1, col2, col3 = st.columns([1,1,1])
-        with col2:
-            analyze_button = st.button("Analisar Partida", type="primary")
-            
-            if analyze_button:
-                if not any(selected_markets.values()):
-                    st.error("Por favor, selecione pelo menos um mercado para análise.")
-                    return
-                    
-                if not odds_data:
-                    st.error("Por favor, configure as odds para os mercados selecionados.")
-                    return
-                
-                # Verificar limites de análise
-                if not check_analysis_limits(selected_markets):
-                    return
-                    
-                # Criar um placeholder para o status
-                status = st.empty()
-                
-                try:
-                    # Etapa 1: Carregar dados
-                    status.info("Carregando dados dos times...")
-                    if not stats_html or not team_stats_df is not None:
-                        status.error("Falha ao carregar dados")
-                        return
-                        
-                    # Etapa 2: Formatar prompt
-                    status.info("Preparando análise...")
-                    prompt = format_prompt(team_stats_df, home_team, away_team, odds_data)
-                    if not prompt:
-                        status.error("Falha ao preparar análise")
-                        return
-                        
-                    # Etapa 3: Análise GPT
-                    status.info("Realizando análise com IA...")
-                    analysis = analyze_with_gpt(prompt)
-                    if not analysis:
-                        status.error("Falha na análise")
-                        return
-                    
-                    # Etapa 4: Mostrar resultado
-                    if analysis:
-                        # Primeiro aplica o estilo
-                        st.markdown("""
-                            <style>
-                                .analysis-result {
-                                    width: 100% !important;
-                                    max-width: 100% !important;
-                                    padding: 1rem !important;
-                                }
-                            </style>
-                        """, unsafe_allow_html=True)
-                        
-                        # Depois mostra o conteúdo
-                        st.markdown(f'<div class="analysis-result">{analysis}</div>', unsafe_allow_html=True)
-                        
-                        # Registrar uso após análise bem-sucedida
-                        num_markets = sum(1 for v in selected_markets.values() if v)
-                        st.session_state.user_manager.record_usage(st.session_state.email, num_markets)
-                        
-                        # Atualizar estatísticas de uso
-                        show_usage_stats()
-                        
-                except Exception as e:
-                    status.error(f"Erro durante a análise: {str(e)}")
-
-    except Exception as e:
-        st.error(f"Erro geral na aplicação: {str(e)}")
 
 if __name__ == "__main__":
     main()
