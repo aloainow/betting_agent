@@ -160,19 +160,14 @@ def show_landing_page():
                 max-width: 90%;
                 margin-left: 0;
             }
-            .about-section {
-                margin: 2rem 0;
-                background-color: #575760;
-                padding: 2rem;
-                border-radius: 10px;
-                border: 1px solid #6b6b74;
+            /* Removido o estilo .about-section que criava o retângulo cinza */
+            
+            .about-content {
                 max-width: 90%;
                 margin-left: 0;
-            }
-            .about-content {
-                max-width: 100%;
-                margin-left: 0;
                 line-height: 1.6;
+                margin-top: 2rem;
+                margin-bottom: 2rem;
             }
             .about-content h2 {
                 color: #fd7014;
@@ -208,6 +203,62 @@ def show_landing_page():
                 color: white !important;
             }
         </style>
+    """, unsafe_allow_html=True)
+    
+    # Logo e botões de navegação
+    col1, col2 = st.columns([5, 1])
+    with col1:
+        st.markdown('<div class="logo-container"><span class="logo-v">V</span><span class="logo-text">ValueHunter</span></div>', unsafe_allow_html=True)
+    with col2:
+        c1, c2 = st.columns([1, 1], gap="small")
+        with c1:
+            if st.button("Sign In", key="signin_btn"):
+                go_to_login()
+        with c2:
+            if st.button("Sign Up", key="signup_btn"):
+                go_to_register()
+            
+    # Conteúdo principal
+    st.markdown("""
+        <div class="hero">
+            <h1>Maximize o Valor em Apostas Esportivas</h1>
+            <p style="color: #FFFFFF;">Identifique oportunidades de valor com precisão matemática e análise de dados avançada.</p>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    # Seção Sobre - SEM O RETÂNGULO CINZA
+    st.markdown('<h2 style="color: #fd7014; margin-bottom: 0.8rem; text-align: left;">Sobre o ValueHunter</h2>', unsafe_allow_html=True)
+    
+    # Conteúdo da seção sobre (usando elementos nativos do Streamlit para evitar problemas de renderização)
+    with st.container():
+        st.markdown('<p style="color: #FFFFFF;">O ValueHunter se fundamenta em um princípio crucial: "Ganhar não é sobre escolher o vencedor e sim conseguir o preço certo e depois deixar a variância fazer o trabalho dela."</p>', unsafe_allow_html=True)
+        st.markdown('<p style="color: #FFFFFF;">Percebemos que o sucesso nas apostas esportivas não depende de prever corretamente cada resultado individual. Em vez disso, o ValueHunter busca identificar sistematicamente quando existe uma discrepância favorável entre o valor real, calculado pela nossa Engine e o valor implícito, oferecido pelas casas de apostas.</p>', unsafe_allow_html=True)
+        st.markdown('<p style="color: #FFFFFF;">ValueHunter opera na interseção entre análise de dados e apostas esportivas. O ValueHunter trabalha para:</p>', unsafe_allow_html=True)
+        
+        st.markdown("""
+        <ol style="color: #FFFFFF;">
+            <li>Calcular probabilidades reais de eventos esportivos baseadas em modelos matemáticos e análise de dados</li>
+            <li>Comparar essas probabilidades com as odds implícitas oferecidas pelas casas de apostas</li>
+            <li>Identificar oportunidades onde existe uma vantagem estatística significativa</li>
+        </ol>
+        """, unsafe_allow_html=True)
+        
+        st.markdown('<p style="color: #FFFFFF;">Quando a probabilidade real calculada pelo ValueHunter é maior que a probabilidade implícita nas odds da casa, ele encontra uma "oportunidade" - uma aposta com valor positivo esperado a longo prazo.</p>', unsafe_allow_html=True)
+        st.markdown('<p style="color: #FFFFFF;">Esta abordagem reconhece que, embora cada evento individual seja incerto, a matemática da expectativa estatística garante que, com disciplina e paciência suficientes, apostar consistentemente em situações com valor positivo me levará a lucros no longo prazo, desde que o agente de IA esteja calibrado adequadamente.</p>', unsafe_allow_html=True)
+        st.markdown('<p style="color: #FFFFFF;">Em resumo, meu agente não tenta "vencer o jogo" prevendo resultados individuais, mas sim "vencer o mercado" identificando inconsistências nas avaliações de probabilidade, permitindo que a variância natural do esporte trabalhe a meu favor através de uma vantagem matemática consistente.</p>', unsafe_allow_html=True)
+    
+    # Botão centralizado
+    st.markdown('<div class="btn-container"></div>', unsafe_allow_html=True)
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("FAÇA SEU TESTE GRÁTIS", use_container_width=True):
+            go_to_register()
+            
+    # Footer
+    st.markdown("""
+        <div class="footer">
+            <p style="color: #b0b0b0;">© 2025 ValueHunter. Todos os direitos reservados.</p>
+        </div>
     """, unsafe_allow_html=True)
     
     # Logo e botões de navegação
@@ -1181,148 +1232,152 @@ def main():
         )
         
         # CSS global para fundo chumbo (#3F3F45) e texto branco
-        st.markdown("""
-            <style>
-                /* Estilo geral da aplicação - background principal */
-                .stApp {
-                    background-color: #3F3F45;
-                }
-                
-                /* Contêineres e elementos de fundo */
-                .st-emotion-cache-ffhzg2,
-                .st-emotion-cache-16txtl3,
-                section[data-testid="stSidebar"],
-                .sidebar .sidebar-content,
-                .st-cx {
-                    background-color: #3F3F45;
-                }
-                
-                /* Texto branco para todos os elementos */
-                p, div, span, li, a, label, text, .st-emotion-cache-16idsys p, .st-emotion-cache-16idsys {
-                    color: #FFFFFF !important;
-                }
-                
-                /* Textos nos inputs */
-                .stTextInput>div>div>input, .stSelectbox {
-                    color: #FFFFFF !important;
-                    background-color: #575760 !important;
-                    border: 1px solid #6b6b74 !important;
-                }
-                
-                /* Manter o laranja para títulos e botões principais */
-                h1, h2, h3, h4, h5, h6 {
-                    color: #fd7014 !important;
-                }
-                
-                /* Ajustes na logo - AUMENTADO TAMANHO */
-                .logo-container {
-                    background-color: #fd7014;
-                    padding: 12px 25px !important; /* Maior padding */
-                    border-radius: 8px;
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                    width: fit-content;
-                }
-                .logo-text {
-                    font-size: 2.5rem !important; /* Maior fonte */
-                    font-weight: bold;
-                    color: #FFFFFF !important;
-                }
-                .logo-v {
-                    color: #3F3F45 !important;
-                    font-size: 3rem !important; /* Maior fonte */
-                    font-weight: bold;
-                }
-                
-                /* NOVO: Estilo para TODOS os botões - LARANJA COM TEXTO BRANCO */
-                div.stButton > button {
-                    background-color: #fd7014 !important;
-                    color: #FFFFFF !important;
-                    border: none !important;
-                    border-radius: 4px;
-                    font-weight: bold;
-                    transition: background-color 0.3s ease;
-                }
-                
-                div.stButton > button:hover {
-                    background-color: #27272a !important; /* Cinza escuro no hover */
-                    color: white !important;
-                }
-                
-                /* Estilo para botão primário */
-                button[kind="primary"] {
-                    background-color: #fd7014 !important;
-                    color: white !important;
-                    font-size: 1.1rem !important;
-                    padding: 0.6rem 1.2rem !important;
-                }
-                
-                /* Ajuste do contraste da sidebar */
-                section[data-testid="stSidebar"] {
-                    background-color: #27272a !important;
-                    border-right: 1px solid #fd7014;
-                }
-                
-                /* Container principal mais escuro */
-                .main .block-container {
-                    background-color: #3F3F45;
-                    padding: 1rem !important;
-                }
-                
-                /* AJUSTES DE ESPAÇAMENTO - Reduzir espaçamento e alinhar à esquerda */
-                .about-section {
-                    margin: 2rem 0 !important; /* Reduzido de 3rem para 2rem */
-                    background-color: #575760;
-                    padding: 2rem;
-                    border-radius: 10px;
-                    border: 1px solid #6b6b74;
-                    max-width: 90% !important; /* Reduzindo largura máxima */
-                    margin-left: 0 !important; /* Alinhando à esquerda */
-                }
-                
-                .about-content {
-                    max-width: 100% !important; /* Ocupar todo o espaço disponível */
-                    margin-left: 0 !important; /* Alinhando à esquerda */
-                    line-height: 1.6;
-                }
-                
-                /* Reduzir espaçamento entre títulos e conteúdo */
-                h1, h2, h3 {
-                    margin-bottom: 0.8rem !important;
-                }
-                
-                /* Ajustar espaçamento entre seções */
-                .hero {
-                    margin: 2rem 0 !important; /* Reduzido de 3rem para 2rem */
-                    text-align: left !important; /* Alinhado à esquerda */
-                }
-                
-                /* Melhorar contraste dos widgets */
-                .stSelectbox > div > div,
-                .stNumberInput > div > div {
-                    background-color: #575760 !important;
-                }
-                
-                /* Cores das mensagens e alertas - manter para legibilidade */
-                .stAlert p {
-                    color: inherit !important;
-                }
-                
-                /* Ajuste no tamanho do título principal */
-                .hero h1 {
-                    font-size: 2.8rem !important;
-                    color: #fd7014 !important;
-                    margin-bottom: 1rem !important;
-                }
-                
-                /* Ajustar margens para título principal */
-                h1:first-of-type {
-                    margin-top: 0.5rem !important;
-                }
-            </style>
-        """, unsafe_allow_html=True)
-        
+# CSS global atualizado para remover o retângulo cinza ao redor do título "Sobre o ValueHunter"
+    st.markdown("""
+        <style>
+            /* Estilo geral da aplicação - background principal */
+            .stApp {
+                background-color: #3F3F45;
+            }
+            
+            /* Contêineres e elementos de fundo */
+            .st-emotion-cache-ffhzg2,
+            .st-emotion-cache-16txtl3,
+            section[data-testid="stSidebar"],
+            .sidebar .sidebar-content,
+            .st-cx {
+                background-color: #3F3F45;
+            }
+            
+            /* Texto branco para todos os elementos */
+            p, div, span, li, a, label, text, .st-emotion-cache-16idsys p, .st-emotion-cache-16idsys {
+                color: #FFFFFF !important;
+            }
+            
+            /* Textos nos inputs */
+            .stTextInput>div>div>input, .stSelectbox {
+                color: #FFFFFF !important;
+                background-color: #575760 !important;
+                border: 1px solid #6b6b74 !important;
+            }
+            
+            /* Manter o laranja para títulos e botões principais */
+            h1, h2, h3, h4, h5, h6 {
+                color: #fd7014 !important;
+            }
+            
+            /* Ajustes na logo - AUMENTADO TAMANHO */
+            .logo-container {
+                background-color: #fd7014;
+                padding: 12px 25px !important; /* Maior padding */
+                border-radius: 8px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                width: fit-content;
+            }
+            .logo-text {
+                font-size: 2.5rem !important; /* Maior fonte */
+                font-weight: bold;
+                color: #FFFFFF !important;
+            }
+            .logo-v {
+                color: #3F3F45 !important;
+                font-size: 3rem !important; /* Maior fonte */
+                font-weight: bold;
+            }
+            
+            /* NOVO: Estilo para TODOS os botões - LARANJA COM TEXTO BRANCO */
+            div.stButton > button {
+                background-color: #fd7014 !important;
+                color: #FFFFFF !important;
+                border: none !important;
+                border-radius: 4px;
+                font-weight: bold;
+                transition: background-color 0.3s ease;
+            }
+            
+            div.stButton > button:hover {
+                background-color: #27272a !important; /* Cinza escuro no hover */
+                color: white !important;
+            }
+            
+            /* Estilo para botão primário */
+            button[kind="primary"] {
+                background-color: #fd7014 !important;
+                color: white !important;
+                font-size: 1.1rem !important;
+                padding: 0.6rem 1.2rem !important;
+            }
+            
+            /* Ajuste do contraste da sidebar */
+            section[data-testid="stSidebar"] {
+                background-color: #27272a !important;
+                border-right: 1px solid #fd7014;
+            }
+            
+            /* Container principal mais escuro */
+            .main .block-container {
+                background-color: #3F3F45;
+                padding: 1rem !important;
+            }
+            
+            /* REMOVIDO o estilo .about-section que criava o retângulo cinza */
+            
+            /* Ajustado para substituir o about-section */
+            .about-content {
+                max-width: 90% !important;
+                margin-left: 0 !important;
+                line-height: 1.6;
+                margin-top: 2rem;
+                margin-bottom: 2rem;
+            }
+            
+            /* Reduzir espaçamento entre títulos e conteúdo */
+            h1, h2, h3 {
+                margin-bottom: 0.8rem !important;
+            }
+            
+            /* Ajustar espaçamento entre seções */
+            .hero {
+                margin: 2rem 0 !important; /* Reduzido de 3rem para 2rem */
+                text-align: left !important; /* Alinhado à esquerda */
+            }
+            
+            /* Melhorar contraste dos widgets */
+            .stSelectbox > div > div,
+            .stNumberInput > div > div {
+                background-color: #575760 !important;
+            }
+            
+            /* Cores das mensagens e alertas - manter para legibilidade */
+            .stAlert p {
+                color: inherit !important;
+            }
+            
+            /* Ajuste no tamanho do título principal */
+            .hero h1 {
+                font-size: 2.8rem !important;
+                color: #fd7014 !important;
+                margin-bottom: 1rem !important;
+            }
+            
+            /* Ajustar margens para título principal */
+            h1:first-of-type {
+                margin-top: 0.5rem !important;
+            }
+            
+            /* Destaque para resultados de análise */
+            .analysis-result {
+                width: 100% !important;
+                max-width: 100% !important;
+                padding: 1rem !important;
+                background-color: #575760;
+                border-radius: 8px;
+                border: 1px solid #6b6b74;
+            }
+        </style>
+    """, unsafe_allow_html=True)        
         # Lógica de roteamento de páginas
         if st.session_state.page == "landing":
             show_landing_page()
