@@ -123,27 +123,6 @@ def show_landing_page():
                 font-weight: bold;
                 color: #1E3A8A;
             }
-            .nav-buttons {
-                display: flex;
-                gap: 1rem;
-            }
-            .nav-button {
-                padding: 0.5rem 1rem;
-                border-radius: 5px;
-                font-weight: bold;
-                cursor: pointer;
-                text-decoration: none;
-            }
-            .signin-btn {
-                background-color: transparent;
-                color: #1E3A8A;
-                border: 1px solid #1E3A8A;
-            }
-            .signup-btn {
-                background-color: #1E3A8A;
-                color: white;
-                border: none;
-            }
             .hero {
                 margin: 3rem 0;
                 text-align: center;
@@ -174,86 +153,77 @@ def show_landing_page():
                 color: #1E3A8A;
                 margin-bottom: 1.5rem;
             }
-            .try-free-btn {
-                background-color: #10B981;
-                color: white;
-                padding: 1rem 2rem;
-                font-size: 1.25rem;
-                font-weight: bold;
-                border: none;
-                border-radius: 5px;
-                cursor: pointer;
-                margin-top: 2rem;
-                display: inline-block;
-            }
             .footer {
                 margin-top: 3rem;
                 text-align: center;
                 color: #6B7280;
             }
+            .btn-container {
+                display: flex;
+                justify-content: center;
+                gap: 20px;
+                margin-top: 2rem;
+            }
         </style>
     """, unsafe_allow_html=True)
     
-    # Conteúdo da página de landing
+    # Logo e botões de navegação
+    col1, col2, col3 = st.columns([4, 1, 1])
+    with col1:
+        st.markdown('<div class="logo">ValueHunter</div>', unsafe_allow_html=True)
+    with col2:
+        if st.button("Sign In", key="signin_btn"):
+            go_to_login()
+    with col3:
+        if st.button("Sign Up", key="signup_btn"):
+            go_to_register()
+            
+    # Conteúdo principal
     st.markdown("""
-        <div class="landing-container">
-            <div class="navbar">
-                <div class="logo">ValueHunter</div>
-                <div class="nav-buttons">
-                    <a href="#" class="nav-button signin-btn" onclick="goToLogin(); return false;">Sign In</a>
-                    <a href="#" class="nav-button signup-btn" onclick="goToRegister(); return false;">Sign Up</a>
-                </div>
-            </div>
-            
-            <div class="hero">
-                <h1>Maximize o Valor em Apostas Esportivas</h1>
-                <p>Identifique oportunidades de valor com precisão matemática e análise de dados avançada.</p>
-            </div>
-            
-            <div class="about-section">
-                <div class="about-content">
-                    <h2>Sobre o ValueHunter</h2>
-                    <p>O ValueHunter se fundamenta em um princípio crucial: "Ganhar não é sobre escolher o vencedor e sim conseguir o preço certo e depois deixar a variância fazer o trabalho dela."</p>
-                    <p>Percebemos que o sucesso nas apostas esportivas não depende de prever corretamente cada resultado individual. Em vez disso, o ValueHunter busca identificar sistematicamente quando existe uma discrepância favorável entre o valor real, calculado pela nossa Engine e o valor implícito, oferecido pelas casas de apostas.</p>
-                    <p>ValueHunter opera na interseção entre análise de dados e apostas esportivas. O ValueHunter trabalha para:</p>
-                    <ol>
-                        <li>Calcular probabilidades reais de eventos esportivos baseadas em modelos matemáticos e análise de dados</li>
-                        <li>Comparar essas probabilidades com as odds implícitas oferecidas pelas casas de apostas</li>
-                        <li>Identificar oportunidades onde existe uma vantagem estatística significativa</li>
-                    </ol>
-                    <p>Quando a probabilidade real calculada pelo ValueHunter é maior que a probabilidade implícita nas odds da casa, ele encontra uma "oportunidade" - uma aposta com valor positivo esperado a longo prazo.</p>
-                    <p>Esta abordagem reconhece que, embora cada evento individual seja incerto, a matemática da expectativa estatística garante que, com disciplina e paciência suficientes, apostar consistentemente em situações com valor positivo me levará a lucros no longo prazo, desde que o agente de IA esteja calibrado adequadamente.</p>
-                    <p>Em resumo, meu agente não tenta "vencer o jogo" prevendo resultados individuais, mas sim "vencer o mercado" identificando inconsistências nas avaliações de probabilidade, permitindo que a variância natural do esporte trabalhe a meu favor através de uma vantagem matemática consistente.</p>
-                    
-                    <a href="#" class="try-free-btn" onclick="goToRegister(); return false;">Faça seu teste grátis</a>
-                </div>
-            </div>
-            
-            <div class="footer">
-                <p>© 2025 ValueHunter. Todos os direitos reservados.</p>
-            </div>
+        <div class="hero">
+            <h1>Maximize o Valor em Apostas Esportivas</h1>
+            <p>Identifique oportunidades de valor com precisão matemática e análise de dados avançada.</p>
         </div>
-        
-        <script>
-            function goToLogin() {
-                window.parent.postMessage({type: 'streamlit:setComponentValue', value: 'login'}, '*');
-            }
-            
-            function goToRegister() {
-                window.parent.postMessage({type: 'streamlit:setComponentValue', value: 'register'}, '*');
-            }
-        </script>
     """, unsafe_allow_html=True)
     
-    # Capturar cliques nos botões de navegação
-    if st.button("Sign In", key="signin_btn", style="visibility: hidden;"):
-        go_to_login()
+    # Seção Sobre
+    st.markdown("""
+        <div class="about-section">
+            <div class="about-content">
+                <h2>Sobre o ValueHunter</h2>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    # Conteúdo da seção sobre (usando elementos nativos do Streamlit para evitar problemas de renderização)
+    with st.container():
+        st.write("O ValueHunter se fundamenta em um princípio crucial: \"Ganhar não é sobre escolher o vencedor e sim conseguir o preço certo e depois deixar a variância fazer o trabalho dela.\"")
+        st.write("Percebemos que o sucesso nas apostas esportivas não depende de prever corretamente cada resultado individual. Em vez disso, o ValueHunter busca identificar sistematicamente quando existe uma discrepância favorável entre o valor real, calculado pela nossa Engine e o valor implícito, oferecido pelas casas de apostas.")
+        st.write("ValueHunter opera na interseção entre análise de dados e apostas esportivas. O ValueHunter trabalha para:")
         
-    if st.button("Sign Up", key="signup_btn", style="visibility: hidden;"):
-        go_to_register()
+        st.markdown("""
+        1. Calcular probabilidades reais de eventos esportivos baseadas em modelos matemáticos e análise de dados
+        2. Comparar essas probabilidades com as odds implícitas oferecidas pelas casas de apostas
+        3. Identificar oportunidades onde existe uma vantagem estatística significativa
+        """)
         
-    if st.button("Faça seu teste grátis", key="try_free_btn", style="visibility: hidden;"):
-        go_to_register()
+        st.write("Quando a probabilidade real calculada pelo ValueHunter é maior que a probabilidade implícita nas odds da casa, ele encontra uma \"oportunidade\" - uma aposta com valor positivo esperado a longo prazo.")
+        st.write("Esta abordagem reconhece que, embora cada evento individual seja incerto, a matemática da expectativa estatística garante que, com disciplina e paciência suficientes, apostar consistentemente em situações com valor positivo me levará a lucros no longo prazo, desde que o agente de IA esteja calibrado adequadamente.")
+        st.write("Em resumo, meu agente não tenta \"vencer o jogo\" prevendo resultados individuais, mas sim \"vencer o mercado\" identificando inconsistências nas avaliações de probabilidade, permitindo que a variância natural do esporte trabalhe a meu favor através de uma vantagem matemática consistente.")
+    
+    # Botão centralizado
+    st.markdown('<div class="btn-container"></div>', unsafe_allow_html=True)
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("FAÇA SEU TESTE GRÁTIS", use_container_width=True):
+            go_to_register()
+            
+    # Footer
+    st.markdown("""
+        <div class="footer">
+            <p>© 2025 ValueHunter. Todos os direitos reservados.</p>
+        </div>
+    """, unsafe_allow_html=True)
 
 def show_login():
     """Display login form"""
@@ -350,14 +320,26 @@ def main():
                     width: 100% !important;
                     max-width: 100% !important;
                 }
-                button[kind="secondary"] {
-                    background-color: transparent;
-                    color: #1E3A8A;
-                    border: 1px solid #1E3A8A;
+                div[data-testid="stHorizontalBlock"] {
+                    align-items: center;
                 }
-                button[kind="primary"] {
+                div.stButton > button {
+                    font-weight: bold;
+                }
+                div.stButton > button:first-child {
+                    border: 1px solid #1E3A8A;
+                    background-color: white;
+                    color: #1E3A8A;
+                }
+                div.stButton > button:nth-child(2) {
                     background-color: #1E3A8A;
                     color: white;
+                }
+                div.btn-container div.stButton > button {
+                    background-color: #10B981;
+                    color: white;
+                    font-size: 1.2rem;
+                    padding: 0.75rem 1.5rem;
                 }
             </style>
         """, unsafe_allow_html=True)
