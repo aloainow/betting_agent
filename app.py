@@ -1,61 +1,4 @@
-def show_main_dashboard():
-    """Show the main dashboard after login"""
-    # Show usage stats in sidebar
-    show_usage_stats()
-    
-    # Título principal na sidebar
-    st.sidebar.title("Análise de Apostas")
-    
-    # Add logout button
-    if st.sidebar.button("Logout"):
-        st.session_state.authenticated = False
-        st.session_state.email = None
-        st.session_state.page = "landing"
-        st.experimental_rerun()
-    
-    # Configurações na sidebar
-    st.sidebar.title("Configurações")
-    selected_league = st.sidebar.selectbox(
-        "Escolha o campeonato:",
-        list(FBREF_URLS.keys())
-    )
-    
-    # Container de status para mensagens
-    status_container = st.sidebar.empty()
-    
-    # Header com a logo na área principal
-    st.markdown('<div class="logo-container" style="width: fit-content;"><span class="logo-v">V</span><span class="logo-text">ValueHunter</span></div>', unsafe_allow_html=True)
-    
-    # Busca dados do campeonato
-    with st.spinner("Carregando dados do campeonato..."):
-        stats_html = fetch_fbref_data(FBREF_URLS[selected_league]["stats"])
-        
-        if not stats_html:
-            st.error("Não foi possível carregar os dados do campeonato")
-            return
-        
-        team_stats_df = parse_team_stats(stats_html)
-        
-        if team_stats_df is None or 'Squad' not in team_stats_df.columns:
-            st.error("Erro ao processar dados dos times")
-            return
-        
-        status_container.success("Dados carregados com sucesso!")
-        
-        teams = team_stats_df['Squad'].dropna().unique().tolist()
-        
-        if not teams:
-            st.error("Não foi possível encontrar os times do campeonato")
-            return
-    
-    # Área principal
-    st.title("Seleção de Times")
-    
-    # Seleção dos times em duas colunas
-    col1, col2 = st.columns(2)
-    with col1:
-        home_team = st.selectbox("Time da Casa:", teams, key='home_team')
-    with col2# Standard library imports
+# Standard library imports
 import os
 import json
 import hashlib
@@ -385,181 +328,6 @@ def show_register():
     if st.button("Fazer login", use_container_width=True):
         go_to_login()
 
-
-# O resto do código permanece igual (UserManager, parse_team_stats, etc.)
-# ...
-
-# Alteração na função main para incluir a nova página de landing
-def main():
-    try:
-        # Initialize session state
-        init_session_state()
-        
-        # Configuração inicial do Streamlit
-        st.set_page_config(
-            page_title="ValueHunter - Análise de Apostas Esportivas",
-            page_icon="⚽",
-            layout="wide",
-            initial_sidebar_state="expanded"
-        )
-        
-        # CSS global para fundo claro
-        st.markdown("""
-            <style>
-                .stApp {
-                    background-color: #FFFFFF;
-                }
-                .st-emotion-cache-ffhzg2 {
-                    background-color: #FFFFFF;
-                }
-                .st-emotion-cache-16txtl3 {
-                    background-color: #F8F9FA;
-                }
-                .sidebar .sidebar-content {
-                    background-color: #F8F9FA;
-                }
-                h1, h2, h3 {
-                    color: #2563EB;
-                }
-                .st-cx {
-                    background-color: #F8F9FA;
-                }
-                .st-emotion-cache-16idsys p {
-                    color: #333333;
-                }
-                .st-emotion-cache-16idsys {
-                    color: #333333;
-                }
-            </style>
-        """, unsafe_allow_html=True)
-        
-        # Outros estilos específicos para componentes
-        st.markdown("""
-            <style>
-                body {
-                    background-color: #FFFFFF;
-                    color: #222831;
-                }
-                .main .block-container {
-                    max-width: none !important;
-                    width: 100% !important;
-                    padding: 1rem !important;
-                    background-color: #FFFFFF;
-                }
-                .stMarkdown {
-                    width: 100% !important;
-                    max-width: 100% !important;
-                }
-                div[data-testid="stHorizontalBlock"] {
-                    align-items: center;
-                }
-                div.stButton > button {
-                    font-weight: bold;
-                    border-radius: 4px;
-                }
-                div.stButton > button:first-child {
-                    border: 1px solid #fd7014;
-                    background-color: white;
-                    color: #fd7014;
-                }
-                div.stButton > button:nth-child(2) {
-                    background-color: #fd7014;
-                    color: white;
-                }
-                div.btn-container div.stButton > button {
-                    background-color: #fd7014;
-                    color: white;
-                    font-size: 1.2rem;
-                    padding: 0.75rem 1.5rem;
-                }
-                /* Estilos para botões mais juntos */
-                [data-testid="column"][style*="flex: 1"] > div {
-                    display: flex;
-                    justify-content: flex-end;
-                }
-                [data-testid="column"][style*="flex: 1"] > div > div {
-                    display: flex;
-                    gap: 8px;
-                }
-                [data-testid="column"][style*="flex: 1"] button {
-                    padding: 0.3rem 0.8rem;
-                    min-height: 0;
-                }
-                /* Forçar cor do texto escura em todos os elementos */
-                p, div, span, li, a, label, text {
-                    color: #222831 !important;
-                }
-                /* Exceções para elementos específicos onde queremos outras cores */
-                h1, h2, h3, h4, h5, h6 {
-                    color: #fd7014 !important;
-                }
-                div.stButton > button {
-                    color: #fd7014 !important;
-                }
-                div.stButton > button:nth-child(2), div.btn-container div.stButton > button {
-                    color: white !important;
-                }
-                .footer p {
-                    color: #6B7280 !important;
-                }
-                /* Elementos do streamlit */
-                .stTextInput>div>div>input, .stSelectbox {
-                    color: #222831 !important;
-                }
-                .stAlert p {
-                    color: inherit !important;
-                }
-                /* Específico para textos no markdown */
-                .st-emotion-cache-16idsys p {
-                    color: #222831 !important;
-                }
-                /* Sidebar */
-                section[data-testid="stSidebar"] {
-                    background-color: #374141 !important;
-                    border-right: 1px solid #222831;
-                }
-                section[data-testid="stSidebar"] p {
-                    color: #FFFFFF !important;
-                }
-                section[data-testid="stSidebar"] h1, section[data-testid="stSidebar"] h2, section[data-testid="stSidebar"] h3 {
-                    color: #fd7014 !important;
-                }
-                section[data-testid="stSidebar"] .stButton > button {
-                    background-color: #fd7014;
-                    color: white !important;
-                    border: none;
-                }
-                /* Estilo para botão primário */
-                button[kind="primary"] {
-                    background-color: #fd7014 !important;
-                    color: white !important;
-                }
-            </style>
-        """, unsafe_allow_html=True)
-        
-        # Lógica de roteamento de páginas
-        if st.session_state.page == "landing":
-            show_landing_page()
-        elif st.session_state.page == "login":
-            show_login()
-        elif st.session_state.page == "register":
-            show_register()
-        elif st.session_state.page == "main":
-            if not st.session_state.authenticated:
-                st.warning("Sua sessão expirou. Por favor, faça login novamente.")
-                go_to_login()
-                return
-                
-            # Mostrar dashboard principal
-            show_main_dashboard()
-        else:
-            # Página padrão - redirecionando para landing
-            st.session_state.page = "landing"
-            st.experimental_rerun()
-
-    except Exception as e:
-        st.error(f"Erro geral na aplicação: {str(e)}")
-
 def show_usage_stats():
     """Display usage statistics"""
     stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
@@ -635,6 +403,9 @@ def show_main_dashboard():
     
     # Container de status para mensagens
     status_container = st.sidebar.empty()
+    
+    # Header com a logo na área principal
+    st.markdown('<div class="logo-container" style="width: fit-content;"><span class="logo-v">V</span><span class="logo-text">ValueHunter</span></div>', unsafe_allow_html=True)
     
     # Busca dados do campeonato
     with st.spinner("Carregando dados do campeonato..."):
@@ -759,9 +530,9 @@ def show_main_dashboard():
                                 width: 100% !important;
                                 max-width: 100% !important;
                                 padding: 1rem !important;
-                                background-color: #F8F9FA;
+                                background-color: #f8f9fa;
                                 border-radius: 8px;
-                                border: 1px solid #E2E8F0;
+                                border: 1px solid #e2e8f0;
                             }
                         </style>
                     """, unsafe_allow_html=True)
@@ -779,9 +550,6 @@ def show_main_dashboard():
             except Exception as e:
                 status.error(f"Erro durante a análise: {str(e)}")
         
-# Aqui devem ser copiadas as demais funções do seu código original
-# (UserManager, get_odds_data, fetch_fbref_data, etc.)
-
 class UserManager:
     def __init__(self, storage_path: str = ".streamlit/users.json"):
         self.storage_path = storage_path
@@ -1382,6 +1150,196 @@ PROBABILIDADES CALCULADAS:
     except Exception as e:
         st.error(f"Erro ao formatar prompt: {str(e)}")
         return None
+
+def main():
+    try:
+        # Initialize session state
+        init_session_state()
+        
+        # Configuração inicial do Streamlit
+        st.set_page_config(
+            page_title="ValueHunter - Análise de Apostas Esportivas",
+            page_icon="⚽",
+            layout="wide",
+            initial_sidebar_state="expanded"
+        )
+        
+        # CSS global para fundo claro
+        st.markdown("""
+            <style>
+                .stApp {
+                    background-color: #FFFFFF;
+                }
+                .st-emotion-cache-ffhzg2 {
+                    background-color: #FFFFFF;
+                }
+                .st-emotion-cache-16txtl3 {
+                    background-color: #F8F9FA;
+                }
+                .sidebar .sidebar-content {
+                    background-color: #F8F9FA;
+                }
+                h1, h2, h3 {
+                    color: #fd7014;
+                }
+                .st-cx {
+                    background-color: #F8F9FA;
+                }
+                .st-emotion-cache-16idsys p {
+                    color: #222831;
+                }
+                .st-emotion-cache-16idsys {
+                    color: #222831;
+                }
+            </style>
+        """, unsafe_allow_html=True)
+        
+        # Outros estilos específicos para componentes
+        st.markdown("""
+            <style>
+                body {
+                    background-color: #FFFFFF;
+                    color: #222831;
+                }
+                .main .block-container {
+                    max-width: none !important;
+                    width: 100% !important;
+                    padding: 1rem !important;
+                    background-color: #FFFFFF;
+                }
+                .stMarkdown {
+                    width: 100% !important;
+                    max-width: 100% !important;
+                }
+                div[data-testid="stHorizontalBlock"] {
+                    align-items: center;
+                }
+                div.stButton > button {
+                    font-weight: bold;
+                    border-radius: 4px;
+                }
+                div.stButton > button:first-child {
+                    border: 1px solid #fd7014;
+                    background-color: white;
+                    color: #fd7014;
+                }
+                div.stButton > button:nth-child(2) {
+                    background-color: #fd7014;
+                    color: white;
+                }
+                div.btn-container div.stButton > button {
+                    background-color: #fd7014;
+                    color: white;
+                    font-size: 1.2rem;
+                    padding: 0.75rem 1.5rem;
+                }
+                /* Estilos para botões mais juntos */
+                [data-testid="column"][style*="flex: 1"] > div {
+                    display: flex;
+                    justify-content: flex-end;
+                }
+                [data-testid="column"][style*="flex: 1"] > div > div {
+                    display: flex;
+                    gap: 8px;
+                }
+                [data-testid="column"][style*="flex: 1"] button {
+                    padding: 0.3rem 0.8rem;
+                    min-height: 0;
+                }
+                /* Forçar cor do texto escura em todos os elementos */
+                p, div, span, li, a, label, text {
+                    color: #222831 !important;
+                }
+                /* Exceções para elementos específicos onde queremos outras cores */
+                h1, h2, h3, h4, h5, h6 {
+                    color: #fd7014 !important;
+                }
+                div.stButton > button {
+                    color: #fd7014 !important;
+                }
+                div.stButton > button:nth-child(2), div.btn-container div.stButton > button {
+                    color: white !important;
+                }
+                .footer p {
+                    color: #6B7280 !important;
+                }
+                /* Elementos do streamlit */
+                .stTextInput>div>div>input, .stSelectbox {
+                    color: #222831 !important;
+                }
+                .stAlert p {
+                    color: inherit !important;
+                }
+                /* Específico para textos no markdown */
+                .st-emotion-cache-16idsys p {
+                    color: #222831 !important;
+                }
+                /* Sidebar */
+                section[data-testid="stSidebar"] {
+                    background-color: #374141 !important;
+                    border-right: 1px solid #222831;
+                }
+                section[data-testid="stSidebar"] p {
+                    color: #FFFFFF !important;
+                }
+                section[data-testid="stSidebar"] h1, section[data-testid="stSidebar"] h2, section[data-testid="stSidebar"] h3 {
+                    color: #fd7014 !important;
+                }
+                section[data-testid="stSidebar"] .stButton > button {
+                    background-color: #fd7014;
+                    color: white !important;
+                    border: none;
+                }
+                /* Estilo para botão primário */
+                button[kind="primary"] {
+                    background-color: #fd7014 !important;
+                    color: white !important;
+                }
+                
+                /* Estilo logo */
+                .logo-container {
+                    background-color: #fd7014;
+                    padding: 10px 20px;
+                    border-radius: 8px;
+                    display: flex;
+                    align-items: center;
+                    gap: 5px;
+                }
+                .logo-text {
+                    font-size: 2.2rem;
+                    font-weight: bold;
+                    color: #FFFFFF !important;
+                }
+                .logo-v {
+                    color: #222831 !important;
+                    font-size: 2.5rem;
+                    font-weight: bold;
+                }
+            </style>
+        """, unsafe_allow_html=True)
+        
+        # Lógica de roteamento de páginas
+        if st.session_state.page == "landing":
+            show_landing_page()
+        elif st.session_state.page == "login":
+            show_login()
+        elif st.session_state.page == "register":
+            show_register()
+        elif st.session_state.page == "main":
+            if not st.session_state.authenticated:
+                st.warning("Sua sessão expirou. Por favor, faça login novamente.")
+                go_to_login()
+                return
+                
+            # Mostrar dashboard principal
+            show_main_dashboard()
+        else:
+            # Página padrão - redirecionando para landing
+            st.session_state.page = "landing"
+            st.experimental_rerun()
+
+    except Exception as e:
+        st.error(f"Erro geral na aplicação: {str(e)}")
 
 if __name__ == "__main__":
     main()
