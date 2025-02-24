@@ -319,7 +319,37 @@ def main():
             initial_sidebar_state="expanded"
         )
         
-        # CSS melhorado
+        # CSS global para fundo claro
+        st.markdown("""
+            <style>
+                .stApp {
+                    background-color: #FFFFFF;
+                }
+                .st-emotion-cache-ffhzg2 {
+                    background-color: #FFFFFF;
+                }
+                .st-emotion-cache-16txtl3 {
+                    background-color: #F8F9FA;
+                }
+                .sidebar .sidebar-content {
+                    background-color: #F8F9FA;
+                }
+                h1, h2, h3 {
+                    color: #2563EB;
+                }
+                .st-cx {
+                    background-color: #F8F9FA;
+                }
+                .st-emotion-cache-16idsys p {
+                    color: #333333;
+                }
+                .st-emotion-cache-16idsys {
+                    color: #333333;
+                }
+            </style>
+        """, unsafe_allow_html=True)
+        
+        # Outros estilos específicos para componentes
         st.markdown("""
             <style>
                 body {
@@ -330,6 +360,7 @@ def main():
                     max-width: none !important;
                     width: 100% !important;
                     padding: 1rem !important;
+                    background-color: #FFFFFF;
                 }
                 .stMarkdown {
                     width: 100% !important;
@@ -400,16 +431,16 @@ def show_usage_stats():
     """Display usage statistics"""
     stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
     
-    st.sidebar.markdown("### Usage Statistics")
-    st.sidebar.markdown(f"**Current Tier:** {stats['tier'].capitalize()}")
+    st.sidebar.markdown("### Estatísticas de Uso")
+    st.sidebar.markdown(f"**Plano Atual:** {stats['tier'].capitalize()}")
     
     if stats['daily_limit']:
-        st.sidebar.markdown(f"**Daily Usage:** {stats['daily_usage']}/{stats['daily_limit']}")
+        st.sidebar.markdown(f"**Uso Diário:** {stats['daily_usage']}/{stats['daily_limit']}")
     
     if stats['monthly_limit']:
-        st.sidebar.markdown(f"**Monthly Usage:** {stats['monthly_usage']}/{stats['monthly_limit']}")
+        st.sidebar.markdown(f"**Uso Mensal:** {stats['monthly_usage']}/{stats['monthly_limit']}")
     
-    st.sidebar.markdown(f"**Markets per Analysis:** {stats['market_limit']}")
+    st.sidebar.markdown(f"**Mercados por Análise:** {stats['market_limit']}")
 
     # Adicionar informações detalhadas do plano
     if stats['tier'] == 'free':
@@ -453,7 +484,7 @@ def show_main_dashboard():
     show_usage_stats()
     
     # Título principal na sidebar
-    st.sidebar.title("Análise de Apostas Esportivas")
+    st.sidebar.title("Análise de Apostas")
     
     # Add logout button
     if st.sidebar.button("Logout"):
@@ -595,6 +626,9 @@ def show_main_dashboard():
                                 width: 100% !important;
                                 max-width: 100% !important;
                                 padding: 1rem !important;
+                                background-color: #F8F9FA;
+                                border-radius: 8px;
+                                border: 1px solid #E2E8F0;
                             }
                         </style>
                     """, unsafe_allow_html=True)
