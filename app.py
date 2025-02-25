@@ -51,9 +51,8 @@ FBREF_URLS = {
 @dataclass
 class UserTier:
     name: str
-    daily_limit: Optional[int]
-    monthly_limit: Optional[int]
-    market_limit: int
+    total_credits: int  # Total credits in package
+    market_limit: int   # Limit of markets per analysis
 
 # Função init_session_state deve vir ANTES da classe UserManager
 def init_session_state():
@@ -306,11 +305,11 @@ def show_register():
             email = st.text_input("Email")
             password = st.text_input("Password", type="password")
         with col2:
-            st.markdown("### Planos Disponíveis")
-            st.markdown("🔒 **Free:** 1 análise/dia, 1 mercado")
-            st.markdown("⭐ **Pro:** 60 análises/mês, múltiplos mercados")
-            st.markdown("💎 **Premium:** Análises ilimitadas")
-            tier = st.selectbox("Selecione seu Plano", ["free", "pro", "premium"])
+            st.markdown("### Pacotes Disponíveis")
+            st.markdown("🔒 **Free:** 5 créditos (renovação a cada 24h), múltiplos mercados")
+            st.markdown("⭐ **Standard:** 30 créditos por R$19,99")
+            st.markdown("💎 **Pro:** 60 créditos por R$29,99")
+            tier = st.selectbox("Selecione seu Pacote", ["free", "standard", "pro"])
         
         submitted = st.form_submit_button("Register")
         
@@ -329,19 +328,19 @@ def show_register():
     st.markdown("<div style='text-align: center;'>Já tem uma conta?</div>", unsafe_allow_html=True)
     if st.button("Fazer login", use_container_width=True):
         go_to_login()
-def show_plans_page():
-    """Display pricing plans page for subscription options"""
+def show_packages_page():
+    """Display credit packages page for subscription options"""
     # Header com a logo
     st.markdown('<div class="logo-container" style="width: fit-content; padding: 12px 25px;"><span class="logo-v" style="font-size: 3rem;">V</span><span class="logo-text" style="font-size: 2.5rem;">ValueHunter</span></div>', unsafe_allow_html=True)
     
-    st.title("Planos de Assinatura")
-    st.markdown("Escolha o plano que melhor atende às suas necessidades de análises esportivas.")
+    st.title("Pacotes de Créditos")
+    st.markdown("Escolha o pacote que melhor atende às suas necessidades de análises esportivas.")
     
     # Obter informações do usuário atual
     user_stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
-    current_plan = user_stats['tier']
+    current_package = user_stats['tier']
     
-    # CSS específico para os cartões de planos
+    # CSS específico para os cartões de pacotes
     st.markdown("""
     <style>
         .plan-container {
@@ -365,11 +364,11 @@ def show_plans_page():
         .plan-card.free {
             border-top: 4px solid #e44d87;
         }
-        .plan-card.pro {
+        .plan-card.standard {
             border-top: 4px solid #0077b6;
             transform: scale(1.05);
         }
-        .plan-card.premium {
+        .plan-card.pro {
             border-top: 4px solid #0abab5;
         }
         .plan-title {
@@ -435,10 +434,10 @@ def show_plans_page():
         .free-icon {
             color: #e44d87;
         }
-        .pro-icon {
+        .standard-icon {
             color: #0077b6;
         }
-        .premium-icon {
+        .pro-icon {
             color: #0abab5;
         }
         .plan-card-container {
@@ -448,7 +447,7 @@ def show_plans_page():
     </style>
     """, unsafe_allow_html=True)
     
-    # Layout dos cartões de plano usando colunas
+    # Layout dos cartões de pacote usando colunas
     col1, col2, col3 = st.columns([1, 1, 1])
     
     with col1:
@@ -458,21 +457,22 @@ def show_plans_page():
                 <div class="plan-title">Free</div>
                 <div class="plan-icon free-icon">🏠</div>
                 <div class="plan-price">Grátis</div>
-                <div class="plan-period">para sempre</div>
-                <div class="plan-feature"><i>✓</i> 1 análise por dia</div>
-                <div class="plan-feature"><i>✓</i> 1 mercado por análise</div>
+                <div class="plan-period">pacote básico</div>
+                <div class="plan-feature"><i>✓</i> 5 créditos</div>
+                <div class="plan-feature"><i>✓</i> Renovação a cada 24h</div>
+                <div class="plan-feature"><i>✓</i> Múltiplos mercados</div>
                 <div class="plan-feature"><i>✓</i> Acesso à análise básica</div>
                 <div class="plan-feature"><i>✓</i> Suporte ao cliente</div>
                 <br>
         """, unsafe_allow_html=True)
         
-        if current_plan == 'free':
-            st.markdown('<div class="plan-button current">Plano Atual</div></div></div>', unsafe_allow_html=True)
+        if current_package == 'free':
+            st.markdown('<div class="plan-button current">Pacote Atual</div></div></div>', unsafe_allow_html=True)
         else:
-            # Botão para downgrade (não faz nada neste exemplo)
-            if st.button("Selecionar Plano Free", key="select_free"):
+            # Botão para downgrade
+            if st.button("Selecionar Pacote Free", key="select_free"):
                 st.session_state.user_manager._downgrade_to_free(st.session_state.email)
-                st.success("Plano alterado para Free com sucesso!")
+                st.success("Alterado para Pacote Free com sucesso!")
                 time.sleep(1)
                 st.experimental_rerun()
             st.markdown('</div></div>', unsafe_allow_html=True)
@@ -481,26 +481,26 @@ def show_plans_page():
         st.markdown("""
         <div class="plan-card-container">
             <div class="plan-popular">Popular</div>
-            <div class="plan-card pro">
-                <div class="plan-title">Pro</div>
-                <div class="plan-icon pro-icon">🏢</div>
-                <div class="plan-price">R$ 9,99</div>
-                <div class="plan-period">por mês</div>
-                <div class="plan-feature"><i>✓</i> 60 análises por mês</div>
+            <div class="plan-card standard">
+                <div class="plan-title">Standard</div>
+                <div class="plan-icon standard-icon">🏢</div>
+                <div class="plan-price">R$ 19,99</div>
+                <div class="plan-period">único pagamento</div>
+                <div class="plan-feature"><i>✓</i> 30 créditos</div>
                 <div class="plan-feature"><i>✓</i> Múltiplos mercados</div>
+                <div class="plan-feature"><i>✓</i> Compra de créditos extras</div>
                 <div class="plan-feature"><i>✓</i> Análise avançada</div>
                 <div class="plan-feature"><i>✓</i> Suporte prioritário</div>
-                <div class="plan-feature"><i>✓</i> Acesso ao histórico</div>
                 <br>
         """, unsafe_allow_html=True)
         
-        if current_plan == 'pro':
-            st.markdown('<div class="plan-button current">Plano Atual</div></div></div>', unsafe_allow_html=True)
+        if current_package == 'standard':
+            st.markdown('<div class="plan-button current">Pacote Atual</div></div></div>', unsafe_allow_html=True)
         else:
             # Botão para upgrade/downgrade
-            if st.button("Selecionar Plano Pro", key="select_pro"):
-                st.session_state.user_manager._upgrade_to_pro(st.session_state.email)
-                st.success("Plano alterado para Pro com sucesso!")
+            if st.button("Selecionar Pacote Standard", key="select_standard"):
+                st.session_state.user_manager._upgrade_to_standard(st.session_state.email)
+                st.success("Alterado para Pacote Standard com sucesso!")
                 time.sleep(1)
                 st.experimental_rerun()
             st.markdown('</div></div>', unsafe_allow_html=True)
@@ -508,38 +508,82 @@ def show_plans_page():
     with col3:
         st.markdown("""
         <div class="plan-card-container">
-            <div class="plan-card premium">
-                <div class="plan-title">Premium</div>
-                <div class="plan-icon premium-icon">🏰</div>
+            <div class="plan-card pro">
+                <div class="plan-title">Pro</div>
+                <div class="plan-icon pro-icon">🏰</div>
                 <div class="plan-price">R$ 29,99</div>
-                <div class="plan-period">por mês</div>
-                <div class="plan-feature"><i>✓</i> Análises ilimitadas</div>
-                <div class="plan-feature"><i>✓</i> Todos os mercados</div>
+                <div class="plan-period">único pagamento</div>
+                <div class="plan-feature"><i>✓</i> 60 créditos</div>
+                <div class="plan-feature"><i>✓</i> Múltiplos mercados</div>
+                <div class="plan-feature"><i>✓</i> Compra de créditos extras</div>
                 <div class="plan-feature"><i>✓</i> Análise premium</div>
                 <div class="plan-feature"><i>✓</i> Suporte VIP</div>
                 <div class="plan-feature"><i>✓</i> Dados históricos completos</div>
-                <div class="plan-feature"><i>✓</i> Alertas personalizados</div>
                 <br>
         """, unsafe_allow_html=True)
         
-        if current_plan == 'premium':
-            st.markdown('<div class="plan-button current">Plano Atual</div></div></div>', unsafe_allow_html=True)
+        if current_package == 'pro':
+            st.markdown('<div class="plan-button current">Pacote Atual</div></div></div>', unsafe_allow_html=True)
         else:
             # Botão para upgrade
-            if st.button("Selecionar Plano Premium", key="select_premium"):
-                st.session_state.user_manager._upgrade_to_premium(st.session_state.email)
-                st.success("Plano alterado para Premium com sucesso!")
+            if st.button("Selecionar Pacote Pro", key="select_pro"):
+                st.session_state.user_manager._upgrade_to_pro(st.session_state.email)
+                st.success("Alterado para Pacote Pro com sucesso!")
                 time.sleep(1)
                 st.experimental_rerun()
             st.markdown('</div></div>', unsafe_allow_html=True)
+    
+    # Pacotes de recarga
+    st.markdown("## Comprar Mais Créditos")
+    st.markdown("Adquira mais créditos quando precisar, sem necessidade de mudar de pacote.")
+    
+    recharge_col1, recharge_col2 = st.columns(2)
+    
+    with recharge_col1:
+        st.markdown("""
+        <div style="background-color: #f8f9fa; border-radius: 10px; padding: 1rem; text-align: center; border: 2px solid #0077b6;">
+            <h3 style="color: #333;">30 Créditos</h3>
+            <p style="font-size: 1.8rem; font-weight: bold; color: #333;">R$ 19,99</p>
+            <small style="color: #0077b6;">Pacote Padrão</small>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("Comprar 30 Créditos", key="buy_30c"):
+            if st.session_state.user_manager.add_credits(st.session_state.email, 30):
+                st.success("30 créditos adicionados!")
+                time.sleep(1)
+                st.experimental_rerun()
+    
+    with recharge_col2:
+        st.markdown("""
+        <div style="background-color: #f8f9fa; border-radius: 10px; padding: 1rem; text-align: center; border: 2px solid #0abab5;">
+            <h3 style="color: #333;">60 Créditos</h3>
+            <p style="font-size: 1.8rem; font-weight: bold; color: #333;">R$ 29,99</p>
+            <small style="color: #0abab5;">Melhor custo-benefício</small>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("Comprar 60 Créditos", key="buy_60c"):
+            if st.session_state.user_manager.add_credits(st.session_state.email, 60):
+                st.success("60 créditos adicionados!")
+                time.sleep(1)
+                st.experimental_rerun()
     
     # Botão para voltar
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("← Voltar para análises", key="back_to_analysis"):
         st.session_state.page = "main"
         st.experimental_rerun()
+
+def _upgrade_to_standard(self, email: str) -> bool:
+    """Upgrade a user to Standard package"""
+    if email not in self.users:
+        return False
+        
+    self.users[email]["tier"] = "standard"
+    self._save_users()
+    return True
+    
 def _upgrade_to_pro(self, email: str) -> bool:
-    """Upgrade a user to Pro plan"""
+    """Upgrade a user to Pro package"""
     if email not in self.users:
         return False
         
@@ -547,17 +591,8 @@ def _upgrade_to_pro(self, email: str) -> bool:
     self._save_users()
     return True
     
-def _upgrade_to_premium(self, email: str) -> bool:
-    """Upgrade a user to Premium plan"""
-    if email not in self.users:
-        return False
-        
-    self.users[email]["tier"] = "premium"
-    self._save_users()
-    return True
-    
 def _downgrade_to_free(self, email: str) -> bool:
-    """Downgrade a user to Free plan"""
+    """Downgrade a user to Free package"""
     if email not in self.users:
         return False
         
@@ -570,48 +605,112 @@ def show_usage_stats():
     stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
     
     st.sidebar.markdown("### Estatísticas de Uso")
-    st.sidebar.markdown(f"**Plano Atual:** {stats['tier'].capitalize()}")
+    st.sidebar.markdown(f"**Pacote Atual:** {stats['tier'].capitalize()}")
+    st.sidebar.markdown(f"**Créditos Restantes:** {stats['credits_remaining']}")
     
-    if stats['daily_limit']:
-        st.sidebar.markdown(f"**Uso Diário:** {stats['daily_usage']}/{stats['daily_limit']}")
+    # Add progress bar for credits
+    if stats['credits_total'] > 0:
+        progress = stats['credits_used'] / stats['credits_total']
+        st.sidebar.progress(min(progress, 1.0))
     
-    if stats['monthly_limit']:
-        st.sidebar.markdown(f"**Uso Mensal:** {stats['monthly_usage']}/{stats['monthly_limit']}")
-    
-    st.sidebar.markdown(f"**Mercados por Análise:** {stats['market_limit']}")
-
-    # Adicionar informações detalhadas do plano
+    # Package descriptions
     if stats['tier'] == 'free':
-        st.sidebar.warning("🔒 Plano Free:\n- 1 análise por dia\n- 1 mercado por análise")
-    elif stats['tier'] == 'pro':
-        remaining = 60 - stats['monthly_usage']
-        st.sidebar.info(f"⭐ Plano Pro:\n- {remaining} análises restantes este mês\n- Múltiplos mercados por análise")
-    elif stats['tier'] == 'premium':
-        st.sidebar.success("💎 Plano Premium:\n- Análises ilimitadas\n- Múltiplos mercados por análise")
+        info_text = "🔒 **Pacote Free:**\n- 5 créditos\n- Múltiplos mercados por análise"
         
+        # Show renewal info if credits exhausted
+        if stats.get('next_free_credits_time'):
+            info_text += f"\n- Renovação em: {stats['next_free_credits_time']}"
+        elif stats.get('free_credits_reset'):
+            info_text += "\n- ✅ Créditos renovados!"
+            
+        st.sidebar.info(info_text)
+        
+        # Show upgrade button if credits are low
+        if stats['credits_remaining'] < 2:
+            if st.sidebar.button("🚀 Fazer Upgrade", key="upgrade_button", use_container_width=True):
+                st.session_state.page = "packages"
+                st.experimental_rerun()
+                
+    elif stats['tier'] == 'standard':
+        st.sidebar.info("⭐ **Pacote Standard:**\n- 30 créditos\n- Múltiplos mercados por análise")
+    elif stats['tier'] == 'pro':
+        st.sidebar.success("💎 **Pacote Pro:**\n- 60 créditos\n- Múltiplos mercados por análise")
+    
+    # Show purchase button when credits are low for paid tiers
+    if stats['tier'] != 'free' and stats['credits_remaining'] < 10:
+        if st.sidebar.button("📦 Comprar Mais Créditos", key="buy_more_credits"):
+            st.sidebar.markdown("### Pacotes de Créditos")
+            
+            col1, col2 = st.sidebar.columns(2)
+            with col1:
+                if st.button("30 Créditos - R$19,99", key="buy_30"):
+                    st.session_state.user_manager.add_credits(st.session_state.email, 30)
+                    st.success("30 créditos adicionados!")
+                    time.sleep(1)
+                    st.experimental_rerun()
+            
+            with col2:
+                if st.button("60 Créditos - R$29,99", key="buy_60"):
+                    st.session_state.user_manager.add_credits(st.session_state.email, 60)
+                    st.success("60 créditos adicionados!")
+                    time.sleep(1)
+                    st.experimental_rerun()
+
 def check_analysis_limits(selected_markets):
     """Check if user can perform analysis with selected markets"""
     num_markets = sum(1 for v in selected_markets.values() if v)
     stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
     
-    if stats['tier'] == 'free':
-        if num_markets > 1:
-            st.error("❌ Plano Free permite apenas 1 mercado por análise")
+    # Check if user has enough credits
+    remaining_credits = stats['credits_remaining']
+    
+    if num_markets > remaining_credits:
+        # Special handling for Free tier
+        if stats['tier'] == 'free':
+            st.error(f"❌ Você esgotou seus 5 créditos gratuitos.")
+            
+            if stats.get('next_free_credits_time'):
+                st.info(f"⏱️ Seus créditos serão renovados em {stats['next_free_credits_time']}")
+            
+            st.warning("💡 Deseja continuar analisando sem esperar? Faça upgrade para um pacote pago.")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("Standard - 30 Créditos", key="upgrade_standard"):
+                    st.session_state.user_manager._upgrade_to_standard(st.session_state.email)
+                    st.success("Parabéns! Você agora tem o pacote Standard com 30 créditos!")
+                    time.sleep(1)
+                    st.experimental_rerun()
+            with col2:
+                if st.button("Pro - 60 Créditos", key="upgrade_pro"):
+                    st.session_state.user_manager._upgrade_to_pro(st.session_state.email)
+                    st.success("Parabéns! Você agora tem o pacote Pro com 60 créditos!")
+                    time.sleep(1)
+                    st.experimental_rerun()
+            
             return False
-        if stats['daily_usage'] >= 1:
-            next_analysis = datetime.now() + timedelta(days=1)
-            next_analysis = next_analysis.replace(hour=0, minute=0, second=0, microsecond=0)
-            time_remaining = next_analysis - datetime.now()
-            hours = int(time_remaining.total_seconds() // 3600)
-            minutes = int((time_remaining.total_seconds() % 3600) // 60)
-            st.error(f"❌ Limite diário atingido. Próxima análise disponível em {hours}h {minutes}min")
-            return False
-    elif stats['tier'] == 'pro':
-        remaining = 60 - stats['monthly_usage']
-        if num_markets > remaining:
-            next_month = (datetime.now() + timedelta(days=32)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-            days_remaining = (next_month - datetime.now()).days
-            st.error(f"❌ Você tem apenas {remaining} análises restantes este mês. Renovação em {days_remaining} dias")
+        else:
+            # Paid tiers - offer to buy more credits
+            st.warning(f"⚠️ Você tem apenas {remaining_credits} créditos restantes. Esta análise requer {num_markets} créditos.")
+            
+            # Show purchase options
+            st.info("Compre mais créditos para continuar.")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("30 Créditos - R$19,99"):
+                    if st.session_state.user_manager.add_credits(st.session_state.email, 30):
+                        st.success("30 créditos adicionados!")
+                        time.sleep(1)
+                        st.experimental_rerun()
+                        
+            with col2:
+                if st.button("60 Créditos - R$29,99"):
+                    if st.session_state.user_manager.add_credits(st.session_state.email, 60):
+                        st.success("60 créditos adicionados!")
+                        time.sleep(1)
+                        st.experimental_rerun()
+            
             return False
             
     return True
@@ -634,18 +733,12 @@ def show_main_dashboard():
     # Obter informações do usuário atual
     user_stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
     
-    # Adicionar botão de Subscribe para usuários Free e Pro
-    if user_stats['tier'] in ['free', 'pro']:
-        st.sidebar.markdown("---")
-        
-        if user_stats['tier'] == 'free':
-            st.sidebar.info("🔄 Faça upgrade para o plano **Pro** ou **Premium** para mais análises!")
-        else:  # Pro
-            st.sidebar.info("🔄 Faça upgrade para o plano **Premium** para análises ilimitadas!")
-            
-        if st.sidebar.button("🚀 Upgrade de Plano", key="subscribe_button", use_container_width=True):
-            st.session_state.page = "plans"  # Nova página de planos
-            st.experimental_rerun()
+    # Adicionar botão de Ver Pacotes
+    st.sidebar.markdown("---")
+    
+    if st.sidebar.button("🚀 Ver Pacotes de Créditos", key="packages_button", use_container_width=True):
+        st.session_state.page = "packages"  # Página de pacotes
+        st.experimental_rerun()
     
     # Configurações na sidebar
     st.sidebar.title("Configurações")
@@ -695,14 +788,13 @@ def show_main_dashboard():
 
     # Get user tier limits
     user_stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
-    max_markets = user_stats['market_limit']
 
     # Seleção de mercados em container separado
     with st.expander("Mercados Disponíveis", expanded=True):
         st.markdown("### Seleção de Mercados")
         
-        # Mostrar limite de mercados baseado no tier
-        st.info(f"Seu plano permite {max_markets} mercado(s) por análise")
+        # Mostrar informação de créditos
+        st.info(f"Você tem {user_stats['credits_remaining']} créditos disponíveis. Cada mercado selecionado consumirá 1 crédito.")
         
         col1, col2 = st.columns(2)
         
@@ -722,9 +814,10 @@ def show_main_dashboard():
 
         # Verificar número de mercados selecionados
         num_selected_markets = sum(1 for v in selected_markets.values() if v)
-        if num_selected_markets > max_markets:
-            st.error(f"Você selecionou {num_selected_markets} mercados, mas seu plano permite apenas {max_markets}.")
-            return
+        if num_selected_markets == 0:
+            st.warning("Por favor, selecione pelo menos um mercado para análise.")
+        else:
+            st.write(f"Total de créditos que serão consumidos: {num_selected_markets}")
 
     # Inputs de odds em container separado
     odds_data = None
@@ -808,11 +901,11 @@ class UserManager:
         self.storage_path = storage_path
         self.users = self._load_users()
         
-        # Define user tiers
+        # Define user tiers/packages
         self.tiers = {
-            "free": UserTier("free", 1, None, 1),
-            "pro": UserTier("pro", None, 60, float('inf')),
-            "premium": UserTier("premium", None, None, float('inf'))
+            "free": UserTier("free", 5, float('inf')),     # 5 credits, multiple markets
+            "standard": UserTier("standard", 30, float('inf')),  # 30 credits, multiple markets
+            "pro": UserTier("pro", 60, float('inf'))       # 60 credits, multiple markets
         }
         
     def _load_users(self) -> Dict:
@@ -865,8 +958,10 @@ class UserManager:
             "tier": tier,
             "usage": {
                 "daily": [],
-                "monthly": []
+                "total": []  # Track total usage
             },
+            "purchased_credits": 0,  # Track additional purchased credits
+            "free_credits_exhausted_at": None,  # Timestamp when free credits run out
             "created_at": datetime.now().isoformat()
         }
         self._save_users()
@@ -878,63 +973,17 @@ class UserManager:
             return False
         return self.users[email]["password"] == self._hash_password(password)
     
-    def can_analyze(self, email: str, num_markets: int) -> bool:
-        """Check if user can perform analysis"""
+    def add_credits(self, email: str, amount: int) -> bool:
+        """Add more credits to a user account"""
         if email not in self.users:
             return False
             
-        user = self.users[email]
-        tier = self.tiers[user["tier"]]
-        
-        # Check market limit
-        if num_markets > tier.market_limit:
-            return False
+        if "purchased_credits" not in self.users[email]:
+            self.users[email]["purchased_credits"] = 0
             
-        # Premium users have no limits
-        if tier.name == "premium":
-            return True
-            
-        today = datetime.now().date()
-        this_month = today.replace(day=1)
-        
-        # Clean old usage data
-        user["usage"]["daily"] = [
-            u for u in user["usage"]["daily"]
-            if datetime.strptime(u["date"], "%Y-%m-%d").date() == today
-        ]
-        user["usage"]["monthly"] = [
-            u for u in user["usage"]["monthly"]
-            if datetime.strptime(u["date"], "%Y-%m-%d").date().replace(day=1) == this_month
-        ]
-        
-        # Check daily limit for free users
-        if tier.daily_limit:
-            daily_usage = sum(u["markets"] for u in user["usage"]["daily"])
-            if daily_usage + num_markets > tier.daily_limit:
-                return False
-                
-        # Check monthly limit for pro users
-        if tier.monthly_limit:
-            monthly_usage = sum(u["markets"] for u in user["usage"]["monthly"])
-        if monthly_usage + num_markets > tier.monthly_limit:
-                return False
-                
-        return True
-    
-    def record_usage(self, email: str, num_markets: int):
-        """Record usage for a user"""
-        if email not in self.users:
-            return
-            
-        today = datetime.now().date().isoformat()
-        usage = {
-            "date": today,
-            "markets": num_markets
-        }
-        
-        self.users[email]["usage"]["daily"].append(usage)
-        self.users[email]["usage"]["monthly"].append(usage)
+        self.users[email]["purchased_credits"] += amount
         self._save_users()
+        return True
     
     def get_usage_stats(self, email: str) -> Dict:
         """Get usage statistics for a user"""
@@ -942,29 +991,122 @@ class UserManager:
             return {}
             
         user = self.users[email]
-        today = datetime.now().date()
-        this_month = today.replace(day=1)
         
-        daily_usage = sum(
-            u["markets"] for u in user["usage"]["daily"]
-            if datetime.strptime(u["date"], "%Y-%m-%d").date() == today
+        # Calculate total credits used
+        total_credits_used = sum(
+            u["markets"] for u in user["usage"]["total"]
         )
         
-        monthly_usage = sum(
-            u["markets"] for u in user["usage"]["monthly"]
-            if datetime.strptime(u["date"], "%Y-%m-%d").date().replace(day=1) == this_month
-        )
-        
+        # Get initial credits from tier
         tier = self.tiers[user["tier"]]
+        initial_credits = tier.total_credits
+        
+        # Add any purchased credits
+        purchased_credits = user.get("purchased_credits", 0)
+        
+        # Special handling for Free tier - check if 24h have passed since credits exhausted
+        free_credits_reset = False
+        next_free_credits_time = None
+        
+        if user["tier"] == "free" and user.get("free_credits_exhausted_at"):
+            # Convert stored time to datetime
+            exhausted_time = datetime.fromisoformat(user["free_credits_exhausted_at"])
+            current_time = datetime.now()
+            
+            # Check if 24 hours have passed
+            if (current_time - exhausted_time).total_seconds() >= 86400:  # 24 hours in seconds
+                # Reset credits
+                user["free_credits_exhausted_at"] = None
+                total_credits_used = 0  # Reset usage for free users
+                
+                # Clear usage history for free users after reset
+                user["usage"]["total"] = []
+                free_credits_reset = True
+                self._save_users()
+            else:
+                # Calculate time remaining
+                time_until_reset = exhausted_time + timedelta(days=1) - current_time
+                hours = int(time_until_reset.total_seconds() // 3600)
+                minutes = int((time_until_reset.total_seconds() % 3600) // 60)
+                next_free_credits_time = f"{hours}h {minutes}min"
+        
+        # Calculate remaining credits
+        remaining_credits = initial_credits + purchased_credits - total_credits_used
         
         return {
             "tier": user["tier"],
-            "daily_usage": daily_usage,
-            "monthly_usage": monthly_usage,
-            "daily_limit": tier.daily_limit,
-            "monthly_limit": tier.monthly_limit,
-            "market_limit": tier.market_limit
+            "credits_used": total_credits_used,
+            "credits_total": initial_credits + purchased_credits,
+            "credits_remaining": remaining_credits,
+            "market_limit": tier.market_limit,
+            "free_credits_reset": free_credits_reset,
+            "next_free_credits_time": next_free_credits_time
         }
+    
+    def record_usage(self, email: str, num_markets: int):
+        """Record usage for a user (each market consumes one credit)"""
+        if email not in self.users:
+            return
+            
+        today = datetime.now().date().isoformat()
+        usage = {
+            "date": today,
+            "markets": num_markets  # Each market = 1 credit
+        }
+        
+        # Still track daily for analytics purposes
+        self.users[email]["usage"]["daily"].append(usage)
+        
+        # Track total usage
+        self.users[email]["usage"]["total"].append(usage)
+        
+        # Check if Free tier user has exhausted credits
+        if self.users[email]["tier"] == "free":
+            total_used = sum(u["markets"] for u in self.users[email]["usage"]["total"])
+            if total_used >= 5 and not self.users[email].get("free_credits_exhausted_at"):
+                # Mark when credits were exhausted
+                self.users[email]["free_credits_exhausted_at"] = datetime.now().isoformat()
+        
+        self._save_users()
+    
+    def can_analyze(self, email: str, num_markets: int) -> bool:
+        """Check if user can perform analysis"""
+        stats = self.get_usage_stats(email)
+        
+        # Check if user has enough credits
+        return stats['credits_remaining'] >= num_markets
+    
+    # Métodos de upgrade/downgrade
+    def _upgrade_to_standard(self, email: str) -> bool:
+        """Upgrade a user to Standard package"""
+        if email not in self.users:
+            return False
+            
+        self.users[email]["tier"] = "standard"
+        self._save_users()
+        return True
+        
+    def _upgrade_to_pro(self, email: str) -> bool:
+        """Upgrade a user to Pro package"""
+        if email not in self.users:
+            return False
+            
+        self.users[email]["tier"] = "pro"
+        self._save_users()
+        return True
+        
+    def _downgrade_to_free(self, email: str) -> bool:
+        """Downgrade a user to Free package"""
+        if email not in self.users:
+            return False
+            
+        self.users[email]["tier"] = "free"
+        # Reset usage for free users
+        self.users[email]["usage"]["total"] = []
+        self.users[email]["purchased_credits"] = 0
+        self.users[email]["free_credits_exhausted_at"] = None
+        self._save_users()
+        return True
 
 def get_odds_data(selected_markets):
     """Função para coletar e formatar os dados das odds"""
@@ -1583,11 +1725,11 @@ def main():
                 .plan-card.free {
                     border-top: 4px solid #e44d87;
                 }
-                .plan-card.pro {
+                .plan-card.standard {
                     border-top: 4px solid #0077b6;
                     transform: scale(1.05);
                 }
-                .plan-card.premium {
+                .plan-card.pro {
                     border-top: 4px solid #0abab5;
                 }
                 .plan-title {
@@ -1653,10 +1795,10 @@ def main():
                 .free-icon {
                     color: #e44d87;
                 }
-                .pro-icon {
+                .standard-icon {
                     color: #0077b6;
                 }
-                .premium-icon {
+                .pro-icon {
                     color: #0abab5;
                 }
                 .plan-card-container {
@@ -1681,14 +1823,14 @@ def main():
                 
             # Mostrar dashboard principal
             show_main_dashboard()
-        elif st.session_state.page == "plans":
+        elif st.session_state.page == "packages":
             if not st.session_state.authenticated:
-                st.warning("Você precisa fazer login para acessar os planos.")
+                st.warning("Você precisa fazer login para acessar os pacotes.")
                 go_to_login()
                 return
                 
-            # Mostrar página de planos
-            show_plans_page()
+            # Mostrar página de pacotes
+            show_packages_page()
         else:
             # Página padrão - redirecionando para landing
             st.session_state.page = "landing"
