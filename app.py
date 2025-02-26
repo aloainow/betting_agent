@@ -602,27 +602,6 @@ def show_main_dashboard():
         with st.expander("Configuração de Odds", expanded=True):
             odds_data = get_odds_data(selected_markets)
 
-    # Define a função para mostrar análise - CORREÇÃO DA INDENTAÇÃO
-    def mostrar_analise(analysis):
-        """Função para mostrar o resultado da análise com formatação melhorada"""
-        # Adicionar quebras de linha em alguns pontos para melhorar o layout
-        analysis = analysis.replace("**Análise de Mercados Disponíveis:**", "<h2>Análise de Mercados Disponíveis:</h2>")
-        analysis = analysis.replace("**Probabilidades Calculadas:**", "<h2>Probabilidades Calculadas:</h2>")
-        analysis = analysis.replace("**Oportunidades Identificadas (Edges >3%):**", "<h2>Oportunidades Identificadas (Edges >3%):</h2>")
-        analysis = analysis.replace("**Nível de Confiança Geral:", "<h2>Nível de Confiança Geral:")
-        
-        # Destacar odds e porcentagens
-        import re
-        analysis = re.sub(r'@(\d+\.\d+)', r'<strong>@\1</strong>', analysis)
-        analysis = re.sub(r'(\d+\.\d+)%', r'<strong>\1%</strong>', analysis)
-        
-        # Mostrar o conteúdo com formatação HTML
-        if analysis:
-            # Exibir a análise em uma div com largura total
-            st.markdown(f'<div class="analysis-result">{analysis}</div>', unsafe_allow_html=True)
-            return True
-        return False
-
     # Botão de análise centralizado
     col1, col2, col3 = st.columns([1,1,1])
     with col2:
@@ -645,27 +624,48 @@ def show_main_dashboard():
             status = st.empty()
             
             try:
- = False
+                # Etapa 1: Carregar dados
+                status.info("Carregando dados dos times...")
+                if not stats_html or team_stats_df is None:
+                    status.error("Falha ao carregar dados")
+                    return
                     
-                    for attempt in range(max_attempts):
-                        success = st.session_state.user_manager.record_usage(st.session_state.email, num_markets)
-                        if success:
-                            break
-                        st.warning(f"Tentativa {attempt+1} de registrar créditos falhou. Tentando novamente...")
-                        time.sleep(1)
+                # Etapa 2: Formatar prompt
+                status.info("Preparando análise...")
+                prompt = format_prompt(team_stats_df, home_team, away_team, odds_data, selected_markets)
+                if not prompt:
+                    status.error("Falha ao preparar análise")
+                    return
+                    
+                # Etapa 3: Análise GPT
+                status.info("Realizando análise com IA...")
+                analysis = analyze_with_gpt(prompt)
+                if not analysis:
+                    status.error("Falha na análise")
+                    return
+                
+                # Etapa 4: Mostrar resultado
+                if analysis:
+                    # Limpar status
+                    status.empty()
+                    
+                    # Exibir a análise em uma div com largura total
+                    st.markdown(f'<div class="analysis-result">{analysis}</div>', unsafe_allow_html=True)
+                    
+                    # Registrar uso após análise bem-sucedida
+                    num_markets = sum(1 for v in selected_markets.values() if v)
+                    success = st.session_state.user_manager.record_usage(st.session_state.email, num_markets)
                     
                     if success:
                         # Mostrar mensagem de sucesso com créditos restantes
                         updated_stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
                         credits_after = updated_stats['credits_remaining']
-                        
                         st.success(f"{num_markets} créditos foram consumidos. Agora você tem {credits_after} créditos.")
                     else:
                         st.error("Não foi possível registrar o uso dos créditos. Por favor, tente novamente.")
                         
             except Exception as e:
-                st.error(f"Erro durante a análise: {str(e)}")        
-
+                st.error(f"Erro durante a análise: {str(e)}")
 class UserManager:
     def __init__(self, storage_path: str = "user_data.json"):
         # Caminho simplificado - local no diretório atual
