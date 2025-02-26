@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from functools import wraps
 from typing import Optional, Dict, List, Tuple
 from dataclasses import dataclass
+from urllib.parse import urlencode, quote
 
 # Third party imports
 import streamlit as st
@@ -17,6 +18,7 @@ import numpy as np
 import requests
 from bs4 import BeautifulSoup
 from openai import OpenAI, OpenAIError
+import stripe
 
 
 # Definição das URLs do FBref
@@ -47,12 +49,16 @@ FBREF_URLS = {
     }
 }
 
+# Define the URL for your deployed Streamlit app - replace with your actual URL when deployed
+BASE_URL = "https://valuehunter.streamlit.app"  # Change this to your actual URL when deployed
+
 
 @dataclass
 class UserTier:
     name: str
     total_credits: int  # Total credits in package
     market_limit: int   # Limit of markets per analysis
+
 
 # Função init_session_state deve vir ANTES da classe UserManager
 def init_session_state():
@@ -77,18 +83,24 @@ def init_session_state():
     if "show_register" not in st.session_state:
         st.session_state.show_register = False
     
+    # Stripe test mode flag
+    if "stripe_test_mode" not in st.session_state:
+        st.session_state.stripe_test_mode = True
+    
     # UserManager deve ser o último a ser inicializado
     if "user_manager" not in st.session_state:
         st.session_state.user_manager = UserManager()
     
     # Atualizar timestamp de última atividade
     st.session_state.last_activity = datetime.now()
-    
+
+
 def go_to_login():
     """Navigate to login page"""
     st.session_state.page = "login"
     st.session_state.show_register = False
     st.experimental_rerun()
+
 
 def go_to_register():
     """Navigate to register page"""
@@ -96,10 +108,150 @@ def go_to_register():
     st.session_state.show_register = True
     st.experimental_rerun()
 
+
 def go_to_landing():
     """Navigate to landing page"""
     st.session_state.page = "landing"
     st.experimental_rerun()
+
+
+def init_stripe():
+    """Initialize Stripe with the API key."""
+    try:
+        # Try to get from secrets first (for production)
+        stripe.api_key = st.secrets["STRIPE_SECRET_KEY"]
+    except:
+        # Fallback to hardcoded key (for development only)
+        stripe.api_key = "sk_test_51QtahdJrcSWtZ3fJrEJSDcxk15Km7LDNfm21ImfRKFzJA4cmuUytX5DFoDoo6aveVUtrZEm3vvAmPe7kVRJN6v0U00uue4fEyb"
+    
+    # For test mode, this warns users that they're in test mode
+    st.session_state.stripe_test_mode = True
+
+
+def get_stripe_success_url(credits, email):
+    """Get the success URL for Stripe checkout."""
+    # URL encode parameters to make sure they are properly formatted
+    params = urlencode({
+        'success': 'true',
+        'credits': credits,
+        'email': email
+    })
+    return f"{BASE_URL}?{params}"
+
+
+def get_stripe_cancel_url():
+    """Get the cancel URL for Stripe checkout."""
+    return f"{BASE_URL}?canceled=true"
+
+
+def create_stripe_checkout_session(email, credits, amount):
+    """Create a Stripe checkout session for credit purchase.
+    
+    Args:
+        email: User's email
+        credits: Number of credits being purchased
+        amount: Price in BRL (e.g., 19.99 for 30 credits)
+    
+    Returns:
+        checkout_session: Stripe checkout session object or None on error
+    """
+    try:
+        # Initialize Stripe
+        init_stripe()
+        
+        # Convert amount to cents (Stripe requires amounts in smallest currency unit)
+        amount_cents = int(float(amount) * 100)
+        
+        # Create product description
+        product_description = f"{credits} Créditos para ValueHunter"
+        
+        # Create checkout session
+        checkout_session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{
+                'price_data': {
+                    'currency': 'brl',
+                    'product_data': {
+                        'name': f'ValueHunter - {credits} Créditos',
+                        'description': product_description,
+                    },
+                    'unit_amount': amount_cents,
+                },
+                'quantity': 1,
+            }],
+            mode='payment',
+            customer_email=email,
+            success_url=get_stripe_success_url(credits, email),
+            cancel_url=get_stripe_cancel_url(),
+            metadata={
+                'email': email,
+                'credits': str(credits)
+            }
+        )
+        return checkout_session
+    except Exception as e:
+        st.error(f"Erro ao criar sessão de pagamento: {str(e)}")
+        return None
+
+
+def verify_stripe_payment(session_id):
+    """Verify a Stripe payment session.
+    
+    Args:
+        session_id: Stripe session ID to verify
+        
+    Returns:
+        tuple: (is_valid, credits, email) or (False, None, None) on error
+    """
+    try:
+        # Initialize Stripe
+        init_stripe()
+        
+        # Retrieve the session
+        session = stripe.checkout.Session.retrieve(session_id)
+        
+        # Check if payment was successful
+        if session.payment_status == 'paid':
+            # Get the metadata
+            credits = int(session.metadata.get('credits', 0))
+            email = session.metadata.get('email', '')
+            
+            return True, credits, email
+        
+        return False, None, None
+    except Exception as e:
+        st.error(f"Erro ao verificar pagamento: {str(e)}")
+        return False, None, None
+
+
+def check_payment_success():
+    """Check if a payment was successful based on URL parameters."""
+    # Get query parameters
+    query_params = st.experimental_get_query_params()
+    
+    # Check if we have success parameter
+    if 'success' in query_params and query_params['success'][0] == 'true':
+        # Get credits and email from parameters
+        credits = int(query_params.get('credits', [0])[0])
+        email = query_params.get('email', [''])[0]
+        
+        if credits > 0 and email:
+            # Process the successful payment
+            if st.session_state.user_manager.add_credits(email, credits):
+                st.success(f"✅ Pagamento processado com sucesso! {credits} créditos foram adicionados à sua conta.")
+                # Clear parameters to prevent duplicate processing
+                st.experimental_set_query_params()
+                return True
+    
+    # Check if payment was canceled
+    if 'canceled' in query_params and query_params['canceled'][0] == 'true':
+        st.warning("❌ Pagamento cancelado.")
+        # Clear parameters
+        st.experimental_set_query_params()
+        return False
+        
+    return None
+
 
 def show_landing_page():
     """Display landing page with about content and login/register buttons"""
@@ -258,6 +410,7 @@ def show_landing_page():
         </div>
     """, unsafe_allow_html=True)
     
+
 def show_login():
     """Display login form"""
     # Header com a logo - MAIOR
@@ -291,7 +444,7 @@ def show_login():
     if st.button("Registre-se aqui", use_container_width=True):
         go_to_register()
         
-# 1. Modifique a função show_register() para remover a seleção de pacotes
+
 def show_register():
     """Display simplified registration form"""
     # Header com a logo
@@ -326,14 +479,17 @@ def show_register():
     if st.button("Fazer login", use_container_width=True):
         go_to_login()
 
-# 2. Modifique a função show_packages_page() para simplificar a compra de créditos
+
 def show_packages_page():
-    """Display simplified credit purchase page"""
+    """Display simplified credit purchase page with Stripe integration"""
     # Header com a logo
     st.markdown('<div class="logo-container" style="width: fit-content; padding: 12px 25px;"><span class="logo-v" style="font-size: 3rem;">V</span><span class="logo-text" style="font-size: 2.5rem;">ValueHunter</span></div>', unsafe_allow_html=True)
     
     st.title("Comprar Mais Créditos")
     st.markdown("Adquira mais créditos quando precisar, sem necessidade de mudar de pacote.")
+    
+    # Check for payment success/cancel from URL parameters
+    payment_result = check_payment_success()
     
     # CSS para os cartões de compra
     st.markdown("""
@@ -379,10 +535,24 @@ def show_packages_page():
         """, unsafe_allow_html=True)
         
         if st.button("Comprar 30 Créditos", use_container_width=True, key="buy_30c"):
-            if st.session_state.user_manager.add_credits(st.session_state.email, 30):
-                st.success("30 créditos adicionados à sua conta!")
-                time.sleep(1)
-                st.experimental_rerun()
+            # Create Stripe checkout session
+            checkout_session = create_stripe_checkout_session(
+                st.session_state.email, 
+                30, 
+                19.99
+            )
+            
+            if checkout_session:
+                # Redirect to Stripe checkout
+                js = f"""
+                <script>
+                    window.open('{checkout_session.url}', '_blank').focus();
+                </script>
+                """
+                st.components.v1.html(js, height=0)
+                
+                # Show message to user
+                st.info("Redirecionando para a página de pagamento. Caso a página não abra automaticamente, clique no botão novamente.")
     
     with col2:
         st.markdown("""
@@ -394,16 +564,35 @@ def show_packages_page():
         """, unsafe_allow_html=True)
         
         if st.button("Comprar 60 Créditos", use_container_width=True, key="buy_60c"):
-            if st.session_state.user_manager.add_credits(st.session_state.email, 60):
-                st.success("60 créditos adicionados à sua conta!")
-                time.sleep(1)
-                st.experimental_rerun()
+            # Create Stripe checkout session
+            checkout_session = create_stripe_checkout_session(
+                st.session_state.email, 
+                60, 
+                29.99
+            )
+            
+            if checkout_session:
+                # Redirect to Stripe checkout
+                js = f"""
+                <script>
+                    window.open('{checkout_session.url}', '_blank').focus();
+                </script>
+                """
+                st.components.v1.html(js, height=0)
+                
+                # Show message to user
+                st.info("Redirecionando para a página de pagamento. Caso a página não abra automaticamente, clique no botão novamente.")
+    
+    # Test mode notice
+    if getattr(st.session_state, 'stripe_test_mode', False):
+        st.warning("⚠️ Modo de teste ativado. Use o cartão 4242 4242 4242 4242 com qualquer data futura e CVC para simular um pagamento bem-sucedido.")
     
     # Botão para voltar
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("← Voltar para análises", key="back_to_analysis"):
         st.session_state.page = "main"
         st.experimental_rerun()
+
 
 def show_usage_stats():
     """Display simplified usage statistics focusing only on credits"""
@@ -429,6 +618,7 @@ def show_usage_stats():
     
     # Não adicione mais nada aqui - os botões serão adicionados em show_main_dashboard
 
+
 def check_analysis_limits(selected_markets):
     """Check if user can perform analysis with selected markets"""
     num_markets = sum(1 for v in selected_markets.values() if v)
@@ -450,16 +640,46 @@ def check_analysis_limits(selected_markets):
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("Standard - 30 Créditos", key="upgrade_standard"):
-                    st.session_state.user_manager._upgrade_to_standard(st.session_state.email)
-                    st.success("Parabéns! Você agora tem o pacote Standard com 30 créditos!")
-                    time.sleep(1)
-                    st.experimental_rerun()
+                    # Create Stripe checkout for Standard upgrade
+                    checkout_session = create_stripe_checkout_session(
+                        st.session_state.email, 
+                        30, 
+                        19.99
+                    )
+                    
+                    if checkout_session:
+                        # Redirect to Stripe checkout
+                        js = f"""
+                        <script>
+                            window.open('{checkout_session.url}', '_blank').focus();
+                        </script>
+                        """
+                        st.components.v1.html(js, height=0)
+                        
+                        # Show message to user
+                        st.info("Redirecionando para a página de pagamento. Caso a página não abra automaticamente, clique no botão novamente.")
+                    return False
             with col2:
                 if st.button("Pro - 60 Créditos", key="upgrade_pro"):
-                    st.session_state.user_manager._upgrade_to_pro(st.session_state.email)
-                    st.success("Parabéns! Você agora tem o pacote Pro com 60 créditos!")
-                    time.sleep(1)
-                    st.experimental_rerun()
+                    # Create Stripe checkout for Pro upgrade
+                    checkout_session = create_stripe_checkout_session(
+                        st.session_state.email, 
+                        60, 
+                        29.99
+                    )
+                    
+                    if checkout_session:
+                        # Redirect to Stripe checkout
+                        js = f"""
+                        <script>
+                            window.open('{checkout_session.url}', '_blank').focus();
+                        </script>
+                        """
+                        st.components.v1.html(js, height=0)
+                        
+                        # Show message to user
+                        st.info("Redirecionando para a página de pagamento. Caso a página não abra automaticamente, clique no botão novamente.")
+                    return False
             
             return False
         else:
@@ -476,21 +696,52 @@ def check_analysis_limits(selected_markets):
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("30 Créditos - R$19,99"):
-                    if st.session_state.user_manager.add_credits(st.session_state.email, 30):
-                        st.success("30 créditos adicionados!")
-                        time.sleep(1)
-                        st.experimental_rerun()
+                    # Create Stripe checkout
+                    checkout_session = create_stripe_checkout_session(
+                        st.session_state.email, 
+                        30, 
+                        19.99
+                    )
+                    
+                    if checkout_session:
+                        # Redirect to Stripe checkout
+                        js = f"""
+                        <script>
+                            window.open('{checkout_session.url}', '_blank').focus();
+                        </script>
+                        """
+                        st.components.v1.html(js, height=0)
+                        
+                        # Show message to user
+                        st.info("Redirecionando para a página de pagamento. Caso a página não abra automaticamente, clique no botão novamente.")
+                    return False
                         
             with col2:
                 if st.button("60 Créditos - R$29,99"):
-                    if st.session_state.user_manager.add_credits(st.session_state.email, 60):
-                        st.success("60 créditos adicionados!")
-                        time.sleep(1)
-                        st.experimental_rerun()
+                    # Create Stripe checkout
+                    checkout_session = create_stripe_checkout_session(
+                        st.session_state.email, 
+                        60, 
+                        29.99
+                    )
+                    
+                    if checkout_session:
+                        # Redirect to Stripe checkout
+                        js = f"""
+                        <script>
+                            window.open('{checkout_session.url}', '_blank').focus();
+                        </script>
+                        """
+                        st.components.v1.html(js, height=0)
+                        
+                        # Show message to user
+                        st.info("Redirecionando para a página de pagamento. Caso a página não abra automaticamente, clique no botão novamente.")
+                    return False
             
             return False
             
     return True
+
 
 def show_main_dashboard():
     """Show the main dashboard after login"""
@@ -666,6 +917,8 @@ def show_main_dashboard():
                         
             except Exception as e:
                 st.error(f"Erro durante a análise: {str(e)}")
+
+
 class UserManager:
     def __init__(self, storage_path: str = "user_data.json"):
         # Caminho simplificado - local no diretório atual
@@ -767,17 +1020,17 @@ class UserManager:
         self._save_users()
         return True, "Registro realizado com sucesso"
     
-def authenticate(self, email: str, password: str) -> bool:
-    """Authenticate a user"""
-    if email not in self.users:
-        return False
-        
-    # Check if the password matches
-    if self.users[email]["password"] != self._hash_password(password):
-        return False
-        
-    # Autenticação bem-sucedida
-    return True
+    def authenticate(self, email: str, password: str) -> bool:
+        """Authenticate a user"""
+        if email not in self.users:
+            return False
+            
+        # Check if the password matches
+        if self.users[email]["password"] != self._hash_password(password):
+            return False
+            
+        # Autenticação bem-sucedida
+        return True
     
     def add_credits(self, email: str, amount: int) -> bool:
         """Add more credits to a user account"""
@@ -796,73 +1049,74 @@ def authenticate(self, email: str, password: str) -> bool:
         self._save_users()
         return True
     
-def get_usage_stats(self, email: str) -> Dict:
-    """Get usage statistics for a user"""
-    if email not in self.users:
-        return {}
-        
-    user = self.users[email]
-    
-    # Calculate total credits used
-    total_credits_used = sum(
-        u["markets"] for u in user["usage"]["total"]
-    )
-    
-    # Get credits based on user tier
-    tier = self.tiers[user["tier"]]
-    base_credits = tier.total_credits
-    
-    # Add any purchased credits
-    purchased_credits = user.get("purchased_credits", 0)
-    
-    # Free tier special handling - check if 24h have passed since credits exhausted
-    free_credits_reset = False
-    next_free_credits_time = None
-    
-    if user["tier"] == "free":
-        # Se ele já usou créditos e tem marcação de esgotamento
-        if user.get("free_credits_exhausted_at"):
-            # Convert stored time to datetime
-            exhausted_time = datetime.fromisoformat(user["free_credits_exhausted_at"])
-            current_time = datetime.now()
+    def get_usage_stats(self, email: str) -> Dict:
+        """Get usage statistics for a user"""
+        if email not in self.users:
+            return {}
             
-            # Check if 24 hours have passed
-            if (current_time - exhausted_time).total_seconds() >= 86400:  # 24 hours in seconds
-                # Reset credits - IMPORTANTE: sempre será 5 créditos, não acumula
-                user["free_credits_exhausted_at"] = None
+        user = self.users[email]
+        
+        # Calculate total credits used
+        total_credits_used = sum(
+            u["markets"] for u in user["usage"]["total"]
+        )
+        
+        # Get credits based on user tier
+        tier = self.tiers[user["tier"]]
+        base_credits = tier.total_credits
+        
+        # Add any purchased credits
+        purchased_credits = user.get("purchased_credits", 0)
+        
+        # Free tier special handling - check if 24h have passed since credits exhausted
+        free_credits_reset = False
+        next_free_credits_time = None
+        
+        if user["tier"] == "free":
+            # Se ele já usou créditos e tem marcação de esgotamento
+            if user.get("free_credits_exhausted_at"):
+                # Convert stored time to datetime
+                exhausted_time = datetime.fromisoformat(user["free_credits_exhausted_at"])
+                current_time = datetime.now()
                 
-                # Clear usage history for free users after reset
-                user["usage"]["total"] = []
-                free_credits_reset = True
-                self._save_users()
-                
-                # Após resetar, não há créditos usados
-                total_credits_used = 0
-            else:
-                # Calculate time remaining
-                time_until_reset = exhausted_time + timedelta(days=1) - current_time
-                hours = int(time_until_reset.total_seconds() // 3600)
-                minutes = int((time_until_reset.total_seconds() % 3600) // 60)
-                next_free_credits_time = f"{hours}h {minutes}min"
-    
-    # Calculate remaining credits
-    remaining_credits = max(0, base_credits + purchased_credits - total_credits_used)
-    
-    # Check if user is out of credits and set exhausted timestamp
-    if remaining_credits == 0 and not user.get("free_credits_exhausted_at"):
-        user["free_credits_exhausted_at"] = datetime.now().isoformat()
-        self._save_users()
-    
-    return {
-        "tier": user["tier"],
-        "tier_display": self._format_tier_name(user["tier"]),
-        "credits_used": total_credits_used,
-        "credits_total": base_credits + purchased_credits,
-        "credits_remaining": remaining_credits,
-        "market_limit": tier.market_limit,
-        "free_credits_reset": free_credits_reset,
-        "next_free_credits_time": next_free_credits_time
-    }    
+                # Check if 24 hours have passed
+                if (current_time - exhausted_time).total_seconds() >= 86400:  # 24 hours in seconds
+                    # Reset credits - IMPORTANTE: sempre será 5 créditos, não acumula
+                    user["free_credits_exhausted_at"] = None
+                    
+                    # Clear usage history for free users after reset
+                    user["usage"]["total"] = []
+                    free_credits_reset = True
+                    self._save_users()
+                    
+                    # Após resetar, não há créditos usados
+                    total_credits_used = 0
+                else:
+                    # Calculate time remaining
+                    time_until_reset = exhausted_time + timedelta(days=1) - current_time
+                    hours = int(time_until_reset.total_seconds() // 3600)
+                    minutes = int((time_until_reset.total_seconds() % 3600) // 60)
+                    next_free_credits_time = f"{hours}h {minutes}min"
+        
+        # Calculate remaining credits
+        remaining_credits = max(0, base_credits + purchased_credits - total_credits_used)
+        
+        # Check if user is out of credits and set exhausted timestamp
+        if remaining_credits == 0 and not user.get("free_credits_exhausted_at"):
+            user["free_credits_exhausted_at"] = datetime.now().isoformat()
+            self._save_users()
+        
+        return {
+            "tier": user["tier"],
+            "tier_display": self._format_tier_name(user["tier"]),
+            "credits_used": total_credits_used,
+            "credits_total": base_credits + purchased_credits,
+            "credits_remaining": remaining_credits,
+            "market_limit": tier.market_limit,
+            "free_credits_reset": free_credits_reset,
+            "next_free_credits_time": next_free_credits_time
+        }    
+        
     def record_usage(self, email: str, num_markets: int):
         """Record usage for a user (each market consumes one credit)"""
         try:
@@ -952,6 +1206,7 @@ def get_usage_stats(self, email: str) -> Dict:
         self.users[email]["purchased_credits"] = 0
         self._save_users()
         return True
+
 
 def get_odds_data(selected_markets):
     """Função para coletar e formatar os dados das odds"""
@@ -1066,9 +1321,11 @@ def get_odds_data(selected_markets):
         
     return "\n\n".join(odds_text)
 
+
 def get_fbref_urls():
     """Retorna o dicionário de URLs do FBref"""
     return FBREF_URLS
+
 
 @st.cache_resource
 def get_openai_client():
@@ -1107,6 +1364,7 @@ def analyze_with_gpt(prompt):
     except Exception as e:
         st.error(f"Erro inesperado: {str(e)}")
         return None
+
 
 def parse_team_stats(html_content):
     """Processa os dados do time com tratamento melhorado para extrair estatísticas"""
@@ -1231,6 +1489,7 @@ def parse_team_stats(html_content):
         st.error(f"Erro ao processar dados: {str(e)}")
         return None
 
+
 def rate_limit(seconds):
     def decorator(func):
         last_called = [0]
@@ -1244,6 +1503,7 @@ def rate_limit(seconds):
             return result
         return wrapper
     return decorator
+
 
 @rate_limit(1)  # 1 requisição por segundo
 def fetch_fbref_data(url):
@@ -1316,6 +1576,8 @@ def fetch_fbref_data(url):
     # Mensagem de erro simples e clara
     st.error("Não foi possível carregar os dados do campeonato. Tente novamente mais tarde.")
     return None
+
+
 def get_stat(stats, col, default='N/A'):
     """
     Função auxiliar para extrair estatísticas com tratamento de erro
@@ -1327,6 +1589,7 @@ def get_stat(stats, col, default='N/A'):
         return default
     except:
         return default
+
 
 def format_prompt(stats_df, home_team, away_team, odds_data, selected_markets):
     """Formata o prompt para o GPT-4 com os dados coletados"""
@@ -1449,10 +1712,14 @@ INSTRUÇÕES ESPECIAIS: VOCÊ DEVE CALCULAR PROBABILIDADES REAIS PARA TODOS OS M
         st.error(f"Erro ao formatar prompt: {str(e)}")
         return None
 
+
 def main():
     try:
         # Initialize session state
         init_session_state()
+        
+        # Initialize Stripe
+        init_stripe()
         
         # Configuração inicial do Streamlit
         st.set_page_config(
@@ -1712,6 +1979,9 @@ def main():
             </style>
         """, unsafe_allow_html=True)
         
+        # Check for payment callback - this should run before any page routing
+        payment_result = check_payment_success()
+        
         # Lógica de roteamento de páginas
         if st.session_state.page == "landing":
             show_landing_page()
@@ -1742,6 +2012,7 @@ def main():
 
     except Exception as e:
         st.error(f"Erro geral na aplicação: {str(e)}")
+        traceback.print_exc()  # This will print the full traceback for debugging
 
 if __name__ == "__main__":
     main()
