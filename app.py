@@ -340,198 +340,128 @@ def show_packages_page():
     user_stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
     current_package = user_stats['tier']
     
-    # CSS específico para os cartões de pacotes
+    # CSS simplificado para os cartões de pacotes
     st.markdown("""
     <style>
-        .plan-container {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 20px;
-            margin-top: 2rem;
-        }
-        .plan-card {
-            background-color: #ffffff;
-            border-radius: 10px;
-            padding: 1.5rem;
-            width: 250px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        .package-card {
+            background-color: #FFFFFF;
+            border-radius: 12px;
+            padding: 20px;
             text-align: center;
-            display: flex;
-            flex-direction: column;
-            border: 1px solid #e2e8f0;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
-        .plan-card.free {
-            border-top: 4px solid #e44d87;
-        }
-        .plan-card.standard {
-            border-top: 4px solid #0077b6;
-            transform: scale(1.05);
-        }
-        .plan-card.pro {
-            border-top: 4px solid #0abab5;
-        }
-        .plan-title {
-            color: #222831;
-            font-size: 1.5rem;
+        .package-title {
+            font-size: 24px;
             font-weight: bold;
-            margin-bottom: 1rem;
-        }
-        .plan-price {
+            margin-bottom: 10px;
             color: #222831;
-            font-size: 2.2rem;
+        }
+        .package-price {
+            font-size: 36px;
             font-weight: bold;
-            margin-bottom: 0.5rem;
+            margin-bottom: 10px;
+            color: #222831;
         }
-        .plan-period {
-            color: #64748b;
-            font-size: 0.9rem;
-            margin-bottom: 1.5rem;
+        .package-credits {
+            font-size: 18px;
+            margin-bottom: 20px;
+            color: #222831;
         }
-        .plan-feature {
+        .package-desc {
+            margin-bottom: 20px;
             color: #222831;
             text-align: left;
-            margin-bottom: 0.5rem;
-            display: flex;
-            align-items: center;
         }
-        .plan-feature i {
-            color: #0abab5;
-            margin-right: 10px;
-        }
-        .plan-button {
-            background-color: #fd7014;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            padding: 0.75rem 1rem;
-            font-weight: bold;
-            cursor: pointer;
-            margin-top: auto;
-            transition: background-color 0.3s;
-        }
-        .plan-button:hover {
-            background-color: #e05f00;
-        }
-        .plan-button.current {
-            background-color: #27272a;
-            cursor: default;
-        }
-        .plan-popular {
-            position: absolute;
-            top: -10px;
-            right: 20px;
+        .popular-tag {
             background-color: #e44d87;
             color: white;
-            font-size: 0.8rem;
-            padding: 0.25rem 0.75rem;
+            font-size: 14px;
+            font-weight: bold;
+            padding: 5px 15px;
             border-radius: 20px;
-        }
-        .plan-icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-        }
-        .free-icon {
-            color: #e44d87;
-        }
-        .standard-icon {
-            color: #0077b6;
-        }
-        .pro-icon {
-            color: #0abab5;
-        }
-        .plan-card-container {
-            position: relative;
-            padding-top: 10px;
+            display: inline-block;
+            margin-bottom: 10px;
         }
     </style>
     """, unsafe_allow_html=True)
     
-    # Layout dos cartões de pacote usando colunas
+    # Layout dos pacotes usando colunas
     col1, col2, col3 = st.columns([1, 1, 1])
     
     with col1:
         st.markdown("""
-        <div class="plan-card-container">
-            <div class="plan-card free">
-                <div class="plan-title">Free</div>
-                <div class="plan-icon free-icon">🏠</div>
-                <div class="plan-price">Grátis</div>
-                <div class="plan-period">pacote básico</div>
-                <div class="plan-feature"><i>✓</i> 5 créditos</div>
-                <div class="plan-feature"><i>✓</i> Renovação a cada 24h</div>
-                <div class="plan-feature"><i>✓</i> Múltiplos mercados</div>
-                <div class="plan-feature"><i>✓</i> Acesso à análise básica</div>
-                <div class="plan-feature"><i>✓</i> Suporte ao cliente</div>
-                <br>
+        <div class="package-card" style="border-top: 4px solid #e44d87;">
+            <div class="package-title">Free</div>
+            <div class="package-price">Grátis</div>
+            <div class="package-credits">5 créditos</div>
+            <div class="package-desc">
+                • Renovação a cada 24h<br>
+                • Múltiplos mercados<br>
+                • Acesso à análise básica<br>
+                • Suporte ao cliente
+            </div>
+        </div>
         """, unsafe_allow_html=True)
         
         if current_package == 'free':
-            st.markdown('<div class="plan-button current">Pacote Atual</div></div></div>', unsafe_allow_html=True)
+            st.info("Seu pacote atual")
         else:
-            # Botão para downgrade
             if st.button("Selecionar Pacote Free", key="select_free"):
                 st.session_state.user_manager._downgrade_to_free(st.session_state.email)
                 st.success("Alterado para Pacote Free com sucesso!")
                 time.sleep(1)
                 st.experimental_rerun()
-            st.markdown('</div></div>', unsafe_allow_html=True)
 
     with col2:
         st.markdown("""
-        <div class="plan-card-container">
-            <div class="plan-popular">Popular</div>
-            <div class="plan-card standard">
-                <div class="plan-title">Standard</div>
-                <div class="plan-icon standard-icon">🏢</div>
-                <div class="plan-price">R$ 19,99</div>
-                <div class="plan-period">único pagamento</div>
-                <div class="plan-feature"><i>✓</i> 30 créditos</div>
-                <div class="plan-feature"><i>✓</i> Múltiplos mercados</div>
-                <div class="plan-feature"><i>✓</i> Compra de créditos extras</div>
-                <div class="plan-feature"><i>✓</i> Análise avançada</div>
-                <div class="plan-feature"><i>✓</i> Suporte prioritário</div>
-                <br>
+        <div class="package-card" style="border-top: 4px solid #0077b6;">
+            <div class="popular-tag">Popular</div>
+            <div class="package-title">Standard</div>
+            <div class="package-price">R$ 19,99</div>
+            <div class="package-credits">30 créditos</div>
+            <div class="package-desc">
+                • Único pagamento<br>
+                • Múltiplos mercados<br>
+                • Análise avançada<br>
+                • Suporte prioritário
+            </div>
+        </div>
         """, unsafe_allow_html=True)
         
         if current_package == 'standard':
-            st.markdown('<div class="plan-button current">Pacote Atual</div></div></div>', unsafe_allow_html=True)
+            st.info("Seu pacote atual")
         else:
-            # Botão para upgrade/downgrade
             if st.button("Selecionar Pacote Standard", key="select_standard"):
                 st.session_state.user_manager._upgrade_to_standard(st.session_state.email)
                 st.success("Alterado para Pacote Standard com sucesso!")
                 time.sleep(1)
                 st.experimental_rerun()
-            st.markdown('</div></div>', unsafe_allow_html=True)
 
     with col3:
         st.markdown("""
-        <div class="plan-card-container">
-            <div class="plan-card pro">
-                <div class="plan-title">Pro</div>
-                <div class="plan-icon pro-icon">🏰</div>
-                <div class="plan-price">R$ 29,99</div>
-                <div class="plan-period">único pagamento</div>
-                <div class="plan-feature"><i>✓</i> 60 créditos</div>
-                <div class="plan-feature"><i>✓</i> Múltiplos mercados</div>
-                <div class="plan-feature"><i>✓</i> Compra de créditos extras</div>
-                <div class="plan-feature"><i>✓</i> Análise premium</div>
-                <div class="plan-feature"><i>✓</i> Suporte VIP</div>
-                <div class="plan-feature"><i>✓</i> Dados históricos completos</div>
-                <br>
+        <div class="package-card" style="border-top: 4px solid #0abab5;">
+            <div class="package-title">Pro</div>
+            <div class="package-price">R$ 29,99</div>
+            <div class="package-credits">60 créditos</div>
+            <div class="package-desc">
+                • Único pagamento<br>
+                • Múltiplos mercados<br>
+                • Análise premium<br>
+                • Suporte VIP<br>
+                • Dados históricos completos
+            </div>
+        </div>
         """, unsafe_allow_html=True)
         
         if current_package == 'pro':
-            st.markdown('<div class="plan-button current">Pacote Atual</div></div></div>', unsafe_allow_html=True)
+            st.info("Seu pacote atual")
         else:
-            # Botão para upgrade
             if st.button("Selecionar Pacote Pro", key="select_pro"):
                 st.session_state.user_manager._upgrade_to_pro(st.session_state.email)
                 st.success("Alterado para Pacote Pro com sucesso!")
                 time.sleep(1)
                 st.experimental_rerun()
-            st.markdown('</div></div>', unsafe_allow_html=True)
     
     # Pacotes de recarga
     st.markdown("## Comprar Mais Créditos")
@@ -541,12 +471,13 @@ def show_packages_page():
     
     with recharge_col1:
         st.markdown("""
-        <div style="background-color: #f8f9fa; border-radius: 10px; padding: 1rem; text-align: center; border: 2px solid #0077b6;">
-            <h3 style="color: #333;">30 Créditos</h3>
-            <p style="font-size: 1.8rem; font-weight: bold; color: #333;">R$ 19,99</p>
-            <small style="color: #0077b6;">Pacote Padrão</small>
+        <div class="package-card" style="border: 2px solid #0077b6;">
+            <div class="package-title">30 Créditos</div>
+            <div class="package-price">R$ 19,99</div>
+            <div style="color: #0077b6; margin-top: 10px;">Pacote Padrão</div>
         </div>
         """, unsafe_allow_html=True)
+        
         if st.button("Comprar 30 Créditos", key="buy_30c"):
             if st.session_state.user_manager.add_credits(st.session_state.email, 30):
                 st.success("30 créditos adicionados!")
@@ -555,12 +486,13 @@ def show_packages_page():
     
     with recharge_col2:
         st.markdown("""
-        <div style="background-color: #f8f9fa; border-radius: 10px; padding: 1rem; text-align: center; border: 2px solid #0abab5;">
-            <h3 style="color: #333;">60 Créditos</h3>
-            <p style="font-size: 1.8rem; font-weight: bold; color: #333;">R$ 29,99</p>
-            <small style="color: #0abab5;">Melhor custo-benefício</small>
+        <div class="package-card" style="border: 2px solid #0abab5;">
+            <div class="package-title">60 Créditos</div>
+            <div class="package-price">R$ 29,99</div>
+            <div style="color: #0abab5; margin-top: 10px;">Melhor custo-benefício</div>
         </div>
         """, unsafe_allow_html=True)
+        
         if st.button("Comprar 60 Créditos", key="buy_60c"):
             if st.session_state.user_manager.add_credits(st.session_state.email, 60):
                 st.success("60 créditos adicionados!")
@@ -572,7 +504,6 @@ def show_packages_page():
     if st.button("← Voltar para análises", key="back_to_analysis"):
         st.session_state.page = "main"
         st.experimental_rerun()
-
 def show_usage_stats():
     """Display usage statistics"""
     stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
