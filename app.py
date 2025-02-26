@@ -257,6 +257,7 @@ def show_landing_page():
             <p style="color: #b0b0b0;">© 2025 ValueHunter. Todos os direitos reservados.</p>
         </div>
     """, unsafe_allow_html=True)
+    
 def show_login():
     """Display login form"""
     # Header com a logo - MAIOR
@@ -289,6 +290,7 @@ def show_login():
     st.markdown("<div style='text-align: center;'>Não tem uma conta?</div>", unsafe_allow_html=True)
     if st.button("Registre-se aqui", use_container_width=True):
         go_to_register()
+        
 # 1. Modifique a função show_register() para remover a seleção de pacotes
 def show_register():
     """Display simplified registration form"""
@@ -402,6 +404,7 @@ def show_packages_page():
     if st.button("← Voltar para análises", key="back_to_analysis"):
         st.session_state.page = "main"
         st.experimental_rerun()
+
 def show_usage_stats():
     """Display simplified usage statistics focusing only on credits"""
     stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
@@ -425,6 +428,7 @@ def show_usage_stats():
         st.sidebar.warning(f"⚠️ Sem créditos há {7-stats['days_until_downgrade']} dias. Você será rebaixado para o pacote Free em {stats['days_until_downgrade']} dias se não comprar mais créditos.")
     
     # Não adicione mais nada aqui - os botões serão adicionados em show_main_dashboard
+
 def check_analysis_limits(selected_markets):
     """Check if user can perform analysis with selected markets"""
     num_markets = sum(1 for v in selected_markets.values() if v)
@@ -598,55 +602,8 @@ def show_main_dashboard():
         with st.expander("Configuração de Odds", expanded=True):
             odds_data = get_odds_data(selected_markets)
 
-    # Botão de análise
-    col1, col2, col3 = st.columns([1,1,1])
-    with col2:
-        analyze_button = st.button("Analisar Partida", type="primary")
-        
-        if analyze_button:
-            # Validações básicas
-            if not any(selected_markets.values()):
-                st.error("Por favor, selecione pelo menos um mercado para análise.")
-                return
-            if not odds_data:
-                st.error("Por favor, configure as odds para os mercados selecionados.")
-                return
-            if not check_analysis_limits(selected_markets):
-                return
-                
-            # Análise principal
-            status = st.empty()
-            
-            # Debug créditos
-            credits_before = user_stats['credits_remaining']
-            st.write(f"Créditos antes da análise: {credits_before}")
-            
-            # Etapa 1: Verificar dados
-            status.info("Carregando dados dos times...")
-            if not stats_html or team_stats_df is None:
-                status.error("Falha ao carregar dados")
-                return
-                
-            # Etapa 2: Prompt
-            status.info("Preparando análise...")
-            prompt = format_prompt(team_stats_df, home_team, away_team, odds_data, selected_markets)
-            if not prompt:
-                status.error("Falha ao preparar análise")
-                return
-                
-            # Etapa 3: API
-            status.info("Realizando análise com IA...")
-            analysis = analyze_with_gpt(prompt)
-            if not analysis:
-                status.error("Falha na análise")
-                return
-            
-            # Etapa 4: Resultado e créditos
-            st.markdown(f'<div class="analysis-result">{analysis}</div>', unsafe_allow_html=True)
-            num_markets = sum(1 for v in selected_markets.values() if v)
-            st.session_state.user_manager.record_usage(st.session_state.email, num_markets)
-            st.success(f"{num_markets} créditos foram consumidos.")
-def mostrar_analise(analysis):
+    # Define a função para mostrar análise - CORREÇÃO DA INDENTAÇÃO
+    def mostrar_analise(analysis):
         """Função para mostrar o resultado da análise com formatação melhorada"""
         # Adicionar quebras de linha em alguns pontos para melhorar o layout
         analysis = analysis.replace("**Análise de Mercados Disponíveis:**", "<h2>Análise de Mercados Disponíveis:</h2>")
@@ -660,20 +617,21 @@ def mostrar_analise(analysis):
         analysis = re.sub(r'(\d+\.\d+)%', r'<strong>\1%</strong>', analysis)
         
         # Mostrar o conteúdo com formatação HTML
-    if analysis:
-    # Exibir a análise em uma div com largura total
-    st.markdown(f'<div class="analysis-result">{analysis}</div>', unsafe_allow_html=True)
-    
-    # Registrar uso após análise bem-sucedida
-    num_markets = sum(1 for v in selected_markets.values() if v)
-    try:
-        success = st.session_state.user_manager.record_usage(st.session_state.email, num_markets)
-        if success:
-            st.success(f"{num_markets} créditos foram consumidos.")
-        else:
-            st.warning("Erro ao registrar créditos, mas a análise foi concluída.")
-    except Exception as e:
-        st.warning(f"Erro ao processar créditos: {str(e)}")
+        if analysis:
+            # Exibir a análise em uma div com largura total
+            st.markdown(f'<div class="analysis-result">{analysis}</div>', unsafe_allow_html=True)
+            
+            # Registrar uso após análise bem-sucedida
+            num_markets = sum(1 for v in selected_markets.values() if v)
+            try:
+                success = st.session_state.user_manager.record_usage(st.session_state.email, num_markets)
+                if success:
+                    st.success(f"{num_markets} créditos foram consumidos.")
+                else:
+                    st.warning("Erro ao registrar créditos, mas a análise foi concluída.")
+            except Exception as e:
+                st.warning(f"Erro ao processar créditos: {str(e)}")
+
     # Botão de análise centralizado
     col1, col2, col3 = st.columns([1,1,1])
     with col2:
@@ -702,7 +660,7 @@ def mostrar_analise(analysis):
                 
                 # Etapa 1: Carregar dados
                 status.info("Carregando dados dos times...")
-                if not stats_html or not team_stats_df is not None:
+                if not stats_html or team_stats_df is None:
                     status.error("Falha ao carregar dados")
                     return
                     
@@ -727,14 +685,7 @@ def mostrar_analise(analysis):
                     
                     # Registrar uso após análise bem-sucedida
                     num_markets = sum(1 for v in selected_markets.values() if v)
-                    try:
-                        success = st.session_state.user_manager.record_usage(st.session_state.email, num_markets)
-                        if success:
-                            st.success(f"{num_markets} créditos foram consumidos.")
-                        else:
-                            st.warning("Erro ao registrar créditos, mas a análise foi concluída.")
-                    except Exception as e:
-                        st.warning(f"Erro ao processar créditos: {str(e)}")                    
+                    
                     # Tentar registrar uso várias vezes se necessário
                     max_attempts = 3
                     success = False
@@ -767,6 +718,7 @@ def mostrar_analise(analysis):
                 st.error(f"Erro durante a análise: {str(e)}")
                 st.error(traceback.format_exc())  
                 # Mostrar traceback detalhado para debug        
+
 class UserManager:
     def __init__(self, storage_path: str = "user_data.json"):
         # Caminho simplificado - local no diretório atual
@@ -779,61 +731,64 @@ class UserManager:
             "standard": UserTier("standard", 30, float('inf')),  # 30 credits, multiple markets
             "pro": UserTier("pro", 60, float('inf'))       # 60 credits, multiple markets
         }        
-def _load_users(self) -> Dict:
-    """Load users from JSON file"""
-    if os.path.exists(self.storage_path):
-        try:
-            with open(self.storage_path, 'r') as f:
-                return json.load(f)
-        except json.JSONDecodeError:
-            st.warning("Arquivo de usuários corrompido. Criando novo.")
-            return {}
-        except Exception as e:
-            st.warning(f"Erro ao ler arquivo de usuários: {str(e)}. Criando novo.")
-            return {}
-    return {}    
-def _save_users(self):
-    """Save users to JSON file - versão com debug avançado"""
-    try:
-        # Verificar o caminho absoluto
-        abs_path = os.path.abspath(self.storage_path)
-        st.write(f"DEBUG: Salvando em: {abs_path}")
-        
-        # Tentar salvar diretamente (sem criar diretórios)
-        try:
-            # Converter para string JSON
-            json_data = json.dumps(self.users, indent=2)
-            
-            # Escrever no arquivo
-            with open(self.storage_path, 'w') as f:
-                f.write(json_data)
-                
-            # Verificar se o arquivo foi salvo corretamente
-            if os.path.exists(self.storage_path):
-                filesize = os.path.getsize(self.storage_path)
-                st.write(f"DEBUG: Arquivo salvo com {filesize} bytes")
-                return True
-            else:
-                st.error("DEBUG: Arquivo não encontrado após salvamento")
-                return False
-                
-        except Exception as e:
-            st.error(f"DEBUG: Erro ao salvar arquivo: {str(e)}")
-            # Tentar salvar em local alternativo
+    
+    def _load_users(self) -> Dict:
+        """Load users from JSON file"""
+        if os.path.exists(self.storage_path):
             try:
-                alt_path = "users_backup.json"
-                with open(alt_path, 'w') as f:
-                    f.write(json_data)
-                st.warning(f"Arquivo salvo em caminho alternativo: {alt_path}")
-                self.storage_path = alt_path  # Atualizar caminho para próximos salvamentos
-                return True
-            except Exception as alt_e:
-                st.error(f"DEBUG: Também falhou no caminho alternativo: {str(alt_e)}")
-                return False
+                with open(self.storage_path, 'r') as f:
+                    return json.load(f)
+            except json.JSONDecodeError:
+                st.warning("Arquivo de usuários corrompido. Criando novo.")
+                return {}
+            except Exception as e:
+                st.warning(f"Erro ao ler arquivo de usuários: {str(e)}. Criando novo.")
+                return {}
+        return {}    
+    
+    def _save_users(self):
+        """Save users to JSON file - versão com debug avançado"""
+        try:
+            # Verificar o caminho absoluto
+            abs_path = os.path.abspath(self.storage_path)
+            st.write(f"DEBUG: Salvando em: {abs_path}")
             
-    except Exception as e:
-        st.error(f"DEBUG: Erro crítico geral: {str(e)}")
-        return False
+            # Tentar salvar diretamente (sem criar diretórios)
+            try:
+                # Converter para string JSON
+                json_data = json.dumps(self.users, indent=2)
+                
+                # Escrever no arquivo
+                with open(self.storage_path, 'w') as f:
+                    f.write(json_data)
+                    
+                # Verificar se o arquivo foi salvo corretamente
+                if os.path.exists(self.storage_path):
+                    filesize = os.path.getsize(self.storage_path)
+                    st.write(f"DEBUG: Arquivo salvo com {filesize} bytes")
+                    return True
+                else:
+                    st.error("DEBUG: Arquivo não encontrado após salvamento")
+                    return False
+                    
+            except Exception as e:
+                st.error(f"DEBUG: Erro ao salvar arquivo: {str(e)}")
+                # Tentar salvar em local alternativo
+                try:
+                    alt_path = "users_backup.json"
+                    with open(alt_path, 'w') as f:
+                        f.write(json_data)
+                    st.warning(f"Arquivo salvo em caminho alternativo: {alt_path}")
+                    self.storage_path = alt_path  # Atualizar caminho para próximos salvamentos
+                    return True
+                except Exception as alt_e:
+                    st.error(f"DEBUG: Também falhou no caminho alternativo: {str(alt_e)}")
+                    return False
+                
+        except Exception as e:
+            st.error(f"DEBUG: Erro crítico geral: {str(e)}")
+            return False
+    
     def _hash_password(self, password: str) -> str:
         """Hash password using SHA-256"""
         return hashlib.sha256(password.encode()).hexdigest()
@@ -1014,71 +969,72 @@ def _save_users(self):
             "days_until_downgrade": days_until_downgrade
         }
     
-def record_usage(self, email: str, num_markets: int):
-    """Record usage for a user (each market consumes one credit) - com debugging detalhado"""
-    try:
-        if email not in self.users:
-            st.error(f"Erro: Usuário {email} não encontrado!")
+    def record_usage(self, email: str, num_markets: int):
+        """Record usage for a user (each market consumes one credit) - com debugging detalhado"""
+        try:
+            if email not in self.users:
+                st.error(f"Erro: Usuário {email} não encontrado!")
+                return False
+                
+            # Verificar estado antes da alteração
+            stats_before = self.get_usage_stats(email)
+            credits_before = stats_before.get('credits_remaining', 0)
+            
+            st.write(f"DEBUG: Registrando uso de {num_markets} créditos para {email}. Saldo antes: {credits_before}")
+                
+            today = datetime.now().date().isoformat()
+            usage = {
+                "date": today,
+                "markets": num_markets  # Each market = 1 credit
+            }
+            
+            # Garantir que a estrutura de uso existe
+            if "usage" not in self.users[email]:
+                self.users[email]["usage"] = {"daily": [], "total": []}
+            
+            # Adicionar ao rastreamento diário para análise
+            self.users[email]["usage"]["daily"].append(usage)
+            
+            # Adicionar ao rastreamento de uso total
+            self.users[email]["usage"]["total"].append(usage)
+            
+            # Forçar salvamento de alterações
+            save_success = self._save_users()
+            
+            if not save_success:
+                st.error("Erro ao salvar dados de uso. Verifique permissões de arquivo.")
+                return False
+            
+            # Verificar estado após a alteração
+            stats_after = self.get_usage_stats(email)
+            credits_after = stats_after.get('credits_remaining', 0)
+            
+            st.write(f"DEBUG: Uso registrado com sucesso. Saldo após operação: {credits_after}")
+            
+            # Check if Free tier user has exhausted credits
+            if self.users[email]["tier"] == "free":
+                if credits_after == 0 and not self.users[email].get("free_credits_exhausted_at"):
+                    # Mark when credits were exhausted
+                    self.users[email]["free_credits_exhausted_at"] = datetime.now().isoformat()
+                    # Forçar salvamento novamente após atualizar timestamp
+                    self._save_users()
+            
+            # Check if paid tier user has exhausted credits
+            elif self.users[email]["tier"] in ["standard", "pro"]:
+                if credits_after == 0 and not self.users[email].get("paid_credits_exhausted_at"):
+                    # Mark when credits were exhausted
+                    self.users[email]["paid_credits_exhausted_at"] = datetime.now().isoformat()
+                    # Forçar salvamento novamente após atualizar timestamp
+                    self._save_users()
+            
+            # Retornar sucesso
+            return True
+            
+        except Exception as e:
+            st.error(f"Erro durante registro de uso: {str(e)}")
+            st.error(traceback.format_exc())  # Mostrar traceback completo para debug
             return False
             
-        # Verificar estado antes da alteração
-        stats_before = self.get_usage_stats(email)
-        credits_before = stats_before.get('credits_remaining', 0)
-        
-        st.write(f"DEBUG: Registrando uso de {num_markets} créditos para {email}. Saldo antes: {credits_before}")
-            
-        today = datetime.now().date().isoformat()
-        usage = {
-            "date": today,
-            "markets": num_markets  # Each market = 1 credit
-        }
-        
-        # Garantir que a estrutura de uso existe
-        if "usage" not in self.users[email]:
-            self.users[email]["usage"] = {"daily": [], "total": []}
-        
-        # Adicionar ao rastreamento diário para análise
-        self.users[email]["usage"]["daily"].append(usage)
-        
-        # Adicionar ao rastreamento de uso total
-        self.users[email]["usage"]["total"].append(usage)
-        
-        # Forçar salvamento de alterações
-        save_success = self._save_users()
-        
-        if not save_success:
-            st.error("Erro ao salvar dados de uso. Verifique permissões de arquivo.")
-            return False
-        
-        # Verificar estado após a alteração
-        stats_after = self.get_usage_stats(email)
-        credits_after = stats_after.get('credits_remaining', 0)
-        
-        st.write(f"DEBUG: Uso registrado com sucesso. Saldo após operação: {credits_after}")
-        
-        # Check if Free tier user has exhausted credits
-        if self.users[email]["tier"] == "free":
-            if credits_after == 0 and not self.users[email].get("free_credits_exhausted_at"):
-                # Mark when credits were exhausted
-                self.users[email]["free_credits_exhausted_at"] = datetime.now().isoformat()
-                # Forçar salvamento novamente após atualizar timestamp
-                self._save_users()
-        
-        # Check if paid tier user has exhausted credits
-        elif self.users[email]["tier"] in ["standard", "pro"]:
-            if credits_after == 0 and not self.users[email].get("paid_credits_exhausted_at"):
-                # Mark when credits were exhausted
-                self.users[email]["paid_credits_exhausted_at"] = datetime.now().isoformat()
-                # Forçar salvamento novamente após atualizar timestamp
-                self._save_users()
-        
-        # Retornar sucesso
-        return True
-        
-    except Exception as e:
-        st.error(f"Erro durante registro de uso: {str(e)}")
-        st.error(traceback.format_exc())  # Mostrar traceback completo para debug
-        return False    
     def can_analyze(self, email: str, num_markets: int) -> bool:
         """Check if user can perform analysis"""
         stats = self.get_usage_stats(email)
@@ -1588,6 +1544,7 @@ INSTRUÇÕES ESPECIAIS: VOCÊ DEVE CALCULAR PROBABILIDADES REAIS PARA TODOS OS M
     except Exception as e:
         st.error(f"Erro ao formatar prompt: {str(e)}")
         return None
+
 def main():
     try:
         # Initialize session state
