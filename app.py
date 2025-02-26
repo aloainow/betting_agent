@@ -659,12 +659,14 @@ def show_main_dashboard():
                     num_markets = sum(1 for v in selected_markets.values() if v)
                     st.session_state.user_manager.record_usage(st.session_state.email, num_markets)
                     
-                    # Atualizar estatísticas de uso
-                    show_usage_stats()
+                    # REMOVER ESTA LINHA - é ela que está causando a duplicação
+                    # show_usage_stats()
+                    
+                    # Em vez disso, podemos simplesmente atualizar a exibição dos créditos
+                    # em uma área específica se necessário, mas não a sidebar inteira
                     
             except Exception as e:
-                status.error(f"Erro durante a análise: {str(e)}")
-        
+                status.error(f"Erro durante a análise: {str(e)}")        
 class UserManager:
     def __init__(self, storage_path: str = ".streamlit/users.json"):
         self.storage_path = storage_path
