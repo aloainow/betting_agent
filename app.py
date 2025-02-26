@@ -799,9 +799,8 @@ class UserManager:
             except json.JSONDecodeError:
                 st.error("Erro ao carregar arquivo de usuários. Arquivo corrompido.")
                 return {}
-        return {}
-    
-    def _save_users(self):
+        return {}    
+ def _save_users(self):
     """Save users to JSON file - versão melhorada com mais debug"""
     try:
         # Criar diretório se não existir
