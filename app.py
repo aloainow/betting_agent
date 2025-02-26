@@ -800,9 +800,9 @@ class UserManager:
                 st.error("Erro ao carregar arquivo de usuários. Arquivo corrompido.")
                 return {}
         return {}    
-    def _save_users(self):
+def _save_users(self):
     """Save users to JSON file - versão melhorada com mais debug"""
-        try:
+    try:
         # Criar diretório se não existir
         os.makedirs(os.path.dirname(self.storage_path), exist_ok=True)
         
@@ -834,8 +834,7 @@ class UserManager:
             
     except Exception as e:
         st.error(f"Erro geral ao salvar dados dos usuários: {str(e)}")
-        return False
-    
+        return False    
     def _hash_password(self, password: str) -> str:
         """Hash password using SHA-256"""
         return hashlib.sha256(password.encode()).hexdigest()
