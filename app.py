@@ -767,36 +767,17 @@ class UserManager:
         self._save_users()
         return True, "Registro realizado com sucesso"
     
-    def authenticate(self, email: str, password: str) -> bool:
-        """Authenticate a user"""
-        if email not in self.users:
-            return False
-            
-        # Check if the password matches
-        if self.users[email]["password"] != self._hash_password(password):
-            return False
-            
-        # Check for auto-downgrade to Free when logging in
-        if self.users[email]["tier"] in ["standard", "pro"]:
-            self._check_downgrade_to_free(email)
-            
-        return True
-    
-    def _check_downgrade_to_free(self, email: str) -> None:
-        """Check if user should be downgraded to Free due to inactivity"""
-        if email not in self.users:
-            return
-            
-        user = self.users[email]
+def authenticate(self, email: str, password: str) -> bool:
+    """Authenticate a user"""
+    if email not in self.users:
+        return False
         
-        # If user has no credits and has a timestamp when credits were exhausted
-        if user.get("paid_credits_exhausted_at") and user["tier"] in ["standard", "pro"]:
-            exhausted_time = datetime.fromisoformat(user["paid_credits_exhausted_at"])
-            current_time = datetime.now()
-            
-            # If 7 days (604800 seconds) have passed since credits were exhausted
-            if (current_time - exhausted_time).total_seconds() >= 604800:
-                self._downgrade_to_free(email)
+    # Check if the password matches
+    if self.users[email]["password"] != self._hash_password(password):
+        return False
+        
+    # Autenticação bem-sucedida
+    return True
     
     def add_credits(self, email: str, amount: int) -> bool:
         """Add more credits to a user account"""
@@ -815,94 +796,73 @@ class UserManager:
         self._save_users()
         return True
     
-    def get_usage_stats(self, email: str) -> Dict:
-        """Get usage statistics for a user"""
-        if email not in self.users:
-            return {}
-            
-        user = self.users[email]
+def get_usage_stats(self, email: str) -> Dict:
+    """Get usage statistics for a user"""
+    if email not in self.users:
+        return {}
         
-        # Check for auto-downgrade to Free
-        if user["tier"] in ["standard", "pro"]:
-            self._check_downgrade_to_free(email)
-            # Refresh user data after potential downgrade
-            user = self.users[email]
-        
-        # Calculate total credits used
-        total_credits_used = sum(
-            u["markets"] for u in user["usage"]["total"]
-        )
-        
-        # Get initial credits from tier
-        tier = self.tiers[user["tier"]]
-        initial_credits = tier.total_credits
-        
-        # Add any purchased credits
-        purchased_credits = user.get("purchased_credits", 0)
-        
-        # Special handling for Free tier - check if 24h have passed since credits exhausted
-        free_credits_reset = False
-        next_free_credits_time = None
-        days_until_downgrade = None
-        
-        if user["tier"] == "free":
-            # Se ele já usou créditos e tem marcação de esgotamento
-            if user.get("free_credits_exhausted_at"):
-                # Convert stored time to datetime
-                exhausted_time = datetime.fromisoformat(user["free_credits_exhausted_at"])
-                current_time = datetime.now()
-                
-                # Check if 24 hours have passed
-                if (current_time - exhausted_time).total_seconds() >= 86400:  # 24 hours in seconds
-                    # Reset credits - IMPORTANTE: sempre será 5 créditos, não acumula
-                    user["free_credits_exhausted_at"] = None
-                    
-                    # Clear usage history for free users after reset
-                    user["usage"]["total"] = []
-                    free_credits_reset = True
-                    self._save_users()
-                    
-                    # Após resetar, não há créditos usados
-                    total_credits_used = 0
-                else:
-                    # Calculate time remaining
-                    time_until_reset = exhausted_time + timedelta(days=1) - current_time
-                    hours = int(time_until_reset.total_seconds() // 3600)
-                    minutes = int((time_until_reset.total_seconds() % 3600) // 60)
-                    next_free_credits_time = f"{hours}h {minutes}min"
-        elif user["tier"] in ["standard", "pro"] and user.get("paid_credits_exhausted_at"):
-            # Calculate days until downgrade for paid tiers
-            exhausted_time = datetime.fromisoformat(user["paid_credits_exhausted_at"])
+    user = self.users[email]
+    
+    # Calculate total credits used
+    total_credits_used = sum(
+        u["markets"] for u in user["usage"]["total"]
+    )
+    
+    # Get credits based on user tier
+    tier = self.tiers[user["tier"]]
+    base_credits = tier.total_credits
+    
+    # Add any purchased credits
+    purchased_credits = user.get("purchased_credits", 0)
+    
+    # Free tier special handling - check if 24h have passed since credits exhausted
+    free_credits_reset = False
+    next_free_credits_time = None
+    
+    if user["tier"] == "free":
+        # Se ele já usou créditos e tem marcação de esgotamento
+        if user.get("free_credits_exhausted_at"):
+            # Convert stored time to datetime
+            exhausted_time = datetime.fromisoformat(user["free_credits_exhausted_at"])
             current_time = datetime.now()
             
-            # Calculate days remaining until 7-day mark
-            days_passed = (current_time - exhausted_time).total_seconds() / 86400  # Convert to days
-            days_until_downgrade = max(0, int(7 - days_passed))
-            
-            if days_until_downgrade == 0:
-                # This will be caught on the next check/login
-                pass
-        
-        # Calculate remaining credits
-        remaining_credits = max(0, initial_credits + purchased_credits - total_credits_used)
-        
-        # Check if paid user is out of credits and set exhausted timestamp
-        if user["tier"] in ["standard", "pro"] and remaining_credits == 0 and not user.get("paid_credits_exhausted_at"):
-            user["paid_credits_exhausted_at"] = datetime.now().isoformat()
-            self._save_users()
-        
-        return {
-            "tier": user["tier"],
-            "tier_display": self._format_tier_name(user["tier"]),
-            "credits_used": total_credits_used,
-            "credits_total": initial_credits + purchased_credits,
-            "credits_remaining": remaining_credits,
-            "market_limit": tier.market_limit,
-            "free_credits_reset": free_credits_reset,
-            "next_free_credits_time": next_free_credits_time,
-            "days_until_downgrade": days_until_downgrade
-        }
+            # Check if 24 hours have passed
+            if (current_time - exhausted_time).total_seconds() >= 86400:  # 24 hours in seconds
+                # Reset credits - IMPORTANTE: sempre será 5 créditos, não acumula
+                user["free_credits_exhausted_at"] = None
+                
+                # Clear usage history for free users after reset
+                user["usage"]["total"] = []
+                free_credits_reset = True
+                self._save_users()
+                
+                # Após resetar, não há créditos usados
+                total_credits_used = 0
+            else:
+                # Calculate time remaining
+                time_until_reset = exhausted_time + timedelta(days=1) - current_time
+                hours = int(time_until_reset.total_seconds() // 3600)
+                minutes = int((time_until_reset.total_seconds() % 3600) // 60)
+                next_free_credits_time = f"{hours}h {minutes}min"
     
+    # Calculate remaining credits
+    remaining_credits = max(0, base_credits + purchased_credits - total_credits_used)
+    
+    # Check if user is out of credits and set exhausted timestamp
+    if remaining_credits == 0 and not user.get("free_credits_exhausted_at"):
+        user["free_credits_exhausted_at"] = datetime.now().isoformat()
+        self._save_users()
+    
+    return {
+        "tier": user["tier"],
+        "tier_display": self._format_tier_name(user["tier"]),
+        "credits_used": total_credits_used,
+        "credits_total": base_credits + purchased_credits,
+        "credits_remaining": remaining_credits,
+        "market_limit": tier.market_limit,
+        "free_credits_reset": free_credits_reset,
+        "next_free_credits_time": next_free_credits_time
+    }    
     def record_usage(self, email: str, num_markets: int):
         """Record usage for a user (each market consumes one credit)"""
         try:
@@ -990,20 +950,6 @@ class UserManager:
         self.users[email]["paid_credits_exhausted_at"] = None
         self.users[email]["usage"]["total"] = []
         self.users[email]["purchased_credits"] = 0
-        self._save_users()
-        return True
-        
-    def _downgrade_to_free(self, email: str) -> bool:
-        """Downgrade a user to Free package"""
-        if email not in self.users:
-            return False
-            
-        self.users[email]["tier"] = "free"
-        # Reset usage for free users
-        self.users[email]["usage"]["total"] = []
-        self.users[email]["purchased_credits"] = 0
-        self.users[email]["free_credits_exhausted_at"] = None
-        self.users[email]["paid_credits_exhausted_at"] = None
         self._save_users()
         return True
 
