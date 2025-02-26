@@ -49,9 +49,17 @@ FBREF_URLS = {
     }
 }
 
-# Define the URL for your deployed Streamlit app - replace with your actual URL when deployed
-BASE_URL = "https://valuehunter.streamlit.app"  # Change this to your actual URL when deployed
-
+def get_base_url():
+    """Obter a URL base da aplicação Streamlit de forma dinâmica."""
+    # Verifica se está executando no Streamlit Cloud
+    if os.environ.get("IS_STREAMLIT_CLOUD"):
+        return os.environ.get("STREAMLIT_URL", "https://valuehunter.streamlit.app")
+    # Tenta obter do Streamlit (disponível em versões mais recentes)
+    try:
+        return st.get_option("server.baseUrlPath") or "http://localhost:8501"
+    except:
+        # Fallback para localhost
+        return "http://localhost:8501"
 
 @dataclass
 class UserTier:
@@ -134,27 +142,17 @@ def get_stripe_success_url(credits, email):
     params = urlencode({
         'success': 'true',
         'credits': credits,
-        'email': email
+        'email': email,
+        'session_id': 'SESSION_ID'  # Será substituído pelo Stripe
     })
-    return f"{BASE_URL}?{params}"
-
+    return f"{get_base_url()}/?{params}"
 
 def get_stripe_cancel_url():
     """Get the cancel URL for Stripe checkout."""
-    return f"{BASE_URL}?canceled=true"
-
+    return f"{get_base_url()}/?canceled=true"
 
 def create_stripe_checkout_session(email, credits, amount):
-    """Create a Stripe checkout session for credit purchase.
-    
-    Args:
-        email: User's email
-        credits: Number of credits being purchased
-        amount: Price in BRL (e.g., 19.99 for 30 credits)
-    
-    Returns:
-        checkout_session: Stripe checkout session object or None on error
-    """
+    """Create a Stripe checkout session for credit purchase."""
     try:
         # Initialize Stripe
         init_stripe()
@@ -164,6 +162,10 @@ def create_stripe_checkout_session(email, credits, amount):
         
         # Create product description
         product_description = f"{credits} Créditos para ValueHunter"
+        
+        # Create success URL (Stripe will replace SESSION_ID with the actual ID)
+        success_url = get_stripe_success_url(credits, email)
+        success_url = success_url.replace('SESSION_ID', '{CHECKOUT_SESSION_ID}')
         
         # Create checkout session
         checkout_session = stripe.checkout.Session.create(
@@ -181,7 +183,7 @@ def create_stripe_checkout_session(email, credits, amount):
             }],
             mode='payment',
             customer_email=email,
-            success_url=get_stripe_success_url(credits, email),
+            success_url=success_url,
             cancel_url=get_stripe_cancel_url(),
             metadata={
                 'email': email,
@@ -193,37 +195,6 @@ def create_stripe_checkout_session(email, credits, amount):
         st.error(f"Erro ao criar sessão de pagamento: {str(e)}")
         return None
 
-
-def verify_stripe_payment(session_id):
-    """Verify a Stripe payment session.
-    
-    Args:
-        session_id: Stripe session ID to verify
-        
-    Returns:
-        tuple: (is_valid, credits, email) or (False, None, None) on error
-    """
-    try:
-        # Initialize Stripe
-        init_stripe()
-        
-        # Retrieve the session
-        session = stripe.checkout.Session.retrieve(session_id)
-        
-        # Check if payment was successful
-        if session.payment_status == 'paid':
-            # Get the metadata
-            credits = int(session.metadata.get('credits', 0))
-            email = session.metadata.get('email', '')
-            
-            return True, credits, email
-        
-        return False, None, None
-    except Exception as e:
-        st.error(f"Erro ao verificar pagamento: {str(e)}")
-        return False, None, None
-
-
 def check_payment_success():
     """Check if a payment was successful based on URL parameters."""
     # Get query parameters
@@ -231,17 +202,40 @@ def check_payment_success():
     
     # Check if we have success parameter
     if 'success' in query_params and query_params['success'][0] == 'true':
-        # Get credits and email from parameters
-        credits = int(query_params.get('credits', [0])[0])
-        email = query_params.get('email', [''])[0]
-        
-        if credits > 0 and email:
-            # Process the successful payment
-            if st.session_state.user_manager.add_credits(email, credits):
-                st.success(f"✅ Pagamento processado com sucesso! {credits} créditos foram adicionados à sua conta.")
-                # Clear parameters to prevent duplicate processing
-                st.experimental_set_query_params()
-                return True
+        try:
+            # Get session ID directly from URL
+            if 'session_id' in query_params:
+                session_id = query_params.get('session_id', [''])[0]
+                
+                if session_id:
+                    # Verify the payment with Stripe
+                    is_valid, credits, email = verify_stripe_payment(session_id)
+                    
+                    if is_valid and credits > 0 and email:
+                        # Process the successful payment
+                        if st.session_state.user_manager.add_credits(email, credits):
+                            st.success(f"✅ Pagamento processado com sucesso! {credits} créditos foram adicionados à sua conta.")
+                            # Clear parameters to prevent duplicate processing
+                            st.experimental_set_query_params()
+                            return True
+                        else:
+                            st.error("Erro ao adicionar créditos à sua conta.")
+                    else:
+                        st.warning("Não foi possível verificar o pagamento com o Stripe.")
+                        
+            # Fallback to direct parameter processing if session_id is missing or verification fails
+            credits = int(query_params.get('credits', [0])[0])
+            email = query_params.get('email', [''])[0]
+            
+            if credits > 0 and email and email == st.session_state.email:
+                # Process the successful payment using parameters
+                if st.session_state.user_manager.add_credits(email, credits):
+                    st.success(f"✅ Pagamento processado com sucesso! {credits} créditos foram adicionados à sua conta.")
+                    # Clear parameters to prevent duplicate processing
+                    st.experimental_set_query_params()
+                    return True
+        except Exception as e:
+            st.error(f"Erro ao processar pagamento: {str(e)}")
     
     # Check if payment was canceled
     if 'canceled' in query_params and query_params['canceled'][0] == 'true':
@@ -252,6 +246,32 @@ def check_payment_success():
         
     return None
 
+# Adicione esta nova função para implementar uma verificação manual
+def check_and_add_credits():
+    """Adiciona um método alternativo para adicionar créditos (caso o redirecionamento falhe)"""
+    with st.expander("Problemas com o pagamento?"):
+        st.write("Se você concluiu o pagamento mas os créditos não foram adicionados, insira os detalhes abaixo:")
+        
+        with st.form("manual_credit_form"):
+            session_id = st.text_input("ID da sessão do Stripe (inicia com 'cs_')")
+            submitted = st.form_submit_button("Verificar Pagamento")
+            
+            if submitted and session_id:
+                # Tenta verificar o pagamento
+                is_valid, credits, email = verify_stripe_payment(session_id)
+                
+                if is_valid and credits > 0 and email:
+                    # Verifica se o email do pagamento corresponde ao usuário logado
+                    if email == st.session_state.email:
+                        # Adiciona os créditos
+                        if st.session_state.user_manager.add_credits(email, credits):
+                            st.success(f"✅ Verificação concluída! {credits} créditos foram adicionados à sua conta.")
+                        else:
+                            st.error("Erro ao adicionar créditos.")
+                    else:
+                        st.error("O email do pagamento não corresponde ao seu email de login.")
+                else:
+                    st.error("Não foi possível verificar o pagamento ou os dados do pagamento são inválidos.")
 
 def show_landing_page():
     """Display landing page with about content and login/register buttons"""
@@ -1981,7 +2001,26 @@ def main():
         
         # Check for payment callback - this should run before any page routing
         payment_result = check_payment_success()
-        
+        stripe_error_params = st.experimental_get_query_params().get('error', [None])[0]
+        if stripe_error_params:
+            st.error(f"""
+            Ocorreu um erro durante o processamento do pagamento. 
+            
+            Se você concluiu o pagamento mas foi redirecionado para uma página de erro, por favor:
+            
+            1. Retorne à página de compra de créditos
+            2. Use a opção "Problemas com o pagamento?" 
+            3. Insira o ID da sessão do Stripe (começa com 'cs_')
+            4. Clique em "Verificar Pagamento"
+            
+            Se você não tiver o ID da sessão, entre em contato com o suporte.
+            """)
+            # Limpar parâmetros de erro para evitar exibição repetida
+            clean_params = st.experimental_get_query_params()
+            if 'error' in clean_params:
+                del clean_params['error']
+            st.experimental_set_query_params(**clean_params)
+                
         # Lógica de roteamento de páginas
         if st.session_state.page == "landing":
             show_landing_page()
