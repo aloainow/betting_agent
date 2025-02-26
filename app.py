@@ -521,21 +521,30 @@ def show_main_dashboard():
     
     # Header com a logo na área principal - LOGO AUMENTADO
     st.markdown('<div class="logo-container" style="width: fit-content; padding: 12px 25px;"><span class="logo-v" style="font-size: 3rem;">V</span><span class="logo-text" style="font-size: 2.5rem;">ValueHunter</span></div>', unsafe_allow_html=True)
-        
-    # Ajuste global para Container Principal para layout mais largo
+    
+    # CSS mais agressivo para garantir largura total
     st.markdown("""
         <style>
-            /* Ajuste para o container principal para maximizar largura */
+            /* Forçar largura máxima para o container principal - mais agressivo */
             .main .block-container {
-                max-width: 95% !important;
+                max-width: 100% !important;
                 padding: 1rem !important;
+            }
+            
+            /* Container principal - 100% largura */
+            .stApp > header {
+                background-color: transparent;
+            }
+            
+            .stApp > section[data-testid="stSidebar"] + section {
+                width: 100% !important;
             }
             
             /* Estilo para o resultado da análise com largura expandida */
             .analysis-result {
                 width: 100% !important;
                 max-width: 100% !important;
-                padding: 1.5rem !important;
+                padding: 2rem !important;
                 background-color: #575760;
                 border-radius: 8px;
                 border: 1px solid #6b6b74;
@@ -544,24 +553,56 @@ def show_main_dashboard():
             }
             
             /* Melhor formatação para títulos dentro do resultado */
-            .analysis-result h1, .analysis-result h2, .analysis-result h3 {
+            .analysis-result h1 {
+                color: #fd7014 !important;
+                margin-top: 1.5rem !important;
+                margin-bottom: 1rem !important;
+                font-size: 2rem !important;
+            }
+            
+            .analysis-result h2 {
                 color: #fd7014 !important;
                 margin-top: 1.2rem !important;
                 margin-bottom: 0.8rem !important;
+                font-size: 1.5rem !important;
             }
             
             /* Formatação para listas e itens */
             .analysis-result ul, .analysis-result ol {
                 margin-left: 1.5rem !important;
+                margin-bottom: 1rem !important;
             }
             
-            /* Seções internas com mais espaço */
-            .analysis-result section {
-                margin-bottom: 1.5rem !important;
+            .analysis-result li {
+                margin-bottom: 0.5rem !important;
+            }
+            
+            /* Espaçamento de parágrafos */
+            .analysis-result p {
+                margin-bottom: 1rem !important;
+                line-height: 1.5 !important;
+            }
+            
+            /* Tabelas com layout melhorado - largura total */
+            .analysis-result table {
+                width: 100% !important;
+                margin-bottom: 1rem !important;
+                border-collapse: collapse !important;
+            }
+            
+            .analysis-result td, .analysis-result th {
+                padding: 0.5rem !important;
+                border: 1px solid #6b6b74 !important;
+            }
+            
+            /* Negrito mais visível */
+            .analysis-result strong {
+                color: #fd7014 !important;
+                font-weight: bold !important;
             }
         </style>
     """, unsafe_allow_html=True)
-    
+        
     # Busca dados do campeonato
     with st.spinner("Carregando dados do campeonato..."):
         stats_html = fetch_fbref_data(FBREF_URLS[selected_league]["stats"])
@@ -634,6 +675,23 @@ def show_main_dashboard():
         with st.expander("Configuração de Odds", expanded=True):
             odds_data = get_odds_data(selected_markets)
 
+    # Função para mostrar o resultado da análise com formatação melhorada
+    def mostrar_analise(analysis):
+        """Função para mostrar o resultado da análise com formatação melhorada"""
+        # Adicionar quebras de linha em alguns pontos para melhorar o layout
+        analysis = analysis.replace("**Análise de Mercados Disponíveis:**", "<h2>Análise de Mercados Disponíveis:</h2>")
+        analysis = analysis.replace("**Probabilidades Calculadas:**", "<h2>Probabilidades Calculadas:</h2>")
+        analysis = analysis.replace("**Oportunidades Identificadas (Edges >3%):**", "<h2>Oportunidades Identificadas (Edges >3%):</h2>")
+        analysis = analysis.replace("**Nível de Confiança Geral:", "<h2>Nível de Confiança Geral:")
+        
+        # Destacar odds e porcentagens
+        import re
+        analysis = re.sub(r'@(\d+\.\d+)', r'<strong>@\1</strong>', analysis)
+        analysis = re.sub(r'(\d+\.\d+)%', r'<strong>\1%</strong>', analysis)
+        
+        # Mostrar o conteúdo com formatação HTML
+        st.markdown(f'<div class="analysis-result">{analysis}</div>', unsafe_allow_html=True)
+
     # Botão de análise centralizado
     col1, col2, col3 = st.columns([1,1,1])
     with col2:
@@ -658,6 +716,7 @@ def show_main_dashboard():
             try:
                 # Debug créditos antes da análise
                 credits_before = user_stats['credits_remaining']
+                st.write(f"Créditos antes da análise: {credits_before}")
                 
                 # Etapa 1: Carregar dados
                 status.info("Carregando dados dos times...")
@@ -681,12 +740,22 @@ def show_main_dashboard():
                 
                 # Etapa 4: Mostrar resultado
                 if analysis:
-                    # Depois mostra o conteúdo com formatação melhorada
-                    st.markdown(f'<div class="analysis-result">{analysis}</div>', unsafe_allow_html=True)
+                    # Formatar e mostrar a análise com layout melhorado
+                    mostrar_analise(analysis)
                     
                     # Registrar uso após análise bem-sucedida
                     num_markets = sum(1 for v in selected_markets.values() if v)
-                    success = st.session_state.user_manager.record_usage(st.session_state.email, num_markets)
+                    
+                    # Tentar registrar uso várias vezes se necessário
+                    max_attempts = 3
+                    success = False
+                    
+                    for attempt in range(max_attempts):
+                        success = st.session_state.user_manager.record_usage(st.session_state.email, num_markets)
+                        if success:
+                            break
+                        st.warning(f"Tentativa {attempt+1} de registrar créditos falhou. Tentando novamente...")
+                        time.sleep(1)
                     
                     if success:
                         # Debug créditos depois da análise
@@ -695,16 +764,20 @@ def show_main_dashboard():
                         
                         st.success(f"{num_markets} créditos foram consumidos. Agora você tem {credits_after} créditos.")
                         
+                        # Salvar explicitamente
+                        st.session_state.user_manager._save_users()
+                        
                         # Atualizar estatísticas na interface após uma breve pausa
                         time.sleep(1)
                         st.experimental_rerun()
                     else:
-                        st.warning("Erro ao registrar o uso. Os créditos podem não ter sido deduzidos corretamente.")
+                        st.error("ERRO CRÍTICO: Não foi possível debitar os créditos após várias tentativas.")
+                        st.info("Por favor, atualize a página e tente novamente. Se o problema persistir, entre em contato com o suporte.")
                     
             except Exception as e:
                 st.error(f"Erro durante a análise: {str(e)}")
-                st.error(traceback.format_exc())  # Mostrar traceback detalhado para debug
-        
+                st.error(traceback.format_exc())  
+                # Mostrar traceback detalhado para debug        
 class UserManager:
     def __init__(self, storage_path: str = ".streamlit/users.json"):
         self.storage_path = storage_path
@@ -729,25 +802,40 @@ class UserManager:
         return {}
     
     def _save_users(self):
-        """Save users to JSON file"""
-        try:
-            # Criar diretório se não existir
-            os.makedirs(os.path.dirname(self.storage_path), exist_ok=True)
-            
-            # Criar backup antes de salvar
-            if os.path.exists(self.storage_path):
-                backup_path = f"{self.storage_path}.backup"
+    """Save users to JSON file - versão melhorada com mais debug"""
+    try:
+        # Criar diretório se não existir
+        os.makedirs(os.path.dirname(self.storage_path), exist_ok=True)
+        
+        # Criar backup antes de salvar
+        if os.path.exists(self.storage_path):
+            backup_path = f"{self.storage_path}.backup"
+            try:
                 with open(self.storage_path, 'r') as src, open(backup_path, 'w') as dst:
                     dst.write(src.read())
-                    
-            # Salvar dados atualizados
+            except Exception as e:
+                st.error(f"Erro ao criar backup: {str(e)}")
+                # Continue mesmo sem backup
+                
+        # Salvar dados atualizados
+        try:
             with open(self.storage_path, 'w') as f:
                 json.dump(self.users, f, indent=2)
                 
-            return True
+            # Verificar se o arquivo foi salvo corretamente
+            if os.path.exists(self.storage_path) and os.path.getsize(self.storage_path) > 0:
+                return True
+            else:
+                st.error("Erro ao salvar: arquivo vazio ou não existente.")
+                return False
+                
         except Exception as e:
-            st.error(f"Erro ao salvar dados dos usuários: {str(e)}")
+            st.error(f"Erro ao salvar arquivo: {str(e)}")
             return False
+            
+    except Exception as e:
+        st.error(f"Erro geral ao salvar dados dos usuários: {str(e)}")
+        return False
     
     def _hash_password(self, password: str) -> str:
         """Hash password using SHA-256"""
@@ -929,10 +1017,18 @@ class UserManager:
             "days_until_downgrade": days_until_downgrade
         }
     
-    def record_usage(self, email: str, num_markets: int):
-        """Record usage for a user (each market consumes one credit)"""
+def record_usage(self, email: str, num_markets: int):
+    """Record usage for a user (each market consumes one credit) - com debugging detalhado"""
+    try:
         if email not in self.users:
+            st.error(f"Erro: Usuário {email} não encontrado!")
             return False
+            
+        # Verificar estado antes da alteração
+        stats_before = self.get_usage_stats(email)
+        credits_before = stats_before.get('credits_remaining', 0)
+        
+        st.write(f"DEBUG: Registrando uso de {num_markets} créditos para {email}. Saldo antes: {credits_before}")
             
         today = datetime.now().date().isoformat()
         usage = {
@@ -950,31 +1046,42 @@ class UserManager:
         # Adicionar ao rastreamento de uso total
         self.users[email]["usage"]["total"].append(usage)
         
-        # Obter estatísticas atuais para verificar créditos restantes
-        stats = self.get_usage_stats(email)
-        remaining_after_usage = max(0, stats['credits_remaining'] - num_markets)
+        # Forçar salvamento de alterações
+        save_success = self._save_users()
         
-        # Log de depuração para confirmar cálculo de créditos
-        print(f"DEBUG: User {email} used {num_markets} credits. Before: {stats['credits_remaining']}, After: {remaining_after_usage}")
+        if not save_success:
+            st.error("Erro ao salvar dados de uso. Verifique permissões de arquivo.")
+            return False
+        
+        # Verificar estado após a alteração
+        stats_after = self.get_usage_stats(email)
+        credits_after = stats_after.get('credits_remaining', 0)
+        
+        st.write(f"DEBUG: Uso registrado com sucesso. Saldo após operação: {credits_after}")
         
         # Check if Free tier user has exhausted credits
         if self.users[email]["tier"] == "free":
-            if remaining_after_usage == 0 and not self.users[email].get("free_credits_exhausted_at"):
+            if credits_after == 0 and not self.users[email].get("free_credits_exhausted_at"):
                 # Mark when credits were exhausted
                 self.users[email]["free_credits_exhausted_at"] = datetime.now().isoformat()
+                # Forçar salvamento novamente após atualizar timestamp
+                self._save_users()
         
         # Check if paid tier user has exhausted credits
         elif self.users[email]["tier"] in ["standard", "pro"]:
-            if remaining_after_usage == 0 and not self.users[email].get("paid_credits_exhausted_at"):
+            if credits_after == 0 and not self.users[email].get("paid_credits_exhausted_at"):
                 # Mark when credits were exhausted
                 self.users[email]["paid_credits_exhausted_at"] = datetime.now().isoformat()
-        
-        # Forçar salvamento de alterações
-        saved = self._save_users()
+                # Forçar salvamento novamente após atualizar timestamp
+                self._save_users()
         
         # Retornar sucesso
-        return saved
-    
+        return True
+        
+    except Exception as e:
+        st.error(f"Erro durante registro de uso: {str(e)}")
+        st.error(traceback.format_exc())  # Mostrar traceback completo para debug
+        return False    
     def can_analyze(self, email: str, num_markets: int) -> bool:
         """Check if user can perform analysis"""
         stats = self.get_usage_stats(email)
@@ -1361,7 +1468,7 @@ def get_stat(stats, col, default='N/A'):
         return default
 
 def format_prompt(stats_df, home_team, away_team, odds_data, selected_markets):
-    """Formata o prompt para o GPT-4 com os dados coletados - versão melhorada"""
+    """Formata o prompt para o GPT-4 com os dados coletados - versão corrigida"""
     try:
         st.write("Iniciando formatação do prompt...")
         # Extrair dados dos times
@@ -1440,6 +1547,7 @@ PROBABILIDADES CALCULADAS:
             full_prompt += "Dados insuficientes para cálculo de probabilidades reais\n"
 
         # Adicionar informações sobre quais mercados foram selecionados
+        selected_market_names = []
         full_prompt += "\nMERCADOS SELECIONADOS PARA ANÁLISE:\n"
         for market, selected in selected_markets.items():
             if selected:
@@ -1451,9 +1559,14 @@ PROBABILIDADES CALCULADAS:
                     "escanteios": "Total de Escanteios",
                     "cartoes": "Total de Cartões"
                 }
-                full_prompt += f"- {market_names.get(market, market)}\n"
+                market_name = market_names.get(market, market)
+                selected_market_names.append(market_name)
+                full_prompt += f"- {market_name}\n"
 
+        # Instrução muito clara sobre o formato de saída
         full_prompt += f"""
+INSTRUÇÕES ESPECIAIS: VOCÊ DEVE CALCULAR PROBABILIDADES REAIS PARA TODOS OS MERCADOS LISTADOS ACIMA, não apenas para o Money Line. Use os dados disponíveis e sua expertise para estimar probabilidades reais para CADA mercado selecionado.
+
 [SAÍDA OBRIGATÓRIA]
 
 # Análise da Partida
@@ -1462,13 +1575,15 @@ PROBABILIDADES CALCULADAS:
 # Análise de Mercados Disponíveis:
 {odds_data}
 
-# Probabilidades Calculadas:
-[Detalhamento das probabilidades reais vs implícitas por mercado, INCLUINDO TODOS OS MERCADOS SELECIONADOS]
+# Probabilidades Calculadas (REAL vs IMPLÍCITA):
+[IMPORTANTE - Para cada um dos mercados abaixo, você DEVE mostrar a probabilidade REAL calculada, bem como a probabilidade IMPLÍCITA nas odds:]
+{chr(10).join([f"- {name}" for name in selected_market_names])}
 
 # Oportunidades Identificadas (Edges >3%):
-[Listagem detalhada dos mercados com edges significativos. ATENÇÃO: LISTAR TODOS OS MERCADOS SELECIONADOS, mesmo que não tenham edge significativo, explicando o resultado da análise para cada um.]
+[Listagem detalhada de cada mercado selecionado, indicando explicitamente se há edge ou não para cada opção.]
 
 # Nível de Confiança Geral: [Baixo/Médio/Alto]
+[Breve explicação da sua confiança na análise]
 """
         st.write("Prompt formatado com sucesso!")
         return full_prompt
@@ -1476,7 +1591,6 @@ PROBABILIDADES CALCULADAS:
     except Exception as e:
         st.error(f"Erro ao formatar prompt: {str(e)}")
         return None
-
 def main():
     try:
         # Initialize session state
