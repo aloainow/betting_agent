@@ -1320,7 +1320,7 @@ def fetch_fbref_data(url):
     max_retries = 3
     retry_delay = 5  # segundos iniciais de espera
     
-    # Tenta 3 cache para diferentes ligas
+    # Tenta usar cache para diferentes ligas
     cache_key = url.split('/')[-1]
     cache_file = f"cache_{cache_key.replace('-', '_')}.html"
     
@@ -1371,35 +1371,9 @@ def fetch_fbref_data(url):
             time.sleep(retry_delay)
             retry_delay *= 1.5
     
-    # Se todas as tentativas falharem, tentar usar dados de exemplo
-    try:
-        st.warning("Não foi possível carregar dados do FBref. Utilizando dados de exemplo para demonstração.")
-        example_data = """
-        <!-- Dados de exemplo para demonstração -->
-        <html><body>
-        <table class="stats_table">
-        <thead><tr><th>Squad</th><th>MP</th><th>Gls</th><th>xG</th><th>Poss</th></tr></thead>
-        <tbody>
-        <tr><td>Manchester City</td><td>38</td><td>83</td><td>73.1</td><td>68.2</td></tr>
-        <tr><td>Liverpool</td><td>38</td><td>71</td><td>66.7</td><td>63.1</td></tr>
-        <tr><td>Chelsea</td><td>38</td><td>65</td><td>60.2</td><td>59.4</td></tr>
-        <tr><td>Tottenham</td><td>38</td><td>56</td><td>54.8</td><td>51.3</td></tr>
-        <tr><td>Arsenal</td><td>38</td><td>45</td><td>48.7</td><td>54.2</td></tr>
-        <tr><td>Manchester Utd</td><td>38</td><td>53</td><td>51.5</td><td>52.8</td></tr>
-        </tbody>
-        </table>
-        </body></html>
-        """
-        # Salvar em cache para que não precise tentar novamente
-        try:
-            with open(cache_file, 'w', encoding='utf-8') as f:
-                f.write(example_data)
-        except:
-            pass
-        
-        return example_data
-    except:
-        return None
+    # Se todas as tentativas falharem, retorne None
+    st.error("Não foi possível acessar o FBref após várias tentativas. Tente novamente mais tarde.")
+    return None
 def get_stat(stats, col, default='N/A'):
     """
     Função auxiliar para extrair estatísticas com tratamento de erro
