@@ -522,26 +522,27 @@ def show_main_dashboard():
     # Header com a logo na área principal - LOGO AUMENTADO
     st.markdown('<div class="logo-container" style="width: fit-content; padding: 12px 25px;"><span class="logo-v" style="font-size: 3rem;">V</span><span class="logo-text" style="font-size: 2.5rem;">ValueHunter</span></div>', unsafe_allow_html=True)
     
-    # CSS mais agressivo para garantir largura total
-st.markdown("""
-    <style>
-        /* Ajuste específico apenas para a largura da resposta de análise */
-        .main .block-container {
-            max-width: 95% !important; 
-            padding: 1rem !important;
-        }
+    # CSS para ajustar largura da resposta
+    st.markdown("""
+        <style>
+            /* Ajuste específico apenas para a largura da resposta de análise */
+            .main .block-container {
+                max-width: 95% !important; 
+                padding: 1rem !important;
+            }
+            
+            .analysis-result {
+                width: 100% !important;
+                max-width: 100% !important; 
+                padding: 2rem !important;
+                background-color: #575760;
+                border-radius: 8px;
+                border: 1px solid #6b6b74;
+                margin: 1rem 0;
+            }
+        </style>
+    """, unsafe_allow_html=True)
         
-        .analysis-result {
-            width: 100% !important;
-            max-width: 100% !important; 
-            padding: 2rem !important;
-            background-color: #575760;
-            border-radius: 8px;
-            border: 1px solid #6b6b74;
-            margin: 1rem 0;
-        }
-    </style>
-""", unsafe_allow_html=True)        
     # Busca dados do campeonato
     with st.spinner("Carregando dados do campeonato..."):
         stats_html = fetch_fbref_data(FBREF_URLS[selected_league]["stats"])
@@ -614,6 +615,71 @@ st.markdown("""
         with st.expander("Configuração de Odds", expanded=True):
             odds_data = get_odds_data(selected_markets)
 
+    # Botão de análise centralizado
+    col1, col2, col3 = st.columns([1,1,1])
+    with col2:
+        analyze_button = st.button("Analisar Partida", type="primary")
+        
+        if analyze_button:
+            if not any(selected_markets.values()):
+                st.error("Por favor, selecione pelo menos um mercado para análise.")
+                return
+                
+            if not odds_data:
+                st.error("Por favor, configure as odds para os mercados selecionados.")
+                return
+            
+            # Verificar limites de análise
+            if not check_analysis_limits(selected_markets):
+                return
+                
+            # Criar um placeholder para o status
+            status = st.empty()
+            
+            try:
+                # Debug créditos antes da análise
+                credits_before = user_stats['credits_remaining']
+                st.write(f"Créditos antes da análise: {credits_before}")
+                
+                # Etapa 1: Carregar dados
+                status.info("Carregando dados dos times...")
+                if not stats_html or not team_stats_df is not None:
+                    status.error("Falha ao carregar dados")
+                    return
+                    
+                # Etapa 2: Formatar prompt
+                status.info("Preparando análise...")
+                prompt = format_prompt(team_stats_df, home_team, away_team, odds_data, selected_markets)
+                if not prompt:
+                    status.error("Falha ao preparar análise")
+                    return
+                    
+                # Etapa 3: Análise GPT
+                status.info("Realizando análise com IA...")
+                analysis = analyze_with_gpt(prompt)
+                if not analysis:
+                    status.error("Falha na análise")
+                    return
+                
+                # Etapa 4: Mostrar resultado
+                if analysis:
+                    # Exibir a análise em uma div com largura total
+                    st.markdown(f'<div class="analysis-result">{analysis}</div>', unsafe_allow_html=True)
+                    
+                    # Registrar uso após análise bem-sucedida
+                    num_markets = sum(1 for v in selected_markets.values() if v)
+                    try:
+                        success = st.session_state.user_manager.record_usage(st.session_state.email, num_markets)
+                        if success:
+                            st.success(f"{num_markets} créditos foram consumidos.")
+                        else:
+                            st.warning("Erro ao registrar créditos, mas a análise foi concluída.")
+                    except Exception as e:
+                        st.warning(f"Erro ao processar créditos: {str(e)}")
+                    
+            except Exception as e:
+                st.error(f"Erro durante a análise: {str(e)}")
+                st.error(traceback.format_exc())  # Mostrar traceback detalhado para debug
     # Função para mostrar o resultado da análise com formatação melhorada
     def mostrar_analise(analysis):
         """Função para mostrar o resultado da análise com formatação melhorada"""
