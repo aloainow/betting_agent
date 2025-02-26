@@ -654,31 +654,31 @@ def show_main_dashboard():
                     status.error("Falha ao preparar análise")
                     return
                     
-# Etapa 3: Análise GPT
-status.info("Realizando análise com IA...")
-analysis = analyze_with_gpt(prompt)
-if not analysis:
-    status.error("Falha na análise")
-    return
-
-# Etapa 4: Mostrar resultado
-if analysis:
-    # Exibir a análise em uma div com largura total
-    st.markdown(f'<div class="analysis-result">{analysis}</div>', unsafe_allow_html=True)
-    
-    # Registrar uso após análise bem-sucedida
-    num_markets = sum(1 for v in selected_markets.values() if v)
-    try:
-        success = st.session_state.user_manager.record_usage(st.session_state.email, num_markets)
-        if success:
-            st.success(f"{num_markets} créditos foram consumidos.")
-        else:
-            st.warning("Erro ao registrar créditos, mas a análise foi concluída.")
-    except Exception as e:
-        st.warning(f"Erro ao processar créditos: {str(e)}")                    
-            except Exception as e:
-                st.error(f"Erro durante a análise: {str(e)}")
-                st.error(traceback.format_exc())  
+                # Etapa 3: Análise GPT
+                status.info("Realizando análise com IA...")
+                analysis = analyze_with_gpt(prompt)
+                if not analysis:
+                    status.error("Falha na análise")
+                    return
+                
+                # Etapa 4: Mostrar resultado
+                if analysis:
+                    # Exibir a análise em uma div com largura total
+                    st.markdown(f'<div class="analysis-result">{analysis}</div>', unsafe_allow_html=True)
+                    
+                    # Registrar uso após análise bem-sucedida
+                    num_markets = sum(1 for v in selected_markets.values() if v)
+                    try:
+                        success = st.session_state.user_manager.record_usage(st.session_state.email, num_markets)
+                        if success:
+                            st.success(f"{num_markets} créditos foram consumidos.")
+                        else:
+                            st.warning("Erro ao registrar créditos, mas a análise foi concluída.")
+                    except Exception as e:
+                        st.warning(f"Erro ao processar créditos: {str(e)}")                    
+                            except Exception as e:
+                                st.error(f"Erro durante a análise: {str(e)}")
+                                st.error(traceback.format_exc())  
                 # Mostrar traceback detalhado para debug
                 # Função para mostrar o resultado da análise com formatação melhorada
     def mostrar_analise(analysis):
