@@ -1324,20 +1324,20 @@ def fetch_fbref_data(url):
     cache_key = url.split('/')[-1]
     cache_file = f"cache_{cache_key.replace('-', '_')}.html"
     
-    # Verificar se existe cache
+    # Verificar se existe cache - sem mostrar mensagem
     try:
         with open(cache_file, 'r', encoding='utf-8') as f:
-            st.info("Usando dados em cache para evitar limitação de requisições")
+            # Usando cache silenciosamente sem avisar o usuário
             return f.read()
     except:
         pass  # Se não tem cache, continua com o request
     
     # Adicionar um delay aleatório antes da requisição para parecer mais humano
-    time.sleep(2 + random.random() * 3)
+    time.sleep(1 + random.random() * 2)
     
     for attempt in range(max_retries):
         try:
-            with st.spinner(f"Buscando dados de {url} (tentativa {attempt+1}/{max_retries})..."):
+            with st.spinner(f"Carregando dados do campeonato..."):
                 response = requests.get(url, headers=headers, timeout=30)
                 
                 if response.status_code == 200:
@@ -1350,29 +1350,25 @@ def fetch_fbref_data(url):
                         
                     return response.text
                 elif response.status_code == 429:
-                    st.warning(f"Limite de requisições atingido. Aguardando {retry_delay} segundos antes de tentar novamente...")
+                    # Não mostrar mensagens de warning sobre rate limiting para o usuário
                     time.sleep(retry_delay)
                     retry_delay *= 2  # Backoff exponencial
                 else:
-                    st.error(f"Erro ao buscar dados: Status {response.status_code}")
                     time.sleep(retry_delay)
                     retry_delay *= 1.5
                     
         except requests.Timeout:
-            st.warning(f"Timeout ao buscar dados. Tentando novamente em {retry_delay} segundos...")
             time.sleep(retry_delay)
             retry_delay *= 1.5
         except requests.RequestException as e:
-            st.error(f"Erro na requisição: {str(e)}")
             time.sleep(retry_delay)
             retry_delay *= 1.5
         except Exception as e:
-            st.error(f"Erro inesperado: {str(e)}")
             time.sleep(retry_delay)
             retry_delay *= 1.5
     
-    # Se todas as tentativas falharem, retorne None
-    st.error("Não foi possível acessar o FBref após várias tentativas. Tente novamente mais tarde.")
+    # Mensagem de erro simples e clara
+    st.error("Não foi possível carregar os dados do campeonato. Tente novamente mais tarde.")
     return None
 def get_stat(stats, col, default='N/A'):
     """
