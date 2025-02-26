@@ -403,11 +403,10 @@ def show_packages_page():
         st.session_state.page = "main"
         st.experimental_rerun()
 def show_usage_stats():
-    """Display usage statistics"""
+    """Display simplified usage statistics focusing only on credits"""
     stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
     
     st.sidebar.markdown("### Estatísticas de Uso")
-    st.sidebar.markdown(f"**Pacote Atual:** {stats['tier_display']}")
     st.sidebar.markdown(f"**Créditos Restantes:** {stats['credits_remaining']}")
     
     # Add progress bar for credits
@@ -415,58 +414,32 @@ def show_usage_stats():
         progress = stats['credits_used'] / stats['credits_total']
         st.sidebar.progress(min(progress, 1.0))
     
-    # Package descriptions
-    if stats['tier'] == 'free':
-        info_text = "🔒 **Pacote Free:**\n- 5 créditos\n- Múltiplos mercados por análise"
-        
-        # Show renewal info if credits exhausted
-        if stats.get('next_free_credits_time'):
-            info_text += f"\n- Renovação em: {stats['next_free_credits_time']}"
-        elif stats.get('free_credits_reset'):
-            info_text += "\n- ✅ Créditos renovados!"
-            
-        st.sidebar.info(info_text)
-        
-        # Show upgrade button if credits are low
-        if stats['credits_remaining'] < 2:
-            if st.sidebar.button("🚀 Fazer Upgrade", key="upgrade_button", use_container_width=True):
-                st.session_state.page = "packages"
-                st.experimental_rerun()
-                
-    elif stats['tier'] == 'standard':
-        st.sidebar.info("⭐ **Pacote Standard:**\n- 30 créditos\n- Múltiplos mercados por análise")
-        
-        # Show days remaining info if in 7-day grace period
-        if stats.get('days_until_downgrade'):
-            st.sidebar.warning(f"⚠️ Seus créditos acabaram! Você será automaticamente rebaixado para o pacote Free em {stats['days_until_downgrade']} dias se não comprar mais créditos.")
-        
-    elif stats['tier'] == 'pro':
-        st.sidebar.success("💎 **Pacote Pro:**\n- 60 créditos\n- Múltiplos mercados por análise")
-        
-        # Show days remaining info if in 7-day grace period
-        if stats.get('days_until_downgrade'):
-            st.sidebar.warning(f"⚠️ Seus créditos acabaram! Você será automaticamente rebaixado para o pacote Free em {stats['days_until_downgrade']} dias se não comprar mais créditos.")
+    # Free tier renewal info (if applicable)
+    if stats['tier'] == 'free' and stats.get('next_free_credits_time'):
+        st.sidebar.info(f"⏱️ Renovação em: {stats['next_free_credits_time']}")
+    elif stats['tier'] == 'free' and stats.get('free_credits_reset'):
+        st.sidebar.success("✅ Créditos renovados!")
     
-    # Show purchase button when credits are low for paid tiers
-    if stats['tier'] != 'free' and stats['credits_remaining'] < 10:
-        if st.sidebar.button("📦 Comprar Mais Créditos", key="buy_more_credits"):
-            st.sidebar.markdown("### Pacotes de Créditos")
-            
-            col1, col2 = st.sidebar.columns(2)
-            with col1:
-                if st.button("30 Créditos - R$19,99", key="buy_30"):
-                    st.session_state.user_manager.add_credits(st.session_state.email, 30)
-                    st.success("30 créditos adicionados!")
-                    time.sleep(1)
-                    st.experimental_rerun()
-            
-            with col2:
-                if st.button("60 Créditos - R$29,99", key="buy_60"):
-                    st.session_state.user_manager.add_credits(st.session_state.email, 60)
-                    st.success("60 créditos adicionados!")
-                    time.sleep(1)
-                    st.experimental_rerun()
-
+    # Warning for paid tiers about to be downgraded
+    if stats.get('days_until_downgrade'):
+        st.sidebar.warning(f"⚠️ Sem créditos há {7-stats['days_until_downgrade']} dias. Você será rebaixado para o pacote Free em {stats['days_until_downgrade']} dias se não comprar mais créditos.")
+    
+    # Título principal na sidebar
+    st.sidebar.title("Análise de Apostas")
+    
+    # Add logout button
+    if st.sidebar.button("Logout"):
+        st.session_state.authenticated = False
+        st.session_state.email = None
+        st.session_state.page = "landing"
+        st.experimental_rerun()
+    
+    # Adicionar botão de Ver Pacotes
+    st.sidebar.markdown("---")
+    
+    if st.sidebar.button("🚀 Ver Pacotes de Créditos", key="packages_button", use_container_width=True):
+        st.session_state.page = "packages"  # Página de pacotes
+        st.experimental_rerun()
 def check_analysis_limits(selected_markets):
     """Check if user can perform analysis with selected markets"""
     num_markets = sum(1 for v in selected_markets.values() if v)
