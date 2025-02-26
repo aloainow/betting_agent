@@ -427,8 +427,8 @@ def show_usage_stats():
     # Título principal na sidebar
     st.sidebar.title("Análise de Apostas")
     
-    # Add logout button
-    if st.sidebar.button("Logout"):
+    # Add logout button with unique key
+    if st.sidebar.button("Logout", key="sidebar_logout_btn"):
         st.session_state.authenticated = False
         st.session_state.email = None
         st.session_state.page = "landing"
@@ -437,7 +437,7 @@ def show_usage_stats():
     # Adicionar botão de Ver Pacotes
     st.sidebar.markdown("---")
     
-    if st.sidebar.button("🚀 Ver Pacotes de Créditos", key="packages_button", use_container_width=True):
+    if st.sidebar.button("🚀 Ver Pacotes de Créditos", key="sidebar_packages_button", use_container_width=True):
         st.session_state.page = "packages"  # Página de pacotes
         st.experimental_rerun()
 def check_analysis_limits(selected_markets):
@@ -512,9 +512,9 @@ def show_main_dashboard():
     st.sidebar.title("Análise de Apostas")
     
     # Add logout button
-    if st.sidebar.button("Logout"):
+# Em show_main_dashboard()
+    if  st.sidebar.button("Logout", key="dashboard_logout_btn"):
         st.session_state.authenticated = False
-        st.session_state.email = None
         st.session_state.page = "landing"
         st.experimental_rerun()
         
