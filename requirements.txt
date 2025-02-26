@@ -17,3 +17,4 @@ certifi>=2023.7.22
 cachetools==5.3.2
 aiohttp==3.9.1
 python-dotenv==1.0.0
+stripe==7.5.0
