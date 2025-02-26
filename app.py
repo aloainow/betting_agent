@@ -493,39 +493,33 @@ def show_main_dashboard():
     # Show usage stats in sidebar
     show_usage_stats()
     
-    # Título principal na sidebar (apenas uma vez)
+    # Sidebar layout
     st.sidebar.title("Análise de Apostas")
     
-    # Add logout button (apenas uma vez)
     if st.sidebar.button("Logout", key="sidebar_logout_btn"):
         st.session_state.authenticated = False
         st.session_state.email = None
         st.session_state.page = "landing"
         st.experimental_rerun()
         
-    # Adicionar botão de Ver Pacotes (apenas uma vez)
     st.sidebar.markdown("---")
     
     if st.sidebar.button("🚀 Ver Pacotes de Créditos", key="sidebar_packages_button", use_container_width=True):
-        st.session_state.page = "packages"  # Página de pacotes
+        st.session_state.page = "packages"
         st.experimental_rerun()
     
-    # Configurações na sidebar
     st.sidebar.title("Configurações")
     selected_league = st.sidebar.selectbox(
         "Escolha o campeonato:",
         list(FBREF_URLS.keys())
     )    
-    # Container de status para mensagens
     status_container = st.sidebar.empty()
     
-    # Header com a logo na área principal - LOGO AUMENTADO
+    # Logo e CSS para largura total
     st.markdown('<div class="logo-container" style="width: fit-content; padding: 12px 25px;"><span class="logo-v" style="font-size: 3rem;">V</span><span class="logo-text" style="font-size: 2.5rem;">ValueHunter</span></div>', unsafe_allow_html=True)
     
-    # CSS para ajustar largura da resposta
     st.markdown("""
         <style>
-            /* Ajuste específico apenas para a largura da resposta de análise */
             .main .block-container {
                 max-width: 95% !important; 
                 padding: 1rem !important;
@@ -543,32 +537,27 @@ def show_main_dashboard():
         </style>
     """, unsafe_allow_html=True)
         
-    # Busca dados do campeonato
+    # Carregar dados
     with st.spinner("Carregando dados do campeonato..."):
         stats_html = fetch_fbref_data(FBREF_URLS[selected_league]["stats"])
-        
         if not stats_html:
             st.error("Não foi possível carregar os dados do campeonato")
             return
         
         team_stats_df = parse_team_stats(stats_html)
-        
         if team_stats_df is None or 'Squad' not in team_stats_df.columns:
             st.error("Erro ao processar dados dos times")
             return
         
         status_container.success("Dados carregados com sucesso!")
-        
         teams = team_stats_df['Squad'].dropna().unique().tolist()
-        
         if not teams:
             st.error("Não foi possível encontrar os times do campeonato")
             return
     
-    # Área principal
+    # Layout principal
     st.title("Seleção de Times")
     
-    # Seleção dos times em duas colunas
     col1, col2 = st.columns(2)
     with col1:
         home_team = st.selectbox("Time da Casa:", teams, key='home_team')
@@ -576,25 +565,20 @@ def show_main_dashboard():
         away_teams = [team for team in teams if team != home_team]
         away_team = st.selectbox("Time Visitante:", away_teams, key='away_team')
 
-    # Get user tier limits
     user_stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
 
-    # Seleção de mercados em container separado
+    # Seleção de mercados
     with st.expander("Mercados Disponíveis", expanded=True):
         st.markdown("### Seleção de Mercados")
-        
-        # Mostrar informação de créditos
         st.info(f"Você tem {user_stats['credits_remaining']} créditos disponíveis. Cada mercado selecionado consumirá 1 crédito.")
         
         col1, col2 = st.columns(2)
-        
         with col1:
             selected_markets = {
                 "money_line": st.checkbox("Money Line (1X2)", value=True, key='ml'),
                 "over_under": st.checkbox("Over/Under", key='ou'),
                 "chance_dupla": st.checkbox("Chance Dupla", key='cd')
             }
-        
         with col2:
             selected_markets.update({
                 "ambos_marcam": st.checkbox("Ambos Marcam", key='btts'),
@@ -602,86 +586,67 @@ def show_main_dashboard():
                 "cartoes": st.checkbox("Total de Cartões", key='cards')
             })
 
-        # Verificar número de mercados selecionados
         num_selected_markets = sum(1 for v in selected_markets.values() if v)
         if num_selected_markets == 0:
             st.warning("Por favor, selecione pelo menos um mercado para análise.")
         else:
             st.write(f"Total de créditos que serão consumidos: {num_selected_markets}")
 
-    # Inputs de odds em container separado
+    # Odds
     odds_data = None
     if any(selected_markets.values()):
         with st.expander("Configuração de Odds", expanded=True):
             odds_data = get_odds_data(selected_markets)
 
-    # Botão de análise centralizado
+    # Botão de análise
     col1, col2, col3 = st.columns([1,1,1])
     with col2:
         analyze_button = st.button("Analisar Partida", type="primary")
         
         if analyze_button:
+            # Validações básicas
             if not any(selected_markets.values()):
                 st.error("Por favor, selecione pelo menos um mercado para análise.")
                 return
-                
             if not odds_data:
                 st.error("Por favor, configure as odds para os mercados selecionados.")
                 return
-            
-            # Verificar limites de análise
             if not check_analysis_limits(selected_markets):
                 return
                 
-            # Criar um placeholder para o status
+            # Análise principal
             status = st.empty()
             
-            try:
-                # Debug créditos antes da análise
-                credits_before = user_stats['credits_remaining']
-                st.write(f"Créditos antes da análise: {credits_before}")
+            # Debug créditos
+            credits_before = user_stats['credits_remaining']
+            st.write(f"Créditos antes da análise: {credits_before}")
+            
+            # Etapa 1: Verificar dados
+            status.info("Carregando dados dos times...")
+            if not stats_html or team_stats_df is None:
+                status.error("Falha ao carregar dados")
+                return
                 
-                # Etapa 1: Carregar dados
-                status.info("Carregando dados dos times...")
-                if not stats_html or not team_stats_df is not None:
-                    status.error("Falha ao carregar dados")
-                    return
-                    
-                # Etapa 2: Formatar prompt
-                status.info("Preparando análise...")
-                prompt = format_prompt(team_stats_df, home_team, away_team, odds_data, selected_markets)
-                if not prompt:
-                    status.error("Falha ao preparar análise")
-                    return
-                    
-                # Etapa 3: Análise GPT
-                status.info("Realizando análise com IA...")
-                analysis = analyze_with_gpt(prompt)
-                if not analysis:
-                    status.error("Falha na análise")
-                    return
+            # Etapa 2: Prompt
+            status.info("Preparando análise...")
+            prompt = format_prompt(team_stats_df, home_team, away_team, odds_data, selected_markets)
+            if not prompt:
+                status.error("Falha ao preparar análise")
+                return
                 
-                # Etapa 4: Mostrar resultado
-                if analysis:
-                    # Exibir a análise em uma div com largura total
-                    st.markdown(f'<div class="analysis-result">{analysis}</div>', unsafe_allow_html=True)
-                    
-                    # Registrar uso após análise bem-sucedida
-                    num_markets = sum(1 for v in selected_markets.values() if v)
-                    try:
-                        success = st.session_state.user_manager.record_usage(st.session_state.email, num_markets)
-                        if success:
-                            st.success(f"{num_markets} créditos foram consumidos.")
-                        else:
-                            st.warning("Erro ao registrar créditos, mas a análise foi concluída.")
-                    except Exception as e:
-                        st.warning(f"Erro ao processar créditos: {str(e)}")                    
-                            except Exception as e:
-                                st.error(f"Erro durante a análise: {str(e)}")
-                                st.error(traceback.format_exc())  
-                # Mostrar traceback detalhado para debug
-                # Função para mostrar o resultado da análise com formatação melhorada
-    def mostrar_analise(analysis):
+            # Etapa 3: API
+            status.info("Realizando análise com IA...")
+            analysis = analyze_with_gpt(prompt)
+            if not analysis:
+                status.error("Falha na análise")
+                return
+            
+            # Etapa 4: Resultado e créditos
+            st.markdown(f'<div class="analysis-result">{analysis}</div>', unsafe_allow_html=True)
+            num_markets = sum(1 for v in selected_markets.values() if v)
+            st.session_state.user_manager.record_usage(st.session_state.email, num_markets)
+            st.success(f"{num_markets} créditos foram consumidos.")
+def mostrar_analise(analysis):
         """Função para mostrar o resultado da análise com formatação melhorada"""
         # Adicionar quebras de linha em alguns pontos para melhorar o layout
         analysis = analysis.replace("**Análise de Mercados Disponíveis:**", "<h2>Análise de Mercados Disponíveis:</h2>")
