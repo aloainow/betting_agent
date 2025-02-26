@@ -523,86 +523,25 @@ def show_main_dashboard():
     st.markdown('<div class="logo-container" style="width: fit-content; padding: 12px 25px;"><span class="logo-v" style="font-size: 3rem;">V</span><span class="logo-text" style="font-size: 2.5rem;">ValueHunter</span></div>', unsafe_allow_html=True)
     
     # CSS mais agressivo para garantir largura total
-    st.markdown("""
-        <style>
-            /* Forçar largura máxima para o container principal - mais agressivo */
-            .main .block-container {
-                max-width: 100% !important;
-                padding: 1rem !important;
-            }
-            
-            /* Container principal - 100% largura */
-            .stApp > header {
-                background-color: transparent;
-            }
-            
-            .stApp > section[data-testid="stSidebar"] + section {
-                width: 100% !important;
-            }
-            
-            /* Estilo para o resultado da análise com largura expandida */
-            .analysis-result {
-                width: 100% !important;
-                max-width: 100% !important;
-                padding: 2rem !important;
-                background-color: #575760;
-                border-radius: 8px;
-                border: 1px solid #6b6b74;
-                margin: 1rem 0;
-                font-size: 1.05rem;
-            }
-            
-            /* Melhor formatação para títulos dentro do resultado */
-            .analysis-result h1 {
-                color: #fd7014 !important;
-                margin-top: 1.5rem !important;
-                margin-bottom: 1rem !important;
-                font-size: 2rem !important;
-            }
-            
-            .analysis-result h2 {
-                color: #fd7014 !important;
-                margin-top: 1.2rem !important;
-                margin-bottom: 0.8rem !important;
-                font-size: 1.5rem !important;
-            }
-            
-            /* Formatação para listas e itens */
-            .analysis-result ul, .analysis-result ol {
-                margin-left: 1.5rem !important;
-                margin-bottom: 1rem !important;
-            }
-            
-            .analysis-result li {
-                margin-bottom: 0.5rem !important;
-            }
-            
-            /* Espaçamento de parágrafos */
-            .analysis-result p {
-                margin-bottom: 1rem !important;
-                line-height: 1.5 !important;
-            }
-            
-            /* Tabelas com layout melhorado - largura total */
-            .analysis-result table {
-                width: 100% !important;
-                margin-bottom: 1rem !important;
-                border-collapse: collapse !important;
-            }
-            
-            .analysis-result td, .analysis-result th {
-                padding: 0.5rem !important;
-                border: 1px solid #6b6b74 !important;
-            }
-            
-            /* Negrito mais visível */
-            .analysis-result strong {
-                color: #fd7014 !important;
-                font-weight: bold !important;
-            }
-        </style>
-    """, unsafe_allow_html=True)
+st.markdown("""
+    <style>
+        /* Ajuste específico apenas para a largura da resposta de análise */
+        .main .block-container {
+            max-width: 95% !important; 
+            padding: 1rem !important;
+        }
         
+        .analysis-result {
+            width: 100% !important;
+            max-width: 100% !important; 
+            padding: 2rem !important;
+            background-color: #575760;
+            border-radius: 8px;
+            border: 1px solid #6b6b74;
+            margin: 1rem 0;
+        }
+    </style>
+""", unsafe_allow_html=True)        
     # Busca dados do campeonato
     with st.spinner("Carregando dados do campeonato..."):
         stats_html = fetch_fbref_data(FBREF_URLS[selected_league]["stats"])
@@ -690,8 +629,20 @@ def show_main_dashboard():
         analysis = re.sub(r'(\d+\.\d+)%', r'<strong>\1%</strong>', analysis)
         
         # Mostrar o conteúdo com formatação HTML
-        st.markdown(f'<div class="analysis-result">{analysis}</div>', unsafe_allow_html=True)
-
+    if analysis:
+    # Exibir a análise em uma div com largura total
+    st.markdown(f'<div class="analysis-result">{analysis}</div>', unsafe_allow_html=True)
+    
+    # Registrar uso após análise bem-sucedida
+    num_markets = sum(1 for v in selected_markets.values() if v)
+    try:
+        success = st.session_state.user_manager.record_usage(st.session_state.email, num_markets)
+        if success:
+            st.success(f"{num_markets} créditos foram consumidos.")
+        else:
+            st.warning("Erro ao registrar créditos, mas a análise foi concluída.")
+    except Exception as e:
+        st.warning(f"Erro ao processar créditos: {str(e)}")
     # Botão de análise centralizado
     col1, col2, col3 = st.columns([1,1,1])
     with col2:
@@ -779,7 +730,8 @@ def show_main_dashboard():
                 st.error(traceback.format_exc())  
                 # Mostrar traceback detalhado para debug        
 class UserManager:
-    def __init__(self, storage_path: str = ".streamlit/users.json"):
+    def __init__(self, storage_path: str = "user_data.json"):
+        # Caminho simplificado - local no diretório atual
         self.storage_path = storage_path
         self.users = self._load_users()
         
@@ -797,45 +749,74 @@ class UserManager:
                 with open(self.storage_path, 'r') as f:
                     return json.load(f)
             except json.JSONDecodeError:
-                st.error("Erro ao carregar arquivo de usuários. Arquivo corrompido.")
+                st.warning("Arquivo de usuários corrompido. Criando novo.")
                 return {}
-        return {}    
-def _save_users(self):
-    """Save users to JSON file - versão melhorada com mais debug"""
-    try:
-        # Criar diretório se não existir
-        os.makedirs(os.path.dirname(self.storage_path), exist_ok=True)
-        
-        # Criar backup antes de salvar
-        if os.path.exists(self.storage_path):
-            backup_path = f"{self.storage_path}.backup"
-            try:
-                with open(self.storage_path, 'r') as src, open(backup_path, 'w') as dst:
-                    dst.write(src.read())
             except Exception as e:
-                st.error(f"Erro ao criar backup: {str(e)}")
-                # Continue mesmo sem backup
-                
-        # Salvar dados atualizados
+                st.warning(f"Erro ao ler arquivo de usuários: {str(e)}. Criando novo.")
+                return {}
+        return {}
+    
+    def _save_users(self):
+        """Save users to JSON file - versão simplificada"""
         try:
+            # Tentar salvar diretamente
             with open(self.storage_path, 'w') as f:
                 json.dump(self.users, f, indent=2)
+            return True
+        except Exception as e:
+            st.warning(f"Erro ao salvar usuários: {str(e)}")
+            # Tentar caminho alternativo
+            try:
+                alt_path = "users_backup.json"
+                with open(alt_path, 'w') as f:
+                    json.dump(self.users, f, indent=2)
+                self.storage_path = alt_path  # Atualizar caminho
+                return True
+            except:
+                return False
+def _save_users(self):
+    """Save users to JSON file - versão com debug avançado"""
+    try:
+        # Verificar o caminho absoluto
+        abs_path = os.path.abspath(self.storage_path)
+        st.write(f"DEBUG: Salvando em: {abs_path}")
+        
+        # Tentar salvar diretamente (sem criar diretórios)
+        try:
+            # Converter para string JSON
+            json_data = json.dumps(self.users, indent=2)
+            
+            # Escrever no arquivo
+            with open(self.storage_path, 'w') as f:
+                f.write(json_data)
                 
             # Verificar se o arquivo foi salvo corretamente
-            if os.path.exists(self.storage_path) and os.path.getsize(self.storage_path) > 0:
+            if os.path.exists(self.storage_path):
+                filesize = os.path.getsize(self.storage_path)
+                st.write(f"DEBUG: Arquivo salvo com {filesize} bytes")
                 return True
             else:
-                st.error("Erro ao salvar: arquivo vazio ou não existente.")
+                st.error("DEBUG: Arquivo não encontrado após salvamento")
                 return False
                 
         except Exception as e:
-            st.error(f"Erro ao salvar arquivo: {str(e)}")
-            return False
+            st.error(f"DEBUG: Erro ao salvar arquivo: {str(e)}")
+            # Tentar salvar em local alternativo
+            try:
+                alt_path = "users_backup.json"
+                with open(alt_path, 'w') as f:
+                    f.write(json_data)
+                st.warning(f"Arquivo salvo em caminho alternativo: {alt_path}")
+                self.storage_path = alt_path  # Atualizar caminho para próximos salvamentos
+                return True
+            except Exception as alt_e:
+                st.error(f"DEBUG: Também falhou no caminho alternativo: {str(alt_e)}")
+                return False
             
     except Exception as e:
-        st.error(f"Erro geral ao salvar dados dos usuários: {str(e)}")
-        return False    
-    def _hash_password(self, password: str) -> str:
+        st.error(f"DEBUG: Erro crítico geral: {str(e)}")
+        return False
+def _hash_password(self, password: str) -> str:
         """Hash password using SHA-256"""
         return hashlib.sha256(password.encode()).hexdigest()
     
