@@ -289,9 +289,10 @@ def show_login():
     st.markdown("<div style='text-align: center;'>Não tem uma conta?</div>", unsafe_allow_html=True)
     if st.button("Registre-se aqui", use_container_width=True):
         go_to_register()
+# 1. Modifique a função show_register() para remover a seleção de pacotes
 def show_register():
-    """Display registration form"""
-    # Header com a logo - MAIOR
+    """Display simplified registration form"""
+    # Header com a logo
     st.markdown('<div class="logo-container" style="width: fit-content; padding: 12px 25px;"><span class="logo-v" style="font-size: 3rem;">V</span><span class="logo-text" style="font-size: 2.5rem;">ValueHunter</span></div>', unsafe_allow_html=True)
     st.title("Register")
     
@@ -300,26 +301,20 @@ def show_register():
         go_to_landing()
     
     with st.form("register_form"):
-        col1, col2 = st.columns(2)
-        with col1:
-            email = st.text_input("Email")
-            password = st.text_input("Password", type="password")
-        with col2:
-            st.markdown("### Pacotes Disponíveis")
-            st.markdown("🔒 **Free:** 5 créditos (renovação a cada 24h), múltiplos mercados")
-            st.markdown("⭐ **Standard:** 30 créditos por R$19,99")
-            st.markdown("💎 **Pro:** 60 créditos por R$29,99")
-            tier = st.selectbox("Selecione seu Pacote", ["free", "standard", "pro"])
+        email = st.text_input("Email")
+        password = st.text_input("Password", type="password")
         
         submitted = st.form_submit_button("Register")
         
         if submitted:
-            success, message = st.session_state.user_manager.register_user(email, password, tier)
+            # Todo usuário novo começa automaticamente no pacote Free
+            success, message = st.session_state.user_manager.register_user(email, password, "free")
             if success:
                 st.success(message)
+                st.info("Você foi registrado no pacote Free com 5 créditos. Você pode fazer upgrade a qualquer momento.")
                 st.session_state.page = "login"
                 st.session_state.show_register = False
-                time.sleep(1)
+                time.sleep(2)
                 st.experimental_rerun()
             else:
                 st.error(message)
@@ -328,174 +323,77 @@ def show_register():
     st.markdown("<div style='text-align: center;'>Já tem uma conta?</div>", unsafe_allow_html=True)
     if st.button("Fazer login", use_container_width=True):
         go_to_login()
+
+# 2. Modifique a função show_packages_page() para simplificar a compra de créditos
 def show_packages_page():
-    """Display credit packages page for subscription options"""
+    """Display simplified credit purchase page"""
     # Header com a logo
     st.markdown('<div class="logo-container" style="width: fit-content; padding: 12px 25px;"><span class="logo-v" style="font-size: 3rem;">V</span><span class="logo-text" style="font-size: 2.5rem;">ValueHunter</span></div>', unsafe_allow_html=True)
     
-    st.title("Pacotes de Créditos")
-    st.markdown("Escolha o pacote que melhor atende às suas necessidades de análises esportivas.")
+    st.title("Comprar Mais Créditos")
+    st.markdown("Adquira mais créditos quando precisar, sem necessidade de mudar de pacote.")
     
-    # Obter informações do usuário atual
-    user_stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
-    current_package = user_stats['tier']
-    
-    # CSS simplificado para os cartões de pacotes
+    # CSS para os cartões de compra
     st.markdown("""
     <style>
-        .package-card {
-            background-color: #FFFFFF;
+        .credit-card {
+            background-color: #3F3F45;
+            border: 1px solid #575760;
             border-radius: 12px;
-            padding: 20px;
-            text-align: center;
+            padding: 25px;
             margin-bottom: 20px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        .package-title {
-            font-size: 24px;
-            font-weight: bold;
-            margin-bottom: 10px;
-            color: #222831;
-        }
-        .package-price {
-            font-size: 36px;
-            font-weight: bold;
-            margin-bottom: 10px;
-            color: #222831;
-        }
-        .package-credits {
-            font-size: 18px;
-            margin-bottom: 20px;
-            color: #222831;
-        }
-        .package-desc {
-            margin-bottom: 20px;
-            color: #222831;
-            text-align: left;
-        }
-        .popular-tag {
-            background-color: #e44d87;
             color: white;
-            font-size: 14px;
+            text-align: center;
+        }
+        .credit-title {
+            font-size: 28px;
             font-weight: bold;
-            padding: 5px 15px;
-            border-radius: 20px;
-            display: inline-block;
-            margin-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        .credit-price {
+            font-size: 42px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: white;
+        }
+        .credit-desc {
+            font-size: 16px;
+            color: #b0b0b0;
+            margin-bottom: 15px;
         }
     </style>
     """, unsafe_allow_html=True)
     
-    # Layout dos pacotes usando colunas
-    col1, col2, col3 = st.columns([1, 1, 1])
+    # Layout da página de compra
+    col1, col2 = st.columns(2)
     
     with col1:
         st.markdown("""
-        <div class="package-card" style="border-top: 4px solid #e44d87;">
-            <div class="package-title">Free</div>
-            <div class="package-price">Grátis</div>
-            <div class="package-credits">5 créditos</div>
-            <div class="package-desc">
-                • Renovação a cada 24h<br>
-                • Múltiplos mercados<br>
-                • Acesso à análise básica<br>
-                • Suporte ao cliente
-            </div>
+        <div class="credit-card">
+            <div class="credit-title">30 Créditos</div>
+            <div class="credit-price">R$ 19,99</div>
+            <div class="credit-desc">Pacote Standard</div>
         </div>
         """, unsafe_allow_html=True)
         
-        if current_package == 'free':
-            st.info("Seu pacote atual")
-        else:
-            if st.button("Selecionar Pacote Free", key="select_free"):
-                st.session_state.user_manager._downgrade_to_free(st.session_state.email)
-                st.success("Alterado para Pacote Free com sucesso!")
+        if st.button("Comprar 30 Créditos", use_container_width=True, key="buy_30c"):
+            if st.session_state.user_manager.add_credits(st.session_state.email, 30):
+                st.success("30 créditos adicionados à sua conta!")
                 time.sleep(1)
                 st.experimental_rerun()
-
+    
     with col2:
         st.markdown("""
-        <div class="package-card" style="border-top: 4px solid #0077b6;">
-            <div class="popular-tag">Popular</div>
-            <div class="package-title">Standard</div>
-            <div class="package-price">R$ 19,99</div>
-            <div class="package-credits">30 créditos</div>
-            <div class="package-desc">
-                • Único pagamento<br>
-                • Múltiplos mercados<br>
-                • Análise avançada<br>
-                • Suporte prioritário
-            </div>
+        <div class="credit-card">
+            <div class="credit-title">60 Créditos</div>
+            <div class="credit-price">R$ 29,99</div>
+            <div class="credit-desc">Pacote Pro</div>
         </div>
         """, unsafe_allow_html=True)
         
-        if current_package == 'standard':
-            st.info("Seu pacote atual")
-        else:
-            if st.button("Selecionar Pacote Standard", key="select_standard"):
-                st.session_state.user_manager._upgrade_to_standard(st.session_state.email)
-                st.success("Alterado para Pacote Standard com sucesso!")
-                time.sleep(1)
-                st.experimental_rerun()
-
-    with col3:
-        st.markdown("""
-        <div class="package-card" style="border-top: 4px solid #0abab5;">
-            <div class="package-title">Pro</div>
-            <div class="package-price">R$ 29,99</div>
-            <div class="package-credits">60 créditos</div>
-            <div class="package-desc">
-                • Único pagamento<br>
-                • Múltiplos mercados<br>
-                • Análise premium<br>
-                • Suporte VIP<br>
-                • Dados históricos completos
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        if current_package == 'pro':
-            st.info("Seu pacote atual")
-        else:
-            if st.button("Selecionar Pacote Pro", key="select_pro"):
-                st.session_state.user_manager._upgrade_to_pro(st.session_state.email)
-                st.success("Alterado para Pacote Pro com sucesso!")
-                time.sleep(1)
-                st.experimental_rerun()
-    
-    # Pacotes de recarga
-    st.markdown("## Comprar Mais Créditos")
-    st.markdown("Adquira mais créditos quando precisar, sem necessidade de mudar de pacote.")
-    
-    recharge_col1, recharge_col2 = st.columns(2)
-    
-    with recharge_col1:
-        st.markdown("""
-        <div class="package-card" style="border: 2px solid #0077b6;">
-            <div class="package-title">30 Créditos</div>
-            <div class="package-price">R$ 19,99</div>
-            <div style="color: #0077b6; margin-top: 10px;">Pacote Padrão</div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        if st.button("Comprar 30 Créditos", key="buy_30c"):
-            if st.session_state.user_manager.add_credits(st.session_state.email, 30):
-                st.success("30 créditos adicionados!")
-                time.sleep(1)
-                st.experimental_rerun()
-    
-    with recharge_col2:
-        st.markdown("""
-        <div class="package-card" style="border: 2px solid #0abab5;">
-            <div class="package-title">60 Créditos</div>
-            <div class="package-price">R$ 29,99</div>
-            <div style="color: #0abab5; margin-top: 10px;">Melhor custo-benefício</div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        if st.button("Comprar 60 Créditos", key="buy_60c"):
+        if st.button("Comprar 60 Créditos", use_container_width=True, key="buy_60c"):
             if st.session_state.user_manager.add_credits(st.session_state.email, 60):
-                st.success("60 créditos adicionados!")
+                st.success("60 créditos adicionados à sua conta!")
                 time.sleep(1)
                 st.experimental_rerun()
     
