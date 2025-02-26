@@ -757,12 +757,19 @@ def show_main_dashboard():
                 
                 # Etapa 4: Mostrar resultado
                 if analysis:
-                    # Formatar e mostrar a análise com layout melhorado
-                    mostrar_analise(analysis)
+                    # Exibir a análise em uma div com largura total
+                    st.markdown(f'<div class="analysis-result">{analysis}</div>', unsafe_allow_html=True)
                     
                     # Registrar uso após análise bem-sucedida
                     num_markets = sum(1 for v in selected_markets.values() if v)
-                    
+                    try:
+                        success = st.session_state.user_manager.record_usage(st.session_state.email, num_markets)
+                        if success:
+                            st.success(f"{num_markets} créditos foram consumidos.")
+                        else:
+                            st.warning("Erro ao registrar créditos, mas a análise foi concluída.")
+                    except Exception as e:
+                        st.warning(f"Erro ao processar créditos: {str(e)}")                    
                     # Tentar registrar uso várias vezes se necessário
                     max_attempts = 3
                     success = False
