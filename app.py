@@ -679,8 +679,9 @@ def show_main_dashboard():
                     
             except Exception as e:
                 st.error(f"Erro durante a análise: {str(e)}")
-                st.error(traceback.format_exc())  # Mostrar traceback detalhado para debug
-    # Função para mostrar o resultado da análise com formatação melhorada
+                st.error(traceback.format_exc())  
+                # Mostrar traceback detalhado para debug
+                # Função para mostrar o resultado da análise com formatação melhorada
     def mostrar_analise(analysis):
         """Função para mostrar o resultado da análise com formatação melhorada"""
         # Adicionar quebras de linha em alguns pontos para melhorar o layout
@@ -813,40 +814,20 @@ class UserManager:
             "free": UserTier("free", 5, float('inf')),     # 5 credits, multiple markets
             "standard": UserTier("standard", 30, float('inf')),  # 30 credits, multiple markets
             "pro": UserTier("pro", 60, float('inf'))       # 60 credits, multiple markets
-        }
-        
-    def _load_users(self) -> Dict:
-        """Load users from JSON file"""
-        if os.path.exists(self.storage_path):
-            try:
-                with open(self.storage_path, 'r') as f:
-                    return json.load(f)
-            except json.JSONDecodeError:
-                st.warning("Arquivo de usuários corrompido. Criando novo.")
-                return {}
-            except Exception as e:
-                st.warning(f"Erro ao ler arquivo de usuários: {str(e)}. Criando novo.")
-                return {}
-        return {}
-    
-    def _save_users(self):
-        """Save users to JSON file - versão simplificada"""
+        }        
+def _load_users(self) -> Dict:
+    """Load users from JSON file"""
+    if os.path.exists(self.storage_path):
         try:
-            # Tentar salvar diretamente
-            with open(self.storage_path, 'w') as f:
-                json.dump(self.users, f, indent=2)
-            return True
+            with open(self.storage_path, 'r') as f:
+                return json.load(f)
+        except json.JSONDecodeError:
+            st.warning("Arquivo de usuários corrompido. Criando novo.")
+            return {}
         except Exception as e:
-            st.warning(f"Erro ao salvar usuários: {str(e)}")
-            # Tentar caminho alternativo
-            try:
-                alt_path = "users_backup.json"
-                with open(alt_path, 'w') as f:
-                    json.dump(self.users, f, indent=2)
-                self.storage_path = alt_path  # Atualizar caminho
-                return True
-            except:
-                return False
+            st.warning(f"Erro ao ler arquivo de usuários: {str(e)}. Criando novo.")
+            return {}
+    return {}    
 def _save_users(self):
     """Save users to JSON file - versão com debug avançado"""
     try:
@@ -889,7 +870,7 @@ def _save_users(self):
     except Exception as e:
         st.error(f"DEBUG: Erro crítico geral: {str(e)}")
         return False
-def _hash_password(self, password: str) -> str:
+    def _hash_password(self, password: str) -> str:
         """Hash password using SHA-256"""
         return hashlib.sha256(password.encode()).hexdigest()
     
