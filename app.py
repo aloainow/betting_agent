@@ -424,22 +424,7 @@ def show_usage_stats():
     if stats.get('days_until_downgrade'):
         st.sidebar.warning(f"⚠️ Sem créditos há {7-stats['days_until_downgrade']} dias. Você será rebaixado para o pacote Free em {stats['days_until_downgrade']} dias se não comprar mais créditos.")
     
-    # Título principal na sidebar
-    st.sidebar.title("Análise de Apostas")
-    
-    # Add logout button with unique key
-    if st.sidebar.button("Logout", key="sidebar_logout_btn"):
-        st.session_state.authenticated = False
-        st.session_state.email = None
-        st.session_state.page = "landing"
-        st.experimental_rerun()
-    
-    # Adicionar botão de Ver Pacotes
-    st.sidebar.markdown("---")
-    
-    if st.sidebar.button("🚀 Ver Pacotes de Créditos", key="sidebar_packages_button", use_container_width=True):
-        st.session_state.page = "packages"  # Página de pacotes
-        st.experimental_rerun()
+    # Não adicione mais nada aqui - os botões serão adicionados em show_main_dashboard
 def check_analysis_limits(selected_markets):
     """Check if user can perform analysis with selected markets"""
     num_markets = sum(1 for v in selected_markets.values() if v)
@@ -508,23 +493,20 @@ def show_main_dashboard():
     # Show usage stats in sidebar
     show_usage_stats()
     
-    # Título principal na sidebar
+    # Título principal na sidebar (apenas uma vez)
     st.sidebar.title("Análise de Apostas")
     
-    # Add logout button
-# Em show_main_dashboard()
-    if  st.sidebar.button("Logout", key="dashboard_logout_btn"):
+    # Add logout button (apenas uma vez)
+    if st.sidebar.button("Logout", key="sidebar_logout_btn"):
         st.session_state.authenticated = False
+        st.session_state.email = None
         st.session_state.page = "landing"
         st.experimental_rerun()
         
-    # Obter informações do usuário atual
-    user_stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
-    
-    # Adicionar botão de Ver Pacotes
+    # Adicionar botão de Ver Pacotes (apenas uma vez)
     st.sidebar.markdown("---")
     
-    if st.sidebar.button("🚀 Ver Pacotes de Créditos", key="packages_button", use_container_width=True):
+    if st.sidebar.button("🚀 Ver Pacotes de Créditos", key="sidebar_packages_button", use_container_width=True):
         st.session_state.page = "packages"  # Página de pacotes
         st.experimental_rerun()
     
@@ -533,8 +515,7 @@ def show_main_dashboard():
     selected_league = st.sidebar.selectbox(
         "Escolha o campeonato:",
         list(FBREF_URLS.keys())
-    )
-    
+    )    
     # Container de status para mensagens
     status_container = st.sidebar.empty()
     
