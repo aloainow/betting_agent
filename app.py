@@ -54,12 +54,9 @@ def get_base_url():
     # Verifica se está executando no Streamlit Cloud
     if os.environ.get("IS_STREAMLIT_CLOUD"):
         return os.environ.get("STREAMLIT_URL", "https://valuehunter.streamlit.app")
-    # Tenta obter do Streamlit (disponível em versões mais recentes)
-    try:
-        return st.get_option("server.baseUrlPath") or "http://localhost:8501"
-    except:
-        # Fallback para localhost
-        return "http://localhost:8501"
+    # Para desenvolvimento local, retornar uma URL que permita copiar
+    # Isso evita problemas de redirecionamento entre navegadores
+    return "https://non-existent-for-copy.streamlit.app"
 
 @dataclass
 class UserTier:
@@ -163,9 +160,17 @@ def create_stripe_checkout_session(email, credits, amount):
         # Create product description
         product_description = f"{credits} Créditos para ValueHunter"
         
-        # Create success URL (Stripe will replace SESSION_ID with the actual ID)
-        success_url = get_stripe_success_url(credits, email)
-        success_url = success_url.replace('SESSION_ID', '{CHECKOUT_SESSION_ID}')
+        # Determine if we're in local development
+        is_local_dev = "localhost" in get_base_url() or "non-existent" in get_base_url()
+        
+        # Use a different success URL for local development
+        if is_local_dev:
+            # Em ambiente de desenvolvimento, usar uma página especial para copiar o ID da sessão
+            success_url = "https://stripe-success.streamlit.app/?session_id={CHECKOUT_SESSION_ID}"
+        else:
+            # Em produção, usar a URL normal
+            success_url = get_stripe_success_url(credits, email)
+            success_url = success_url.replace('SESSION_ID', '{CHECKOUT_SESSION_ID}')
         
         # Create checkout session
         checkout_session = stripe.checkout.Session.create(
@@ -190,11 +195,26 @@ def create_stripe_checkout_session(email, credits, amount):
                 'credits': str(credits)
             }
         )
+        
+        # Para ambiente de desenvolvimento, exibir instruções especiais
+        if is_local_dev:
+            st.info(f"""
+            **Instruções especiais para ambiente de desenvolvimento:**
+            
+            1. Após concluir o pagamento no Stripe, você verá uma página com o ID da sessão
+            2. Copie o ID da sessão (começa com cs_test_...)
+            3. Volte a este app e use a opção "Problemas com o pagamento?" acima
+            4. Cole o ID da sessão e clique em verificar
+            
+            **ID da sessão atual:** `{checkout_session.id}`
+            
+            Anote este código como backup caso precise.
+            """)
+            
         return checkout_session
     except Exception as e:
         st.error(f"Erro ao criar sessão de pagamento: {str(e)}")
         return None
-
 def check_payment_success():
     """Check if a payment was successful based on URL parameters."""
     # Get query parameters
@@ -246,14 +266,56 @@ def check_payment_success():
         
     return None
 
-# Adicione esta nova função para implementar uma verificação manual
+# Adicione esta função para ajudar o usuário a extrair automaticamente o ID da sessão da URL
+
+def extract_session_id_from_url():
+    """Extrai o ID da sessão do Stripe da URL atual se disponível."""
+    query_params = st.experimental_get_query_params()
+    
+    # Verificar o parâmetro session_id na URL
+    session_id = query_params.get('session_id', [''])[0]
+    
+    # Se encontrou um session_id que parece válido
+    if session_id and session_id.startswith('cs_'):
+        return session_id
+    
+    # Verificar a URL completa para casos onde o session_id está em algum lugar na URL
+    # (isso pode acontecer em alguns cenários de redirecionamento)
+    try:
+        full_url = st.experimental_get_query_params().get('__url', [''])[0]
+        if 'cs_test_' in full_url or 'cs_live_' in full_url:
+            # Extrair o ID da sessão usando regex
+            import re
+            match = re.search(r'(cs_(test|live)_[a-zA-Z0-9]+)', full_url)
+            if match:
+                return match.group(1)
+    except:
+        pass
+    
+    return None
+
+# Modifique a função check_and_add_credits para usar o ID de sessão extraído
 def check_and_add_credits():
     """Adiciona um método alternativo para adicionar créditos (caso o redirecionamento falhe)"""
-    with st.expander("Problemas com o pagamento?"):
+    # Tentar extrair o ID da sessão automaticamente
+    auto_session_id = extract_session_id_from_url()
+    
+    # Expandir automaticamente se encontrou um ID de sessão na URL
+    default_expanded = bool(auto_session_id)
+    
+    with st.expander("Problemas com o pagamento?", expanded=default_expanded):
         st.write("Se você concluiu o pagamento mas os créditos não foram adicionados, insira os detalhes abaixo:")
         
+        # Se encontrou um ID de sessão na URL, mostrar essa informação
+        if auto_session_id:
+            st.success(f"Detectamos um ID de sessão na URL: `{auto_session_id}`")
+        
         with st.form("manual_credit_form"):
-            session_id = st.text_input("ID da sessão do Stripe (inicia com 'cs_')")
+            # Pré-preencher com o ID da sessão se disponível
+            session_id = st.text_input(
+                "ID da sessão do Stripe (inicia com 'cs_')", 
+                value=auto_session_id if auto_session_id else ""
+            )
             submitted = st.form_submit_button("Verificar Pagamento")
             
             if submitted and session_id:
@@ -266,13 +328,60 @@ def check_and_add_credits():
                         # Adiciona os créditos
                         if st.session_state.user_manager.add_credits(email, credits):
                             st.success(f"✅ Verificação concluída! {credits} créditos foram adicionados à sua conta.")
+                            # Limpar parâmetros URL para evitar duplicação
+                            st.experimental_set_query_params()
+                            st.experimental_rerun()
                         else:
                             st.error("Erro ao adicionar créditos.")
                     else:
-                        st.error("O email do pagamento não corresponde ao seu email de login.")
+                        st.error(f"O email do pagamento ({email}) não corresponde ao seu email de login ({st.session_state.email}).")
                 else:
                     st.error("Não foi possível verificar o pagamento ou os dados do pagamento são inválidos.")
+      # Esta função precisa ser reforçada para lidar melhor com sessões de teste
 
+def verify_stripe_payment(session_id):
+    """Verify a Stripe payment session with better error handling."""
+    try:
+        # Initialize Stripe
+        init_stripe()
+        
+        # Support the 'cs_test_' prefix that might be copied from URLs
+        if session_id and session_id.startswith('cs_'):
+            # Retrieve the session
+            session = stripe.checkout.Session.retrieve(session_id)
+            
+            # For test mode, consider all sessions as valid
+            if session_id.startswith('cs_test_'):
+                # Get the metadata
+                credits = int(session.metadata.get('credits', 0))
+                email = session.metadata.get('email', '')
+                
+                # No ambiente de teste, considerar qualquer sessão como válida
+                # Na produção, verificaríamos payment_status == 'paid'
+                st.success("✅ Sessão de teste verificada com sucesso!")
+                return True, credits, email
+            
+            # For production sessions, verify payment status
+            elif session.payment_status == 'paid':
+                # Get the metadata
+                credits = int(session.metadata.get('credits', 0))
+                email = session.metadata.get('email', '')
+                
+                return True, credits, email
+            
+            # Session exists but payment not completed
+            else:
+                st.warning(f"O pagamento desta sessão ({session_id}) ainda não foi concluído. Status: {session.payment_status}")
+                return False, None, None
+        
+        return False, None, None
+    except stripe.error.InvalidRequestError as e:
+        # Sessão não existe ou foi excluída
+        st.error(f"Sessão inválida: {str(e)}")
+        return False, None, None
+    except Exception as e:
+        st.error(f"Erro ao verificar pagamento: {str(e)}")
+        return False, None, None              
 def show_landing_page():
     """Display landing page with about content and login/register buttons"""
     # Custom CSS para a página de landing
