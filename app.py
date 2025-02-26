@@ -49,14 +49,6 @@ FBREF_URLS = {
     }
 }
 
-def get_base_url():
-    """Obter a URL base da aplicação Streamlit de forma dinâmica."""
-    # Verifica se está executando no Streamlit Cloud
-    if os.environ.get("IS_STREAMLIT_CLOUD"):
-        return os.environ.get("STREAMLIT_URL", "https://valuehunter.streamlit.app")
-    # Para desenvolvimento local, retornar uma URL que permita copiar
-    # Isso evita problemas de redirecionamento entre navegadores
-    return "https://non-existent-for-copy.streamlit.app"
 
 @dataclass
 class UserTier:
@@ -88,6 +80,19 @@ def init_session_state():
     if "show_register" not in st.session_state:
         st.session_state.show_register = False
     
+    # Variáveis para o checkout integrado
+    if "show_checkout" not in st.session_state:
+        st.session_state.show_checkout = False
+    
+    if "checkout_credits" not in st.session_state:
+        st.session_state.checkout_credits = 0
+        
+    if "checkout_amount" not in st.session_state:
+        st.session_state.checkout_amount = 0
+        
+    if "last_stripe_session_id" not in st.session_state:
+        st.session_state.last_stripe_session_id = None
+    
     # Stripe test mode flag
     if "stripe_test_mode" not in st.session_state:
         st.session_state.stripe_test_mode = True
@@ -98,7 +103,7 @@ def init_session_state():
     
     # Atualizar timestamp de última atividade
     st.session_state.last_activity = datetime.now()
-
+    
 
 def go_to_login():
     """Navigate to login page"""
@@ -133,6 +138,19 @@ def init_stripe():
     st.session_state.stripe_test_mode = True
 
 
+def get_base_url():
+    """Obter a URL base da aplicação Streamlit de forma dinâmica."""
+    # Verifica se está executando no Streamlit Cloud
+    if os.environ.get("IS_STREAMLIT_CLOUD"):
+        return os.environ.get("STREAMLIT_URL", "https://valuehunter.streamlit.app")
+    # Tenta obter do Streamlit (disponível em versões mais recentes)
+    try:
+        return st.get_option("server.baseUrlPath") or "http://localhost:8501"
+    except:
+        # Fallback para localhost
+        return "http://localhost:8501"
+
+
 def get_stripe_success_url(credits, email):
     """Get the success URL for Stripe checkout."""
     # URL encode parameters to make sure they are properly formatted
@@ -144,9 +162,11 @@ def get_stripe_success_url(credits, email):
     })
     return f"{get_base_url()}/?{params}"
 
+
 def get_stripe_cancel_url():
     """Get the cancel URL for Stripe checkout."""
     return f"{get_base_url()}/?canceled=true"
+
 
 def create_stripe_checkout_session(email, credits, amount):
     """Create a Stripe checkout session for credit purchase."""
@@ -160,17 +180,9 @@ def create_stripe_checkout_session(email, credits, amount):
         # Create product description
         product_description = f"{credits} Créditos para ValueHunter"
         
-        # Determine if we're in local development
-        is_local_dev = "localhost" in get_base_url() or "non-existent" in get_base_url()
-        
-        # Use a different success URL for local development
-        if is_local_dev:
-            # Em ambiente de desenvolvimento, usar uma página especial para copiar o ID da sessão
-            success_url = "https://stripe-success.streamlit.app/?session_id={CHECKOUT_SESSION_ID}"
-        else:
-            # Em produção, usar a URL normal
-            success_url = get_stripe_success_url(credits, email)
-            success_url = success_url.replace('SESSION_ID', '{CHECKOUT_SESSION_ID}')
+        # Create success URL (Stripe will replace SESSION_ID with the actual ID)
+        success_url = get_stripe_success_url(credits, email)
+        success_url = success_url.replace('SESSION_ID', '{CHECKOUT_SESSION_ID}')
         
         # Create checkout session
         checkout_session = stripe.checkout.Session.create(
@@ -196,25 +208,97 @@ def create_stripe_checkout_session(email, credits, amount):
             }
         )
         
-        # Para ambiente de desenvolvimento, exibir instruções especiais
-        if is_local_dev:
-            st.info(f"""
-            **Instruções especiais para ambiente de desenvolvimento:**
-            
-            1. Após concluir o pagamento no Stripe, você verá uma página com o ID da sessão
-            2. Copie o ID da sessão (começa com cs_test_...)
-            3. Volte a este app e use a opção "Problemas com o pagamento?" acima
-            4. Cole o ID da sessão e clique em verificar
-            
-            **ID da sessão atual:** `{checkout_session.id}`
-            
-            Anote este código como backup caso precise.
-            """)
-            
+        # Armazenar o ID da sessão na sessão do app
+        st.session_state.last_stripe_session_id = checkout_session.id
+        
+        # Mostrar o ID para o usuário (backup caso o retorno automático falhe)
+        st.info(f"""
+        **IMPORTANTE: Anote este código para confirmar sua compra**
+        
+        ID da sessão: `{checkout_session.id}`
+        
+        Caso o redirecionamento falhe após o pagamento, use este código na seção "Problemas com o pagamento?".
+        """)
+        
         return checkout_session
     except Exception as e:
         st.error(f"Erro ao criar sessão de pagamento: {str(e)}")
         return None
+
+
+def display_stripe_checkout(checkout_session):
+    """Display Stripe Checkout within the Streamlit app using an iframe."""
+    if not checkout_session:
+        return False
+        
+    # Cria um iframe para o Stripe Checkout
+    checkout_html = f"""
+    <div style="width:100%;height:600px;overflow:hidden;border:none;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);">
+        <iframe 
+            src="{checkout_session.url}" 
+            frameborder="0"
+            width="100%" 
+            height="600px"
+            style="border: none; border-radius: 8px;"
+            allow="payment"
+        ></iframe>
+    </div>
+    <small style="display:block;text-align:center;margin-top:10px;color:#999;">
+        Powered by Stripe | Pagamento Seguro
+    </small>
+    """
+    
+    # Exibir o iframe dentro do app
+    st.components.v1.html(checkout_html, height=650)
+    
+    return True
+
+
+def verify_stripe_payment(session_id):
+    """Verify a Stripe payment session with better error handling."""
+    try:
+        # Initialize Stripe
+        init_stripe()
+        
+        # Support the 'cs_test_' prefix that might be copied from URLs
+        if session_id and session_id.startswith('cs_'):
+            # Retrieve the session
+            session = stripe.checkout.Session.retrieve(session_id)
+            
+            # For test mode, consider all sessions as valid
+            if session_id.startswith('cs_test_'):
+                # Get the metadata
+                credits = int(session.metadata.get('credits', 0))
+                email = session.metadata.get('email', '')
+                
+                # No ambiente de teste, considerar qualquer sessão como válida
+                # Na produção, verificaríamos payment_status == 'paid'
+                st.success("✅ Sessão de teste verificada com sucesso!")
+                return True, credits, email
+            
+            # For production sessions, verify payment status
+            elif session.payment_status == 'paid':
+                # Get the metadata
+                credits = int(session.metadata.get('credits', 0))
+                email = session.metadata.get('email', '')
+                
+                return True, credits, email
+            
+            # Session exists but payment not completed
+            else:
+                st.warning(f"O pagamento desta sessão ({session_id}) ainda não foi concluído. Status: {session.payment_status}")
+                return False, None, None
+        
+        return False, None, None
+    except stripe.error.InvalidRequestError as e:
+        # Sessão não existe ou foi excluída
+        st.error(f"Sessão inválida: {str(e)}")
+        return False, None, None
+    except Exception as e:
+        st.error(f"Erro ao verificar pagamento: {str(e)}")
+        return False, None, None
+
+
 def check_payment_success():
     """Check if a payment was successful based on URL parameters."""
     # Get query parameters
@@ -266,7 +350,6 @@ def check_payment_success():
         
     return None
 
-# Adicione esta função para ajudar o usuário a extrair automaticamente o ID da sessão da URL
 
 def extract_session_id_from_url():
     """Extrai o ID da sessão do Stripe da URL atual se disponível."""
@@ -294,7 +377,7 @@ def extract_session_id_from_url():
     
     return None
 
-# Modifique a função check_and_add_credits para usar o ID de sessão extraído
+
 def check_and_add_credits():
     """Adiciona um método alternativo para adicionar créditos (caso o redirecionamento falhe)"""
     # Tentar extrair o ID da sessão automaticamente
@@ -337,51 +420,8 @@ def check_and_add_credits():
                         st.error(f"O email do pagamento ({email}) não corresponde ao seu email de login ({st.session_state.email}).")
                 else:
                     st.error("Não foi possível verificar o pagamento ou os dados do pagamento são inválidos.")
-      # Esta função precisa ser reforçada para lidar melhor com sessões de teste
 
-def verify_stripe_payment(session_id):
-    """Verify a Stripe payment session with better error handling."""
-    try:
-        # Initialize Stripe
-        init_stripe()
-        
-        # Support the 'cs_test_' prefix that might be copied from URLs
-        if session_id and session_id.startswith('cs_'):
-            # Retrieve the session
-            session = stripe.checkout.Session.retrieve(session_id)
-            
-            # For test mode, consider all sessions as valid
-            if session_id.startswith('cs_test_'):
-                # Get the metadata
-                credits = int(session.metadata.get('credits', 0))
-                email = session.metadata.get('email', '')
-                
-                # No ambiente de teste, considerar qualquer sessão como válida
-                # Na produção, verificaríamos payment_status == 'paid'
-                st.success("✅ Sessão de teste verificada com sucesso!")
-                return True, credits, email
-            
-            # For production sessions, verify payment status
-            elif session.payment_status == 'paid':
-                # Get the metadata
-                credits = int(session.metadata.get('credits', 0))
-                email = session.metadata.get('email', '')
-                
-                return True, credits, email
-            
-            # Session exists but payment not completed
-            else:
-                st.warning(f"O pagamento desta sessão ({session_id}) ainda não foi concluído. Status: {session.payment_status}")
-                return False, None, None
-        
-        return False, None, None
-    except stripe.error.InvalidRequestError as e:
-        # Sessão não existe ou foi excluída
-        st.error(f"Sessão inválida: {str(e)}")
-        return False, None, None
-    except Exception as e:
-        st.error(f"Erro ao verificar pagamento: {str(e)}")
-        return False, None, None              
+
 def show_landing_page():
     """Display landing page with about content and login/register buttons"""
     # Custom CSS para a página de landing
@@ -610,7 +650,7 @@ def show_register():
 
 
 def show_packages_page():
-    """Display simplified credit purchase page with Stripe integration"""
+    """Display simplified credit purchase page with integrated Stripe checkout"""
     # Header com a logo
     st.markdown('<div class="logo-container" style="width: fit-content; padding: 12px 25px;"><span class="logo-v" style="font-size: 3rem;">V</span><span class="logo-text" style="font-size: 2.5rem;">ValueHunter</span></div>', unsafe_allow_html=True)
     
@@ -619,6 +659,44 @@ def show_packages_page():
     
     # Check for payment success/cancel from URL parameters
     payment_result = check_payment_success()
+    
+    # Área para verificação manual de pagamentos
+    check_and_add_credits()
+    
+    # Verifica se estamos mostrando o checkout
+    show_checkout = st.session_state.get('show_checkout', False)
+    checkout_credits = st.session_state.get('checkout_credits', 0)
+    checkout_amount = st.session_state.get('checkout_amount', 0)
+    
+    # Se estamos no modo de checkout, mostrar apenas o checkout
+    if show_checkout:
+        st.subheader(f"Checkout: {checkout_credits} Créditos - R$ {checkout_amount:.2f}")
+        
+        # Botão para voltar
+        if st.button("← Voltar para seleção de pacotes", key="back_from_checkout"):
+            st.session_state.show_checkout = False
+            st.experimental_rerun()
+            
+        # Criar a sessão do Stripe
+        checkout_session = create_stripe_checkout_session(
+            st.session_state.email, 
+            checkout_credits, 
+            checkout_amount
+        )
+        
+        if checkout_session:
+            # Exibir o checkout integrado
+            display_stripe_checkout(checkout_session)
+        
+        # Test mode notice
+        if getattr(st.session_state, 'stripe_test_mode', False):
+            st.warning("""
+            ⚠️ **Modo de teste ativado**
+            
+            Use o cartão 4242 4242 4242 4242 com qualquer data futura e CVC para simular um pagamento bem-sucedido.
+            """)
+            
+        return  # Não mostramos o resto da página quando estamos no checkout
     
     # CSS para os cartões de compra
     st.markdown("""
@@ -664,24 +742,11 @@ def show_packages_page():
         """, unsafe_allow_html=True)
         
         if st.button("Comprar 30 Créditos", use_container_width=True, key="buy_30c"):
-            # Create Stripe checkout session
-            checkout_session = create_stripe_checkout_session(
-                st.session_state.email, 
-                30, 
-                19.99
-            )
-            
-            if checkout_session:
-                # Redirect to Stripe checkout
-                js = f"""
-                <script>
-                    window.open('{checkout_session.url}', '_blank').focus();
-                </script>
-                """
-                st.components.v1.html(js, height=0)
-                
-                # Show message to user
-                st.info("Redirecionando para a página de pagamento. Caso a página não abra automaticamente, clique no botão novamente.")
+            # Armazenar informações de checkout e alternar para a visualização de checkout
+            st.session_state.show_checkout = True
+            st.session_state.checkout_credits = 30
+            st.session_state.checkout_amount = 19.99
+            st.experimental_rerun()
     
     with col2:
         st.markdown("""
@@ -693,28 +758,22 @@ def show_packages_page():
         """, unsafe_allow_html=True)
         
         if st.button("Comprar 60 Créditos", use_container_width=True, key="buy_60c"):
-            # Create Stripe checkout session
-            checkout_session = create_stripe_checkout_session(
-                st.session_state.email, 
-                60, 
-                29.99
-            )
-            
-            if checkout_session:
-                # Redirect to Stripe checkout
-                js = f"""
-                <script>
-                    window.open('{checkout_session.url}', '_blank').focus();
-                </script>
-                """
-                st.components.v1.html(js, height=0)
-                
-                # Show message to user
-                st.info("Redirecionando para a página de pagamento. Caso a página não abra automaticamente, clique no botão novamente.")
+            # Armazenar informações de checkout e alternar para a visualização de checkout
+            st.session_state.show_checkout = True
+            st.session_state.checkout_credits = 60
+            st.session_state.checkout_amount = 29.99
+            st.experimental_rerun()
     
-    # Test mode notice
-    if getattr(st.session_state, 'stripe_test_mode', False):
-        st.warning("⚠️ Modo de teste ativado. Use o cartão 4242 4242 4242 4242 com qualquer data futura e CVC para simular um pagamento bem-sucedido.")
+    # Add payment troubleshooting instructions
+    st.markdown("""
+    ### Como funciona o processo de pagamento:
+    
+    1. Ao clicar em "Comprar Créditos", você será direcionado para o checkout seguro
+    2. Insira seus dados de pagamento na tela de checkout
+    3. Após concluir o pagamento, seus créditos serão adicionados automaticamente
+    
+    **Nota:** Todo o processo acontece sem sair do ValueHunter!
+    """)
     
     # Botão para voltar
     st.markdown("<br>", unsafe_allow_html=True)
@@ -769,45 +828,21 @@ def check_analysis_limits(selected_markets):
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("Standard - 30 Créditos", key="upgrade_standard"):
-                    # Create Stripe checkout for Standard upgrade
-                    checkout_session = create_stripe_checkout_session(
-                        st.session_state.email, 
-                        30, 
-                        19.99
-                    )
-                    
-                    if checkout_session:
-                        # Redirect to Stripe checkout
-                        js = f"""
-                        <script>
-                            window.open('{checkout_session.url}', '_blank').focus();
-                        </script>
-                        """
-                        st.components.v1.html(js, height=0)
-                        
-                        # Show message to user
-                        st.info("Redirecionando para a página de pagamento. Caso a página não abra automaticamente, clique no botão novamente.")
+                    # Configurar checkout para upgrade
+                    st.session_state.page = "packages"
+                    st.session_state.show_checkout = True
+                    st.session_state.checkout_credits = 30
+                    st.session_state.checkout_amount = 19.99
+                    st.experimental_rerun()
                     return False
             with col2:
                 if st.button("Pro - 60 Créditos", key="upgrade_pro"):
-                    # Create Stripe checkout for Pro upgrade
-                    checkout_session = create_stripe_checkout_session(
-                        st.session_state.email, 
-                        60, 
-                        29.99
-                    )
-                    
-                    if checkout_session:
-                        # Redirect to Stripe checkout
-                        js = f"""
-                        <script>
-                            window.open('{checkout_session.url}', '_blank').focus();
-                        </script>
-                        """
-                        st.components.v1.html(js, height=0)
-                        
-                        # Show message to user
-                        st.info("Redirecionando para a página de pagamento. Caso a página não abra automaticamente, clique no botão novamente.")
+                    # Configurar checkout para upgrade
+                    st.session_state.page = "packages"
+                    st.session_state.show_checkout = True
+                    st.session_state.checkout_credits = 60
+                    st.session_state.checkout_amount = 29.99
+                    st.experimental_rerun()
                     return False
             
             return False
@@ -825,46 +860,22 @@ def check_analysis_limits(selected_markets):
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("30 Créditos - R$19,99"):
-                    # Create Stripe checkout
-                    checkout_session = create_stripe_checkout_session(
-                        st.session_state.email, 
-                        30, 
-                        19.99
-                    )
-                    
-                    if checkout_session:
-                        # Redirect to Stripe checkout
-                        js = f"""
-                        <script>
-                            window.open('{checkout_session.url}', '_blank').focus();
-                        </script>
-                        """
-                        st.components.v1.html(js, height=0)
-                        
-                        # Show message to user
-                        st.info("Redirecionando para a página de pagamento. Caso a página não abra automaticamente, clique no botão novamente.")
+                    # Configurar checkout para compra de créditos
+                    st.session_state.page = "packages"
+                    st.session_state.show_checkout = True
+                    st.session_state.checkout_credits = 30
+                    st.session_state.checkout_amount = 19.99
+                    st.experimental_rerun()
                     return False
                         
             with col2:
                 if st.button("60 Créditos - R$29,99"):
-                    # Create Stripe checkout
-                    checkout_session = create_stripe_checkout_session(
-                        st.session_state.email, 
-                        60, 
-                        29.99
-                    )
-                    
-                    if checkout_session:
-                        # Redirect to Stripe checkout
-                        js = f"""
-                        <script>
-                            window.open('{checkout_session.url}', '_blank').focus();
-                        </script>
-                        """
-                        st.components.v1.html(js, height=0)
-                        
-                        # Show message to user
-                        st.info("Redirecionando para a página de pagamento. Caso a página não abra automaticamente, clique no botão novamente.")
+                    # Configurar checkout para compra de créditos
+                    st.session_state.page = "packages"
+                    st.session_state.show_checkout = True
+                    st.session_state.checkout_credits = 60
+                    st.session_state.checkout_amount = 29.99
+                    st.experimental_rerun()
                     return False
             
             return False
@@ -1307,9 +1318,9 @@ class UserManager:
         # Check if user has enough credits
         return stats['credits_remaining'] >= num_markets
     
-    # Métodos de upgrade/downgrade
+    # Métodos de upgrade/downgrade - mantidos para uso administrativo
     def _upgrade_to_standard(self, email: str) -> bool:
-        """Upgrade a user to Standard package"""
+        """Upgrade a user to Standard package (for admin use)"""
         if email not in self.users:
             return False
             
@@ -1323,7 +1334,7 @@ class UserManager:
         return True
         
     def _upgrade_to_pro(self, email: str) -> bool:
-        """Upgrade a user to Pro package"""
+        """Upgrade a user to Pro package (for admin use)"""
         if email not in self.users:
             return False
             
@@ -2105,11 +2116,18 @@ def main():
                     position: relative;
                     padding-top: 10px;
                 }
+
+                /* Estilos para o iframe do Stripe */
+                iframe[allow="payment"] {
+                    background-color: white;
+                }
             </style>
         """, unsafe_allow_html=True)
         
         # Check for payment callback - this should run before any page routing
         payment_result = check_payment_success()
+        
+        # Verifique se há um parâmetro de erro específico do Stripe
         stripe_error_params = st.experimental_get_query_params().get('error', [None])[0]
         if stripe_error_params:
             st.error(f"""
@@ -2129,7 +2147,7 @@ def main():
             if 'error' in clean_params:
                 del clean_params['error']
             st.experimental_set_query_params(**clean_params)
-                
+        
         # Lógica de roteamento de páginas
         if st.session_state.page == "landing":
             show_landing_page()
@@ -2161,6 +2179,7 @@ def main():
     except Exception as e:
         st.error(f"Erro geral na aplicação: {str(e)}")
         traceback.print_exc()  # This will print the full traceback for debugging
+
 
 if __name__ == "__main__":
     main()
