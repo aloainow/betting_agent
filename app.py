@@ -620,17 +620,8 @@ def show_main_dashboard():
         if analysis:
             # Exibir a análise em uma div com largura total
             st.markdown(f'<div class="analysis-result">{analysis}</div>', unsafe_allow_html=True)
-            
-            # Registrar uso após análise bem-sucedida
-            num_markets = sum(1 for v in selected_markets.values() if v)
-            try:
-                success = st.session_state.user_manager.record_usage(st.session_state.email, num_markets)
-                if success:
-                    st.success(f"{num_markets} créditos foram consumidos.")
-                else:
-                    st.warning("Erro ao registrar créditos, mas a análise foi concluída.")
-            except Exception as e:
-                st.warning(f"Erro ao processar créditos: {str(e)}")
+            return True
+        return False
 
     # Botão de análise centralizado
     col1, col2, col3 = st.columns([1,1,1])
@@ -654,41 +645,7 @@ def show_main_dashboard():
             status = st.empty()
             
             try:
-                # Debug créditos antes da análise
-                credits_before = user_stats['credits_remaining']
-                st.write(f"Créditos antes da análise: {credits_before}")
-                
-                # Etapa 1: Carregar dados
-                status.info("Carregando dados dos times...")
-                if not stats_html or team_stats_df is None:
-                    status.error("Falha ao carregar dados")
-                    return
-                    
-                # Etapa 2: Formatar prompt
-                status.info("Preparando análise...")
-                prompt = format_prompt(team_stats_df, home_team, away_team, odds_data, selected_markets)
-                if not prompt:
-                    status.error("Falha ao preparar análise")
-                    return
-                    
-                # Etapa 3: Análise GPT
-                status.info("Realizando análise com IA...")
-                analysis = analyze_with_gpt(prompt)
-                if not analysis:
-                    status.error("Falha na análise")
-                    return
-                
-                # Etapa 4: Mostrar resultado
-                if analysis:
-                    # Exibir a análise em uma div com largura total
-                    st.markdown(f'<div class="analysis-result">{analysis}</div>', unsafe_allow_html=True)
-                    
-                    # Registrar uso após análise bem-sucedida
-                    num_markets = sum(1 for v in selected_markets.values() if v)
-                    
-                    # Tentar registrar uso várias vezes se necessário
-                    max_attempts = 3
-                    success = False
+ = False
                     
                     for attempt in range(max_attempts):
                         success = st.session_state.user_manager.record_usage(st.session_state.email, num_markets)
@@ -698,26 +655,16 @@ def show_main_dashboard():
                         time.sleep(1)
                     
                     if success:
-                        # Debug créditos depois da análise
+                        # Mostrar mensagem de sucesso com créditos restantes
                         updated_stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
                         credits_after = updated_stats['credits_remaining']
                         
                         st.success(f"{num_markets} créditos foram consumidos. Agora você tem {credits_after} créditos.")
-                        
-                        # Salvar explicitamente
-                        st.session_state.user_manager._save_users()
-                        
-                        # Atualizar estatísticas na interface após uma breve pausa
-                        time.sleep(1)
-                        st.experimental_rerun()
                     else:
-                        st.error("ERRO CRÍTICO: Não foi possível debitar os créditos após várias tentativas.")
-                        st.info("Por favor, atualize a página e tente novamente. Se o problema persistir, entre em contato com o suporte.")
-                    
+                        st.error("Não foi possível registrar o uso dos créditos. Por favor, tente novamente.")
+                        
             except Exception as e:
-                st.error(f"Erro durante a análise: {str(e)}")
-                st.error(traceback.format_exc())  
-                # Mostrar traceback detalhado para debug        
+                st.error(f"Erro durante a análise: {str(e)}")        
 
 class UserManager:
     def __init__(self, storage_path: str = "user_data.json"):
@@ -747,47 +694,34 @@ class UserManager:
         return {}    
     
     def _save_users(self):
-        """Save users to JSON file - versão com debug avançado"""
+        """Save users to JSON file"""
         try:
-            # Verificar o caminho absoluto
-            abs_path = os.path.abspath(self.storage_path)
-            st.write(f"DEBUG: Salvando em: {abs_path}")
+            # Converter para string JSON
+            json_data = json.dumps(self.users, indent=2)
             
-            # Tentar salvar diretamente (sem criar diretórios)
-            try:
-                # Converter para string JSON
-                json_data = json.dumps(self.users, indent=2)
+            # Escrever no arquivo
+            with open(self.storage_path, 'w') as f:
+                f.write(json_data)
                 
-                # Escrever no arquivo
-                with open(self.storage_path, 'w') as f:
-                    f.write(json_data)
-                    
-                # Verificar se o arquivo foi salvo corretamente
-                if os.path.exists(self.storage_path):
-                    filesize = os.path.getsize(self.storage_path)
-                    st.write(f"DEBUG: Arquivo salvo com {filesize} bytes")
-                    return True
-                else:
-                    st.error("DEBUG: Arquivo não encontrado após salvamento")
-                    return False
-                    
-            except Exception as e:
-                st.error(f"DEBUG: Erro ao salvar arquivo: {str(e)}")
-                # Tentar salvar em local alternativo
-                try:
-                    alt_path = "users_backup.json"
-                    with open(alt_path, 'w') as f:
-                        f.write(json_data)
-                    st.warning(f"Arquivo salvo em caminho alternativo: {alt_path}")
-                    self.storage_path = alt_path  # Atualizar caminho para próximos salvamentos
-                    return True
-                except Exception as alt_e:
-                    st.error(f"DEBUG: Também falhou no caminho alternativo: {str(alt_e)}")
-                    return False
+            # Verificar se o arquivo foi salvo corretamente
+            if os.path.exists(self.storage_path):
+                return True
+            else:
+                return False
                 
         except Exception as e:
-            st.error(f"DEBUG: Erro crítico geral: {str(e)}")
-            return False
+            # Tentar salvar em local alternativo
+            try:
+                alt_path = "users_backup.json"
+                json_data = json.dumps(self.users, indent=2)
+                with open(alt_path, 'w') as f:
+                    f.write(json_data)
+                self.storage_path = alt_path  # Atualizar caminho para próximos salvamentos
+                return True
+            except Exception:
+                return False
+                
+        return False
     
     def _hash_password(self, password: str) -> str:
         """Hash password using SHA-256"""
@@ -970,17 +904,10 @@ class UserManager:
         }
     
     def record_usage(self, email: str, num_markets: int):
-        """Record usage for a user (each market consumes one credit) - com debugging detalhado"""
+        """Record usage for a user (each market consumes one credit)"""
         try:
             if email not in self.users:
-                st.error(f"Erro: Usuário {email} não encontrado!")
                 return False
-                
-            # Verificar estado antes da alteração
-            stats_before = self.get_usage_stats(email)
-            credits_before = stats_before.get('credits_remaining', 0)
-            
-            st.write(f"DEBUG: Registrando uso de {num_markets} créditos para {email}. Saldo antes: {credits_before}")
                 
             today = datetime.now().date().isoformat()
             usage = {
@@ -998,18 +925,15 @@ class UserManager:
             # Adicionar ao rastreamento de uso total
             self.users[email]["usage"]["total"].append(usage)
             
-            # Forçar salvamento de alterações
+            # Salvar alterações
             save_success = self._save_users()
             
             if not save_success:
-                st.error("Erro ao salvar dados de uso. Verifique permissões de arquivo.")
                 return False
             
             # Verificar estado após a alteração
             stats_after = self.get_usage_stats(email)
             credits_after = stats_after.get('credits_remaining', 0)
-            
-            st.write(f"DEBUG: Uso registrado com sucesso. Saldo após operação: {credits_after}")
             
             # Check if Free tier user has exhausted credits
             if self.users[email]["tier"] == "free":
@@ -1030,9 +954,7 @@ class UserManager:
             # Retornar sucesso
             return True
             
-        except Exception as e:
-            st.error(f"Erro durante registro de uso: {str(e)}")
-            st.error(traceback.format_exc())  # Mostrar traceback completo para debug
+        except Exception:
             return False
             
     def can_analyze(self, email: str, num_markets: int) -> bool:
@@ -1219,27 +1141,25 @@ def analyze_with_gpt(prompt):
             st.error("Cliente OpenAI não inicializado")
             return None
             
-        st.write("Enviando requisição para API...")  # Log para debug
-        response = client.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {
-                    "role": "system",
-                    "content": "Você é um Agente Analista de Probabilidades Esportivas especializado."
-                },
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.3,
-            timeout=60  # Timeout de 60 segundos
-        )
-        st.write("Resposta recebida da API!")  # Log para debug
-        return response.choices[0].message.content
+        with st.spinner("Analisando dados e calculando probabilidades..."):
+            response = client.chat.completions.create(
+                model="gpt-4",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "Você é um Agente Analista de Probabilidades Esportivas especializado."
+                    },
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.3,
+                timeout=60  # Timeout de 60 segundos
+            )
+            return response.choices[0].message.content
     except OpenAIError as e:
         st.error(f"Erro na API OpenAI: {str(e)}")
         return None
     except Exception as e:
         st.error(f"Erro inesperado: {str(e)}")
-        st.write(f"Traceback completo: {traceback.format_exc()}")  # Log detalhado do erro
         return None
 
 def parse_team_stats(html_content):
@@ -1421,9 +1341,8 @@ def get_stat(stats, col, default='N/A'):
         return default
 
 def format_prompt(stats_df, home_team, away_team, odds_data, selected_markets):
-    """Formata o prompt para o GPT-4 com os dados coletados - versão corrigida"""
+    """Formata o prompt para o GPT-4 com os dados coletados"""
     try:
-        st.write("Iniciando formatação do prompt...")
         # Extrair dados dos times
         home_stats = stats_df[stats_df['Squad'] == home_team].iloc[0]
         away_stats = stats_df[stats_df['Squad'] == away_team].iloc[0]
@@ -1469,8 +1388,6 @@ def format_prompt(stats_df, home_team, away_team, odds_data, selected_markets):
   * Gols Marcados: {get_stat(away_stats, 'Gls')}
   * Expected Goals (xG): {get_stat(away_stats, 'xG')}
   * Posse de Bola: {get_stat(away_stats, 'Poss')}%"""
-
-        st.write("Calculando probabilidades...")
 
         # Calcular probabilidades reais
         real_probs = calculate_real_prob(
@@ -1538,7 +1455,6 @@ INSTRUÇÕES ESPECIAIS: VOCÊ DEVE CALCULAR PROBABILIDADES REAIS PARA TODOS OS M
 # Nível de Confiança Geral: [Baixo/Médio/Alto]
 [Breve explicação da sua confiança na análise]
 """
-        st.write("Prompt formatado com sucesso!")
         return full_prompt
 
     except Exception as e:
