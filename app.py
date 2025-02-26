@@ -522,6 +522,46 @@ def show_main_dashboard():
     # Header com a logo na área principal - LOGO AUMENTADO
     st.markdown('<div class="logo-container" style="width: fit-content; padding: 12px 25px;"><span class="logo-v" style="font-size: 3rem;">V</span><span class="logo-text" style="font-size: 2.5rem;">ValueHunter</span></div>', unsafe_allow_html=True)
         
+    # Ajuste global para Container Principal para layout mais largo
+    st.markdown("""
+        <style>
+            /* Ajuste para o container principal para maximizar largura */
+            .main .block-container {
+                max-width: 95% !important;
+                padding: 1rem !important;
+            }
+            
+            /* Estilo para o resultado da análise com largura expandida */
+            .analysis-result {
+                width: 100% !important;
+                max-width: 100% !important;
+                padding: 1.5rem !important;
+                background-color: #575760;
+                border-radius: 8px;
+                border: 1px solid #6b6b74;
+                margin: 1rem 0;
+                font-size: 1.05rem;
+            }
+            
+            /* Melhor formatação para títulos dentro do resultado */
+            .analysis-result h1, .analysis-result h2, .analysis-result h3 {
+                color: #fd7014 !important;
+                margin-top: 1.2rem !important;
+                margin-bottom: 0.8rem !important;
+            }
+            
+            /* Formatação para listas e itens */
+            .analysis-result ul, .analysis-result ol {
+                margin-left: 1.5rem !important;
+            }
+            
+            /* Seções internas com mais espaço */
+            .analysis-result section {
+                margin-bottom: 1.5rem !important;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+    
     # Busca dados do campeonato
     with st.spinner("Carregando dados do campeonato..."):
         stats_html = fetch_fbref_data(FBREF_URLS[selected_league]["stats"])
@@ -616,6 +656,9 @@ def show_main_dashboard():
             status = st.empty()
             
             try:
+                # Debug créditos antes da análise
+                credits_before = user_stats['credits_remaining']
+                
                 # Etapa 1: Carregar dados
                 status.info("Carregando dados dos times...")
                 if not stats_html or not team_stats_df is not None:
@@ -624,7 +667,7 @@ def show_main_dashboard():
                     
                 # Etapa 2: Formatar prompt
                 status.info("Preparando análise...")
-                prompt = format_prompt(team_stats_df, home_team, away_team, odds_data)
+                prompt = format_prompt(team_stats_df, home_team, away_team, odds_data, selected_markets)
                 if not prompt:
                     status.error("Falha ao preparar análise")
                     return
@@ -638,35 +681,30 @@ def show_main_dashboard():
                 
                 # Etapa 4: Mostrar resultado
                 if analysis:
-                    # Primeiro aplica o estilo
-                    st.markdown("""
-                        <style>
-                            .analysis-result {
-                                width: 100% !important;
-                                max-width: 100% !important;
-                                padding: 1rem !important;
-                                background-color: #575760;
-                                border-radius: 8px;
-                                border: 1px solid #6b6b74;
-                            }
-                        </style>
-                    """, unsafe_allow_html=True)
-                    
-                    # Depois mostra o conteúdo
+                    # Depois mostra o conteúdo com formatação melhorada
                     st.markdown(f'<div class="analysis-result">{analysis}</div>', unsafe_allow_html=True)
                     
                     # Registrar uso após análise bem-sucedida
                     num_markets = sum(1 for v in selected_markets.values() if v)
-                    st.session_state.user_manager.record_usage(st.session_state.email, num_markets)
+                    success = st.session_state.user_manager.record_usage(st.session_state.email, num_markets)
                     
-                    # REMOVER ESTA LINHA - é ela que está causando a duplicação
-                    # show_usage_stats()
-                    
-                    # Em vez disso, podemos simplesmente atualizar a exibição dos créditos
-                    # em uma área específica se necessário, mas não a sidebar inteira
+                    if success:
+                        # Debug créditos depois da análise
+                        updated_stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
+                        credits_after = updated_stats['credits_remaining']
+                        
+                        st.success(f"{num_markets} créditos foram consumidos. Agora você tem {credits_after} créditos.")
+                        
+                        # Atualizar estatísticas na interface após uma breve pausa
+                        time.sleep(1)
+                        st.experimental_rerun()
+                    else:
+                        st.warning("Erro ao registrar o uso. Os créditos podem não ter sido deduzidos corretamente.")
                     
             except Exception as e:
-                status.error(f"Erro durante a análise: {str(e)}")        
+                st.error(f"Erro durante a análise: {str(e)}")
+                st.error(traceback.format_exc())  # Mostrar traceback detalhado para debug
+        
 class UserManager:
     def __init__(self, storage_path: str = ".streamlit/users.json"):
         self.storage_path = storage_path
@@ -682,8 +720,12 @@ class UserManager:
     def _load_users(self) -> Dict:
         """Load users from JSON file"""
         if os.path.exists(self.storage_path):
-            with open(self.storage_path, 'r') as f:
-                return json.load(f)
+            try:
+                with open(self.storage_path, 'r') as f:
+                    return json.load(f)
+            except json.JSONDecodeError:
+                st.error("Erro ao carregar arquivo de usuários. Arquivo corrompido.")
+                return {}
         return {}
     
     def _save_users(self):
@@ -701,8 +743,11 @@ class UserManager:
             # Salvar dados atualizados
             with open(self.storage_path, 'w') as f:
                 json.dump(self.users, f, indent=2)
+                
+            return True
         except Exception as e:
             st.error(f"Erro ao salvar dados dos usuários: {str(e)}")
+            return False
     
     def _hash_password(self, password: str) -> str:
         """Hash password using SHA-256"""
@@ -887,7 +932,7 @@ class UserManager:
     def record_usage(self, email: str, num_markets: int):
         """Record usage for a user (each market consumes one credit)"""
         if email not in self.users:
-            return
+            return False
             
         today = datetime.now().date().isoformat()
         usage = {
@@ -895,15 +940,22 @@ class UserManager:
             "markets": num_markets  # Each market = 1 credit
         }
         
-        # Still track daily for analytics purposes
+        # Garantir que a estrutura de uso existe
+        if "usage" not in self.users[email]:
+            self.users[email]["usage"] = {"daily": [], "total": []}
+        
+        # Adicionar ao rastreamento diário para análise
         self.users[email]["usage"]["daily"].append(usage)
         
-        # Track total usage
+        # Adicionar ao rastreamento de uso total
         self.users[email]["usage"]["total"].append(usage)
         
-        # Get current usage stats
+        # Obter estatísticas atuais para verificar créditos restantes
         stats = self.get_usage_stats(email)
         remaining_after_usage = max(0, stats['credits_remaining'] - num_markets)
+        
+        # Log de depuração para confirmar cálculo de créditos
+        print(f"DEBUG: User {email} used {num_markets} credits. Before: {stats['credits_remaining']}, After: {remaining_after_usage}")
         
         # Check if Free tier user has exhausted credits
         if self.users[email]["tier"] == "free":
@@ -917,7 +969,11 @@ class UserManager:
                 # Mark when credits were exhausted
                 self.users[email]["paid_credits_exhausted_at"] = datetime.now().isoformat()
         
-        self._save_users()
+        # Forçar salvamento de alterações
+        saved = self._save_users()
+        
+        # Retornar sucesso
+        return saved
     
     def can_analyze(self, email: str, num_markets: int) -> bool:
         """Check if user can perform analysis"""
@@ -1125,6 +1181,7 @@ def analyze_with_gpt(prompt):
         st.error(f"Erro inesperado: {str(e)}")
         st.write(f"Traceback completo: {traceback.format_exc()}")  # Log detalhado do erro
         return None
+
 def parse_team_stats(html_content):
     """Processa os dados do time com tratamento melhorado para extrair estatísticas"""
     try:
@@ -1303,10 +1360,10 @@ def get_stat(stats, col, default='N/A'):
     except:
         return default
 
-def format_prompt(stats_df, home_team, away_team, odds_data):
-    """Formata o prompt para o GPT-4 com os dados coletados"""
+def format_prompt(stats_df, home_team, away_team, odds_data, selected_markets):
+    """Formata o prompt para o GPT-4 com os dados coletados - versão melhorada"""
     try:
-        st.write("Iniciando formatação do prompt...")  # Novo log
+        st.write("Iniciando formatação do prompt...")
         # Extrair dados dos times
         home_stats = stats_df[stats_df['Squad'] == home_team].iloc[0]
         away_stats = stats_df[stats_df['Squad'] == away_team].iloc[0]
@@ -1353,7 +1410,7 @@ def format_prompt(stats_df, home_team, away_team, odds_data):
   * Expected Goals (xG): {get_stat(away_stats, 'xG')}
   * Posse de Bola: {get_stat(away_stats, 'Poss')}%"""
 
-        st.write("Calculando probabilidades...")  # Novo log
+        st.write("Calculando probabilidades...")
 
         # Calcular probabilidades reais
         real_probs = calculate_real_prob(
@@ -1382,6 +1439,20 @@ PROBABILIDADES CALCULADAS:
         else:
             full_prompt += "Dados insuficientes para cálculo de probabilidades reais\n"
 
+        # Adicionar informações sobre quais mercados foram selecionados
+        full_prompt += "\nMERCADOS SELECIONADOS PARA ANÁLISE:\n"
+        for market, selected in selected_markets.items():
+            if selected:
+                market_names = {
+                    "money_line": "Money Line (1X2)",
+                    "over_under": "Over/Under Gols",
+                    "chance_dupla": "Chance Dupla",
+                    "ambos_marcam": "Ambos Marcam",
+                    "escanteios": "Total de Escanteios",
+                    "cartoes": "Total de Cartões"
+                }
+                full_prompt += f"- {market_names.get(market, market)}\n"
+
         full_prompt += f"""
 [SAÍDA OBRIGATÓRIA]
 
@@ -1392,14 +1463,14 @@ PROBABILIDADES CALCULADAS:
 {odds_data}
 
 # Probabilidades Calculadas:
-[Detalhamento das probabilidades reais vs implícitas por mercado]
+[Detalhamento das probabilidades reais vs implícitas por mercado, INCLUINDO TODOS OS MERCADOS SELECIONADOS]
 
 # Oportunidades Identificadas (Edges >3%):
-[Listagem detalhada dos mercados com edges significativos]
+[Listagem detalhada dos mercados com edges significativos. ATENÇÃO: LISTAR TODOS OS MERCADOS SELECIONADOS, mesmo que não tenham edge significativo, explicando o resultado da análise para cada um.]
 
 # Nível de Confiança Geral: [Baixo/Médio/Alto]
 """
-        st.write("Prompt formatado com sucesso!")  # Log final
+        st.write("Prompt formatado com sucesso!")
         return full_prompt
 
     except Exception as e:
