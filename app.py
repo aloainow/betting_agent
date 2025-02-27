@@ -11,8 +11,16 @@ from typing import Optional, Dict, List, Tuple
 from dataclasses import dataclass
 from urllib.parse import urlencode, quote
 
-# Third party imports
+# Configuração do Streamlit DEVE ser o primeiro comando Streamlit
 import streamlit as st
+st.set_page_config(
+    page_title="ValueHunter - Análise de Apostas Esportivas",
+    page_icon="⚽",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Third party imports
 import pandas as pd
 import numpy as np
 import requests
@@ -53,8 +61,8 @@ FBREF_URLS = {
 @dataclass
 class UserTier:
     name: str
-    total_credits: int
-    market_limit: int
+    total_credits: int  # Total credits in package
+    market_limit: int   # Limit of markets per analysis
 
 
 # Função init_session_state deve vir ANTES da classe UserManager
@@ -125,24 +133,30 @@ def go_to_landing():
     st.experimental_rerun()
 
 
-# In your app.py code, modify init_stripe() and other functions to use env vars
 def init_stripe():
     """Initialize Stripe with the API key."""
-    try:
-        # Try to get from secrets first
-        stripe.api_key = st.secrets["STRIPE_SECRET_KEY"]
-    except:
-        # Fallback to environment variable
+    # Se estamos no Render, usar variáveis de ambiente diretamente
+    if "RENDER" in os.environ:
         stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")
-        if not stripe.api_key:
-            st.error("Stripe API key not found")
+    else:
+        # Tente usar secrets (para desenvolvimento local ou Streamlit Cloud)
+        try:
+            stripe.api_key = st.secrets["STRIPE_SECRET_KEY"]
+        except:
+            stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")
+    
+    if not stripe.api_key:
+        st.error("Stripe API key not found")
+    
+    # Para teste, isso avisa os usuários que estão no modo de teste
+    st.session_state.stripe_test_mode = stripe.api_key.startswith("sk_test_")
 
 
 def get_base_url():
     """Get the base URL for the application, with special handling for Render."""
     # Check if running on Render
     if "RENDER" in os.environ:
-        return os.environ.get("RENDER_EXTERNAL_URL", "https://valuehunter.onrender.com")
+        return os.environ.get("RENDER_EXTERNAL_URL", "https://value-hunter.onrender.com")
     # Check if running on Streamlit Cloud
     elif os.environ.get("IS_STREAMLIT_CLOUD"):
         return os.environ.get("STREAMLIT_URL", "https://valuehunter.streamlit.app")
@@ -153,21 +167,24 @@ def get_base_url():
         except:
             return "http://localhost:8501"
 
+
 def get_stripe_success_url(credits, email):
     """Get the success URL for Stripe checkout."""
-    # For popup approach, we'll redirect to a special success page that can be recognized by the parent window
+    # Cria URL com parâmetros para retornar à página principal após pagamento
     params = urlencode({
         'success': 'true',
         'credits': credits,
         'email': email,
-        'session_id': '{CHECKOUT_SESSION_ID}'  # Stripe will replace this
+        'session_id': '{CHECKOUT_SESSION_ID}',  # Stripe substituirá isso
+        'redirect': 'main'
     })
     
     return f"{get_base_url()}/?{params}"
 
+
 def get_stripe_cancel_url():
     """Get the cancel URL for Stripe checkout."""
-    return f"{get_base_url()}/?canceled=true"
+    return f"{get_base_url()}/?canceled=true&redirect=main"
 
 
 def create_stripe_checkout_session(email, credits, amount):
@@ -212,120 +229,10 @@ def create_stripe_checkout_session(email, credits, amount):
         # Armazenar o ID da sessão na sessão do app
         st.session_state.last_stripe_session_id = checkout_session.id
         
-        # Mostrar o ID para o usuário (backup caso o retorno automático falhe)
-        st.info(f"""
-        **IMPORTANTE: Anote este código para confirmar sua compra**
-        
-        ID da sessão: `{checkout_session.id}`
-        
-        Caso o redirecionamento falhe após o pagamento, use este código na seção "Problemas com o pagamento?".
-        """)
-        
         return checkout_session
     except Exception as e:
         st.error(f"Erro ao criar sessão de pagamento: {str(e)}")
         return None
-
-
-def display_stripe_checkout_popup(checkout_session):
-    """Display Stripe Checkout in a popup window instead of an iframe."""
-    if not checkout_session:
-        return False
-    
-    # Em vez de usar HTML dinâmico, vamos usar botões diretos do Streamlit com redirecionamento JavaScript
-    st.markdown(f"""
-    ### Pagamento via Stripe
-    
-    Clique no botão abaixo para abrir a janela de pagamento em uma nova janela:
-    """)
-    
-    # Usando componente HTML para gerar botão mais confiável
-    button_html = f"""
-    <div style="text-align: center; margin: 20px 0;">
-        <a href="{checkout_session.url}" target="_blank" rel="noopener noreferrer"
-           style="background-color: #fd7014; color: white; text-decoration: none; 
-                  padding: 12px 20px; border-radius: 4px; font-weight: bold; 
-                  display: inline-block; margin: 10px 0;">
-            ABRIR PAGAMENTO SEGURO ↗
-        </a>
-        <p style="margin-top: 15px; font-size: 14px;">
-            O pagamento será processado em uma nova janela. Após concluir, <strong>retorne a esta página</strong> e clique no botão abaixo:
-        </p>
-    </div>
-    """
-    st.components.v1.html(button_html, height=150)
-    
-    # Adicionar botão para verificar pagamento após conclusão
-    if st.button("✅ VERIFICAR PAGAMENTO", use_container_width=True):
-        # Verificar o pagamento
-        is_valid, credits, email = verify_stripe_payment(checkout_session.id)
-        
-        if is_valid and credits > 0 and email:
-            # Process the successful payment
-            if st.session_state.user_manager.add_credits(email, credits):
-                st.success(f"✅ Pagamento processado com sucesso! {credits} créditos foram adicionados à sua conta.")
-                time.sleep(2)
-                st.experimental_rerun()
-            else:
-                st.error("Erro ao adicionar créditos à sua conta.")
-        else:
-            st.warning("O pagamento ainda não foi concluído ou foi cancelado. Por favor, complete o pagamento na janela do Stripe.")
-    
-    # Armazenar o ID da sessão para que o usuário possa recuperar manualmente se necessário
-    st.info(f"""
-    **IMPORTANTE: Anote este código para confirmar sua compra**
-    
-    ID da sessão: `{checkout_session.id}`
-    
-    Se houver qualquer problema com o pagamento, use este código na seção "Problemas com o pagamento?".
-    """)
-    
-    # Test mode notice
-    if getattr(st.session_state, 'stripe_test_mode', False):
-        st.warning("""
-        ⚠️ **Modo de teste ativado**
-        
-        Use o cartão 4242 4242 4242 4242 com qualquer data futura e CVC para simular um pagamento bem-sucedido.
-        """)
-    
-    return True
-
-def check_payment_after_popup():
-    """Check if a payment was successful after popup was closed."""
-    # Get query parameters
-    query_params = st.experimental_get_query_params()
-    
-    # Check if we should verify payment (set by our popup JavaScript)
-    if 'check_payment' in query_params and query_params['check_payment'][0] == 'true':
-        session_id = query_params.get('session_id', [''])[0]
-        
-        if session_id:
-            # Verify the payment with Stripe
-            is_valid, credits, email = verify_stripe_payment(session_id)
-            
-            if is_valid and credits > 0 and email:
-                # Process the successful payment
-                if st.session_state.user_manager.add_credits(email, credits):
-                    st.success(f"✅ Pagamento processado com sucesso! {credits} créditos foram adicionados à sua conta.")
-                    
-                    # Clear parameters to prevent duplicate processing
-                    clean_params = {}
-                    st.experimental_set_query_params(**clean_params)
-                    return True
-                else:
-                    st.error("Erro ao adicionar créditos à sua conta.")
-            else:
-                st.warning("O pagamento pode estar pendente ou foi cancelado. Verifique o status do pagamento.")
-                
-        # Clear the check_payment parameter to prevent repeated checking
-        clean_params = st.experimental_get_query_params()
-        if 'check_payment' in clean_params:
-            del clean_params['check_payment']
-        if 'session_id' in clean_params:
-            del clean_params['session_id']
-        st.experimental_set_query_params(**clean_params)
-    
-    return False
 
 
 def verify_stripe_payment(session_id):
@@ -376,14 +283,11 @@ def verify_stripe_payment(session_id):
 def check_payment_success():
     """Check if a payment was successful based on URL parameters."""
     # Get query parameters
-    query_params = st.experimental_get_query_params()
-    
-    # Check if we have success parameter
-    if 'success' in query_params and query_params['success'][0] == 'true':
+    if 'success' in st.query_params and st.query_params.success == 'true':
         try:
             # Get session ID directly from URL
-            if 'session_id' in query_params:
-                session_id = query_params.get('session_id', [''])[0]
+            if 'session_id' in st.query_params:
+                session_id = st.query_params.session_id
                 
                 if session_id:
                     # Verify the payment with Stripe
@@ -393,8 +297,17 @@ def check_payment_success():
                         # Process the successful payment
                         if st.session_state.user_manager.add_credits(email, credits):
                             st.success(f"✅ Pagamento processado com sucesso! {credits} créditos foram adicionados à sua conta.")
-                            # Clear parameters to prevent duplicate processing
-                            st.experimental_set_query_params()
+                            
+                            # Redirect to main page if needed
+                            if 'redirect' in st.query_params and st.query_params.redirect == 'main':
+                                st.session_state.page = "main"
+                                st.query_params.clear()
+                                time.sleep(1)
+                                st.experimental_rerun()
+                            else:
+                                # Clear parameters to prevent duplicate processing
+                                st.query_params.clear()
+                            
                             return True
                         else:
                             st.error("Erro ao adicionar créditos à sua conta.")
@@ -402,135 +315,47 @@ def check_payment_success():
                         st.warning("Não foi possível verificar o pagamento com o Stripe.")
                         
             # Fallback to direct parameter processing if session_id is missing or verification fails
-            credits = int(query_params.get('credits', [0])[0])
-            email = query_params.get('email', [''])[0]
-            
-            if credits > 0 and email and email == st.session_state.email:
-                # Process the successful payment using parameters
-                if st.session_state.user_manager.add_credits(email, credits):
-                    st.success(f"✅ Pagamento processado com sucesso! {credits} créditos foram adicionados à sua conta.")
-                    # Clear parameters to prevent duplicate processing
-                    st.experimental_set_query_params()
-                    return True
+            if 'credits' in st.query_params and 'email' in st.query_params:
+                credits = int(st.query_params.credits)
+                email = st.query_params.email
+                
+                if credits > 0 and email and email == st.session_state.email:
+                    # Process the successful payment using parameters
+                    if st.session_state.user_manager.add_credits(email, credits):
+                        st.success(f"✅ Pagamento processado com sucesso! {credits} créditos foram adicionados à sua conta.")
+                        
+                        # Redirect to main page if needed
+                        if 'redirect' in st.query_params and st.query_params.redirect == 'main':
+                            st.session_state.page = "main"
+                            st.query_params.clear()
+                            time.sleep(1)
+                            st.experimental_rerun()
+                        else:
+                            # Clear parameters to prevent duplicate processing
+                            st.query_params.clear()
+                        
+                        return True
         except Exception as e:
             st.error(f"Erro ao processar pagamento: {str(e)}")
     
     # Check if payment was canceled
-    if 'canceled' in query_params and query_params['canceled'][0] == 'true':
+    if 'canceled' in st.query_params and st.query_params.canceled == 'true':
         st.warning("❌ Pagamento cancelado.")
-        # Clear parameters
-        st.experimental_set_query_params()
+        
+        # Redirect to main page if needed
+        if 'redirect' in st.query_params and st.query_params.redirect == 'main':
+            st.session_state.page = "main"
+            st.query_params.clear()
+            time.sleep(1)
+            st.experimental_rerun()
+        else:
+            # Clear parameters
+            st.query_params.clear()
+        
         return False
         
     return None
 
-
-def extract_session_id_from_url():
-    """Extrai o ID da sessão do Stripe da URL atual se disponível."""
-    query_params = st.experimental_get_query_params()
-    
-    # Verificar o parâmetro session_id na URL
-    session_id = query_params.get('session_id', [''])[0]
-    
-    # Se encontrou um session_id que parece válido
-    if session_id and session_id.startswith('cs_'):
-        return session_id
-    
-    # Verificar a URL completa para casos onde o session_id está em algum lugar na URL
-    # (isso pode acontecer em alguns cenários de redirecionamento)
-    try:
-        full_url = st.experimental_get_query_params().get('__url', [''])[0]
-        if 'cs_test_' in full_url or 'cs_live_' in full_url:
-            # Extrair o ID da sessão usando regex
-            import re
-            match = re.search(r'(cs_(test|live)_[a-zA-Z0-9]+)', full_url)
-            if match:
-                return match.group(1)
-    except:
-        pass
-    
-    return None
-
-
-def check_and_add_credits():
-    """Adiciona um método alternativo para adicionar créditos (caso o redirecionamento falhe)"""
-    # Tentar extrair o ID da sessão automaticamente
-    auto_session_id = extract_session_id_from_url()
-    
-    # Expandir automaticamente se encontrou um ID de sessão na URL
-    default_expanded = bool(auto_session_id)
-    
-    with st.expander("Problemas com o pagamento?", expanded=default_expanded):
-        st.write("Se você concluiu o pagamento mas os créditos não foram adicionados, insira os detalhes abaixo:")
-        
-        # Se encontrou um ID de sessão na URL, mostrar essa informação
-        if auto_session_id:
-            st.success(f"Detectamos um ID de sessão na URL: `{auto_session_id}`")
-        
-        # Método 1: Verificar por ID da sessão
-        st.subheader("Método 1: ID da Sessão")
-        with st.form("manual_credit_form"):
-            # Pré-preencher com o ID da sessão se disponível
-            session_id = st.text_input(
-                "ID da sessão do Stripe (inicia com 'cs_')", 
-                value=auto_session_id if auto_session_id else ""
-            )
-            submitted = st.form_submit_button("Verificar Pagamento")
-            
-            if submitted and session_id:
-                # Tenta verificar o pagamento
-                is_valid, credits, email = verify_stripe_payment(session_id)
-                
-                if is_valid and credits > 0 and email:
-                    # Verifica se o email do pagamento corresponde ao usuário logado
-                    if email == st.session_state.email:
-                        # Adiciona os créditos
-                        if st.session_state.user_manager.add_credits(email, credits):
-                            st.success(f"✅ Verificação concluída! {credits} créditos foram adicionados à sua conta.")
-                            # Limpar parâmetros URL para evitar duplicação
-                            st.experimental_set_query_params()
-                            st.experimental_rerun()
-                        else:
-                            st.error("Erro ao adicionar créditos.")
-                    else:
-                        st.error(f"O email do pagamento ({email}) não corresponde ao seu email de login ({st.session_state.email}).")
-                else:
-                    st.error("Não foi possível verificar o pagamento ou os dados do pagamento são inválidos.")
-        
-        # Método 2: Verificar últimos pagamentos
-        st.subheader("Método 2: Verificar Último Pagamento")
-        if st.button("Buscar Meu Último Pagamento"):
-            # Verificar o último ID de sessão armazenado
-            last_session_id = st.session_state.get('last_stripe_session_id')
-            if last_session_id:
-                # Tenta verificar o pagamento
-                is_valid, credits, email = verify_stripe_payment(last_session_id)
-                
-                if is_valid and credits > 0 and email:
-                    # Verifica se o email do pagamento corresponde ao usuário logado
-                    if email == st.session_state.email:
-                        # Adiciona os créditos
-                        if st.session_state.user_manager.add_credits(email, credits):
-                            st.success(f"✅ Verificação concluída! {credits} créditos foram adicionados à sua conta.")
-                            st.experimental_rerun()
-                        else:
-                            st.error("Erro ao adicionar créditos.")
-                    else:
-                        st.error(f"O email do pagamento não corresponde ao seu email de login.")
-                else:
-                    st.warning("Não foi possível verificar o último pagamento ou o pagamento ainda não foi concluído.")
-            else:
-                st.warning("Não há registro de sessão de pagamento recente.")
-                
-        st.markdown("---")
-        st.markdown("""
-        ### Precisa de ajuda?
-        
-        Se você estiver com problemas para confirmar seu pagamento, entre em contato com o suporte:
-        
-        - Email: suporte@valuehunter.com
-        - Horário de atendimento: Segunda a Sexta, 9h às 18h
-        """)
 
 def show_landing_page():
     """Display landing page with about content and login/register buttons"""
@@ -760,7 +585,7 @@ def show_register():
 
 
 def show_packages_page():
-    """Display simplified credit purchase page with direct Stripe checkout link"""
+    """Display simplified credit purchase page with direct Stripe checkout"""
     # Header com a logo
     st.markdown('<div class="logo-container" style="width: fit-content; padding: 12px 25px;"><span class="logo-v" style="font-size: 3rem;">V</span><span class="logo-text" style="font-size: 2.5rem;">ValueHunter</span></div>', unsafe_allow_html=True)
     
@@ -768,37 +593,7 @@ def show_packages_page():
     st.markdown("Adquira mais créditos quando precisar, sem necessidade de mudar de pacote.")
     
     # Check for payment success/cancel from URL parameters
-    payment_result = check_payment_success()
-    
-    # Área para verificação manual de pagamentos
-    check_and_add_credits()
-    
-    # Verifica se estamos mostrando o checkout
-    show_checkout = st.session_state.get('show_checkout', False)
-    checkout_credits = st.session_state.get('checkout_credits', 0)
-    checkout_amount = st.session_state.get('checkout_amount', 0)
-    
-    # Se estamos no modo de checkout, mostrar apenas o checkout
-    if show_checkout:
-        st.subheader(f"Checkout: {checkout_credits} Créditos - R$ {checkout_amount:.2f}")
-        
-        # Botão para voltar
-        if st.button("← Voltar para seleção de pacotes", key="back_from_checkout"):
-            st.session_state.show_checkout = False
-            st.experimental_rerun()
-            
-        # Criar a sessão do Stripe
-        checkout_session = create_stripe_checkout_session(
-            st.session_state.email, 
-            checkout_credits, 
-            checkout_amount
-        )
-        
-        if checkout_session:
-            # Exibir o checkout com link direto em vez de popup
-            display_stripe_checkout_popup(checkout_session)
-        
-        return  # Não mostramos o resto da página quando estamos no checkout
+    check_payment_success()
     
     # CSS para os cartões de compra
     st.markdown("""
@@ -844,11 +639,20 @@ def show_packages_page():
         """, unsafe_allow_html=True)
         
         if st.button("Comprar 30 Créditos", use_container_width=True, key="buy_30c"):
-            # Armazenar informações de checkout e alternar para a visualização de checkout
-            st.session_state.show_checkout = True
-            st.session_state.checkout_credits = 30
-            st.session_state.checkout_amount = 19.99
-            st.experimental_rerun()
+            # Criar checkout diretamente e redirecionar
+            checkout_session = create_stripe_checkout_session(
+                st.session_state.email, 
+                30, 
+                19.99
+            )
+            if checkout_session:
+                # Redirecionar automaticamente para o Stripe
+                js = f"""
+                <script>
+                window.location.href = "{checkout_session.url}";
+                </script>
+                """
+                st.components.v1.html(js, height=0)
     
     with col2:
         st.markdown("""
@@ -860,29 +664,47 @@ def show_packages_page():
         """, unsafe_allow_html=True)
         
         if st.button("Comprar 60 Créditos", use_container_width=True, key="buy_60c"):
-            # Armazenar informações de checkout e alternar para a visualização de checkout
-            st.session_state.show_checkout = True
-            st.session_state.checkout_credits = 60
-            st.session_state.checkout_amount = 29.99
-            st.experimental_rerun()
+            # Criar checkout diretamente e redirecionar
+            checkout_session = create_stripe_checkout_session(
+                st.session_state.email, 
+                60, 
+                29.99
+            )
+            if checkout_session:
+                # Redirecionar automaticamente para o Stripe
+                js = f"""
+                <script>
+                window.location.href = "{checkout_session.url}";
+                </script>
+                """
+                st.components.v1.html(js, height=0)
     
     # Add payment instructions
     st.markdown("""
     ### Como funciona o processo de pagamento:
     
-    1. Ao clicar em "Comprar Créditos", você verá a tela de checkout
-    2. Clique no botão "ABRIR PAGAMENTO SEGURO" para prosseguir com o pagamento em uma nova aba
-    3. Complete seu pagamento na página do Stripe
-    4. Volte para esta janela e clique em "VERIFICAR PAGAMENTO" para ativar seus créditos
+    1. Ao clicar em "Comprar Créditos", você será redirecionado para a página de pagamento do Stripe
+    2. Complete seu pagamento na página do Stripe
+    3. Você será redirecionado automaticamente de volta para o ValueHunter
+    4. Seus créditos serão adicionados automaticamente à sua conta
     
     **Nota:** Todo o processo é seguro e seus dados de pagamento são protegidos pelo Stripe
     """)
+    
+    # Test mode notice
+    if st.session_state.stripe_test_mode:
+        st.warning("""
+        ⚠️ **Modo de teste ativado**
+        
+        Use o cartão 4242 4242 4242 4242 com qualquer data futura e CVC para simular um pagamento bem-sucedido.
+        """)
     
     # Botão para voltar
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("← Voltar para análises", key="back_to_analysis"):
         st.session_state.page = "main"
         st.experimental_rerun()
+
 
 def show_usage_stats():
     """Display simplified usage statistics focusing only on credits"""
@@ -930,21 +752,37 @@ def check_analysis_limits(selected_markets):
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("Standard - 30 Créditos", key="upgrade_standard"):
-                    # Configurar checkout para upgrade
-                    st.session_state.page = "packages"
-                    st.session_state.show_checkout = True
-                    st.session_state.checkout_credits = 30
-                    st.session_state.checkout_amount = 19.99
-                    st.experimental_rerun()
+                    # Redirecionar direto para o checkout do Stripe
+                    checkout_session = create_stripe_checkout_session(
+                        st.session_state.email, 
+                        30, 
+                        19.99
+                    )
+                    if checkout_session:
+                        # Redirecionar automaticamente para o Stripe
+                        js = f"""
+                        <script>
+                        window.location.href = "{checkout_session.url}";
+                        </script>
+                        """
+                        st.components.v1.html(js, height=0)
                     return False
             with col2:
                 if st.button("Pro - 60 Créditos", key="upgrade_pro"):
-                    # Configurar checkout para upgrade
-                    st.session_state.page = "packages"
-                    st.session_state.show_checkout = True
-                    st.session_state.checkout_credits = 60
-                    st.session_state.checkout_amount = 29.99
-                    st.experimental_rerun()
+                    # Redirecionar direto para o checkout do Stripe
+                    checkout_session = create_stripe_checkout_session(
+                        st.session_state.email, 
+                        60, 
+                        29.99
+                    )
+                    if checkout_session:
+                        # Redirecionar automaticamente para o Stripe
+                        js = f"""
+                        <script>
+                        window.location.href = "{checkout_session.url}";
+                        </script>
+                        """
+                        st.components.v1.html(js, height=0)
                     return False
             
             return False
@@ -962,22 +800,38 @@ def check_analysis_limits(selected_markets):
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("30 Créditos - R$19,99"):
-                    # Configurar checkout para compra de créditos
-                    st.session_state.page = "packages"
-                    st.session_state.show_checkout = True
-                    st.session_state.checkout_credits = 30
-                    st.session_state.checkout_amount = 19.99
-                    st.experimental_rerun()
+                    # Redirecionar direto para o checkout do Stripe
+                    checkout_session = create_stripe_checkout_session(
+                        st.session_state.email, 
+                        30, 
+                        19.99
+                    )
+                    if checkout_session:
+                        # Redirecionar automaticamente para o Stripe
+                        js = f"""
+                        <script>
+                        window.location.href = "{checkout_session.url}";
+                        </script>
+                        """
+                        st.components.v1.html(js, height=0)
                     return False
                         
             with col2:
                 if st.button("60 Créditos - R$29,99"):
-                    # Configurar checkout para compra de créditos
-                    st.session_state.page = "packages"
-                    st.session_state.show_checkout = True
-                    st.session_state.checkout_credits = 60
-                    st.session_state.checkout_amount = 29.99
-                    st.experimental_rerun()
+                    # Redirecionar direto para o checkout do Stripe
+                    checkout_session = create_stripe_checkout_session(
+                        st.session_state.email, 
+                        60, 
+                        29.99
+                    )
+                    if checkout_session:
+                        # Redirecionar automaticamente para o Stripe
+                        js = f"""
+                        <script>
+                        window.location.href = "{checkout_session.url}";
+                        </script>
+                        """
+                        st.components.v1.html(js, height=0)
                     return False
             
             return False
@@ -1570,8 +1424,22 @@ def get_fbref_urls():
 
 @st.cache_resource
 def get_openai_client():
+    # Se estamos no Render, usar variáveis de ambiente diretamente
+    if "RENDER" in os.environ:
+        api_key = os.environ.get("OPENAI_API_KEY")
+    else:
+        # Tente usar secrets (para desenvolvimento local ou Streamlit Cloud)
+        try:
+            api_key = st.secrets["OPENAI_API_KEY"]
+        except:
+            api_key = os.environ.get("OPENAI_API_KEY")
+    
+    if not api_key:
+        st.error("OpenAI API key not found")
+        return None
+        
     try:
-        client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+        client = OpenAI(api_key=api_key)
         return client
     except Exception as e:
         st.error(f"Erro ao criar cliente OpenAI: {str(e)}")
@@ -1952,17 +1820,11 @@ INSTRUÇÕES ESPECIAIS: VOCÊ DEVE CALCULAR PROBABILIDADES REAIS PARA TODOS OS M
     except Exception as e:
         st.error(f"Erro ao formatar prompt: {str(e)}")
         return None
+
+
 def main():
     try:
-        # Configuração inicial do Streamlit - MUST BE FIRST
-        st.set_page_config(
-    page_title="ValueHunter - Análise de Apostas Esportivas",
-    page_icon="⚽",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
-        
-        # Initialize session state AFTER set_page_config
+        # Initialize session state
         init_session_state()
         
         # Initialize Stripe
@@ -2215,76 +2077,72 @@ def main():
                     position: relative;
                     padding-top: 10px;
                 }
-            </style>
-        """, unsafe_allow_html=True)
-        
-        # Check for payment from popup
-        popup_payment = False
-        query_params = st.experimental_get_query_params()
-        if 'check_payment' in query_params and query_params['check_payment'][0] == 'true':
-            popup_payment = True
-        
-        # Handle page routing
-        if popup_payment and st.session_state.authenticated:
-            # If coming back from payment popup, force payment check
-            check_payment_after_popup()
-            
-        # Regular payment callback check - this should run before any page routing
-        payment_result = check_payment_success()
-        
-        # Verifique se há um parâmetro de erro específico do Stripe
-        stripe_error_params = st.experimental_get_query_params().get('error', [None])[0]
-        if stripe_error_params:
-            st.error(f"""
-            Ocorreu um erro durante o processamento do pagamento. 
-            
-            Se você concluiu o pagamento mas foi redirecionado para uma página de erro, por favor:
-            
-            1. Retorne à página de compra de créditos
-            2. Use a opção "Problemas com o pagamento?" 
-            3. Insira o ID da sessão do Stripe (começa com 'cs_')
-            4. Clique em "Verificar Pagamento"
-            
-            Se você não tiver o ID da sessão, entre em contato com o suporte.
-            """)
-            # Limpar parâmetros de erro para evitar exibição repetida
-            clean_params = st.experimental_get_query_params()
-            if 'error' in clean_params:
-                del clean_params['error']
-            st.experimental_set_query_params(**clean_params)
-        
-        # Lógica de roteamento de páginas
-        if st.session_state.page == "landing":
-            show_landing_page()
-        elif st.session_state.page == "login":
-            show_login()
-        elif st.session_state.page == "register":
-            show_register()
-        elif st.session_state.page == "main":
-            if not st.session_state.authenticated:
-                st.warning("Sua sessão expirou. Por favor, faça login novamente.")
-                go_to_login()
-                return
+                    </style>
+                """, unsafe_allow_html=True)
                 
-            # Mostrar dashboard principal
-            show_main_dashboard()
-        elif st.session_state.page == "packages":
-            if not st.session_state.authenticated:
-                st.warning("Você precisa fazer login para acessar os pacotes.")
-                go_to_login()
-                return
+                # Check for payment from popup
+                popup_payment = False
+                if 'check_payment' in st.query_params and st.query_params.check_payment == 'true':
+                    popup_payment = True
                 
-            # Mostrar página de pacotes
-            show_packages_page()
-        else:
-            # Página padrão - redirecionando para landing
-            st.session_state.page = "landing"
-            st.experimental_rerun()
-
-    except Exception as e:
-        st.error(f"Erro geral na aplicação: {str(e)}")
-        traceback.print_exc()  # This will print the full traceback for debugging
-
-
-if __name__ == "__main__":
-    main()
+                # Handle page routing
+                if popup_payment and st.session_state.authenticated:
+                    # If coming back from payment popup, force payment check
+                    check_payment_success()
+                    
+                # Regular payment callback check - this should run before any page routing
+                payment_result = check_payment_success()
+                
+                # Verifique se há um parâmetro de erro específico do Stripe
+                if 'error' in st.query_params:
+                    stripe_error_params = st.query_params.error
+                    st.error(f"""
+                    Ocorreu um erro durante o processamento do pagamento. 
+                    
+                    Se você concluiu o pagamento mas foi redirecionado para uma página de erro, por favor:
+                    
+                    1. Retorne à página de compra de créditos
+                    2. Use a opção "Problemas com o pagamento?" 
+                    3. Insira o ID da sessão do Stripe (começa com 'cs_')
+                    4. Clique em "Verificar Pagamento"
+                    
+                    Se você não tiver o ID da sessão, entre em contato com o suporte.
+                    """)
+                    # Limpar parâmetros de erro para evitar exibição repetida
+                    st.query_params.clear()
+                
+                # Lógica de roteamento de páginas
+                if st.session_state.page == "landing":
+                    show_landing_page()
+                elif st.session_state.page == "login":
+                    show_login()
+                elif st.session_state.page == "register":
+                    show_register()
+                elif st.session_state.page == "main":
+                    if not st.session_state.authenticated:
+                        st.warning("Sua sessão expirou. Por favor, faça login novamente.")
+                        go_to_login()
+                        return
+                        
+                    # Mostrar dashboard principal
+                    show_main_dashboard()
+                elif st.session_state.page == "packages":
+                    if not st.session_state.authenticated:
+                        st.warning("Você precisa fazer login para acessar os pacotes.")
+                        go_to_login()
+                        return
+                        
+                    # Mostrar página de pacotes
+                    show_packages_page()
+                else:
+                    # Página padrão - redirecionando para landing
+                    st.session_state.page = "landing"
+                    st.experimental_rerun()
+        
+            except Exception as e:
+                st.error(f"Erro geral na aplicação: {str(e)}")
+                traceback.print_exc()  # This will print the full traceback for debugging
+        
+        
+        if __name__ == "__main__":
+            main()
