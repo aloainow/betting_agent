@@ -230,78 +230,54 @@ def display_stripe_checkout_popup(checkout_session):
     """Display Stripe Checkout in a popup window instead of an iframe."""
     if not checkout_session:
         return False
-        
-    # JavaScript to open a popup window and handle its closure
-    popup_js = f"""
-    <script>
-    // Function to open the Stripe checkout in a popup
-    function openStripeCheckout() {{
-        // Define popup dimensions and position it centered
-        const width = 450;
-        const height = 700;
-        const left = (window.innerWidth - width) / 2;
-        const top = (window.innerHeight - height) / 2;
-        
-        // Open the Stripe checkout URL in a popup
-        const popup = window.open(
-            "{checkout_session.url}", 
-            "StripeCheckout",
-            `width=${{width}},height=${{height}},left=${{left}},top=${{top}},location=yes,menubar=no,status=no,toolbar=no`
-        );
-        
-        // If popup was blocked, show a message
-        if (!popup || popup.closed || typeof popup.closed === 'undefined') {{
-            document.getElementById('popup-blocked-message').style.display = 'block';
-            return;
-        }}
-        
-        // Setup an interval to check if the popup is closed
-        const checkPopupInterval = setInterval(() => {{
-            if (popup.closed) {{
-                clearInterval(checkPopupInterval);
-                
-                // Reload the page to check payment status
-                // Adding a parameter to indicate we should check payment
-                window.location.href = window.location.pathname + '?check_payment=true&session_id={checkout_session.id}';
-            }}
-        }}, 500);
-    }}
     
-    // Call the function automatically when the page loads
-    document.addEventListener('DOMContentLoaded', function() {{
-        // Small delay to ensure the button is visible first
-        setTimeout(openStripeCheckout, 500);
-    }});
-    </script>
+    # Em vez de usar HTML dinâmico, vamos usar botões diretos do Streamlit com redirecionamento JavaScript
+    st.markdown(f"""
+    ### Pagamento via Stripe
     
-    <div>
-        <div id="popup-blocked-message" style="display:none; padding: 15px; background-color: #ffeeee; border: 1px solid #ff0000; border-radius: 5px; margin: 10px 0;">
-            <h3 style="color: #ff0000; margin-top: 0;">Pop-up bloqueado</h3>
-            <p>Parece que seu navegador bloqueou o pop-up de pagamento. Por favor:</p>
-            <ol>
-                <li>Permita pop-ups para este site</li>
-                <li>Clique no botão abaixo para tentar novamente</li>
-            </ol>
-            <button onclick="openStripeCheckout()" style="background-color: #fd7014; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
-                Abrir Pagamento
-            </button>
-        </div>
-        
-        <div style="text-align: center; margin: 20px 0;">
-            <p><strong>Processando pagamento...</strong></p>
-            <p>Uma nova janela foi aberta para você concluir seu pagamento.</p>
-            <p>Quando terminar, volte para esta janela.</p>
-            <div style="margin: 20px auto; text-align: center;">
-                <button onclick="openStripeCheckout()" style="background-color: #fd7014; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
-                    Reabrir Pagamento
-                </button>
-            </div>
-        </div>
+    Clique no botão abaixo para abrir a janela de pagamento em uma nova janela:
+    """)
+    
+    # Usando componente HTML para gerar botão mais confiável
+    button_html = f"""
+    <div style="text-align: center; margin: 20px 0;">
+        <a href="{checkout_session.url}" target="_blank" rel="noopener noreferrer"
+           style="background-color: #fd7014; color: white; text-decoration: none; 
+                  padding: 12px 20px; border-radius: 4px; font-weight: bold; 
+                  display: inline-block; margin: 10px 0;">
+            ABRIR PAGAMENTO SEGURO ↗
+        </a>
+        <p style="margin-top: 15px; font-size: 14px;">
+            O pagamento será processado em uma nova janela. Após concluir, <strong>retorne a esta página</strong> e clique no botão abaixo:
+        </p>
     </div>
     """
+    st.components.v1.html(button_html, height=150)
     
-    # Display the JavaScript that opens the popup
-    st.components.v1.html(popup_js, height=300)
+    # Adicionar botão para verificar pagamento após conclusão
+    if st.button("✅ VERIFICAR PAGAMENTO", use_container_width=True):
+        # Verificar o pagamento
+        is_valid, credits, email = verify_stripe_payment(checkout_session.id)
+        
+        if is_valid and credits > 0 and email:
+            # Process the successful payment
+            if st.session_state.user_manager.add_credits(email, credits):
+                st.success(f"✅ Pagamento processado com sucesso! {credits} créditos foram adicionados à sua conta.")
+                time.sleep(2)
+                st.experimental_rerun()
+            else:
+                st.error("Erro ao adicionar créditos à sua conta.")
+        else:
+            st.warning("O pagamento ainda não foi concluído ou foi cancelado. Por favor, complete o pagamento na janela do Stripe.")
+    
+    # Armazenar o ID da sessão para que o usuário possa recuperar manualmente se necessário
+    st.info(f"""
+    **IMPORTANTE: Anote este código para confirmar sua compra**
+    
+    ID da sessão: `{checkout_session.id}`
+    
+    Se houver qualquer problema com o pagamento, use este código na seção "Problemas com o pagamento?".
+    """)
     
     # Test mode notice
     if getattr(st.session_state, 'stripe_test_mode', False):
@@ -312,7 +288,6 @@ def display_stripe_checkout_popup(checkout_session):
         """)
     
     return True
-
 
 def check_payment_after_popup():
     """Check if a payment was successful after popup was closed."""
@@ -491,6 +466,8 @@ def check_and_add_credits():
         if auto_session_id:
             st.success(f"Detectamos um ID de sessão na URL: `{auto_session_id}`")
         
+        # Método 1: Verificar por ID da sessão
+        st.subheader("Método 1: ID da Sessão")
         with st.form("manual_credit_form"):
             # Pré-preencher com o ID da sessão se disponível
             session_id = st.text_input(
@@ -518,7 +495,41 @@ def check_and_add_credits():
                         st.error(f"O email do pagamento ({email}) não corresponde ao seu email de login ({st.session_state.email}).")
                 else:
                     st.error("Não foi possível verificar o pagamento ou os dados do pagamento são inválidos.")
-
+        
+        # Método 2: Verificar últimos pagamentos
+        st.subheader("Método 2: Verificar Último Pagamento")
+        if st.button("Buscar Meu Último Pagamento"):
+            # Verificar o último ID de sessão armazenado
+            last_session_id = st.session_state.get('last_stripe_session_id')
+            if last_session_id:
+                # Tenta verificar o pagamento
+                is_valid, credits, email = verify_stripe_payment(last_session_id)
+                
+                if is_valid and credits > 0 and email:
+                    # Verifica se o email do pagamento corresponde ao usuário logado
+                    if email == st.session_state.email:
+                        # Adiciona os créditos
+                        if st.session_state.user_manager.add_credits(email, credits):
+                            st.success(f"✅ Verificação concluída! {credits} créditos foram adicionados à sua conta.")
+                            st.experimental_rerun()
+                        else:
+                            st.error("Erro ao adicionar créditos.")
+                    else:
+                        st.error(f"O email do pagamento não corresponde ao seu email de login.")
+                else:
+                    st.warning("Não foi possível verificar o último pagamento ou o pagamento ainda não foi concluído.")
+            else:
+                st.warning("Não há registro de sessão de pagamento recente.")
+                
+        st.markdown("---")
+        st.markdown("""
+        ### Precisa de ajuda?
+        
+        Se você estiver com problemas para confirmar seu pagamento, entre em contato com o suporte:
+        
+        - Email: suporte@valuehunter.com
+        - Horário de atendimento: Segunda a Sexta, 9h às 18h
+        """)
 
 def show_landing_page():
     """Display landing page with about content and login/register buttons"""
@@ -748,19 +759,15 @@ def show_register():
 
 
 def show_packages_page():
-    """Display simplified credit purchase page with popup Stripe checkout"""
+    """Display simplified credit purchase page with direct Stripe checkout link"""
     # Header com a logo
     st.markdown('<div class="logo-container" style="width: fit-content; padding: 12px 25px;"><span class="logo-v" style="font-size: 3rem;">V</span><span class="logo-text" style="font-size: 2.5rem;">ValueHunter</span></div>', unsafe_allow_html=True)
     
     st.title("Comprar Mais Créditos")
     st.markdown("Adquira mais créditos quando precisar, sem necessidade de mudar de pacote.")
     
-    # Check for payment after popup was closed
-    payment_processed = check_payment_after_popup()
-    
-    # Regular payment check from URL parameters
-    if not payment_processed:
-        payment_processed = check_payment_success()
+    # Check for payment success/cancel from URL parameters
+    payment_result = check_payment_success()
     
     # Área para verificação manual de pagamentos
     check_and_add_credits()
@@ -787,17 +794,9 @@ def show_packages_page():
         )
         
         if checkout_session:
-            # Exibir o checkout em popup em vez de iframe
+            # Exibir o checkout com link direto em vez de popup
             display_stripe_checkout_popup(checkout_session)
         
-        # Test mode notice
-        if getattr(st.session_state, 'stripe_test_mode', False):
-            st.warning("""
-            ⚠️ **Modo de teste ativado**
-            
-            Use o cartão 4242 4242 4242 4242 com qualquer data futura e CVC para simular um pagamento bem-sucedido.
-            """)
-            
         return  # Não mostramos o resto da página quando estamos no checkout
     
     # CSS para os cartões de compra
@@ -870,11 +869,12 @@ def show_packages_page():
     st.markdown("""
     ### Como funciona o processo de pagamento:
     
-    1. Ao clicar em "Comprar Créditos", uma nova janela será aberta para finalizar o pagamento
-    2. Complete o pagamento na janela do Stripe
-    3. Após concluir, a janela será fechada automaticamente e seus créditos serão adicionados
+    1. Ao clicar em "Comprar Créditos", você verá a tela de checkout
+    2. Clique no botão "ABRIR PAGAMENTO SEGURO" para prosseguir com o pagamento em uma nova aba
+    3. Complete seu pagamento na página do Stripe
+    4. Volte para esta janela e clique em "VERIFICAR PAGAMENTO" para ativar seus créditos
     
-    **Nota:** O processo é totalmente seguro e seus dados de pagamento são protegidos pelo Stripe
+    **Nota:** Todo o processo é seguro e seus dados de pagamento são protegidos pelo Stripe
     """)
     
     # Botão para voltar
@@ -882,7 +882,6 @@ def show_packages_page():
     if st.button("← Voltar para análises", key="back_to_analysis"):
         st.session_state.page = "main"
         st.experimental_rerun()
-
 
 def show_usage_stats():
     """Display simplified usage statistics focusing only on credits"""
@@ -930,7 +929,7 @@ def check_analysis_limits(selected_markets):
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("Standard - 30 Créditos", key="upgrade_standard"):
-                    # Configurar checkout para upgrade com popup
+                    # Configurar checkout para upgrade
                     st.session_state.page = "packages"
                     st.session_state.show_checkout = True
                     st.session_state.checkout_credits = 30
@@ -939,7 +938,7 @@ def check_analysis_limits(selected_markets):
                     return False
             with col2:
                 if st.button("Pro - 60 Créditos", key="upgrade_pro"):
-                    # Configurar checkout para upgrade com popup
+                    # Configurar checkout para upgrade
                     st.session_state.page = "packages"
                     st.session_state.show_checkout = True
                     st.session_state.checkout_credits = 60
@@ -962,7 +961,7 @@ def check_analysis_limits(selected_markets):
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("30 Créditos - R$19,99"):
-                    # Configurar checkout para compra de créditos com popup
+                    # Configurar checkout para compra de créditos
                     st.session_state.page = "packages"
                     st.session_state.show_checkout = True
                     st.session_state.checkout_credits = 30
@@ -972,7 +971,7 @@ def check_analysis_limits(selected_markets):
                         
             with col2:
                 if st.button("60 Créditos - R$29,99"):
-                    # Configurar checkout para compra de créditos com popup
+                    # Configurar checkout para compra de créditos
                     st.session_state.page = "packages"
                     st.session_state.show_checkout = True
                     st.session_state.checkout_credits = 60
@@ -983,7 +982,6 @@ def check_analysis_limits(selected_markets):
             return False
             
     return True
-
 
 def show_main_dashboard():
     """Show the main dashboard after login"""
