@@ -2077,72 +2077,68 @@ def main():
                     position: relative;
                     padding-top: 10px;
                 }
-                    </style>
-                """, unsafe_allow_html=True)
-                
-                # Check for payment from popup
-                popup_payment = False
-                if 'check_payment' in st.query_params and st.query_params.check_payment == 'true':
-                    popup_payment = True
-                
-                # Handle page routing
-                if popup_payment and st.session_state.authenticated:
-                    # If coming back from payment popup, force payment check
-                    check_payment_success()
-                    
-                # Regular payment callback check - this should run before any page routing
-                payment_result = check_payment_success()
-                
-                # Verifique se há um parâmetro de erro específico do Stripe
-                if 'error' in st.query_params:
-                    stripe_error_params = st.query_params.error
-                    st.error(f"""
-                    Ocorreu um erro durante o processamento do pagamento. 
-                    
-                    Se você concluiu o pagamento mas foi redirecionado para uma página de erro, por favor:
-                    
-                    1. Retorne à página de compra de créditos
-                    2. Use a opção "Problemas com o pagamento?" 
-                    3. Insira o ID da sessão do Stripe (começa com 'cs_')
-                    4. Clique em "Verificar Pagamento"
-                    
-                    Se você não tiver o ID da sessão, entre em contato com o suporte.
-                    """)
-                    # Limpar parâmetros de erro para evitar exibição repetida
-                    st.query_params.clear()
-                
-                # Lógica de roteamento de páginas
-                if st.session_state.page == "landing":
-                    show_landing_page()
-                elif st.session_state.page == "login":
-                    show_login()
-                elif st.session_state.page == "register":
-                    show_register()
-                elif st.session_state.page == "main":
-                    if not st.session_state.authenticated:
-                        st.warning("Sua sessão expirou. Por favor, faça login novamente.")
-                        go_to_login()
-                        return
-                        
-                    # Mostrar dashboard principal
-                    show_main_dashboard()
-                elif st.session_state.page == "packages":
-                    if not st.session_state.authenticated:
-                        st.warning("Você precisa fazer login para acessar os pacotes.")
-                        go_to_login()
-                        return
-                        
-                    # Mostrar página de pacotes
-                    show_packages_page()
-                else:
-                    # Página padrão - redirecionando para landing
-                    st.session_state.page = "landing"
-                    st.experimental_rerun()
+            </style>
+        """, unsafe_allow_html=True)
         
-            except Exception as e:
-                st.error(f"Erro geral na aplicação: {str(e)}")
-                traceback.print_exc()  # This will print the full traceback for debugging
+        # Check for payment from popup
+        popup_payment = False
+        if 'check_payment' in st.query_params and st.query_params.check_payment == 'true':
+            popup_payment = True
         
+        # Handle page routing
+        if popup_payment and st.session_state.authenticated:
+            # If coming back from payment popup, force payment check
+            check_payment_success()
+            
+        # Regular payment callback check - this should run before any page routing
+        payment_result = check_payment_success()
         
-        if __name__ == "__main__":
-            main()
+        # Verifique se há um parâmetro de erro específico do Stripe
+        if 'error' in st.query_params:
+            stripe_error_params = st.query_params.error
+            st.error(f"""
+            Ocorreu um erro durante o processamento do pagamento. 
+            
+            Se você concluiu o pagamento mas foi redirecionado para uma página de erro, por favor:
+            
+            1. Retorne à página de compra de créditos
+            2. Use a opção "Problemas com o pagamento?" 
+            3. Insira o ID da sessão do Stripe (começa com 'cs_')
+            4. Clique em "Verificar Pagamento"
+            
+            Se você não tiver o ID da sessão, entre em contato com o suporte.
+            """)
+            # Limpar parâmetros de erro para evitar exibição repetida
+            st.query_params.clear()
+        
+        # Lógica de roteamento de páginas
+        if st.session_state.page == "landing":
+            show_landing_page()
+        elif st.session_state.page == "login":
+            show_login()
+        elif st.session_state.page == "register":
+            show_register()
+        elif st.session_state.page == "main":
+            if not st.session_state.authenticated:
+                st.warning("Sua sessão expirou. Por favor, faça login novamente.")
+                go_to_login()
+                return
+                
+            # Mostrar dashboard principal
+            show_main_dashboard()
+        elif st.session_state.page == "packages":
+            if not st.session_state.authenticated:
+                st.warning("Você precisa fazer login para acessar os pacotes.")
+                go_to_login()
+                return
+                
+            # Mostrar página de pacotes
+            show_packages_page()
+        else:
+            # Página padrão - redirecionando para landing
+            st.session_state.page = "landing"
+            st.experimental_rerun()
+
+    except Exception as e:
+        st.error(f"Erro geral na aplicação: {str(e)}")
+        traceback.print_exc()  # This will print the full traceback for debugging
