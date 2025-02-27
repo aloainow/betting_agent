@@ -53,8 +53,8 @@ FBREF_URLS = {
 @dataclass
 class UserTier:
     name: str
-    total_credits: int  # Total credits in package
-    market_limit: int   # Limit of markets per analysis
+    total_credits: int
+    market_limit: int
 
 
 # Função init_session_state deve vir ANTES da classe UserManager
@@ -139,19 +139,6 @@ def init_stripe():
 
 
 def get_base_url():
-    """Obter a URL base da aplicação Streamlit de forma dinâmica."""
-    # Verifica se está executando no Streamlit Cloud
-    if os.environ.get("IS_STREAMLIT_CLOUD"):
-        return os.environ.get("STREAMLIT_URL", "https://valuehunter.streamlit.app")
-    # Tenta obter do Streamlit (disponível em versões mais recentes)
-    try:
-        return st.get_option("server.baseUrlPath") or "http://localhost:8501"
-    except:
-        # Fallback para localhost
-        return "http://localhost:8501"
-
-
-def get_base_url():
     """Get the base URL for the application, with special handling for Render."""
     # Check if running on Render
     if "RENDER" in os.environ:
@@ -166,6 +153,17 @@ def get_base_url():
         except:
             return "http://localhost:8501"
 
+def get_stripe_success_url(credits, email):
+    """Get the success URL for Stripe checkout."""
+    # For popup approach, we'll redirect to a special success page that can be recognized by the parent window
+    params = urlencode({
+        'success': 'true',
+        'credits': credits,
+        'email': email,
+        'session_id': '{CHECKOUT_SESSION_ID}'  # Stripe will replace this
+    })
+    
+    return f"{get_base_url()}/?{params}"
 
 def get_stripe_cancel_url():
     """Get the cancel URL for Stripe checkout."""
@@ -1958,11 +1956,11 @@ def main():
     try:
         # Configuração inicial do Streamlit - MUST BE FIRST
         st.set_page_config(
-            page_title="ValueHunter - Análise de Apostas Esportivas",
-            page_icon="⚽",
-            layout="wide",
-            initial_sidebar_state="expanded"
-        )
+    page_title="ValueHunter - Análise de Apostas Esportivas",
+    page_icon="⚽",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
         
         # Initialize session state AFTER set_page_config
         init_session_state()
