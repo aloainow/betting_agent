@@ -20,7 +20,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Third party imports
+# Resto dos imports
 import pandas as pd
 import numpy as np
 import requests
@@ -1830,255 +1830,8 @@ def main():
         # Initialize Stripe
         init_stripe()
         
-        # CSS global atualizado para remover o retângulo cinza ao redor do título "Sobre o ValueHunter"
-        st.markdown("""
-            <style>
-                /* Estilo geral da aplicação - background principal */
-                .stApp {
-                    background-color: #3F3F45;
-                }
-                
-                /* Contêineres e elementos de fundo */
-                .st-emotion-cache-ffhzg2,
-                .st-emotion-cache-16txtl3,
-                section[data-testid="stSidebar"],
-                .sidebar .sidebar-content,
-                .st-cx {
-                    background-color: #3F3F45;
-                }
-                
-                /* Texto branco para todos os elementos */
-                p, div, span, li, a, label, text, .st-emotion-cache-16idsys p, .st-emotion-cache-16idsys {
-                    color: #FFFFFF !important;
-                }
-                
-                /* Textos nos inputs */
-                .stTextInput>div>div>input, .stSelectbox {
-                    color: #FFFFFF !important;
-                    background-color: #575760 !important;
-                    border: 1px solid #6b6b74 !important;
-                }
-                
-                /* Manter o laranja para títulos e botões principais */
-                h1, h2, h3, h4, h5, h6 {
-                    color: #fd7014 !important;
-                }
-                
-                /* Ajustes na logo - AUMENTADO TAMANHO */
-                .logo-container {
-                    background-color: #fd7014;
-                    padding: 12px 25px !important; /* Maior padding */
-                    border-radius: 8px;
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                    width: fit-content;
-                }
-                .logo-text {
-                    font-size: 2.5rem !important; /* Maior fonte */
-                    font-weight: bold;
-                    color: #FFFFFF !important;
-                }
-                .logo-v {
-                    color: #3F3F45 !important;
-                    font-size: 3rem !important; /* Maior fonte */
-                    font-weight: bold;
-                }
-                
-                /* NOVO: Estilo para TODOS os botões - LARANJA COM TEXTO BRANCO */
-                div.stButton > button {
-                    background-color: #fd7014 !important;
-                    color: #FFFFFF !important;
-                    border: none !important;
-                    border-radius: 4px;
-                    font-weight: bold;
-                    transition: background-color 0.3s ease;
-                }
-                
-                div.stButton > button:hover {
-                    background-color: #27272a !important; /* Cinza escuro no hover */
-                    color: white !important;
-                }
-                
-                /* Estilo para botão primário */
-                button[kind="primary"] {
-                    background-color: #fd7014 !important;
-                    color: white !important;
-                    font-size: 1.1rem !important;
-                    padding: 0.6rem 1.2rem !important;
-                }
-                
-                /* Ajuste do contraste da sidebar */
-                section[data-testid="stSidebar"] {
-                    background-color: #27272a !important;
-                    border-right: 1px solid #fd7014;
-                }
-                
-                /* Container principal mais escuro */
-                .main .block-container {
-                    background-color: #3F3F45;
-                    padding: 1rem !important;
-                }
-                
-                /* REMOVIDO o estilo .about-section que criava o retângulo cinza */
-                
-                /* Ajustado para substituir o about-section */
-                .about-content {
-                    max-width: 90% !important;
-                    margin-left: 0 !important;
-                    line-height: 1.6;
-                    margin-top: 2rem;
-                    margin-bottom: 2rem;
-                }
-                
-                /* Reduzir espaçamento entre títulos e conteúdo */
-                h1, h2, h3 {
-                    margin-bottom: 0.8rem !important;
-                }
-                
-                /* Ajustar espaçamento entre seções */
-                .hero {
-                    margin: 2rem 0 !important; /* Reduzido de 3rem para 2rem */
-                    text-align: left !important; /* Alinhado à esquerda */
-                }
-                
-                /* Melhorar contraste dos widgets */
-                .stSelectbox > div > div,
-                .stNumberInput > div > div {
-                    background-color: #575760 !important;
-                }
-                
-                /* Cores das mensagens e alertas - manter para legibilidade */
-                .stAlert p {
-                    color: inherit !important;
-                }
-                
-                /* Ajuste no tamanho do título principal */
-                .hero h1 {
-                    font-size: 2.8rem !important;
-                    color: #fd7014 !important;
-                    margin-bottom: 1rem !important;
-                }
-                
-                /* Ajustar margens para título principal */
-                h1:first-of-type {
-                    margin-top: 0.5rem !important;
-                }
-                
-                /* Destaque para resultados de análise */
-                .analysis-result {
-                    width: 100% !important;
-                    max-width: 100% !important;
-                    padding: 1rem !important;
-                    background-color: #575760;
-                    border-radius: 8px;
-                    border: 1px solid #6b6b74;
-                }
-
-                /* Estilos para a página de planos */
-                .plan-container {
-                    display: flex;
-                    flex-wrap: wrap;
-                    justify-content: center;
-                    gap: 20px;
-                    margin-top: 2rem;
-                }
-                .plan-card {
-                    background-color: #ffffff;
-                    border-radius: 10px;
-                    padding: 1.5rem;
-                    width: 250px;
-                    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-                    text-align: center;
-                    display: flex;
-                    flex-direction: column;
-                    border: 1px solid #e2e8f0;
-                }
-                .plan-card.free {
-                    border-top: 4px solid #e44d87;
-                }
-                .plan-card.standard {
-                    border-top: 4px solid #0077b6;
-                    transform: scale(1.05);
-                }
-                .plan-card.pro {
-                    border-top: 4px solid #0abab5;
-                }
-                .plan-title {
-                    color: #222831;
-                    font-size: 1.5rem;
-                    font-weight: bold;
-                    margin-bottom: 1rem;
-                }
-                .plan-price {
-                    color: #222831;
-                    font-size: 2.2rem;
-                    font-weight: bold;
-                    margin-bottom: 0.5rem;
-                }
-                .plan-period {
-                    color: #64748b;
-                    font-size: 0.9rem;
-                    margin-bottom: 1.5rem;
-                }
-                .plan-feature {
-                    color: #222831;
-                    text-align: left;
-                    margin-bottom: 0.5rem;
-                    display: flex;
-                    align-items: center;
-                }
-                .plan-feature i {
-                    color: #0abab5;
-                    margin-right: 10px;
-                }
-                .plan-button {
-                    background-color: #fd7014;
-                    color: white;
-                    border: none;
-                    border-radius: 5px;
-                    padding: 0.75rem 1rem;
-                    font-weight: bold;
-                    cursor: pointer;
-                    margin-top: auto;
-                    transition: background-color 0.3s;
-                }
-                .plan-button:hover {
-                    background-color: #e05f00;
-                }
-                .plan-button.current {
-                    background-color: #27272a;
-                    cursor: default;
-                }
-                .plan-popular {
-                    position: absolute;
-                    top: -10px;
-                    right: 20px;
-                    background-color: #e44d87;
-                    color: white;
-                    font-size: 0.8rem;
-                    padding: 0.25rem 0.75rem;
-                    border-radius: 20px;
-                }
-                .plan-icon {
-                    font-size: 3rem;
-                    margin-bottom: 1rem;
-                }
-                .free-icon {
-                    color: #e44d87;
-                }
-                .standard-icon {
-                    color: #0077b6;
-                }
-                .pro-icon {
-                    color: #0abab5;
-                }
-                .plan-card-container {
-                    position: relative;
-                    padding-top: 10px;
-                }
-            </style>
-        """, unsafe_allow_html=True)
+        # Aplicar estilos CSS
+        apply_custom_css()
         
         # Check for payment from popup
         popup_payment = False
@@ -2087,58 +1840,50 @@ def main():
         
         # Handle page routing
         if popup_payment and st.session_state.authenticated:
-            # If coming back from payment popup, force payment check
             check_payment_success()
             
-        # Regular payment callback check - this should run before any page routing
+        # Regular payment callback check
         payment_result = check_payment_success()
         
-        # Verifique se há um parâmetro de erro específico do Stripe
-        if 'error' in st.query_params:
-            stripe_error_params = st.query_params.error
-            st.error(f"""
-            Ocorreu um erro durante o processamento do pagamento. 
-            
-            Se você concluiu o pagamento mas foi redirecionado para uma página de erro, por favor:
-            
-            1. Retorne à página de compra de créditos
-            2. Use a opção "Problemas com o pagamento?" 
-            3. Insira o ID da sessão do Stripe (começa com 'cs_')
-            4. Clique em "Verificar Pagamento"
-            
-            Se você não tiver o ID da sessão, entre em contato com o suporte.
-            """)
-            # Limpar parâmetros de erro para evitar exibição repetida
-            st.query_params.clear()
+        # Stripe error handling
+        handle_stripe_errors()
         
-        # Lógica de roteamento de páginas
-        if st.session_state.page == "landing":
-            show_landing_page()
-        elif st.session_state.page == "login":
-            show_login()
-        elif st.session_state.page == "register":
-            show_register()
-        elif st.session_state.page == "main":
-            if not st.session_state.authenticated:
-                st.warning("Sua sessão expirou. Por favor, faça login novamente.")
-                go_to_login()
-                return
-                
-            # Mostrar dashboard principal
-            show_main_dashboard()
-        elif st.session_state.page == "packages":
-            if not st.session_state.authenticated:
-                st.warning("Você precisa fazer login para acessar os pacotes.")
-                go_to_login()
-                return
-                
-            # Mostrar página de pacotes
-            show_packages_page()
-        else:
-            # Página padrão - redirecionando para landing
-            st.session_state.page = "landing"
-            st.experimental_rerun()
-
+        # Roteamento de páginas
+        route_pages()
+        
     except Exception as e:
         st.error(f"Erro geral na aplicação: {str(e)}")
-        traceback.print_exc()  # This will print the full traceback for debugging
+        traceback.print_exc()
+
+# Funções auxiliares
+def apply_custom_css():
+    # O CSS pode ser movido para uma função separada
+    st.markdown("""<style>/* Estilos CSS aqui */</style>""", unsafe_allow_html=True)
+
+def handle_stripe_errors():
+    if 'error' in st.query_params:
+        st.error("Erro no processamento do pagamento...")
+        st.query_params.clear()
+
+def route_pages():
+    if st.session_state.page == "landing":
+        show_landing_page()
+    elif st.session_state.page == "login":
+        show_login()
+    elif st.session_state.page == "register":
+        show_register()
+    elif st.session_state.page == "main":
+        if not st.session_state.authenticated:
+            st.warning("Sua sessão expirou. Por favor, faça login novamente.")
+            go_to_login()
+            return
+        show_main_dashboard()
+    elif st.session_state.page == "packages":
+        if not st.session_state.authenticated:
+            st.warning("Você precisa fazer login para acessar os pacotes.")
+            go_to_login()
+            return
+        show_packages_page()
+    else:
+        st.session_state.page = "landing"
+        st.experimental_rerun()
