@@ -125,17 +125,17 @@ def go_to_landing():
     st.experimental_rerun()
 
 
+# In your app.py code, modify init_stripe() and other functions to use env vars
 def init_stripe():
     """Initialize Stripe with the API key."""
     try:
-        # Try to get from secrets first (for production)
+        # Try to get from secrets first
         stripe.api_key = st.secrets["STRIPE_SECRET_KEY"]
     except:
-        # Fallback to hardcoded key (for development only)
-        stripe.api_key = "sk_test_51QtahdJrcSWtZ3fJrEJSDcxk15Km7LDNfm21ImfRKFzJA4cmuUytX5DFoDoo6aveVUtrZEm3vvAmPe7kVRJN6v0U00uue4fEyb"
-    
-    # For test mode, this warns users that they're in test mode
-    st.session_state.stripe_test_mode = True
+        # Fallback to environment variable
+        stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")
+        if not stripe.api_key:
+            st.error("Stripe API key not found")
 
 
 def get_base_url():
@@ -151,17 +151,20 @@ def get_base_url():
         return "http://localhost:8501"
 
 
-def get_stripe_success_url(credits, email):
-    """Get the success URL for Stripe checkout."""
-    # For popup approach, we'll redirect to a special success page that can be recognized by the parent window
-    params = urlencode({
-        'success': 'true',
-        'credits': credits,
-        'email': email,
-        'session_id': '{CHECKOUT_SESSION_ID}'  # Stripe will replace this
-    })
-    
-    return f"{get_base_url()}/?{params}"
+def get_base_url():
+    """Get the base URL for the application, with special handling for Render."""
+    # Check if running on Render
+    if "RENDER" in os.environ:
+        return os.environ.get("RENDER_EXTERNAL_URL", "https://valuehunter.onrender.com")
+    # Check if running on Streamlit Cloud
+    elif os.environ.get("IS_STREAMLIT_CLOUD"):
+        return os.environ.get("STREAMLIT_URL", "https://valuehunter.streamlit.app")
+    # Local development
+    else:
+        try:
+            return st.get_option("server.baseUrlPath") or "http://localhost:8501"
+        except:
+            return "http://localhost:8501"
 
 
 def get_stripe_cancel_url():
@@ -1953,19 +1956,19 @@ INSTRUÇÕES ESPECIAIS: VOCÊ DEVE CALCULAR PROBABILIDADES REAIS PARA TODOS OS M
         return None
 def main():
     try:
-        # Initialize session state
-        init_session_state()
-        
-        # Initialize Stripe
-        init_stripe()
-        
-        # Configuração inicial do Streamlit
+        # Configuração inicial do Streamlit - MUST BE FIRST
         st.set_page_config(
             page_title="ValueHunter - Análise de Apostas Esportivas",
             page_icon="⚽",
             layout="wide",
             initial_sidebar_state="expanded"
         )
+        
+        # Initialize session state AFTER set_page_config
+        init_session_state()
+        
+        # Initialize Stripe
+        init_stripe()
         
         # CSS global atualizado para remover o retângulo cinza ao redor do título "Sobre o ValueHunter"
         st.markdown("""
