@@ -187,43 +187,25 @@ def init_session_state():
 
 def redirect_to_stripe(checkout_url):
     """Redireciona para o URL do Stripe de maneira mais eficaz"""
-    # Usar meta refresh, JavaScript e botão para garantir o redirecionamento
-    html = f"""
-        <html>
-            <head>
-                <meta http-equiv="refresh" content="0;url={checkout_url}" />
-                <script>
-                    // Redirecionamento principal
-                    window.location.href = "{checkout_url}";
-                    
-                    // Fallback que tenta a cada 1 segundo caso o redirecionamento falhe
-                    setTimeout(function() {{
-                        window.location.href = "{checkout_url}";
-                    }}, 1000);
-                    
-                    // Redirecionamento por clique automático no botão
-                    window.onload = function() {{
-                        document.getElementById('redirect-btn').click();
-                    }}
-                </script>
-            </head>
-            <body>
-                <h1>Redirecionando para o pagamento...</h1>
-                <p>Se você não for redirecionado automaticamente, clique no botão abaixo:</p>
-                <a id="redirect-btn" href="{checkout_url}" style="display: inline-block; padding: 10px 20px; background-color: #fd7014; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">
-                    Ir para o pagamento
-                </a>
-            </body>
-        </html>
+    # Usar JavaScript para abrir em nova aba/janela
+    js = f"""
+        <script>
+            // Abrir em nova aba
+            window.open('{checkout_url}', '_blank');
+            
+            // Mostrar mensagem de instrução
+            document.getElementById('redirect-message').style.display = 'block';
+        </script>
+        <div id="redirect-message" style="display:none; padding: 20px; background-color: #4CAF50; color: white; border-radius: 5px; margin-top: 20px;">
+            <h3>Pagamento iniciado em nova aba! ✅</h3>
+            <p>Uma nova aba foi aberta para você concluir o pagamento. Se não abriu automaticamente, use o botão abaixo:</p>
+            <a href="{checkout_url}" target="_blank" style="display: inline-block; padding: 10px 20px; background-color: white; color: #4CAF50; text-decoration: none; border-radius: 5px; font-weight: bold; margin-top: 10px;">
+                Ir para o pagamento
+            </a>
+            <p style="margin-top: 15px;">Após concluir o pagamento, você será redirecionado automaticamente de volta ao ValueHunter.</p>
+        </div>
     """
-    
-    # Usar o componente HTML em tela cheia
-    st.components.v1.html(html, height=600, scrolling=False)
-    
-    # Adicionar também instruções diretas ao usuário para caso falhe
-    st.error("Se o redirecionamento automático não funcionar, clique no botão acima.")
-    st.info("Após completar o pagamento, feche esta janela e retorne à aplicação principal.")
-    
+    st.components.v1.html(js, height=300)    
 def update_purchase_button(credits, amount):
     """Função comum para processar a compra de créditos"""
     logger.info(f"Botão de {credits} créditos clicado")
@@ -479,11 +461,8 @@ def get_base_url():
 
 
 def get_stripe_success_url(credits, email):
-    """Get the success URL for Stripe checkout with improved session handling."""
-    # Incluir script para fechar janela atual se for uma nova aba
-    close_param = "close_window=true"
-    
-    # Cria URL com parâmetros para retornar à página principal após pagamento
+    """Get the success URL for Stripe checkout with improved redirect handling."""
+    # Criar URL com parâmetros para retornar à página principal após pagamento
     params = urlencode({
         'success': 'true',
         'credits': credits,
@@ -494,7 +473,7 @@ def get_stripe_success_url(credits, email):
     })
     
     base_url = get_base_url()
-    full_url = f"{base_url}/?{close_param}&{params}"
+    full_url = f"{base_url}/?{params}"
     logger.info(f"URL de sucesso do Stripe configurada: {full_url}")
     return full_url
 
@@ -557,7 +536,7 @@ def create_stripe_checkout_session(email, credits, amount):
             }
         )
         
-        # Armazenar o ID da sessão na sessão do app
+        # Store the session ID in the app session
         st.session_state.last_stripe_session_id = checkout_session.id
         logger.info(f"Sessão de checkout do Stripe criada com sucesso: {checkout_session.id}, URL: {checkout_session.url}")
         
@@ -660,8 +639,9 @@ def check_payment_success():
                             
                             # Redirecionar para página principal imediatamente
                             st.session_state.page = "main"
+                            # Limpar parâmetros da URL para evitar processamentos duplicados
                             st.query_params.clear()
-                            time.sleep(1)
+                            # Usar rerun para atualizar a página
                             st.experimental_rerun()
                             
                             return True
@@ -669,12 +649,9 @@ def check_payment_success():
                             logger.error(f"Erro ao adicionar créditos para {email}")
                             st.error("Erro ao adicionar créditos à sua conta.")
                     else:
-                        # Remover esta mensagem quando o pagamento for bem sucedido por outros meios
-                        # Vamos apenas registrar no log, sem mostrar ao usuário
                         logger.warning(f"Não foi possível verificar o pagamento via ID de sessão: {session_id}")
-                        # Não mostrar esta mensagem: st.warning("Não foi possível verificar o pagamento com o Stripe.")
             
-            # Fallback para processamento direto
+            # Fallback para processamento direto por parâmetros
             if 'credits' in st.query_params and 'email' in st.query_params:
                 credits = int(st.query_params.credits)
                 email = st.query_params.email
@@ -692,14 +669,22 @@ def check_payment_success():
                         # Redirect to main page if needed
                         st.session_state.page = "main"
                         st.query_params.clear()
-                        time.sleep(1)
                         st.experimental_rerun()
                         
                         return True
+                        
+            # Se chegou até aqui sem retornar, limpar parâmetros da URL para evitar loops
+            if any(param in st.query_params for param in ['success', 'session_id', 'credits']):
+                st.query_params.clear()
+                
         except Exception as e:
             logger.error(f"Erro ao processar parâmetros de pagamento: {str(e)}")
             st.error(f"Erro ao processar pagamento: {str(e)}")
-
+            
+        # Limpar parâmetros para evitar reprocessamento em recargas de página
+        st.query_params.clear()
+        
+    return False
 def show_landing_page():
     """Display landing page with about content and login/register buttons"""
     try:
