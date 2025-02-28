@@ -187,39 +187,81 @@ def init_session_state():
 
 def redirect_to_stripe(checkout_url):
     """
-    Redireciona para o URL do Stripe na mesma janela,
-    garantindo que ao retornar, o usuário volte para a mesma aba
+    Força um redirecionamento completo para fora do Streamlit,
+    enviando o usuário diretamente para a página do Stripe.
     """
-    # Usar redirecionamento direto na mesma janela em vez de abrir nova aba
-    js = f"""
+    # Código JavaScript agressivo para forçar redirecionamento completo
+    js_redirect = f"""
+        <html>
+        <head>
+            <meta http-equiv="refresh" content="0; url={checkout_url}">
+            <script>
+                // Redirecionamento direto - primeira tentativa
+                window.top.location.href = "{checkout_url}";
+                
+                // Se o redirecionamento acima falhar (por questões de segurança/sandbox)
+                setTimeout(function() {{
+                    // Segunda tentativa com location.replace (limpa histórico)
+                    window.top.location.replace("{checkout_url}");
+                }}, 500);
+                
+                // Se ainda falhar, tenta o mesmo no frame pai
+                setTimeout(function() {{
+                    window.parent.location.href = "{checkout_url}";
+                }}, 1000);
+                
+                // Última tentativa - abre em uma nova janela e fecha a atual (não recomendado, mas é um fallback)
+                setTimeout(function() {{
+                    var newWindow = window.open("{checkout_url}", "_blank");
+                    // Tenta fechar a janela atual se um novo popup foi aberto
+                    if (newWindow) {{
+                        // Aguarde um momento antes de tentar fechar
+                        setTimeout(function() {{ window.close(); }}, 1000);
+                    }}
+                }}, 2000);
+            </script>
+        </head>
+        <body>
+            <h2>Redirecionando para o Stripe...</h2>
+            <p>Você está sendo redirecionado para o portal de pagamento. Se não for redirecionado automaticamente, 
+               <a href="{checkout_url}" target="_top">clique aqui</a>.</p>
+        </body>
+        </html>
+    """
+    
+    # Usar o componente HTML com altura suficiente, evitando scrollbars
+    st.components.v1.html(js_redirect, height=300, scrolling=False)
+    
+    # Também usa unsafe_allow_html para tentar outro método de redirecionamento
+    st.markdown(f"""
+        <a href="{checkout_url}" id="redirect-link" target="_top">Redirecionando...</a>
         <script>
-            // Redirecionamento direto na mesma janela - Melhor UX para pagamentos
-            window.location.href = '{checkout_url}';
+            document.getElementById('redirect-link').click();
         </script>
-        
-        <div style="padding: 20px; background-color: #4CAF50; color: white; border-radius: 5px; margin-top: 20px;">
-            <h3>Redirecionando para o pagamento...</h3>
-            <p>Você está sendo redirecionado para a página de pagamento. Se o redirecionamento não ocorrer automaticamente, clique no botão abaixo:</p>
-            <a href="{checkout_url}" style="display: inline-block; padding: 10px 20px; background-color: white; color: #4CAF50; text-decoration: none; border-radius: 5px; font-weight: bold; margin-top: 10px;">
-                Ir para o pagamento
-            </a>
-        </div>
-    """
-    st.components.v1.html(js, height=200)
+    """, unsafe_allow_html=True)
+    
+    # Mensagem informativa
+    st.info("Se você continua vendo esta página, clique no link acima para ir para o pagamento.")
+
+
 def update_purchase_button(credits, amount):
-    """Função comum para processar a compra de créditos"""
+    """Função para processar a compra de créditos com redirecionamento externo"""
     logger.info(f"Botão de {credits} créditos clicado")
+    
     # Criar checkout diretamente e redirecionar
     checkout_session = create_stripe_checkout_session(
         st.session_state.email, 
         credits, 
         amount
     )
+    
     if checkout_session:
         logger.info(f"Checkout session criada: {checkout_session.id}, URL: {checkout_session.url}")
-        # Usar a função de redirecionamento na mesma janela
+        
+        # Usar o redirecionamento externo forçado
         redirect_to_stripe(checkout_session.url)
         return True
+    
     return False
 
 
@@ -887,8 +929,15 @@ def show_packages_page():
             </div>
             """, unsafe_allow_html=True)
             
+            # Botão de compra direto, sem container ou whitespace adicional
             if st.button("Comprar 30 Créditos", use_container_width=True, key="buy_30c"):
-                update_purchase_button(30, 19.99)
+                # Chamar diretamente o Stripe sem exibir HTML
+                checkout_session = create_stripe_checkout_session(st.session_state.email, 30, 19.99)
+                if checkout_session:
+                    # Forçar redirecionamento externo
+                    redirect_to_stripe(checkout_session.url)
+                    # Não use st.stop() aqui, pois pode causar problemas
+                    # Deixe o código continuar para mostrar o resto da página
         
         with col2:
             st.markdown("""
@@ -899,8 +948,14 @@ def show_packages_page():
             </div>
             """, unsafe_allow_html=True)
             
+            # Botão de compra direto, sem container ou whitespace adicional
             if st.button("Comprar 60 Créditos", use_container_width=True, key="buy_60c"):
-                update_purchase_button(60, 29.99)
+                # Chamar diretamente o Stripe sem exibir HTML
+                checkout_session = create_stripe_checkout_session(st.session_state.email, 60, 29.99)
+                if checkout_session:
+                    # Forçar redirecionamento externo
+                    redirect_to_stripe(checkout_session.url)
+                    # Não use st.stop() aqui
         
         # Add payment instructions
         st.markdown("""
@@ -930,7 +985,6 @@ def show_packages_page():
     except Exception as e:
         logger.error(f"Erro ao exibir página de pacotes: {str(e)}")
         st.error("Erro ao carregar a página de pacotes. Por favor, tente novamente.")
-
 
 def show_usage_stats():
     """Display simplified usage statistics focusing only on credits"""
