@@ -782,15 +782,23 @@ def show_login():
             submitted = st.form_submit_button("Login")
             
             if submitted:
-                if st.session_state.user_manager.authenticate(email, password):
-                    st.session_state.authenticated = True
-                    st.session_state.email = email
-                    st.success("Login successful!")
-                    st.session_state.page = "main"  # Ir para a página principal
-                    time.sleep(1)
-                    st.experimental_rerun()
-                else:
-                    st.error("Invalid credentials")
+                if not email or not password:
+                    st.error("Por favor, preencha todos os campos.")
+                    return
+                    
+                try:
+                    if st.session_state.user_manager.authenticate(email, password):
+                        st.session_state.authenticated = True
+                        st.session_state.email = email
+                        st.success("Login realizado com sucesso!")
+                        st.session_state.page = "main"  # Ir para a página principal
+                        time.sleep(1)
+                        st.experimental_rerun()
+                    else:
+                        st.error("Credenciais inválidas.")
+                except Exception as e:
+                    logger.error(f"Erro durante autenticação: {str(e)}")
+                    st.error("Erro ao processar login. Por favor, tente novamente.")
         
         # Registration link
         st.markdown("---")
@@ -800,7 +808,7 @@ def show_login():
     except Exception as e:
         logger.error(f"Erro ao exibir página de login: {str(e)}")
         st.error("Erro ao carregar a página de login. Por favor, tente novamente.")
-    
+        st.error(f"Detalhes: {str(e)}")  # Adicionar detalhes do erro para diagnóstico    
 
 def show_register():
     """Display simplified registration form"""
@@ -827,7 +835,20 @@ def show_register():
                     return
                     
                 # Todo usuário novo começa automaticamente no pacote Free
-                success, message = st.session_state.user_manager.register_user(email, password, name, "free")
+                # Precisamos alterar a chamada ao register_user para incluir o nome
+                # Verificar a assinatura atual do método no UserManager
+                try:
+                    # Tentativa adaptativa - primeiro tentar com o parâmetro nome
+                    success, message = st.session_state.user_manager.register_user(email, password, name, "free")
+                except TypeError:
+                    # Se der erro, provavelmente a função antiga ainda não tem o parâmetro nome
+                    # Vamos usar a versão antiga
+                    success, message = st.session_state.user_manager.register_user(email, password, "free")
+                    # E atualizar o nome depois, se for bem-sucedido
+                    if success and hasattr(st.session_state.user_manager, "users") and email in st.session_state.user_manager.users:
+                        st.session_state.user_manager.users[email]["name"] = name
+                        st.session_state.user_manager._save_users()
+                
                 if success:
                     st.success(message)
                     st.info("Você foi registrado no pacote Free com 5 créditos. Você pode fazer upgrade a qualquer momento.")
@@ -845,7 +866,7 @@ def show_register():
     except Exception as e:
         logger.error(f"Erro ao exibir página de registro: {str(e)}")
         st.error("Erro ao carregar a página de registro. Por favor, tente novamente.")
-
+        st.error(f"Detalhes: {str(e)}")  # Adicionar detalhes do erro para diagnóstico
 
 def show_packages_page():
     """Display simplified credit purchase page with direct Stripe checkout"""
@@ -921,8 +942,21 @@ def show_usage_stats():
     try:
         stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
         
+        # Obter nome do usuário - com fallback seguro
+        user_name = "Usuário"
+        try:
+            # Tentar obter o nome do usuário diretamente da estrutura de dados
+            if hasattr(st.session_state.user_manager, "users") and st.session_state.email in st.session_state.user_manager.users:
+                user_data = st.session_state.user_manager.users[st.session_state.email]
+                if "name" in user_data:
+                    user_name = user_data["name"]
+            # Ou dos stats, se disponível
+            elif "name" in stats:
+                user_name = stats["name"]
+        except Exception:
+            pass  # Manter o fallback em caso de erro
+        
         # Saudação com nome do usuário
-        user_name = stats.get('name', 'Usuário')
         st.sidebar.markdown(f"### Olá, {user_name}!")
         
         st.sidebar.markdown("### Estatísticas de Uso")
@@ -945,7 +979,6 @@ def show_usage_stats():
     except Exception as e:
         logger.error(f"Erro ao exibir estatísticas de uso: {str(e)}")
         st.sidebar.error("Erro ao carregar estatísticas")
-
 
 def check_analysis_limits(selected_markets):
     """Check if user can perform analysis with selected markets"""
@@ -1283,8 +1316,8 @@ class UserManager:
         }
         return tier_display.get(tier, tier.capitalize())
     
-def register_user(self, email: str, password: str, name: str, tier: str = "free") -> tuple[bool, str]:
-    """Register a new user"""
+def register_user(self, email: str, password: str, name: str = None, tier: str = "free") -> tuple[bool, str]:
+    """Register a new user with optional name parameter"""
     try:
         if not self._validate_email(email):
             return False, "Email inválido"
@@ -1294,6 +1327,10 @@ def register_user(self, email: str, password: str, name: str, tier: str = "free"
             return False, "Senha deve ter no mínimo 6 caracteres"
         if tier not in self.tiers:
             return False, "Tipo de usuário inválido"
+                
+        # Se nome não for fornecido, usar parte do email como nome
+        if not name:
+            name = email.split('@')[0].capitalize()
                 
         self.users[email] = {
             "password": self._hash_password(password),
@@ -1318,103 +1355,53 @@ def register_user(self, email: str, password: str, name: str, tier: str = "free"
     except Exception as e:
         logger.error(f"Erro ao registrar usuário {email}: {str(e)}")
         return False, f"Erro interno ao registrar usuário"    
-    def add_credits(self, email: str, amount: int) -> bool:
-        """Add more credits to a user account"""
-        try:
-            if email not in self.users:
-                logger.warning(f"Tentativa de adicionar créditos para usuário inexistente: {email}")
-                return False
-                
-            if "purchased_credits" not in self.users[email]:
-                self.users[email]["purchased_credits"] = 0
-                
-            self.users[email]["purchased_credits"] += amount
-            
-            # Clear paid credits exhausted timestamp when adding credits
-            if self.users[email].get("paid_credits_exhausted_at"):
-                self.users[email]["paid_credits_exhausted_at"] = None
-                
-            save_success = self._save_users()
-            if not save_success:
-                logger.warning(f"Falha ao salvar dados após adicionar créditos para: {email}")
-                
-            logger.info(f"Créditos adicionados com sucesso: {amount} para {email}")
-            return True
-        except Exception as e:
-            logger.error(f"Erro ao adicionar créditos para {email}: {str(e)}")
-            return False
-    
 def get_usage_stats(self, email: str) -> Dict:
     """Get usage statistics for a user"""
     try:
         if email not in self.users:
             logger.warning(f"Tentativa de obter estatísticas para usuário inexistente: {email}")
-            return {}
+            return {
+                "name": "Usuário",
+                "tier": "free",
+                "tier_display": "Free",
+                "credits_used": 0,
+                "credits_total": 5,
+                "credits_remaining": 5,
+                "market_limit": float('inf')
+            }
                 
         user = self.users[email]
         
-        # Obter o nome do usuário
-        user_name = user.get("name", "Usuário")
-        
         # Calculate total credits used
         total_credits_used = sum(
-            u["markets"] for u in user["usage"]["total"]
+            u["markets"] for u in user.get("usage", {}).get("total", [])
         )
         
         # Get credits based on user tier
-        tier = self.tiers[user["tier"]]
+        tier_name = user.get("tier", "free")
+        if tier_name not in self.tiers:
+            tier_name = "free"
+            
+        tier = self.tiers[tier_name]
         base_credits = tier.total_credits
         
         # Add any purchased credits
         purchased_credits = user.get("purchased_credits", 0)
         
-        # Free tier special handling - check if 24h have passed since credits exhausted
+        # Get user name (with fallback)
+        user_name = user.get("name", email.split('@')[0].capitalize())
+        
+        # Free tier special handling
         free_credits_reset = False
         next_free_credits_time = None
         
-        if user["tier"] == "free":
-            # Se ele já usou créditos e tem marcação de esgotamento
-            if user.get("free_credits_exhausted_at"):
-                try:
-                    # Convert stored time to datetime
-                    exhausted_time = datetime.fromisoformat(user["free_credits_exhausted_at"])
-                    current_time = datetime.now()
-                    
-                    # Check if 24 hours have passed
-                    if (current_time - exhausted_time).total_seconds() >= 86400:  # 24 hours in seconds
-                        # Reset credits - IMPORTANTE: sempre será 5 créditos, não acumula
-                        user["free_credits_exhausted_at"] = None
-                        
-                        # Clear usage history for free users after reset
-                        user["usage"]["total"] = []
-                        free_credits_reset = True
-                        self._save_users()
-                        
-                        # Após resetar, não há créditos usados
-                        total_credits_used = 0
-                        logger.info(f"Créditos gratuitos renovados para: {email}")
-                    else:
-                        # Calculate time remaining
-                        time_until_reset = exhausted_time + timedelta(days=1) - current_time
-                        hours = int(time_until_reset.total_seconds() // 3600)
-                        minutes = int((time_until_reset.total_seconds() % 3600) // 60)
-                        next_free_credits_time = f"{hours}h {minutes}min"
-                except Exception as e:
-                    logger.error(f"Erro ao calcular tempo para renovação de créditos: {str(e)}")
-        
-        # Calculate remaining credits
+        # Calculat remaining credits
         remaining_credits = max(0, base_credits + purchased_credits - total_credits_used)
-        
-        # Check if user is out of credits and set exhausted timestamp
-        if remaining_credits == 0 and not user.get("free_credits_exhausted_at") and user["tier"] == "free":
-            user["free_credits_exhausted_at"] = datetime.now().isoformat()
-            self._save_users()
-            logger.info(f"Créditos gratuitos esgotados para: {email}")
         
         return {
             "name": user_name,
-            "tier": user["tier"],
-            "tier_display": self._format_tier_name(user["tier"]),
+            "tier": tier_name,
+            "tier_display": self._format_tier_name(tier_name),
             "credits_used": total_credits_used,
             "credits_total": base_credits + purchased_credits,
             "credits_remaining": remaining_credits,
@@ -1433,8 +1420,8 @@ def get_usage_stats(self, email: str) -> Dict:
             "credits_total": 5,
             "credits_remaining": 5,
             "market_limit": float('inf')
-        }    
-    def record_usage(self, email: str, num_markets: int):
+        }
+def record_usage(self, email: str, num_markets: int):
         """Record usage for a user (each market consumes one credit)"""
         try:
             if email not in self.users:
