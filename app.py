@@ -187,34 +187,25 @@ def init_session_state():
 
 def redirect_to_stripe(checkout_url):
     """Redireciona para o URL do Stripe de maneira mais eficaz"""
-    # Usar HTML meta refresh que é mais consistente do que JavaScript em Streamlit
-    html = f"""
-        <html>
-            <head>
-                <meta http-equiv="refresh" content="0;url={checkout_url}" />
-                <title>Redirecionando para o pagamento...</title>
-                <script type="text/javascript">
-                    window.onload = function() {{
-                        window.location.href = "{checkout_url}";
-                    }}
-                </script>
-            </head>
-            <body>
-                <h1>Redirecionando para o pagamento...</h1>
-                <p>Se você não for redirecionado automaticamente, clique no botão abaixo:</p>
-                <a href="{checkout_url}" style="display: inline-block; padding: 10px 20px; background-color: #fd7014; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">
-                    Ir para o pagamento
-                </a>
-            </body>
-        </html>
+    # JavaScript para redirecionamento imediato
+    js_code = f"""
+        <script>
+            window.location.href = "{checkout_url}";
+        </script>
     """
-    # Use o componente html do Streamlit em tela cheia para forçar o redirecionamento
-    st.components.v1.html(html, height=600, scrolling=False)
+    # Usar um componente HTML que executa o JavaScript imediatamente
+    st.components.v1.html(js_code, height=0)
     
-    # Adicione também um link manual como fallback
-    st.markdown(f"[Clique aqui se não for redirecionado automaticamente]({checkout_url})")
-
-
+    # Como fallback, também mostrar o botão e link
+    st.markdown(f"""
+        <div style="text-align: center; padding: 20px;">
+            <h3>Redirecionando para o pagamento...</h3>
+            <p>Se você não for redirecionado automaticamente em 3 segundos, clique no botão abaixo:</p>
+            <a href="{checkout_url}" target="_blank" style="display: inline-block; padding: 10px 20px; background-color: #fd7014; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">
+                Ir para o pagamento
+            </a>
+        </div>
+    """, unsafe_allow_html=True)
 def update_purchase_button(credits, amount):
     """Função comum para processar a compra de créditos"""
     logger.info(f"Botão de {credits} créditos clicado")
@@ -580,7 +571,8 @@ def verify_stripe_payment(session_id):
                 # No ambiente de teste, considerar qualquer sessão como válida
                 # Na produção, verificaríamos payment_status == 'paid'
                 logger.info(f"Sessão de teste verificada com sucesso: {session_id}")
-                st.success("✅ Sessão de teste verificada com sucesso!")
+                # Remover esta mensagem de sucesso que pode confundir
+                # st.success("✅ Sessão de teste verificada com sucesso!")
                 return True, credits, email
             
             # For production sessions, verify payment status
@@ -595,7 +587,7 @@ def verify_stripe_payment(session_id):
             # Session exists but payment not completed
             else:
                 logger.warning(f"Pagamento não concluído: {session_id}, status: {session.payment_status}")
-                st.warning(f"O pagamento desta sessão ({session_id}) ainda não foi concluído. Status: {session.payment_status}")
+                # Apenas log, sem mostrar ao usuário neste ponto
                 return False, None, None
         
         logger.warning(f"ID de sessão inválido: {session_id}")
@@ -603,13 +595,12 @@ def verify_stripe_payment(session_id):
     except stripe.error.InvalidRequestError as e:
         # Sessão não existe ou foi excluída
         logger.error(f"Sessão inválida: {str(e)}")
-        st.error(f"Sessão inválida: {str(e)}")
+        # st.error(f"Sessão inválida: {str(e)}") - Remover para não confundir o usuário
         return False, None, None
     except Exception as e:
         logger.error(f"Erro ao verificar pagamento: {str(e)}")
-        st.error(f"Erro ao verificar pagamento: {str(e)}")
+        # st.error(f"Erro ao verificar pagamento: {str(e)}") - Remover para não confundir o usuário
         return False, None, None
-
 
 def check_payment_success():
     """Check if a payment was successful based on URL parameters with improved session handling."""
@@ -659,9 +650,11 @@ def check_payment_success():
                             logger.error(f"Erro ao adicionar créditos para {email}")
                             st.error("Erro ao adicionar créditos à sua conta.")
                     else:
-                        logger.warning(f"Não foi possível verificar o pagamento: {session_id}")
-                        st.warning("Não foi possível verificar o pagamento com o Stripe.")
-                        
+                        # Remover esta mensagem quando o pagamento for bem sucedido por outros meios
+                        # Vamos apenas registrar no log, sem mostrar ao usuário
+                        logger.warning(f"Não foi possível verificar o pagamento via ID de sessão: {session_id}")
+                        # Não mostrar esta mensagem: st.warning("Não foi possível verificar o pagamento com o Stripe.")
+            
             # Fallback para processamento direto
             if 'credits' in st.query_params and 'email' in st.query_params:
                 credits = int(st.query_params.credits)
@@ -687,33 +680,6 @@ def check_payment_success():
         except Exception as e:
             logger.error(f"Erro ao processar parâmetros de pagamento: {str(e)}")
             st.error(f"Erro ao processar pagamento: {str(e)}")
-    
-    # Check if payment was canceled
-    if 'canceled' in st.query_params and st.query_params.canceled == 'true':
-        logger.info("Pagamento cancelado pelo usuário")
-        st.warning("❌ Pagamento cancelado.")
-        
-        # Se tiver email nos parâmetros, restaurar a sessão
-        if 'email' in st.query_params:
-            email = st.query_params.email
-            logger.info(f"Restaurando sessão após cancelamento para: {email}")
-            st.session_state.authenticated = True
-            st.session_state.email = email
-        
-        # Redirect to main page if needed
-        if 'redirect' in st.query_params and st.query_params.redirect == 'main':
-            st.session_state.page = "main"
-            st.query_params.clear()
-            time.sleep(1)
-            st.experimental_rerun()
-        else:
-            # Clear parameters
-            st.query_params.clear()
-        
-        return False
-        
-    return None
-
 
 def show_landing_page():
     """Display landing page with about content and login/register buttons"""
