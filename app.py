@@ -183,7 +183,166 @@ def init_session_state():
     
     # Atualizar timestamp de última atividade
     st.session_state.last_activity = datetime.now()
-    
+
+
+def apply_global_css():
+    """Aplica estilos CSS globais para toda a aplicação"""
+    st.markdown("""
+    <style>
+        /* Estilo para TODOS os botões - LARANJA COM TEXTO BRANCO */
+        div.stButton > button, button.css-1rs6os.edgvbvh3 {
+            background-color: #fd7014 !important;
+            color: #FFFFFF !important;
+            border: none !important;
+            border-radius: 4px;
+            font-weight: bold;
+            transition: background-color 0.3s ease;
+        }
+        
+        div.stButton > button:hover, button.css-1rs6os.edgvbvh3:hover {
+            background-color: #27272a !important; /* Cinza escuro no hover */
+            color: white !important;
+        }
+        
+        /* Logo consistente */
+        .logo-container {
+            background-color: #fd7014;
+            padding: 12px 25px !important;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            width: fit-content;
+            margin-bottom: 20px;
+        }
+        
+        .logo-v {
+            color: #3F3F45;
+            font-size: 3rem !important;
+            font-weight: bold;
+        }
+        
+        .logo-text {
+            font-size: 2.5rem !important;
+            font-weight: bold;
+            color: #FFFFFF;
+        }
+        
+        body {
+            background-color: #3F3F45;
+            color: #FFFFFF;
+        }
+        .landing-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .hero {
+            margin: 2rem 0;
+            text-align: left;
+        }
+        .hero h1 {
+            font-size: 2.8rem;
+            color: #fd7014;
+            margin-bottom: 1rem;
+        }
+        .hero p {
+            font-size: 1.25rem;
+            color: #FFFFFF;
+            max-width: 90%;
+            margin-left: 0;
+        }
+        .about-content {
+            max-width: 90%;
+            margin-left: 0;
+            line-height: 1.6;
+            margin-top: 2rem;
+            margin-bottom: 2rem;
+        }
+        .about-content h2 {
+            color: #fd7014;
+            margin-bottom: 0.8rem;
+            text-align: left;
+        }
+        .footer {
+            margin-top: 2rem;
+            text-align: center;
+            color: #b0b0b0;
+        }
+        .btn-container {
+            display: flex;
+            justify-content: flex-start;
+            gap: 20px;
+            margin-top: 1.5rem;
+        }
+        p, li {
+            color: #FFFFFF !important;
+        }
+        
+        .main .block-container {
+            max-width: 95% !important; 
+            padding: 1rem !important;
+        }
+        
+        .analysis-result {
+            width: 100% !important;
+            max-width: 100% !important; 
+            padding: 2rem !important;
+            background-color: #575760;
+            border-radius: 8px;
+            border: 1px solid #6b6b74;
+            margin: 1rem 0;
+        }
+        
+        /* Estilo para os cartões de crédito */
+        .credit-card {
+            background-color: #3F3F45;
+            border: 1px solid #575760;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            color: white;
+            text-align: center;
+        }
+        .credit-title {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        .credit-price {
+            font-size: 42px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: white;
+        }
+        .credit-desc {
+            font-size: 16px;
+            color: #b0b0b0;
+            margin-bottom: 15px;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+
+# Função para exibir a logo do ValueHunter de forma consistente
+def show_valuehunter_logo():
+    """Exibe a logo do ValueHunter de forma consistente"""
+    st.markdown(
+        '<div class="logo-container"><span class="logo-v">V</span><span class="logo-text">ValueHunter</span></div>', 
+        unsafe_allow_html=True
+    )
+
 
 def go_to_login():
     """Navigate to login page"""
@@ -302,6 +461,11 @@ def create_stripe_checkout_session(email, credits, amount):
         
         # Create success URL (Stripe will replace SESSION_ID with the actual ID)
         success_url = get_stripe_success_url(credits, email)
+        cancel_url = get_stripe_cancel_url()
+        
+        logger.info(f"Criando sessão de checkout para {email}: {credits} créditos, R${amount}")
+        logger.info(f"Success URL: {success_url}")
+        logger.info(f"Cancel URL: {cancel_url}")
         
         # Create checkout session
         checkout_session = stripe.checkout.Session.create(
@@ -320,7 +484,7 @@ def create_stripe_checkout_session(email, credits, amount):
             mode='payment',
             customer_email=email,
             success_url=success_url,
-            cancel_url=get_stripe_cancel_url(),
+            cancel_url=cancel_url,
             metadata={
                 'email': email,
                 'credits': str(credits)
@@ -329,7 +493,7 @@ def create_stripe_checkout_session(email, credits, amount):
         
         # Armazenar o ID da sessão na sessão do app
         st.session_state.last_stripe_session_id = checkout_session.id
-        logger.info(f"Sessão de checkout do Stripe criada com sucesso: {checkout_session.id}")
+        logger.info(f"Sessão de checkout do Stripe criada com sucesso: {checkout_session.id}, URL: {checkout_session.url}")
         
         return checkout_session
     except Exception as e:
@@ -478,110 +642,11 @@ def check_payment_success():
 
 def show_landing_page():
     """Display landing page with about content and login/register buttons"""
-    # Custom CSS para a página de landing
-    st.markdown("""
-        <style>
-            body {
-                background-color: #3F3F45;
-                color: #FFFFFF;
-            }
-            .landing-container {
-                max-width: 1200px;
-                margin: 0 auto;
-                padding: 2rem;
-            }
-            .navbar {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-bottom: 1.5rem;
-            }
-            .logo {
-                display: flex;
-                align-items: center;
-                gap: 10px;
-            }
-            .logo-text {
-                font-size: 2.5rem !important;
-                font-weight: bold;
-                color: #FFFFFF;
-            }
-            .logo-v {
-                color: #3F3F45;
-                font-size: 3rem !important;
-                font-weight: bold;
-            }
-            .logo-container {
-                background-color: #fd7014;
-                padding: 12px 25px !important;
-                border-radius: 8px;
-                display: flex;
-                align-items: center;
-                gap: 5px;
-            }
-            .hero {
-                margin: 2rem 0;
-                text-align: left;
-            }
-            .hero h1 {
-                font-size: 2.8rem;
-                color: #fd7014;
-                margin-bottom: 1rem;
-            }
-            .hero p {
-                font-size: 1.25rem;
-                color: #FFFFFF;
-                max-width: 90%;
-                margin-left: 0;
-            }
-            .about-content {
-                max-width: 90%;
-                margin-left: 0;
-                line-height: 1.6;
-                margin-top: 2rem;
-                margin-bottom: 2rem;
-            }
-            .about-content h2 {
-                color: #fd7014;
-                margin-bottom: 0.8rem;
-                text-align: left;
-            }
-            .footer {
-                margin-top: 2rem;
-                text-align: center;
-                color: #b0b0b0;
-            }
-            .btn-container {
-                display: flex;
-                justify-content: flex-start;
-                gap: 20px;
-                margin-top: 1.5rem;
-            }
-            p, li {
-                color: #FFFFFF !important;
-            }
-            /* Estilo para TODOS os botões - LARANJA COM TEXTO BRANCO */
-            div.stButton > button {
-                background-color: #fd7014 !important;
-                color: #FFFFFF !important;
-                border: none !important;
-                border-radius: 4px;
-                font-weight: bold;
-                transition: background-color 0.3s ease;
-            }
-            
-            div.stButton > button:hover {
-                background-color: #27272a !important; /* Cinza escuro no hover */
-                color: white !important;
-            }
-        </style>
-    """, unsafe_allow_html=True)
-    
     try:
         # Logo e botões de navegação
         col1, col2 = st.columns([5, 1])
         with col1:
-            st.markdown('<div class="logo-container"><span class="logo-v">V</span><span class="logo-text">ValueHunter</span></div>', unsafe_allow_html=True)
+            show_valuehunter_logo()
         with col2:
             c1, c2 = st.columns([1, 1], gap="small")
             with c1:
@@ -642,8 +707,8 @@ def show_landing_page():
 def show_login():
     """Display login form"""
     try:
-        # Header com a logo - MAIOR
-        st.markdown('<div class="logo-container" style="width: fit-content; padding: 12px 25px;"><span class="logo-v" style="font-size: 3rem;">V</span><span class="logo-text" style="font-size: 2.5rem;">ValueHunter</span></div>', unsafe_allow_html=True)
+        # Header com a logo
+        show_valuehunter_logo()
         st.title("Login")
         
         # Botão para voltar à página inicial
@@ -681,7 +746,7 @@ def show_register():
     """Display simplified registration form"""
     try:
         # Header com a logo
-        st.markdown('<div class="logo-container" style="width: fit-content; padding: 12px 25px;"><span class="logo-v" style="font-size: 3rem;">V</span><span class="logo-text" style="font-size: 2.5rem;">ValueHunter</span></div>', unsafe_allow_html=True)
+        show_valuehunter_logo()
         st.title("Register")
         
         # Botão para voltar à página inicial
@@ -720,44 +785,13 @@ def show_packages_page():
     """Display simplified credit purchase page with direct Stripe checkout"""
     try:
         # Header com a logo
-        st.markdown('<div class="logo-container" style="width: fit-content; padding: 12px 25px;"><span class="logo-v" style="font-size: 3rem;">V</span><span class="logo-text" style="font-size: 2.5rem;">ValueHunter</span></div>', unsafe_allow_html=True)
+        show_valuehunter_logo()
         
         st.title("Comprar Mais Créditos")
         st.markdown("Adquira mais créditos quando precisar, sem necessidade de mudar de pacote.")
         
         # Check for payment success/cancel from URL parameters
         check_payment_success()
-        
-        # CSS para os cartões de compra
-        st.markdown("""
-        <style>
-            .credit-card {
-                background-color: #3F3F45;
-                border: 1px solid #575760;
-                border-radius: 12px;
-                padding: 25px;
-                margin-bottom: 20px;
-                color: white;
-                text-align: center;
-            }
-            .credit-title {
-                font-size: 28px;
-                font-weight: bold;
-                margin-bottom: 15px;
-            }
-            .credit-price {
-                font-size: 42px;
-                font-weight: bold;
-                margin-bottom: 15px;
-                color: white;
-            }
-            .credit-desc {
-                font-size: 16px;
-                color: #b0b0b0;
-                margin-bottom: 15px;
-            }
-        </style>
-        """, unsafe_allow_html=True)
         
         # Layout da página de compra
         col1, col2 = st.columns(2)
@@ -772,6 +806,7 @@ def show_packages_page():
             """, unsafe_allow_html=True)
             
             if st.button("Comprar 30 Créditos", use_container_width=True, key="buy_30c"):
+                logger.info("Botão de 30 créditos clicado")
                 # Criar checkout diretamente e redirecionar
                 checkout_session = create_stripe_checkout_session(
                     st.session_state.email, 
@@ -779,13 +814,17 @@ def show_packages_page():
                     19.99
                 )
                 if checkout_session:
-                    # Redirecionar automaticamente para o Stripe
+                    logger.info(f"Checkout session criada: {checkout_session.id}, URL: {checkout_session.url}")
+                    # Redirecionar automaticamente para o Stripe com método JavaScript
                     js = f"""
                     <script>
+                    console.log("Redirecionando para: {checkout_session.url}");
                     window.location.href = "{checkout_session.url}";
                     </script>
                     """
                     st.components.v1.html(js, height=0)
+                    # Também mostrar link manual como fallback
+                    st.markdown(f"[Clique aqui se não for redirecionado automaticamente]({checkout_session.url})")
         
         with col2:
             st.markdown("""
@@ -797,6 +836,7 @@ def show_packages_page():
             """, unsafe_allow_html=True)
             
             if st.button("Comprar 60 Créditos", use_container_width=True, key="buy_60c"):
+                logger.info("Botão de 60 créditos clicado")
                 # Criar checkout diretamente e redirecionar
                 checkout_session = create_stripe_checkout_session(
                     st.session_state.email, 
@@ -804,13 +844,17 @@ def show_packages_page():
                     29.99
                 )
                 if checkout_session:
-                    # Redirecionar automaticamente para o Stripe
+                    logger.info(f"Checkout session criada: {checkout_session.id}, URL: {checkout_session.url}")
+                    # Redirecionar automaticamente para o Stripe com método JavaScript
                     js = f"""
                     <script>
+                    console.log("Redirecionando para: {checkout_session.url}");
                     window.location.href = "{checkout_session.url}";
                     </script>
                     """
                     st.components.v1.html(js, height=0)
+                    # Também mostrar link manual como fallback
+                    st.markdown(f"[Clique aqui se não for redirecionado automaticamente]({checkout_session.url})")
         
         # Add payment instructions
         st.markdown("""
@@ -834,7 +878,7 @@ def show_packages_page():
         
         # Botão para voltar
         st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("← Voltar para análises", key="back_to_analysis"):
+        if st.button("← Voltar para análises", key="back_to_analysis", use_container_width=True):
             st.session_state.page = "main"
             st.experimental_rerun()
     except Exception as e:
@@ -890,7 +934,7 @@ def check_analysis_limits(selected_markets):
                 
                 col1, col2 = st.columns(2)
                 with col1:
-                    if st.button("Standard - 30 Créditos", key="upgrade_standard"):
+                    if st.button("Standard - 30 Créditos", key="upgrade_standard", use_container_width=True):
                         # Redirecionar direto para o checkout do Stripe
                         checkout_session = create_stripe_checkout_session(
                             st.session_state.email, 
@@ -907,7 +951,7 @@ def check_analysis_limits(selected_markets):
                             st.components.v1.html(js, height=0)
                         return False
                 with col2:
-                    if st.button("Pro - 60 Créditos", key="upgrade_pro"):
+                    if st.button("Pro - 60 Créditos", key="upgrade_pro", use_container_width=True):
                         # Redirecionar direto para o checkout do Stripe
                         checkout_session = create_stripe_checkout_session(
                             st.session_state.email, 
@@ -938,7 +982,7 @@ def check_analysis_limits(selected_markets):
                 
                 col1, col2 = st.columns(2)
                 with col1:
-                    if st.button("30 Créditos - R$19,99"):
+                    if st.button("30 Créditos - R$19,99", use_container_width=True):
                         # Redirecionar direto para o checkout do Stripe
                         checkout_session = create_stripe_checkout_session(
                             st.session_state.email, 
@@ -956,7 +1000,7 @@ def check_analysis_limits(selected_markets):
                         return False
                             
                 with col2:
-                    if st.button("60 Créditos - R$29,99"):
+                    if st.button("60 Créditos - R$29,99", use_container_width=True):
                         # Redirecionar direto para o checkout do Stripe
                         checkout_session = create_stripe_checkout_session(
                             st.session_state.email, 
@@ -980,6 +1024,7 @@ def check_analysis_limits(selected_markets):
         logger.error(f"Erro ao verificar limites de análise: {str(e)}")
         st.error("Erro ao verificar limites de análise. Por favor, tente novamente.")
         return False
+
 
 def show_main_dashboard():
     """Show the main dashboard after login"""
@@ -1009,27 +1054,11 @@ def show_main_dashboard():
         )    
         status_container = st.sidebar.empty()
         
-        # Logo e CSS para largura total
-        st.markdown('<div class="logo-container" style="width: fit-content; padding: 12px 25px;"><span class="logo-v" style="font-size: 3rem;">V</span><span class="logo-text" style="font-size: 2.5rem;">ValueHunter</span></div>', unsafe_allow_html=True)
+        # Logo exibida consistentemente
+        show_valuehunter_logo()
         
-        st.markdown("""
-            <style>
-                .main .block-container {
-                    max-width: 95% !important; 
-                    padding: 1rem !important;
-                }
-                
-                .analysis-result {
-                    width: 100% !important;
-                    max-width: 100% !important; 
-                    padding: 2rem !important;
-                    background-color: #575760;
-                    border-radius: 8px;
-                    border: 1px solid #6b6b74;
-                    margin: 1rem 0;
-                }
-            </style>
-        """, unsafe_allow_html=True)
+        # Título principal
+        st.title("Seleção de Times")
             
         # Carregar dados
         with st.spinner("Carregando dados do campeonato..."):
@@ -1049,9 +1078,7 @@ def show_main_dashboard():
                 st.error("Não foi possível encontrar os times do campeonato")
                 return
         
-        # Layout principal
-        st.title("Seleção de Times")
-        
+        # Seleção de times
         col1, col2 = st.columns(2)
         with col1:
             home_team = st.selectbox("Time da Casa:", teams, key='home_team')
@@ -2095,16 +2122,20 @@ INSTRUÇÕES ESPECIAIS: VOCÊ DEVE CALCULAR PROBABILIDADES REAIS PARA TODOS OS M
         return None
 
 
+def apply_custom_css():
+    apply_global_css()
+
+
 def main():
     try:
         # Initialize session state
         init_session_state()
         
+        # Apply global CSS
+        apply_global_css()
+        
         # Initialize Stripe
         init_stripe()
-        
-        # Aplicar estilos CSS
-        apply_custom_css()
         
         # Check for payment from popup
         popup_payment = False
@@ -2128,15 +2159,12 @@ def main():
         logger.error(f"Erro geral na aplicação: {str(e)}")
         traceback.print_exc()
 
-# Funções auxiliares
-def apply_custom_css():
-    # O CSS pode ser movido para uma função separada
-    st.markdown("""<style>/* Estilos CSS aqui */</style>""", unsafe_allow_html=True)
 
 def handle_stripe_errors():
     if 'error' in st.query_params:
         st.error("Erro no processamento do pagamento...")
         st.query_params.clear()
+
 
 def route_pages():
     if st.session_state.page == "landing":
@@ -2171,4 +2199,3 @@ if __name__ == "__main__":
         logger.critical(f"Erro fatal na aplicação: {str(e)}")
         st.error("Ocorreu um erro inesperado. Por favor, recarregue a página e tente novamente.")
         st.error(f"Detalhes do erro: {str(e)}")
-        
