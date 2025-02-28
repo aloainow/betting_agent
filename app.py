@@ -1889,7 +1889,6 @@ def rate_limit(seconds):
 
 
 @rate_limit(1)  # 1 requisição por segundo
-@rate_limit(1)  # 1 requisição por segundo
 def fetch_fbref_data(url):
     """Busca dados do FBref com melhor tratamento de erros, timeout e rate limiting"""
     import random
@@ -1973,7 +1972,7 @@ def fetch_fbref_data(url):
     logger.error("Não foi possível carregar os dados do campeonato após múltiplas tentativas")
     st.error("Não foi possível carregar os dados do campeonato. Tente novamente mais tarde.")
     return None
-
+    
 def get_stat(stats, col, default='N/A'):
     """
     Função auxiliar para extrair estatísticas com tratamento de erro
