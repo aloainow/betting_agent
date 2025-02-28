@@ -187,23 +187,50 @@ def init_session_state():
 
 def redirect_to_stripe(checkout_url):
     """
-    Abre o Stripe em um popup e mantém a janela original aberta
-    com instruções para o usuário.
+    Abre o checkout do Stripe em um popup e configura uma ouvinte
+    para detectar a conclusão do pagamento.
     """
-    # Código JavaScript para abrir um popup
+    # JavaScript para abrir popup e configurar ouvinte de mensagens
     js_popup = f"""
     <script>
-        // Abrir em nova janela/popup
-        var stripeWindow = window.open('{checkout_url}', 'stripe_checkout', 
+        // Função para receber mensagem da janela popup
+        window.addEventListener('message', function(event) {{
+            // Verificar se a mensagem é sobre pagamento concluído
+            if (event.data && event.data.type === 'payment_completed') {{
+                console.log('Pagamento concluído!', event.data);
+                
+                // Construir URL com os parâmetros
+                var baseUrl = window.location.origin + window.location.pathname.split('?')[0];
+                var params = new URLSearchParams();
+                
+                // Adicionar parâmetros do pagamento
+                var data = event.data.data;
+                if (data) {{
+                    params.set('success', data.success);
+                    params.set('credits', data.credits);
+                    params.set('email', data.email);
+                    params.set('session_id', data.session_id);
+                }}
+                
+                // Redirecionar a janela principal para processar o pagamento
+                window.location.href = baseUrl + '?' + params.toString();
+            }}
+        }}, false);
+        
+        // Abrir popup do Stripe
+        var stripePopup = window.open('{checkout_url}', 'stripe_checkout', 
             'width=600,height=700,location=yes,toolbar=yes,scrollbars=yes');
         
         // Verificar se o popup foi bloqueado
-        if (!stripeWindow || stripeWindow.closed || typeof stripeWindow.closed == 'undefined') {{
-            // Popup foi bloqueado, mostra instruções
+        if (!stripePopup || stripePopup.closed || typeof stripePopup.closed == 'undefined') {{
+            // Popup foi bloqueado
             document.getElementById('popup-blocked').style.display = 'block';
         }} else {{
             // Popup foi aberto com sucesso
             document.getElementById('popup-success').style.display = 'block';
+            
+            // Armazenar referência ao popup na sessão
+            window.stripePopup = stripePopup;
         }}
     </script>
     
@@ -223,8 +250,8 @@ def redirect_to_stripe(checkout_url):
     <div id="popup-success" style="display:none; padding: 15px; background-color: #e6ffe6; border-radius: 5px; margin: 15px 0;">
         <h3>✅ Janela de pagamento aberta!</h3>
         <p>Uma nova janela foi aberta para você concluir seu pagamento.</p>
-        <p>Após concluir o pagamento, feche a janela do Stripe e volte para esta tela.</p>
-        <p>Seus créditos serão adicionados automaticamente à sua conta.</p>
+        <p>Após concluir o pagamento, a janela será fechada automaticamente e você retornará para esta tela.</p>
+        <p>Se a janela fechou acidentalmente, clique abaixo para retomar o pagamento:</p>
         <a href="{checkout_url}" target="_blank" style="display: inline-block; padding: 10px 15px; background-color: #fd7014; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; margin-top: 10px;">
             Reabrir página de pagamento
         </a>
@@ -233,10 +260,6 @@ def redirect_to_stripe(checkout_url):
     
     # Renderizar o JavaScript e as mensagens
     st.components.v1.html(js_popup, height=350)
-    
-    # Adicionar instruções adicionais no Streamlit
-    st.info("Após completar o pagamento, retorne a esta janela e atualize a página para ver seus novos créditos.")
-
 
 def update_purchase_button(credits, amount):
     """Função para processar a compra de créditos com popup"""
@@ -493,19 +516,22 @@ def get_base_url():
 
 def get_stripe_success_url(credits, email):
     """
-    Configura a URL de retorno do Stripe após pagamento bem-sucedido.
+    Configura uma URL de sucesso especial que fecha a janela do popup
+    e envia uma mensagem para a janela principal.
     """
-    # Parâmetros para retornar à página principal após pagamento
+    # Primeiro, crie uma URL para uma página intermediária que fechará o popup
+    base_url = get_base_url()
+    
+    # Criar URL com close_popup=true para indicar que esta é a janela popup que deve fechar
+    # Os parâmetros serão passados para a janela principal
     params = urlencode({
+        'close_popup': 'true',
         'success': 'true',
         'credits': credits,
         'email': email,
         'session_id': '{CHECKOUT_SESSION_ID}',  # Stripe substituirá isso
-        'redirect': 'main',
-        'auth': 'true'  # Flag para reconhecer um retorno autenticado
     })
     
-    base_url = get_base_url()
     full_url = f"{base_url}/?{params}"
     logger.info(f"URL de sucesso do Stripe configurada: {full_url}")
     return full_url
@@ -636,92 +662,114 @@ def verify_stripe_payment(session_id):
 
 def check_payment_success():
     """
-    Verifica se um pagamento foi bem-sucedido com base nos parâmetros da URL
-    e fornece retorno visual claro ao usuário.
+    Verifica se estamos numa janela de popup que deve fechar ou se estamos
+    processando um pagamento bem-sucedido na janela principal.
     """
-    # Get query parameters
+    # Verificar se estamos na janela de popup que deve fechar
+    if 'close_popup' in st.query_params and st.query_params.close_popup == 'true':
+        # Esta é a janela que deve fechar e enviar uma mensagem para a janela principal
+        # Crie uma página simples com JavaScript para fechar esta janela
+        close_script = """
+        <script>
+            // Fechar esta janela após enviar mensagem para a principal
+            function closeAndNotify() {
+                // Enviar mensagem para a janela principal
+                if (window.opener && !window.opener.closed) {
+                    // Extrair os parâmetros da URL atual
+                    var params = new URLSearchParams(window.location.search);
+                    
+                    // Criar objeto com os parâmetros relevantes
+                    var paymentData = {
+                        success: params.get('success'),
+                        credits: params.get('credits'),
+                        email: params.get('email'),
+                        session_id: params.get('session_id')
+                    };
+                    
+                    // Enviar mensagem para a janela principal
+                    window.opener.postMessage({
+                        type: 'payment_completed',
+                        data: paymentData
+                    }, '*');
+                    
+                    // Aguardar um momento e fechar
+                    setTimeout(function() {
+                        window.close();
+                    }, 1000);
+                } else {
+                    // Se não conseguir enviar mensagem, redirecionar para a URL principal
+                    var baseUrl = window.location.origin + window.location.pathname.split('?')[0];
+                    var params = new URLSearchParams(window.location.search);
+                    params.delete('close_popup');  // Remover o parâmetro close_popup
+                    window.location.href = baseUrl + '?' + params.toString();
+                }
+            }
+            
+            // Executar ao carregar
+            window.onload = closeAndNotify;
+        </script>
+        <div style="text-align: center; padding: 40px; font-family: Arial, sans-serif;">
+            <h2>Pagamento Concluído!</h2>
+            <p>Esta janela será fechada automaticamente...</p>
+            <p>Se não fechar, <a href="javascript:window.close()">clique aqui para fechar</a>.</p>
+        </div>
+        """
+        
+        # Renderizar a página de fechamento
+        st.components.v1.html(close_script, height=300)
+        return True
+    
+    # Verificar pagamento normal (na janela principal)
     if 'success' in st.query_params and st.query_params.success == 'true':
         try:
             logger.info("Processando retorno de pagamento bem-sucedido")
             
-            # Verificar se é um retorno autenticado do Stripe
-            is_auth_return = 'auth' in st.query_params and st.query_params.auth == 'true'
-            
-            # Se for um retorno autenticado e tiver e-mail nos parâmetros, restaurar a sessão
-            if is_auth_return and 'email' in st.query_params:
+            # Restaurar sessão se necessário
+            if 'email' in st.query_params:
                 email = st.query_params.email
                 logger.info(f"Restaurando sessão após pagamento para: {email}")
-                
-                # Restaurar a sessão
                 st.session_state.authenticated = True
                 st.session_state.email = email
-                
-                # Atualizar o timestamp da última atividade
                 st.session_state.last_activity = datetime.now()
             
-            # Get session ID from URL
+            # Verificar pagamento pela ID da sessão
             if 'session_id' in st.query_params:
                 session_id = st.query_params.session_id
-                logger.info(f"ID de sessão encontrado: {session_id}")
+                is_valid, credits, email = verify_stripe_payment(session_id)
                 
-                if session_id:
-                    # Verify the payment with Stripe
-                    is_valid, credits, email = verify_stripe_payment(session_id)
+                if is_valid and credits > 0 and email:
+                    logger.info(f"Pagamento válido: {credits} créditos para {email}")
                     
-                    if is_valid and credits > 0 and email:
-                        logger.info(f"Pagamento válido: {credits} créditos para {email}")
-                        
-                        # Process the successful payment
-                        if st.session_state.user_manager.add_credits(email, credits):
-                            # Mostrar mensagem de sucesso destacada
-                            st.success(f"✅ Pagamento processado com sucesso! {credits} créditos foram adicionados à sua conta.")
-                            
-                            # Limpar parâmetros da URL para evitar processamentos duplicados
-                            st.query_params.clear()
-                            
-                            # Usar rerun para atualizar a página
-                            st.experimental_rerun()
-                            
-                            return True
-                        else:
-                            logger.error(f"Erro ao adicionar créditos para {email}")
-                            st.error("Erro ao adicionar créditos à sua conta.")
-                    else:
-                        logger.warning(f"Não foi possível verificar o pagamento via ID de sessão: {session_id}")
-            
-            # Fallback para processamento por parâmetros diretos
-            if 'credits' in st.query_params and 'email' in st.query_params:
-                credits = int(st.query_params.credits)
-                email = st.query_params.email
-                logger.info(f"Processando parâmetros diretos: {credits} créditos para {email}")
-                
-                # Certificar que estamos autenticados
-                st.session_state.authenticated = True
-                st.session_state.email = email
-                
-                if credits > 0:
-                    # Adicionar créditos
                     if st.session_state.user_manager.add_credits(email, credits):
                         st.success(f"✅ Pagamento processado com sucesso! {credits} créditos foram adicionados à sua conta.")
                         
-                        # Limpar parâmetros e mover para página principal
+                        # Redirecionar para a página principal e limpar parâmetros
                         st.session_state.page = "main"
                         st.query_params.clear()
                         st.experimental_rerun()
-                        
                         return True
                         
-            # Limpar parâmetros da URL para evitar loops
-            if any(param in st.query_params for param in ['success', 'session_id', 'credits']):
-                st.query_params.clear()
+            # Processamento direto por parâmetros como fallback
+            if 'credits' in st.query_params and 'email' in st.query_params:
+                credits = int(st.query_params.credits)
+                email = st.query_params.email
+                
+                if credits > 0:
+                    if st.session_state.user_manager.add_credits(email, credits):
+                        st.success(f"✅ Pagamento processado com sucesso! {credits} créditos foram adicionados à sua conta.")
+                        st.session_state.page = "main"
+                        st.query_params.clear()
+                        st.experimental_rerun()
+                        return True
+            
+            # Limpar parâmetros para evitar loops
+            st.query_params.clear()
                 
         except Exception as e:
-            logger.error(f"Erro ao processar parâmetros de pagamento: {str(e)}")
+            logger.error(f"Erro ao processar pagamento: {str(e)}")
             st.error(f"Erro ao processar pagamento: {str(e)}")
-            
-            # Limpar parâmetros mesmo em caso de erro
             st.query_params.clear()
-        
+    
     return False
 def show_landing_page():
     """Display landing page with about content and login/register buttons"""
