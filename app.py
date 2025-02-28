@@ -2185,17 +2185,3 @@ if __name__ == "__main__":
         logger.critical(f"Erro fatal na aplicação: {str(e)}")
         st.error("Ocorreu um erro inesperado. Por favor, recarregue a página e tente novamente.")
         st.error(f"Detalhes do erro: {str(e)}")
-)
-                    retry_delay *= 2  # Backoff exponencial
-                else:
-                    logger.warning(f"Erro HTTP {response.status_code}. Tentativa {attempt+1}/{max_retries}. Aguardando {retry_delay}s.")
-                    time.sleep(retry_delay)
-                    retry_delay *= 1.5
-                    
-        except requests.Timeout:
-            logger.warning(f"Timeout na requisição. Tentativa {attempt+1}/{max_retries}. Aguardando {retry_delay}s.")
-            time.sleep(retry_delay)
-            retry_delay *= 1.5
-        except requests.RequestException as e:
-            logger.warning(f"Erro na requisição: {str(e)}. Tentativa {attempt+1}/{max_retries}. Aguardando {retry_delay}s.")
-            time.sleep(retry_delay
