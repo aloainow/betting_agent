@@ -481,7 +481,7 @@ def get_base_url():
 def get_stripe_success_url(credits, email):
     """Get the success URL for Stripe checkout with improved session handling."""
     # Incluir script para fechar janela atual se for uma nova aba
-    close_script = "?close_window=true"
+    close_param = "close_window=true"
     
     # Cria URL com parâmetros para retornar à página principal após pagamento
     params = urlencode({
@@ -494,10 +494,9 @@ def get_stripe_success_url(credits, email):
     })
     
     base_url = get_base_url()
-    full_url = f"{base_url}/{close_script}&{params}"
+    full_url = f"{base_url}/?{close_param}&{params}"
     logger.info(f"URL de sucesso do Stripe configurada: {full_url}")
     return full_url
-
 
 def get_stripe_cancel_url():
     """Get the cancel URL for Stripe checkout."""
@@ -2105,7 +2104,7 @@ def main():
             """, height=0)
             st.success("Pagamento concluído! Você pode fechar esta janela.")
             return
-    try:
+            
         # Initialize session state
         init_session_state()
         
@@ -2136,7 +2135,6 @@ def main():
     except Exception as e:
         logger.error(f"Erro geral na aplicação: {str(e)}")
         traceback.print_exc()
-
 
 def handle_stripe_errors():
     if 'error' in st.query_params:
