@@ -186,26 +186,26 @@ def init_session_state():
 
 
 def redirect_to_stripe(checkout_url):
-    """Redireciona para o URL do Stripe de maneira mais eficaz"""
-    # Usar JavaScript para abrir em nova aba/janela
+    """
+    Redireciona para o URL do Stripe na mesma janela,
+    garantindo que ao retornar, o usuário volte para a mesma aba
+    """
+    # Usar redirecionamento direto na mesma janela em vez de abrir nova aba
     js = f"""
         <script>
-            // Abrir em nova aba
-            window.open('{checkout_url}', '_blank');
-            
-            // Mostrar mensagem de instrução
-            document.getElementById('redirect-message').style.display = 'block';
+            // Redirecionamento direto na mesma janela - Melhor UX para pagamentos
+            window.location.href = '{checkout_url}';
         </script>
-        <div id="redirect-message" style="display:none; padding: 20px; background-color: #4CAF50; color: white; border-radius: 5px; margin-top: 20px;">
-            <h3>Pagamento iniciado em nova aba! ✅</h3>
-            <p>Uma nova aba foi aberta para você concluir o pagamento. Se não abriu automaticamente, use o botão abaixo:</p>
-            <a href="{checkout_url}" target="_blank" style="display: inline-block; padding: 10px 20px; background-color: white; color: #4CAF50; text-decoration: none; border-radius: 5px; font-weight: bold; margin-top: 10px;">
+        
+        <div style="padding: 20px; background-color: #4CAF50; color: white; border-radius: 5px; margin-top: 20px;">
+            <h3>Redirecionando para o pagamento...</h3>
+            <p>Você está sendo redirecionado para a página de pagamento. Se o redirecionamento não ocorrer automaticamente, clique no botão abaixo:</p>
+            <a href="{checkout_url}" style="display: inline-block; padding: 10px 20px; background-color: white; color: #4CAF50; text-decoration: none; border-radius: 5px; font-weight: bold; margin-top: 10px;">
                 Ir para o pagamento
             </a>
-            <p style="margin-top: 15px;">Após concluir o pagamento, você será redirecionado automaticamente de volta ao ValueHunter.</p>
         </div>
     """
-    st.components.v1.html(js, height=300)    
+    st.components.v1.html(js, height=200)
 def update_purchase_button(credits, amount):
     """Função comum para processar a compra de créditos"""
     logger.info(f"Botão de {credits} créditos clicado")
@@ -217,7 +217,7 @@ def update_purchase_button(credits, amount):
     )
     if checkout_session:
         logger.info(f"Checkout session criada: {checkout_session.id}, URL: {checkout_session.url}")
-        # Usar a nova função de redirecionamento
+        # Usar a função de redirecionamento na mesma janela
         redirect_to_stripe(checkout_session.url)
         return True
     return False
@@ -461,8 +461,10 @@ def get_base_url():
 
 
 def get_stripe_success_url(credits, email):
-    """Get the success URL for Stripe checkout with improved redirect handling."""
-    # Criar URL com parâmetros para retornar à página principal após pagamento
+    """
+    Get the success URL for Stripe checkout that returns to the same window
+    """
+    # Parâmetros para retornar à página principal após pagamento
     params = urlencode({
         'success': 'true',
         'credits': credits,
@@ -476,6 +478,7 @@ def get_stripe_success_url(credits, email):
     full_url = f"{base_url}/?{params}"
     logger.info(f"URL de sucesso do Stripe configurada: {full_url}")
     return full_url
+
 
 def get_stripe_cancel_url():
     """Get the cancel URL for Stripe checkout."""
@@ -601,11 +604,13 @@ def verify_stripe_payment(session_id):
         return False, None, None
 
 def check_payment_success():
-    """Check if a payment was successful based on URL parameters with improved session handling."""
+    """
+    Check if a payment was successful and handle return to the main page
+    """
     # Get query parameters
     if 'success' in st.query_params and st.query_params.success == 'true':
         try:
-            logger.info("Processando parâmetros de pagamento bem-sucedido")
+            logger.info("Processando retorno de pagamento bem-sucedido")
             
             # Verificar se é um retorno autenticado do Stripe
             is_auth_return = 'auth' in st.query_params and st.query_params.auth == 'true'
@@ -622,7 +627,7 @@ def check_payment_success():
                 # Atualizar o timestamp da última atividade
                 st.session_state.last_activity = datetime.now()
             
-            # Get session ID directly from URL
+            # Get session ID from URL
             if 'session_id' in st.query_params:
                 session_id = st.query_params.session_id
                 logger.info(f"ID de sessão encontrado: {session_id}")
@@ -633,14 +638,19 @@ def check_payment_success():
                     
                     if is_valid and credits > 0 and email:
                         logger.info(f"Pagamento válido: {credits} créditos para {email}")
+                        
                         # Process the successful payment
                         if st.session_state.user_manager.add_credits(email, credits):
+                            # Mostrar mensagem de sucesso
                             st.success(f"✅ Pagamento processado com sucesso! {credits} créditos foram adicionados à sua conta.")
                             
-                            # Redirecionar para página principal imediatamente
+                            # Redirecionar para página principal
                             st.session_state.page = "main"
-                            # Limpar parâmetros da URL para evitar processamentos duplicados
+                            
+                            # IMPORTANTE: Limpar parâmetros da URL para evitar processamentos duplicados
+                            # Isso evita que o usuário processe o mesmo pagamento múltiplas vezes ao atualizar a página
                             st.query_params.clear()
+                            
                             # Usar rerun para atualizar a página
                             st.experimental_rerun()
                             
@@ -651,29 +661,29 @@ def check_payment_success():
                     else:
                         logger.warning(f"Não foi possível verificar o pagamento via ID de sessão: {session_id}")
             
-            # Fallback para processamento direto por parâmetros
+            # Processamento por parâmetros diretos (fallback)
             if 'credits' in st.query_params and 'email' in st.query_params:
                 credits = int(st.query_params.credits)
                 email = st.query_params.email
                 logger.info(f"Processando parâmetros diretos: {credits} créditos para {email}")
                 
-                # Certifique-se de que estamos autenticados
+                # Certificar que estamos autenticados
                 st.session_state.authenticated = True
                 st.session_state.email = email
                 
                 if credits > 0:
-                    # Process the successful payment using parameters
+                    # Adicionar créditos
                     if st.session_state.user_manager.add_credits(email, credits):
                         st.success(f"✅ Pagamento processado com sucesso! {credits} créditos foram adicionados à sua conta.")
                         
-                        # Redirect to main page if needed
+                        # Redirecionar para página principal
                         st.session_state.page = "main"
                         st.query_params.clear()
                         st.experimental_rerun()
                         
                         return True
                         
-            # Se chegou até aqui sem retornar, limpar parâmetros da URL para evitar loops
+            # Limpar parâmetros da URL para evitar loops
             if any(param in st.query_params for param in ['success', 'session_id', 'credits']):
                 st.query_params.clear()
                 
@@ -681,8 +691,8 @@ def check_payment_success():
             logger.error(f"Erro ao processar parâmetros de pagamento: {str(e)}")
             st.error(f"Erro ao processar pagamento: {str(e)}")
             
-        # Limpar parâmetros para evitar reprocessamento em recargas de página
-        st.query_params.clear()
+            # Limpar parâmetros mesmo em caso de erro
+            st.query_params.clear()
         
     return False
 def show_landing_page():
