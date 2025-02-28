@@ -1889,6 +1889,7 @@ def rate_limit(seconds):
 
 
 @rate_limit(1)  # 1 requisição por segundo
+@rate_limit(1)  # 1 requisição por segundo
 def fetch_fbref_data(url):
     """Busca dados do FBref com melhor tratamento de erros, timeout e rate limiting"""
     import random
@@ -1949,6 +1950,19 @@ def fetch_fbref_data(url):
                     # Não mostrar mensagens de warning sobre rate limiting para o usuário
                     logger.warning(f"Rate limit atingido. Tentativa {attempt+1}/{max_retries}. Aguardando {retry_delay}s.")
                     time.sleep(retry_delay)
+                    retry_delay *= 2  # Backoff exponencial
+                else:
+                    logger.warning(f"Erro HTTP {response.status_code}. Tentativa {attempt+1}/{max_retries}. Aguardando {retry_delay}s.")
+                    time.sleep(retry_delay)
+                    retry_delay *= 1.5
+                    
+        except requests.Timeout:
+            logger.warning(f"Timeout na requisição. Tentativa {attempt+1}/{max_retries}. Aguardando {retry_delay}s.")
+            time.sleep(retry_delay)
+            retry_delay *= 1.5
+        except requests.RequestException as e:
+            logger.warning(f"Erro na requisição: {str(e)}. Tentativa {attempt+1}/{max_retries}. Aguardando {retry_delay}s.")
+            time.sleep(retry_delay)
             retry_delay *= 1.5
         except Exception as e:
             logger.warning(f"Erro não esperado: {str(e)}. Tentativa {attempt+1}/{max_retries}. Aguardando {retry_delay}s.")
@@ -1959,7 +1973,6 @@ def fetch_fbref_data(url):
     logger.error("Não foi possível carregar os dados do campeonato após múltiplas tentativas")
     st.error("Não foi possível carregar os dados do campeonato. Tente novamente mais tarde.")
     return None
-
 
 def get_stat(stats, col, default='N/A'):
     """
