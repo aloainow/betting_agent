@@ -187,25 +187,43 @@ def init_session_state():
 
 def redirect_to_stripe(checkout_url):
     """Redireciona para o URL do Stripe de maneira mais eficaz"""
-    # JavaScript para redirecionamento imediato
-    js_code = f"""
-        <script>
-            window.location.href = "{checkout_url}";
-        </script>
+    # Usar meta refresh, JavaScript e botão para garantir o redirecionamento
+    html = f"""
+        <html>
+            <head>
+                <meta http-equiv="refresh" content="0;url={checkout_url}" />
+                <script>
+                    // Redirecionamento principal
+                    window.location.href = "{checkout_url}";
+                    
+                    // Fallback que tenta a cada 1 segundo caso o redirecionamento falhe
+                    setTimeout(function() {{
+                        window.location.href = "{checkout_url}";
+                    }}, 1000);
+                    
+                    // Redirecionamento por clique automático no botão
+                    window.onload = function() {{
+                        document.getElementById('redirect-btn').click();
+                    }}
+                </script>
+            </head>
+            <body>
+                <h1>Redirecionando para o pagamento...</h1>
+                <p>Se você não for redirecionado automaticamente, clique no botão abaixo:</p>
+                <a id="redirect-btn" href="{checkout_url}" style="display: inline-block; padding: 10px 20px; background-color: #fd7014; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">
+                    Ir para o pagamento
+                </a>
+            </body>
+        </html>
     """
-    # Usar um componente HTML que executa o JavaScript imediatamente
-    st.components.v1.html(js_code, height=0)
     
-    # Como fallback, também mostrar o botão e link
-    st.markdown(f"""
-        <div style="text-align: center; padding: 20px;">
-            <h3>Redirecionando para o pagamento...</h3>
-            <p>Se você não for redirecionado automaticamente em 3 segundos, clique no botão abaixo:</p>
-            <a href="{checkout_url}" target="_blank" style="display: inline-block; padding: 10px 20px; background-color: #fd7014; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">
-                Ir para o pagamento
-            </a>
-        </div>
-    """, unsafe_allow_html=True)
+    # Usar o componente HTML em tela cheia
+    st.components.v1.html(html, height=600, scrolling=False)
+    
+    # Adicionar também instruções diretas ao usuário para caso falhe
+    st.error("Se o redirecionamento automático não funcionar, clique no botão acima.")
+    st.info("Após completar o pagamento, feche esta janela e retorne à aplicação principal.")
+    
 def update_purchase_button(credits, amount):
     """Função comum para processar a compra de créditos"""
     logger.info(f"Botão de {credits} créditos clicado")
@@ -462,8 +480,10 @@ def get_base_url():
 
 def get_stripe_success_url(credits, email):
     """Get the success URL for Stripe checkout with improved session handling."""
+    # Incluir script para fechar janela atual se for uma nova aba
+    close_script = "?close_window=true"
+    
     # Cria URL com parâmetros para retornar à página principal após pagamento
-    # Inclui um token de sessão para manter a autenticação
     params = urlencode({
         'success': 'true',
         'credits': credits,
@@ -474,7 +494,7 @@ def get_stripe_success_url(credits, email):
     })
     
     base_url = get_base_url()
-    full_url = f"{base_url}/?{params}"
+    full_url = f"{base_url}/{close_script}&{params}"
     logger.info(f"URL de sucesso do Stripe configurada: {full_url}")
     return full_url
 
@@ -795,14 +815,20 @@ def show_register():
             go_to_landing()
         
         with st.form("register_form"):
+            name = st.text_input("Nome")  # Novo campo
             email = st.text_input("Email")
             password = st.text_input("Password", type="password")
             
             submitted = st.form_submit_button("Register")
             
             if submitted:
+                # Verificar se nome foi preenchido
+                if not name:
+                    st.error("Por favor, informe seu nome.")
+                    return
+                    
                 # Todo usuário novo começa automaticamente no pacote Free
-                success, message = st.session_state.user_manager.register_user(email, password, "free")
+                success, message = st.session_state.user_manager.register_user(email, password, name, "free")
                 if success:
                     st.success(message)
                     st.info("Você foi registrado no pacote Free com 5 créditos. Você pode fazer upgrade a qualquer momento.")
@@ -895,6 +921,10 @@ def show_usage_stats():
     """Display simplified usage statistics focusing only on credits"""
     try:
         stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
+        
+        # Saudação com nome do usuário
+        user_name = stats.get('name', 'Usuário')
+        st.sidebar.markdown(f"### Olá, {user_name}!")
         
         st.sidebar.markdown("### Estatísticas de Uso")
         st.sidebar.markdown(f"**Créditos Restantes:** {stats['credits_remaining']}")
@@ -1254,41 +1284,41 @@ class UserManager:
         }
         return tier_display.get(tier, tier.capitalize())
     
-    def register_user(self, email: str, password: str, tier: str = "free") -> tuple[bool, str]:
-        """Register a new user"""
-        try:
-            if not self._validate_email(email):
-                return False, "Email inválido"
-            if email in self.users:
-                return False, "Email já registrado"
-            if len(password) < 6:
-                return False, "Senha deve ter no mínimo 6 caracteres"
-            if tier not in self.tiers:
-                return False, "Tipo de usuário inválido"
+def register_user(self, email: str, password: str, name: str, tier: str = "free") -> tuple[bool, str]:
+    """Register a new user"""
+    try:
+        if not self._validate_email(email):
+            return False, "Email inválido"
+        if email in self.users:
+            return False, "Email já registrado"
+        if len(password) < 6:
+            return False, "Senha deve ter no mínimo 6 caracteres"
+        if tier not in self.tiers:
+            return False, "Tipo de usuário inválido"
                 
-            self.users[email] = {
-                "password": self._hash_password(password),
-                "tier": tier,
-                "usage": {
-                    "daily": [],
-                    "total": []  # Track total usage
-                },
-                "purchased_credits": 0,  # Track additional purchased credits
-                "free_credits_exhausted_at": None,  # Timestamp when free credits run out
-                "paid_credits_exhausted_at": None,  # Timestamp when paid credits run out
-                "created_at": datetime.now().isoformat()
-            }
+        self.users[email] = {
+            "password": self._hash_password(password),
+            "name": name,  # Adicionando o nome
+            "tier": tier,
+            "usage": {
+                "daily": [],
+                "total": []  # Track total usage
+            },
+            "purchased_credits": 0,  # Track additional purchased credits
+            "free_credits_exhausted_at": None,  # Timestamp when free credits run out
+            "paid_credits_exhausted_at": None,  # Timestamp when paid credits run out
+            "created_at": datetime.now().isoformat()
+        }
+        
+        save_success = self._save_users()
+        if not save_success:
+            logger.warning(f"Falha ao salvar dados durante registro do usuário: {email}")
             
-            save_success = self._save_users()
-            if not save_success:
-                logger.warning(f"Falha ao salvar dados durante registro do usuário: {email}")
-                
-            logger.info(f"Usuário registrado com sucesso: {email}, tier: {tier}")
-            return True, "Registro realizado com sucesso"
-        except Exception as e:
-            logger.error(f"Erro ao registrar usuário {email}: {str(e)}")
-            return False, f"Erro interno ao registrar usuário"
-    
+        logger.info(f"Usuário registrado com sucesso: {email}, tier: {tier}")
+        return True, "Registro realizado com sucesso"
+    except Exception as e:
+        logger.error(f"Erro ao registrar usuário {email}: {str(e)}")
+        return False, f"Erro interno ao registrar usuário"    
     def authenticate(self, email: str, password: str) -> bool:
         """Authenticate a user"""
         try:
@@ -1335,13 +1365,16 @@ class UserManager:
             return False
     
     def get_usage_stats(self, email: str) -> Dict:
-        """Get usage statistics for a user"""
-        try:
-            if email not in self.users:
-                logger.warning(f"Tentativa de obter estatísticas para usuário inexistente: {email}")
-                return {}
+    """Get usage statistics for a user"""
+    try:
+        if email not in self.users:
+            logger.warning(f"Tentativa de obter estatísticas para usuário inexistente: {email}")
+            return {}
                 
-            user = self.users[email]
+        user = self.users[email]
+        
+        # Obter o nome do usuário
+        user_name = user.get("name", "Usuário")
             
             # Calculate total credits used
             total_credits_used = sum(
@@ -1398,27 +1431,29 @@ class UserManager:
                 self._save_users()
                 logger.info(f"Créditos gratuitos esgotados para: {email}")
             
-            return {
-                "tier": user["tier"],
-                "tier_display": self._format_tier_name(user["tier"]),
-                "credits_used": total_credits_used,
-                "credits_total": base_credits + purchased_credits,
-                "credits_remaining": remaining_credits,
-                "market_limit": tier.market_limit,
-                "free_credits_reset": free_credits_reset,
-                "next_free_credits_time": next_free_credits_time
-            }
-        except Exception as e:
-            logger.error(f"Erro ao obter estatísticas para {email}: {str(e)}")
-            # Retornar estatísticas padrão para evitar quebra da interface
-            return {
-                "tier": "free",
-                "tier_display": "Free",
-                "credits_used": 0,
-                "credits_total": 5,
-                "credits_remaining": 5,
-                "market_limit": float('inf')
-            }
+           return {
+            "name": user_name,
+            "tier": user["tier"],
+            "tier_display": self._format_tier_name(user["tier"]),
+            "credits_used": total_credits_used,
+            "credits_total": base_credits + purchased_credits,
+            "credits_remaining": remaining_credits,
+            "market_limit": tier.market_limit,
+            "free_credits_reset": free_credits_reset,
+            "next_free_credits_time": next_free_credits_time
+        }
+    except Exception as e:
+        logger.error(f"Erro ao obter estatísticas para {email}: {str(e)}")
+        # Retornar estatísticas padrão com nome genérico
+        return {
+            "name": "Usuário",
+            "tier": "free",
+            "tier_display": "Free",
+            "credits_used": 0,
+            "credits_total": 5,
+            "credits_remaining": 5,
+            "market_limit": float('inf')
+        }
     
     def record_usage(self, email: str, num_markets: int):
         """Record usage for a user (each market consumes one credit)"""
@@ -2079,6 +2114,17 @@ def apply_custom_css():
 
 
 def main():
+    try:
+        # Verificar se precisamos fechar a janela atual
+        if 'close_window' in st.query_params and st.query_params.close_window == 'true':
+            st.components.v1.html("""
+                <script>
+                    window.opener && window.opener.postMessage('payment_complete', '*');
+                    window.close();
+                </script>
+            """, height=0)
+            st.success("Pagamento concluído! Você pode fechar esta janela.")
+            return
     try:
         # Initialize session state
         init_session_state()
