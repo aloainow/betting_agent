@@ -185,6 +185,53 @@ def init_session_state():
     st.session_state.last_activity = datetime.now()
 
 
+def redirect_to_stripe(checkout_url):
+    """Redireciona para o URL do Stripe de maneira mais eficaz"""
+    # Usar HTML meta refresh que é mais consistente do que JavaScript em Streamlit
+    html = f"""
+        <html>
+            <head>
+                <meta http-equiv="refresh" content="0;url={checkout_url}" />
+                <title>Redirecionando para o pagamento...</title>
+                <script type="text/javascript">
+                    window.onload = function() {{
+                        window.location.href = "{checkout_url}";
+                    }}
+                </script>
+            </head>
+            <body>
+                <h1>Redirecionando para o pagamento...</h1>
+                <p>Se você não for redirecionado automaticamente, clique no botão abaixo:</p>
+                <a href="{checkout_url}" style="display: inline-block; padding: 10px 20px; background-color: #fd7014; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">
+                    Ir para o pagamento
+                </a>
+            </body>
+        </html>
+    """
+    # Use o componente html do Streamlit em tela cheia para forçar o redirecionamento
+    st.components.v1.html(html, height=600, scrolling=False)
+    
+    # Adicione também um link manual como fallback
+    st.markdown(f"[Clique aqui se não for redirecionado automaticamente]({checkout_url})")
+
+
+def update_purchase_button(credits, amount):
+    """Função comum para processar a compra de créditos"""
+    logger.info(f"Botão de {credits} créditos clicado")
+    # Criar checkout diretamente e redirecionar
+    checkout_session = create_stripe_checkout_session(
+        st.session_state.email, 
+        credits, 
+        amount
+    )
+    if checkout_session:
+        logger.info(f"Checkout session criada: {checkout_session.id}, URL: {checkout_session.url}")
+        # Usar a nova função de redirecionamento
+        redirect_to_stripe(checkout_session.url)
+        return True
+    return False
+
+
 def apply_global_css():
     """Aplica estilos CSS globais para toda a aplicação"""
     st.markdown("""
@@ -423,14 +470,16 @@ def get_base_url():
 
 
 def get_stripe_success_url(credits, email):
-    """Get the success URL for Stripe checkout."""
+    """Get the success URL for Stripe checkout with improved session handling."""
     # Cria URL com parâmetros para retornar à página principal após pagamento
+    # Inclui um token de sessão para manter a autenticação
     params = urlencode({
         'success': 'true',
         'credits': credits,
         'email': email,
         'session_id': '{CHECKOUT_SESSION_ID}',  # Stripe substituirá isso
-        'redirect': 'main'
+        'redirect': 'main',
+        'auth': 'true'  # Flag para reconhecer um retorno autenticado
     })
     
     base_url = get_base_url()
@@ -441,8 +490,15 @@ def get_stripe_success_url(credits, email):
 
 def get_stripe_cancel_url():
     """Get the cancel URL for Stripe checkout."""
+    params = urlencode({
+        'canceled': 'true',
+        'redirect': 'main',
+        'email': st.session_state.email,
+        'auth': 'true'
+    })
+    
     base_url = get_base_url()
-    full_url = f"{base_url}/?canceled=true&redirect=main"
+    full_url = f"{base_url}/?{params}"
     logger.info(f"URL de cancelamento do Stripe configurada: {full_url}")
     return full_url
 
@@ -556,11 +612,27 @@ def verify_stripe_payment(session_id):
 
 
 def check_payment_success():
-    """Check if a payment was successful based on URL parameters."""
+    """Check if a payment was successful based on URL parameters with improved session handling."""
     # Get query parameters
     if 'success' in st.query_params and st.query_params.success == 'true':
         try:
             logger.info("Processando parâmetros de pagamento bem-sucedido")
+            
+            # Verificar se é um retorno autenticado do Stripe
+            is_auth_return = 'auth' in st.query_params and st.query_params.auth == 'true'
+            
+            # Se for um retorno autenticado e tiver e-mail nos parâmetros, restaurar a sessão
+            if is_auth_return and 'email' in st.query_params:
+                email = st.query_params.email
+                logger.info(f"Restaurando sessão após pagamento para: {email}")
+                
+                # Restaurar a sessão
+                st.session_state.authenticated = True
+                st.session_state.email = email
+                
+                # Atualizar o timestamp da última atividade
+                st.session_state.last_activity = datetime.now()
+            
             # Get session ID directly from URL
             if 'session_id' in st.query_params:
                 session_id = st.query_params.session_id
@@ -576,15 +648,11 @@ def check_payment_success():
                         if st.session_state.user_manager.add_credits(email, credits):
                             st.success(f"✅ Pagamento processado com sucesso! {credits} créditos foram adicionados à sua conta.")
                             
-                            # Redirect to main page if needed
-                            if 'redirect' in st.query_params and st.query_params.redirect == 'main':
-                                st.session_state.page = "main"
-                                st.query_params.clear()
-                                time.sleep(1)
-                                st.experimental_rerun()
-                            else:
-                                # Clear parameters to prevent duplicate processing
-                                st.query_params.clear()
+                            # Redirecionar para página principal imediatamente
+                            st.session_state.page = "main"
+                            st.query_params.clear()
+                            time.sleep(1)
+                            st.experimental_rerun()
                             
                             return True
                         else:
@@ -594,26 +662,26 @@ def check_payment_success():
                         logger.warning(f"Não foi possível verificar o pagamento: {session_id}")
                         st.warning("Não foi possível verificar o pagamento com o Stripe.")
                         
-            # Fallback to direct parameter processing if session_id is missing or verification fails
+            # Fallback para processamento direto
             if 'credits' in st.query_params and 'email' in st.query_params:
                 credits = int(st.query_params.credits)
                 email = st.query_params.email
                 logger.info(f"Processando parâmetros diretos: {credits} créditos para {email}")
                 
-                if credits > 0 and email and email == st.session_state.email:
+                # Certifique-se de que estamos autenticados
+                st.session_state.authenticated = True
+                st.session_state.email = email
+                
+                if credits > 0:
                     # Process the successful payment using parameters
                     if st.session_state.user_manager.add_credits(email, credits):
                         st.success(f"✅ Pagamento processado com sucesso! {credits} créditos foram adicionados à sua conta.")
                         
                         # Redirect to main page if needed
-                        if 'redirect' in st.query_params and st.query_params.redirect == 'main':
-                            st.session_state.page = "main"
-                            st.query_params.clear()
-                            time.sleep(1)
-                            st.experimental_rerun()
-                        else:
-                            # Clear parameters to prevent duplicate processing
-                            st.query_params.clear()
+                        st.session_state.page = "main"
+                        st.query_params.clear()
+                        time.sleep(1)
+                        st.experimental_rerun()
                         
                         return True
         except Exception as e:
@@ -624,6 +692,13 @@ def check_payment_success():
     if 'canceled' in st.query_params and st.query_params.canceled == 'true':
         logger.info("Pagamento cancelado pelo usuário")
         st.warning("❌ Pagamento cancelado.")
+        
+        # Se tiver email nos parâmetros, restaurar a sessão
+        if 'email' in st.query_params:
+            email = st.query_params.email
+            logger.info(f"Restaurando sessão após cancelamento para: {email}")
+            st.session_state.authenticated = True
+            st.session_state.email = email
         
         # Redirect to main page if needed
         if 'redirect' in st.query_params and st.query_params.redirect == 'main':
@@ -806,25 +881,7 @@ def show_packages_page():
             """, unsafe_allow_html=True)
             
             if st.button("Comprar 30 Créditos", use_container_width=True, key="buy_30c"):
-                logger.info("Botão de 30 créditos clicado")
-                # Criar checkout diretamente e redirecionar
-                checkout_session = create_stripe_checkout_session(
-                    st.session_state.email, 
-                    30, 
-                    19.99
-                )
-                if checkout_session:
-                    logger.info(f"Checkout session criada: {checkout_session.id}, URL: {checkout_session.url}")
-                    # Redirecionar automaticamente para o Stripe com método JavaScript
-                    js = f"""
-                    <script>
-                    console.log("Redirecionando para: {checkout_session.url}");
-                    window.location.href = "{checkout_session.url}";
-                    </script>
-                    """
-                    st.components.v1.html(js, height=0)
-                    # Também mostrar link manual como fallback
-                    st.markdown(f"[Clique aqui se não for redirecionado automaticamente]({checkout_session.url})")
+                update_purchase_button(30, 19.99)
         
         with col2:
             st.markdown("""
@@ -836,25 +893,7 @@ def show_packages_page():
             """, unsafe_allow_html=True)
             
             if st.button("Comprar 60 Créditos", use_container_width=True, key="buy_60c"):
-                logger.info("Botão de 60 créditos clicado")
-                # Criar checkout diretamente e redirecionar
-                checkout_session = create_stripe_checkout_session(
-                    st.session_state.email, 
-                    60, 
-                    29.99
-                )
-                if checkout_session:
-                    logger.info(f"Checkout session criada: {checkout_session.id}, URL: {checkout_session.url}")
-                    # Redirecionar automaticamente para o Stripe com método JavaScript
-                    js = f"""
-                    <script>
-                    console.log("Redirecionando para: {checkout_session.url}");
-                    window.location.href = "{checkout_session.url}";
-                    </script>
-                    """
-                    st.components.v1.html(js, height=0)
-                    # Também mostrar link manual como fallback
-                    st.markdown(f"[Clique aqui se não for redirecionado automaticamente]({checkout_session.url})")
+                update_purchase_button(60, 29.99)
         
         # Add payment instructions
         st.markdown("""
@@ -935,37 +974,11 @@ def check_analysis_limits(selected_markets):
                 col1, col2 = st.columns(2)
                 with col1:
                     if st.button("Standard - 30 Créditos", key="upgrade_standard", use_container_width=True):
-                        # Redirecionar direto para o checkout do Stripe
-                        checkout_session = create_stripe_checkout_session(
-                            st.session_state.email, 
-                            30, 
-                            19.99
-                        )
-                        if checkout_session:
-                            # Redirecionar automaticamente para o Stripe
-                            js = f"""
-                            <script>
-                            window.location.href = "{checkout_session.url}";
-                            </script>
-                            """
-                            st.components.v1.html(js, height=0)
+                        update_purchase_button(30, 19.99)
                         return False
                 with col2:
                     if st.button("Pro - 60 Créditos", key="upgrade_pro", use_container_width=True):
-                        # Redirecionar direto para o checkout do Stripe
-                        checkout_session = create_stripe_checkout_session(
-                            st.session_state.email, 
-                            60, 
-                            29.99
-                        )
-                        if checkout_session:
-                            # Redirecionar automaticamente para o Stripe
-                            js = f"""
-                            <script>
-                            window.location.href = "{checkout_session.url}";
-                            </script>
-                            """
-                            st.components.v1.html(js, height=0)
+                        update_purchase_button(60, 29.99)
                         return False
                 
                 return False
@@ -983,38 +996,12 @@ def check_analysis_limits(selected_markets):
                 col1, col2 = st.columns(2)
                 with col1:
                     if st.button("30 Créditos - R$19,99", use_container_width=True):
-                        # Redirecionar direto para o checkout do Stripe
-                        checkout_session = create_stripe_checkout_session(
-                            st.session_state.email, 
-                            30, 
-                            19.99
-                        )
-                        if checkout_session:
-                            # Redirecionar automaticamente para o Stripe
-                            js = f"""
-                            <script>
-                            window.location.href = "{checkout_session.url}";
-                            </script>
-                            """
-                            st.components.v1.html(js, height=0)
+                        update_purchase_button(30, 19.99)
                         return False
                             
                 with col2:
                     if st.button("60 Créditos - R$29,99", use_container_width=True):
-                        # Redirecionar direto para o checkout do Stripe
-                        checkout_session = create_stripe_checkout_session(
-                            st.session_state.email, 
-                            60, 
-                            29.99
-                        )
-                        if checkout_session:
-                            # Redirecionar automaticamente para o Stripe
-                            js = f"""
-                            <script>
-                            window.location.href = "{checkout_session.url}";
-                            </script>
-                            """
-                            st.components.v1.html(js, height=0)
+                        update_purchase_button(60, 29.99)
                         return False
                 
                 return False
@@ -1962,19 +1949,6 @@ def fetch_fbref_data(url):
                     # Não mostrar mensagens de warning sobre rate limiting para o usuário
                     logger.warning(f"Rate limit atingido. Tentativa {attempt+1}/{max_retries}. Aguardando {retry_delay}s.")
                     time.sleep(retry_delay)
-                    retry_delay *= 2  # Backoff exponencial
-                else:
-                    logger.warning(f"Erro HTTP {response.status_code}. Tentativa {attempt+1}/{max_retries}. Aguardando {retry_delay}s.")
-                    time.sleep(retry_delay)
-                    retry_delay *= 1.5
-                    
-        except requests.Timeout:
-            logger.warning(f"Timeout na requisição. Tentativa {attempt+1}/{max_retries}. Aguardando {retry_delay}s.")
-            time.sleep(retry_delay)
-            retry_delay *= 1.5
-        except requests.RequestException as e:
-            logger.warning(f"Erro na requisição: {str(e)}. Tentativa {attempt+1}/{max_retries}. Aguardando {retry_delay}s.")
-            time.sleep(retry_delay)
             retry_delay *= 1.5
         except Exception as e:
             logger.warning(f"Erro não esperado: {str(e)}. Tentativa {attempt+1}/{max_retries}. Aguardando {retry_delay}s.")
@@ -2199,3 +2173,17 @@ if __name__ == "__main__":
         logger.critical(f"Erro fatal na aplicação: {str(e)}")
         st.error("Ocorreu um erro inesperado. Por favor, recarregue a página e tente novamente.")
         st.error(f"Detalhes do erro: {str(e)}")
+)
+                    retry_delay *= 2  # Backoff exponencial
+                else:
+                    logger.warning(f"Erro HTTP {response.status_code}. Tentativa {attempt+1}/{max_retries}. Aguardando {retry_delay}s.")
+                    time.sleep(retry_delay)
+                    retry_delay *= 1.5
+                    
+        except requests.Timeout:
+            logger.warning(f"Timeout na requisição. Tentativa {attempt+1}/{max_retries}. Aguardando {retry_delay}s.")
+            time.sleep(retry_delay)
+            retry_delay *= 1.5
+        except requests.RequestException as e:
+            logger.warning(f"Erro na requisição: {str(e)}. Tentativa {attempt+1}/{max_retries}. Aguardando {retry_delay}s.")
+            time.sleep(retry_delay
