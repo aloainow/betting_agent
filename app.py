@@ -1481,16 +1481,16 @@ def record_usage(self, email: str, num_markets: int):
             logger.error(f"Erro ao registrar uso para {email}: {str(e)}")
             return False
             
-    def can_analyze(self, email: str, num_markets: int) -> bool:
-        """Check if user can perform analysis"""
-        try:
-            stats = self.get_usage_stats(email)
-            
-            # Check if user has enough credits
-            return stats['credits_remaining'] >= num_markets
-        except Exception as e:
-            logger.error(f"Erro ao verificar disponibilidade para análise: {str(e)}")
-            return False
+   def can_analyze(self, email: str, num_markets: int) -> bool:
+    """Check if user can perform analysis"""
+    try:
+        stats = self.get_usage_stats(email)
+        
+        # Check if user has enough credits
+        return stats['credits_remaining'] >= num_markets
+    except Exception as e:
+        logger.error(f"Erro ao verificar disponibilidade para análise: {str(e)}")
+        return False
     
     # Métodos de upgrade/downgrade - mantidos para uso administrativo
     def _upgrade_to_standard(self, email: str) -> bool:
