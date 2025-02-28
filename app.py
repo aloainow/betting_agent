@@ -1319,25 +1319,6 @@ def register_user(self, email: str, password: str, name: str, tier: str = "free"
     except Exception as e:
         logger.error(f"Erro ao registrar usuário {email}: {str(e)}")
         return False, f"Erro interno ao registrar usuário"    
-    def authenticate(self, email: str, password: str) -> bool:
-        """Authenticate a user"""
-        try:
-            if email not in self.users:
-                logger.info(f"Tentativa de login com email não registrado: {email}")
-                return False
-                
-            # Check if the password matches
-            if self.users[email]["password"] != self._hash_password(password):
-                logger.info(f"Tentativa de login com senha incorreta: {email}")
-                return False
-                
-            # Autenticação bem-sucedida
-            logger.info(f"Login bem-sucedido: {email}")
-            return True
-        except Exception as e:
-            logger.error(f"Erro durante a autenticação para {email}: {str(e)}")
-            return False
-    
     def add_credits(self, email: str, amount: int) -> bool:
         """Add more credits to a user account"""
         try:
@@ -1364,7 +1345,7 @@ def register_user(self, email: str, password: str, name: str, tier: str = "free"
             logger.error(f"Erro ao adicionar créditos para {email}: {str(e)}")
             return False
     
-    def get_usage_stats(self, email: str) -> Dict:
+def get_usage_stats(self, email: str) -> Dict:
     """Get usage statistics for a user"""
     try:
         if email not in self.users:
@@ -1375,63 +1356,63 @@ def register_user(self, email: str, password: str, name: str, tier: str = "free"
         
         # Obter o nome do usuário
         user_name = user.get("name", "Usuário")
-            
-            # Calculate total credits used
-            total_credits_used = sum(
-                u["markets"] for u in user["usage"]["total"]
-            )
-            
-            # Get credits based on user tier
-            tier = self.tiers[user["tier"]]
-            base_credits = tier.total_credits
-            
-            # Add any purchased credits
-            purchased_credits = user.get("purchased_credits", 0)
-            
-            # Free tier special handling - check if 24h have passed since credits exhausted
-            free_credits_reset = False
-            next_free_credits_time = None
-            
-            if user["tier"] == "free":
-                # Se ele já usou créditos e tem marcação de esgotamento
-                if user.get("free_credits_exhausted_at"):
-                    try:
-                        # Convert stored time to datetime
-                        exhausted_time = datetime.fromisoformat(user["free_credits_exhausted_at"])
-                        current_time = datetime.now()
+        
+        # Calculate total credits used
+        total_credits_used = sum(
+            u["markets"] for u in user["usage"]["total"]
+        )
+        
+        # Get credits based on user tier
+        tier = self.tiers[user["tier"]]
+        base_credits = tier.total_credits
+        
+        # Add any purchased credits
+        purchased_credits = user.get("purchased_credits", 0)
+        
+        # Free tier special handling - check if 24h have passed since credits exhausted
+        free_credits_reset = False
+        next_free_credits_time = None
+        
+        if user["tier"] == "free":
+            # Se ele já usou créditos e tem marcação de esgotamento
+            if user.get("free_credits_exhausted_at"):
+                try:
+                    # Convert stored time to datetime
+                    exhausted_time = datetime.fromisoformat(user["free_credits_exhausted_at"])
+                    current_time = datetime.now()
+                    
+                    # Check if 24 hours have passed
+                    if (current_time - exhausted_time).total_seconds() >= 86400:  # 24 hours in seconds
+                        # Reset credits - IMPORTANTE: sempre será 5 créditos, não acumula
+                        user["free_credits_exhausted_at"] = None
                         
-                        # Check if 24 hours have passed
-                        if (current_time - exhausted_time).total_seconds() >= 86400:  # 24 hours in seconds
-                            # Reset credits - IMPORTANTE: sempre será 5 créditos, não acumula
-                            user["free_credits_exhausted_at"] = None
-                            
-                            # Clear usage history for free users after reset
-                            user["usage"]["total"] = []
-                            free_credits_reset = True
-                            self._save_users()
-                            
-                            # Após resetar, não há créditos usados
-                            total_credits_used = 0
-                            logger.info(f"Créditos gratuitos renovados para: {email}")
-                        else:
-                            # Calculate time remaining
-                            time_until_reset = exhausted_time + timedelta(days=1) - current_time
-                            hours = int(time_until_reset.total_seconds() // 3600)
-                            minutes = int((time_until_reset.total_seconds() % 3600) // 60)
-                            next_free_credits_time = f"{hours}h {minutes}min"
-                    except Exception as e:
-                        logger.error(f"Erro ao calcular tempo para renovação de créditos: {str(e)}")
-            
-            # Calculate remaining credits
-            remaining_credits = max(0, base_credits + purchased_credits - total_credits_used)
-            
-            # Check if user is out of credits and set exhausted timestamp
-            if remaining_credits == 0 and not user.get("free_credits_exhausted_at") and user["tier"] == "free":
-                user["free_credits_exhausted_at"] = datetime.now().isoformat()
-                self._save_users()
-                logger.info(f"Créditos gratuitos esgotados para: {email}")
-            
-           return {
+                        # Clear usage history for free users after reset
+                        user["usage"]["total"] = []
+                        free_credits_reset = True
+                        self._save_users()
+                        
+                        # Após resetar, não há créditos usados
+                        total_credits_used = 0
+                        logger.info(f"Créditos gratuitos renovados para: {email}")
+                    else:
+                        # Calculate time remaining
+                        time_until_reset = exhausted_time + timedelta(days=1) - current_time
+                        hours = int(time_until_reset.total_seconds() // 3600)
+                        minutes = int((time_until_reset.total_seconds() % 3600) // 60)
+                        next_free_credits_time = f"{hours}h {minutes}min"
+                except Exception as e:
+                    logger.error(f"Erro ao calcular tempo para renovação de créditos: {str(e)}")
+        
+        # Calculate remaining credits
+        remaining_credits = max(0, base_credits + purchased_credits - total_credits_used)
+        
+        # Check if user is out of credits and set exhausted timestamp
+        if remaining_credits == 0 and not user.get("free_credits_exhausted_at") and user["tier"] == "free":
+            user["free_credits_exhausted_at"] = datetime.now().isoformat()
+            self._save_users()
+            logger.info(f"Créditos gratuitos esgotados para: {email}")
+        
+        return {
             "name": user_name,
             "tier": user["tier"],
             "tier_display": self._format_tier_name(user["tier"]),
@@ -1453,8 +1434,7 @@ def register_user(self, email: str, password: str, name: str, tier: str = "free"
             "credits_total": 5,
             "credits_remaining": 5,
             "market_limit": float('inf')
-        }
-    
+        }    
     def record_usage(self, email: str, num_markets: int):
         """Record usage for a user (each market consumes one credit)"""
         try:
