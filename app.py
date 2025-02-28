@@ -187,83 +187,72 @@ def init_session_state():
 
 def redirect_to_stripe(checkout_url):
     """
-    Força um redirecionamento completo para fora do Streamlit,
-    enviando o usuário diretamente para a página do Stripe.
+    Abre o Stripe em um popup e mantém a janela original aberta
+    com instruções para o usuário.
     """
-    # Código JavaScript agressivo para forçar redirecionamento completo
-    js_redirect = f"""
-        <html>
-        <head>
-            <meta http-equiv="refresh" content="0; url={checkout_url}">
-            <script>
-                // Redirecionamento direto - primeira tentativa
-                window.top.location.href = "{checkout_url}";
-                
-                // Se o redirecionamento acima falhar (por questões de segurança/sandbox)
-                setTimeout(function() {{
-                    // Segunda tentativa com location.replace (limpa histórico)
-                    window.top.location.replace("{checkout_url}");
-                }}, 500);
-                
-                // Se ainda falhar, tenta o mesmo no frame pai
-                setTimeout(function() {{
-                    window.parent.location.href = "{checkout_url}";
-                }}, 1000);
-                
-                // Última tentativa - abre em uma nova janela e fecha a atual (não recomendado, mas é um fallback)
-                setTimeout(function() {{
-                    var newWindow = window.open("{checkout_url}", "_blank");
-                    // Tenta fechar a janela atual se um novo popup foi aberto
-                    if (newWindow) {{
-                        // Aguarde um momento antes de tentar fechar
-                        setTimeout(function() {{ window.close(); }}, 1000);
-                    }}
-                }}, 2000);
-            </script>
-        </head>
-        <body>
-            <h2>Redirecionando para o Stripe...</h2>
-            <p>Você está sendo redirecionado para o portal de pagamento. Se não for redirecionado automaticamente, 
-               <a href="{checkout_url}" target="_top">clique aqui</a>.</p>
-        </body>
-        </html>
+    # Código JavaScript para abrir um popup
+    js_popup = f"""
+    <script>
+        // Abrir em nova janela/popup
+        var stripeWindow = window.open('{checkout_url}', 'stripe_checkout', 
+            'width=600,height=700,location=yes,toolbar=yes,scrollbars=yes');
+        
+        // Verificar se o popup foi bloqueado
+        if (!stripeWindow || stripeWindow.closed || typeof stripeWindow.closed == 'undefined') {{
+            // Popup foi bloqueado, mostra instruções
+            document.getElementById('popup-blocked').style.display = 'block';
+        }} else {{
+            // Popup foi aberto com sucesso
+            document.getElementById('popup-success').style.display = 'block';
+        }}
+    </script>
+    
+    <div id="popup-blocked" style="display:none; padding: 15px; background-color: #ffcccc; border-radius: 5px; margin: 15px 0;">
+        <h3>⚠️ Popup bloqueado!</h3>
+        <p>Seu navegador bloqueou o popup de pagamento. Por favor:</p>
+        <ol>
+            <li>Clique no ícone de bloqueio de popup na barra de endereço</li>
+            <li>Selecione "Sempre permitir popups de [seu site]"</li>
+            <li>Clique no botão abaixo para tentar novamente</li>
+        </ol>
+        <a href="{checkout_url}" target="_blank" style="display: inline-block; padding: 10px 15px; background-color: #fd7014; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">
+            Abrir página de pagamento
+        </a>
+    </div>
+    
+    <div id="popup-success" style="display:none; padding: 15px; background-color: #e6ffe6; border-radius: 5px; margin: 15px 0;">
+        <h3>✅ Janela de pagamento aberta!</h3>
+        <p>Uma nova janela foi aberta para você concluir seu pagamento.</p>
+        <p>Após concluir o pagamento, feche a janela do Stripe e volte para esta tela.</p>
+        <p>Seus créditos serão adicionados automaticamente à sua conta.</p>
+        <a href="{checkout_url}" target="_blank" style="display: inline-block; padding: 10px 15px; background-color: #fd7014; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; margin-top: 10px;">
+            Reabrir página de pagamento
+        </a>
+    </div>
     """
     
-    # Usar o componente HTML com altura suficiente, evitando scrollbars
-    st.components.v1.html(js_redirect, height=300, scrolling=False)
+    # Renderizar o JavaScript e as mensagens
+    st.components.v1.html(js_popup, height=350)
     
-    # Também usa unsafe_allow_html para tentar outro método de redirecionamento
-    st.markdown(f"""
-        <a href="{checkout_url}" id="redirect-link" target="_top">Redirecionando...</a>
-        <script>
-            document.getElementById('redirect-link').click();
-        </script>
-    """, unsafe_allow_html=True)
-    
-    # Mensagem informativa
-    st.info("Se você continua vendo esta página, clique no link acima para ir para o pagamento.")
+    # Adicionar instruções adicionais no Streamlit
+    st.info("Após completar o pagamento, retorne a esta janela e atualize a página para ver seus novos créditos.")
 
 
 def update_purchase_button(credits, amount):
-    """Função para processar a compra de créditos com redirecionamento externo"""
+    """Função para processar a compra de créditos com popup"""
     logger.info(f"Botão de {credits} créditos clicado")
-    
     # Criar checkout diretamente e redirecionar
     checkout_session = create_stripe_checkout_session(
         st.session_state.email, 
         credits, 
         amount
     )
-    
     if checkout_session:
         logger.info(f"Checkout session criada: {checkout_session.id}, URL: {checkout_session.url}")
-        
-        # Usar o redirecionamento externo forçado
+        # Usar a função de redirecionamento via popup
         redirect_to_stripe(checkout_session.url)
         return True
-    
     return False
-
 
 def apply_global_css():
     """Aplica estilos CSS globais para toda a aplicação"""
@@ -504,7 +493,7 @@ def get_base_url():
 
 def get_stripe_success_url(credits, email):
     """
-    Get the success URL for Stripe checkout that returns to the same window
+    Configura a URL de retorno do Stripe após pagamento bem-sucedido.
     """
     # Parâmetros para retornar à página principal após pagamento
     params = urlencode({
@@ -647,7 +636,8 @@ def verify_stripe_payment(session_id):
 
 def check_payment_success():
     """
-    Check if a payment was successful and handle return to the main page
+    Verifica se um pagamento foi bem-sucedido com base nos parâmetros da URL
+    e fornece retorno visual claro ao usuário.
     """
     # Get query parameters
     if 'success' in st.query_params and st.query_params.success == 'true':
@@ -683,14 +673,10 @@ def check_payment_success():
                         
                         # Process the successful payment
                         if st.session_state.user_manager.add_credits(email, credits):
-                            # Mostrar mensagem de sucesso
+                            # Mostrar mensagem de sucesso destacada
                             st.success(f"✅ Pagamento processado com sucesso! {credits} créditos foram adicionados à sua conta.")
                             
-                            # Redirecionar para página principal
-                            st.session_state.page = "main"
-                            
-                            # IMPORTANTE: Limpar parâmetros da URL para evitar processamentos duplicados
-                            # Isso evita que o usuário processe o mesmo pagamento múltiplas vezes ao atualizar a página
+                            # Limpar parâmetros da URL para evitar processamentos duplicados
                             st.query_params.clear()
                             
                             # Usar rerun para atualizar a página
@@ -703,7 +689,7 @@ def check_payment_success():
                     else:
                         logger.warning(f"Não foi possível verificar o pagamento via ID de sessão: {session_id}")
             
-            # Processamento por parâmetros diretos (fallback)
+            # Fallback para processamento por parâmetros diretos
             if 'credits' in st.query_params and 'email' in st.query_params:
                 credits = int(st.query_params.credits)
                 email = st.query_params.email
@@ -718,7 +704,7 @@ def check_payment_success():
                     if st.session_state.user_manager.add_credits(email, credits):
                         st.success(f"✅ Pagamento processado com sucesso! {credits} créditos foram adicionados à sua conta.")
                         
-                        # Redirecionar para página principal
+                        # Limpar parâmetros e mover para página principal
                         st.session_state.page = "main"
                         st.query_params.clear()
                         st.experimental_rerun()
@@ -906,7 +892,7 @@ def show_register():
         st.error(f"Detalhes: {str(e)}")  # Adicionar detalhes do erro para diagnóstico
 
 def show_packages_page():
-    """Display simplified credit purchase page with direct Stripe checkout"""
+    """Display simplified credit purchase page with popup Stripe checkout"""
     try:
         # Header com a logo
         show_valuehunter_logo()
@@ -929,15 +915,8 @@ def show_packages_page():
             </div>
             """, unsafe_allow_html=True)
             
-            # Botão de compra direto, sem container ou whitespace adicional
             if st.button("Comprar 30 Créditos", use_container_width=True, key="buy_30c"):
-                # Chamar diretamente o Stripe sem exibir HTML
-                checkout_session = create_stripe_checkout_session(st.session_state.email, 30, 19.99)
-                if checkout_session:
-                    # Forçar redirecionamento externo
-                    redirect_to_stripe(checkout_session.url)
-                    # Não use st.stop() aqui, pois pode causar problemas
-                    # Deixe o código continuar para mostrar o resto da página
+                update_purchase_button(30, 19.99)
         
         with col2:
             st.markdown("""
@@ -948,22 +927,16 @@ def show_packages_page():
             </div>
             """, unsafe_allow_html=True)
             
-            # Botão de compra direto, sem container ou whitespace adicional
             if st.button("Comprar 60 Créditos", use_container_width=True, key="buy_60c"):
-                # Chamar diretamente o Stripe sem exibir HTML
-                checkout_session = create_stripe_checkout_session(st.session_state.email, 60, 29.99)
-                if checkout_session:
-                    # Forçar redirecionamento externo
-                    redirect_to_stripe(checkout_session.url)
-                    # Não use st.stop() aqui
+                update_purchase_button(60, 29.99)
         
         # Add payment instructions
         st.markdown("""
         ### Como funciona o processo de pagamento:
         
-        1. Ao clicar em "Comprar Créditos", você será redirecionado para a página de pagamento do Stripe
+        1. Ao clicar em "Comprar Créditos", uma nova janela será aberta para pagamento
         2. Complete seu pagamento na página do Stripe
-        3. Você será redirecionado automaticamente de volta para o ValueHunter
+        3. Feche a janela de pagamento e retorne a esta tela
         4. Seus créditos serão adicionados automaticamente à sua conta
         
         **Nota:** Todo o processo é seguro e seus dados de pagamento são protegidos pelo Stripe
@@ -985,7 +958,6 @@ def show_packages_page():
     except Exception as e:
         logger.error(f"Erro ao exibir página de pacotes: {str(e)}")
         st.error("Erro ao carregar a página de pacotes. Por favor, tente novamente.")
-
 def show_usage_stats():
     """Display simplified usage statistics focusing only on credits"""
     try:
