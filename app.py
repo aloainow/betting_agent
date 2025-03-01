@@ -2384,7 +2384,7 @@ def get_odds_data(selected_markets):
             if all(odds_data.get(k, 0) > 1.01 for k in ["home", "draw", "away"]):
                 has_valid_odds = True
                 odds_text.append(f"""Money Line:
-    - Casa: @{odds_data['home']:.2f} (Implícita: {(100/odds_data['home']):.1f}%)
+    f"- Casa: @{odds_data['home']:.2f} (Implícita: {(100/odds_data['home']):.1f}%)"
     - Empate: @{odds_data['draw']:.2f} (Implícita: {(100/odds_data['draw']):.1f}%)
     - Fora: @{odds_data['away']:.2f} (Implícita: {(100/odds_data['away']):.1f}%)""")
 
