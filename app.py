@@ -28,11 +28,10 @@ try:
 except Exception as e:
     logger.error(f"Erro ao listar diretório: {str(e)}")
 
-# Configuração de path para dados persistentes
 DATA_DIR = "data"
 if "RENDER" in os.environ:
-    # Em produção no Render, use um caminho absoluto
-    DATA_DIR = "/opt/render/project/src/data"
+    # Em produção no Render, use um caminho padrão para montagem de disco
+    DATA_DIR = "/mnt/value-hunter-data"  # Caminho padrão para discos persistentes
     
 # Criar diretório de dados se não existir
 os.makedirs(DATA_DIR, exist_ok=True)
