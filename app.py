@@ -2253,12 +2253,7 @@ class UserManager:
         if email not in self.users:
             logger.warning(f"Tentativa de registrar uso para usuário inexistente: {email}")
             return False
-        # Resto do código da função...
-    except Exception as e:
-        logger.error(f"Erro ao registrar uso para {email}: {str(e)}")
-        return False
 
-                
         today = datetime.now().date().isoformat()
         
         # Criar registro de uso com dados detalhados
@@ -2301,28 +2296,23 @@ class UserManager:
         # Check if Free tier user has exhausted credits
         if self.users[email]["tier"] == "free":
             if credits_after == 0 and not self.users[email].get("free_credits_exhausted_at"):
-                # Mark when credits were exhausted
                 self.users[email]["free_credits_exhausted_at"] = datetime.now().isoformat()
-                # Forçar salvamento novamente após atualizar timestamp
                 self._save_users()
                 logger.info(f"Marcando esgotamento de créditos gratuitos para: {email}")
         
         # Check if paid tier user has exhausted credits
         elif self.users[email]["tier"] in ["standard", "pro"]:
             if credits_after == 0 and not self.users[email].get("paid_credits_exhausted_at"):
-                # Mark when credits were exhausted
                 self.users[email]["paid_credits_exhausted_at"] = datetime.now().isoformat()
-                # Forçar salvamento novamente após atualizar timestamp
                 self._save_users()
                 logger.info(f"Marcando esgotamento de créditos pagos para: {email}")
         
-        # Registrar uso
         logger.info(f"Uso registrado com sucesso: {num_markets} créditos para {email}")
         return True
-            
     except Exception as e:
         logger.error(f"Erro ao registrar uso para {email}: {str(e)}")
         return False
+
 
 
 # 2. ATUALIZAR CHAMADA EM show_main_dashboard
