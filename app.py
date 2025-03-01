@@ -2248,6 +2248,7 @@ class UserManager:
     - num_markets: number of markets analyzed
     - analysis_data: dictionary with league, teams and markets details
     """
+    # Bloco de código indentado começa aqui
     try:
         if email not in self.users:
             logger.warning(f"Tentativa de registrar uso para usuário inexistente: {email}")
@@ -2260,8 +2261,7 @@ class UserManager:
             "date": today,
             "markets": num_markets,  # Each market = 1 credit
             "timestamp": datetime.now().isoformat(),
-        }
-        
+        }        
         # Adicionar dados de análise se fornecidos
         if analysis_data:
             usage.update({
