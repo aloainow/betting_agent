@@ -2241,7 +2241,6 @@ class UserManager:
             }
     
     def record_usage(self, email: str, num_markets: int, analysis_data: dict = None):
-    """
     Record usage for a user with detailed analytics data
     Parameters:
     - email: user email
