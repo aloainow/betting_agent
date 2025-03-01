@@ -2269,8 +2269,7 @@ class UserManager:
                 "home_team": analysis_data.get("home_team"),
                 "away_team": analysis_data.get("away_team"),
                 "markets_used": analysis_data.get("markets_used", [])
-            })
-        
+            })        
         # Garantir que a estrutura de uso existe
         if "usage" not in self.users[email]:
             self.users[email]["usage"] = {"daily": [], "total": []}
