@@ -1384,38 +1384,14 @@ def check_analysis_limits(selected_markets):
 
 
 def show_main_dashboard():
-    """Show the main dashboard with forced data refresh"""
+    """Show the main dashboard with improved error handling and debug info"""
     try:
-        # IMPORTANTE: Forçar refresh dos dados do usuário ao entrar na página principal
-        if st.session_state.authenticated and st.session_state.email:
-            try:
-                # Recarregar os dados do usuário para garantir que estão atualizados
-                if not hasattr(st.session_state, 'last_main_refresh'):
-                    st.session_state.last_main_refresh = datetime.now()
-                    # Recarregar UserManager completamente
-                    st.session_state.user_manager = UserManager()
-                    # Limpar cache de estatísticas
-                    if hasattr(st.session_state, 'user_stats_cache'):
-                        del st.session_state.user_stats_cache
-                    logger.info(f"Dados do usuário recarregados na página principal para: {st.session_state.email}")
-                else:
-                    # Verificar se já passou tempo suficiente para um novo refresh
-                    time_since_refresh = (datetime.now() - st.session_state.last_main_refresh).total_seconds()
-                    if time_since_refresh > 5:  # Apenas recarregar a cada 5 segundos para evitar loop infinito
-                        st.session_state.last_main_refresh = datetime.now()
-                        # Recarregar UserManager completamente
-                        st.session_state.user_manager = UserManager()
-                        # Limpar cache de estatísticas
-                        if hasattr(st.session_state, 'user_stats_cache'):
-                            del st.session_state.user_stats_cache
-                        logger.info(f"Dados do usuário recarregados por timer: {st.session_state.email}")
-            except Exception as refresh_error:
-                logger.error(f"Erro ao atualizar dados do usuário na página principal: {str(refresh_error)}")
+        # Iniciar com log de diagnóstico
+        logger.info("Iniciando renderização do dashboard principal")
         
-        # Show usage stats in sidebar (que agora vai pegar os dados atualizados)
+        # Show usage stats in sidebar
         show_usage_stats()
         
-        # Resto do código da dashboard permanece igual
         # Sidebar layout
         st.sidebar.title("Análise de Apostas")
         
@@ -1431,12 +1407,261 @@ def show_main_dashboard():
             st.session_state.page = "packages"
             st.experimental_rerun()
         
-        # Resto da função continua igual...
-        # [Mantenha todo o código seguinte igual]
+        # Log de progresso
+        logger.info("Sidebar renderizada com sucesso")
         
+        # Conteúdo principal com tratamento de erro em cada etapa
+        try:
+            # Logo exibida consistentemente
+            show_valuehunter_logo()
+            
+            # Título principal
+            st.title("Seleção de Times")
+                
+            # Sidebar Configurações
+            try:
+                st.sidebar.title("Configurações")
+                
+                # Lista de ligas disponíveis com fallback seguro
+                available_leagues = list(FBREF_URLS.keys())
+                if not available_leagues:
+                    st.error("Erro: Nenhuma liga disponível.")
+                    logger.error("FBREF_URLS está vazia")
+                    return
+                
+                selected_league = st.sidebar.selectbox(
+                    "Escolha o campeonato:",
+                    available_leagues
+                )
+                logger.info(f"Liga selecionada: {selected_league}")
+                
+                # Container para status
+                status_container = st.sidebar.empty()
+            except Exception as sidebar_error:
+                logger.error(f"Erro na configuração da sidebar: {str(sidebar_error)}")
+                st.error("Erro ao carregar configurações da sidebar.")
+                traceback.print_exc()
+                return
+                
+            # Bloco try separado para carregar dados
+            try:
+                # Mostrar spinner enquanto carrega
+                with st.spinner("Carregando dados do campeonato..."):
+                    # Tentar carregar dados da liga selecionada
+                    if selected_league not in FBREF_URLS:
+                        st.error(f"Liga não encontrada: {selected_league}")
+                        logger.error(f"Liga {selected_league} não encontrada em FBREF_URLS")
+                        return
+                        
+                    # Obter URL das estatísticas
+                    stats_url = FBREF_URLS[selected_league].get("stats")
+                    if not stats_url:
+                        st.error(f"URL de estatísticas não encontrada para {selected_league}")
+                        logger.error(f"URL de estatísticas ausente para {selected_league}")
+                        return
+                        
+                    # Buscar dados - com tratamento de erro explícito
+                    stats_html = fetch_fbref_data(stats_url)
+                    if not stats_html:
+                        st.error(f"Não foi possível carregar os dados do campeonato {selected_league}")
+                        logger.error(f"fetch_fbref_data retornou None para {stats_url}")
+                        return
+                    
+                    # Parsear estatísticas dos times
+                    team_stats_df = parse_team_stats(stats_html)
+                    if team_stats_df is None:
+                        st.error("Erro ao processar dados de estatísticas dos times")
+                        logger.error("parse_team_stats retornou None")
+                        return
+                        
+                    if 'Squad' not in team_stats_df.columns:
+                        st.error("Dados incompletos: coluna 'Squad' não encontrada")
+                        logger.error(f"Colunas disponíveis: {team_stats_df.columns.tolist()}")
+                        return
+                    
+                    # Extrair lista de times
+                    teams = team_stats_df['Squad'].dropna().unique().tolist()
+                    if not teams:
+                        st.error("Não foi possível encontrar os times do campeonato")
+                        logger.error("Lista de times vazia após dropna() e unique()")
+                        return
+                        
+                    # Mostrar mensagem de sucesso
+                    status_container.success("Dados carregados com sucesso!")
+                    logger.info(f"Dados carregados: {len(teams)} times encontrados")
+                    
+            except Exception as load_error:
+                logger.error(f"Erro ao carregar dados: {str(load_error)}")
+                st.error(f"Erro ao carregar dados: {str(load_error)}")
+                traceback.print_exc()
+                return
+                
+            # Bloco try separado para selecionar times
+            try:
+                # Seleção de times
+                col1, col2 = st.columns(2)
+                with col1:
+                    home_team = st.selectbox("Time da Casa:", teams, key='home_team')
+                with col2:
+                    away_teams = [team for team in teams if team != home_team]
+                    away_team = st.selectbox("Time Visitante:", away_teams, key='away_team')
+                    
+                logger.info(f"Times selecionados: {home_team} vs {away_team}")
+                
+                # Obter estatísticas do usuário
+                user_stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
+                
+            except Exception as teams_error:
+                logger.error(f"Erro ao selecionar times: {str(teams_error)}")
+                st.error(f"Erro ao exibir seleção de times: {str(teams_error)}")
+                traceback.print_exc()
+                return
+                
+            # Bloco try separado para seleção de mercados
+            try:
+                # Seleção de mercados
+                with st.expander("Mercados Disponíveis", expanded=True):
+                    st.markdown("### Seleção de Mercados")
+                    st.info(f"Você tem {user_stats['credits_remaining']} créditos disponíveis. Cada mercado selecionado consumirá 1 crédito.")
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        selected_markets = {
+                            "money_line": st.checkbox("Money Line (1X2)", value=True, key='ml'),
+                            "over_under": st.checkbox("Over/Under", key='ou'),
+                            "chance_dupla": st.checkbox("Chance Dupla", key='cd')
+                        }
+                    with col2:
+                        selected_markets.update({
+                            "ambos_marcam": st.checkbox("Ambos Marcam", key='btts'),
+                            "escanteios": st.checkbox("Total de Escanteios", key='corners'),
+                            "cartoes": st.checkbox("Total de Cartões", key='cards')
+                        })
+
+                    num_selected_markets = sum(1 for v in selected_markets.values() if v)
+                    if num_selected_markets == 0:
+                        st.warning("Por favor, selecione pelo menos um mercado para análise.")
+                    else:
+                        st.write(f"Total de créditos que serão consumidos: {num_selected_markets}")
+                        
+                logger.info(f"Mercados selecionados: {[k for k, v in selected_markets.items() if v]}")
+                
+            except Exception as markets_error:
+                logger.error(f"Erro na seleção de mercados: {str(markets_error)}")
+                st.error(f"Erro ao exibir mercados disponíveis: {str(markets_error)}")
+                traceback.print_exc()
+                return
+            
+            # Bloco try separado para odds
+            try:
+                # Odds
+                odds_data = None
+                if any(selected_markets.values()):
+                    with st.expander("Configuração de Odds", expanded=True):
+                        odds_data = get_odds_data(selected_markets)
+                        
+                logger.info(f"Odds configuradas: {odds_data is not None}")
+                
+            except Exception as odds_error:
+                logger.error(f"Erro na configuração de odds: {str(odds_error)}")
+                st.error(f"Erro ao configurar odds: {str(odds_error)}")
+                traceback.print_exc()
+                return
+            
+            # Botão de análise centralizado
+            try:
+                col1, col2, col3 = st.columns([1,1,1])
+                with col2:
+                    analyze_button = st.button("Analisar Partida", type="primary")
+                    
+                    if analyze_button:
+                        if not any(selected_markets.values()):
+                            st.error("Por favor, selecione pelo menos um mercado para análise.")
+                            return
+                            
+                        if not odds_data:
+                            st.error("Por favor, configure as odds para os mercados selecionados.")
+                            return
+                        
+                        # Verificar limites de análise
+                        if not check_analysis_limits(selected_markets):
+                            return
+                            
+                        # Criar um placeholder para o status
+                        status = st.empty()
+                        
+                        # Executar análise com tratamento de erro para cada etapa
+                        try:
+                            # Etapa 1: Carregar dados
+                            status.info("Carregando dados dos times...")
+                            if not stats_html or team_stats_df is None:
+                                status.error("Falha ao carregar dados")
+                                return
+                                
+                            # Etapa 2: Formatar prompt
+                            status.info("Preparando análise...")
+                            prompt = format_prompt(team_stats_df, home_team, away_team, odds_data, selected_markets)
+                            if not prompt:
+                                status.error("Falha ao preparar análise")
+                                return
+                                
+                            # Etapa 3: Análise GPT
+                            status.info("Realizando análise com IA...")
+                            analysis = analyze_with_gpt(prompt)
+                            if not analysis:
+                                status.error("Falha na análise com IA")
+                                return
+                            
+                            # Etapa 4: Mostrar resultado
+                            if analysis:
+                                # Limpar status
+                                status.empty()
+                                
+                                # Exibir a análise em uma div com largura total
+                                st.markdown(f'<div class="analysis-result">{analysis}</div>', unsafe_allow_html=True)
+                                
+                                # Registrar uso após análise bem-sucedida
+                                num_markets = sum(1 for v in selected_markets.values() if v)
+                                success = st.session_state.user_manager.record_usage(st.session_state.email, num_markets)
+                                
+                                if success:
+                                    # Mostrar mensagem de sucesso com créditos restantes
+                                    updated_stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
+                                    credits_after = updated_stats['credits_remaining']
+                                    st.success(f"{num_markets} créditos foram consumidos. Agora você tem {credits_after} créditos.")
+                                else:
+                                    st.error("Não foi possível registrar o uso dos créditos. Por favor, tente novamente.")
+                                    
+                        except Exception as analysis_error:
+                            logger.error(f"Erro durante a análise: {str(analysis_error)}")
+                            status.error(f"Erro durante a análise: {str(analysis_error)}")
+                            traceback.print_exc()
+                            
+            except Exception as button_error:
+                logger.error(f"Erro no botão de análise: {str(button_error)}")
+                st.error(f"Erro no botão de análise: {str(button_error)}")
+                traceback.print_exc()
+                
+        except Exception as content_error:
+            logger.error(f"Erro fatal no conteúdo principal: {str(content_error)}")
+            st.error("Erro ao carregar o conteúdo principal. Detalhes no log.")
+            st.error(f"Detalhes: {str(content_error)}")
+            traceback.print_exc()
+            
     except Exception as e:
-        logger.error(f"Erro ao exibir painel principal: {str(e)}")
+        logger.error(f"Erro crítico ao exibir painel principal: {str(e)}")
         st.error("Erro ao carregar o painel principal. Por favor, tente novamente.")
+        st.error(f"Erro: {str(e)}")
+        traceback.print_exc()
+        
+        # Exibir informações de depuração em ambiente de teste
+        if st.session_state.stripe_test_mode:
+            st.warning("### Informações de Depuração (apenas em modo de teste)")
+            st.write("Sessão atual:", dict([(k, v) for k, v in st.session_state.items() if k not in ['user_manager']]))
+            
+            # Verificar se FBREF_URLS está definido corretamente
+            st.write("FBREF_URLS disponíveis:", FBREF_URLS is not None)
+            st.write("Número de ligas configuradas:", len(FBREF_URLS) if FBREF_URLS else 0)
 
 
 def route_pages():
@@ -2213,12 +2438,14 @@ def rate_limit(seconds):
 
 
 @rate_limit(1)  # 1 requisição por segundo
-def fetch_fbref_data(url):
-    """Busca dados do FBref com melhor tratamento de erros, timeout e rate limiting"""
+def fetch_fbref_data(url, force_reload=False):
+    """
+    Busca dados do FBref com melhor tratamento de erros e opção de forçar reload.
+    """
     import random
     import time
     
-    logger.info(f"Buscando dados do FBref: {url}")
+    logger.info(f"Buscando dados do FBref: {url}, force_reload={force_reload}")
     
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
@@ -2231,35 +2458,45 @@ def fetch_fbref_data(url):
         'Cache-Control': 'max-age=0',
     }
     
-    # Implementar retry com backoff exponencial
-    max_retries = 3
-    retry_delay = 5  # segundos iniciais de espera
-    
     # Tenta usar cache para diferentes ligas
     cache_key = url.split('/')[-1]
     cache_file = os.path.join(DATA_DIR, f"cache_{cache_key.replace('-', '_')}.html")
     
     # Verificar se existe cache - sem mostrar mensagem
-    try:
-        if os.path.exists(cache_file):
-            with open(cache_file, 'r', encoding='utf-8') as f:
-                content = f.read()
-                # Se o cache tiver conteúdo não vazio
-                if content and len(content) > 1000:  # Verifica se tem pelo menos 1KB
-                    logger.info(f"Usando cache para {url}")
-                    return content
-    except Exception as e:
-        logger.warning(f"Erro ao ler do cache: {str(e)}")
+    if not force_reload:
+        try:
+            if os.path.exists(cache_file):
+                file_age_seconds = time.time() - os.path.getmtime(cache_file)
+                with open(cache_file, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                    # Se o cache tiver conteúdo não vazio e não for muito antigo
+                    if content and len(content) > 1000 and file_age_seconds < 86400:  # 24 horas
+                        logger.info(f"Usando cache para {url} (idade: {file_age_seconds/3600:.1f} horas)")
+                        return content
+        except Exception as e:
+            logger.warning(f"Erro ao ler do cache: {str(e)}")
+    
+    # Implementar retry com backoff exponencial
+    max_retries = 3
+    retry_delay = 5  # segundos iniciais de espera
     
     # Adicionar um delay aleatório antes da requisição para parecer mais humano
     time.sleep(1 + random.random() * 2)
     
     for attempt in range(max_retries):
         try:
-            with st.spinner(f"Carregando dados do campeonato..."):
+            with st.spinner(f"Carregando dados do campeonato (tentativa {attempt+1}/{max_retries})..."):
                 response = requests.get(url, headers=headers, timeout=30)
                 
                 if response.status_code == 200:
+                    # Verificar se a resposta tem conteúdo válido
+                    if len(response.text) < 1000:
+                        logger.warning(f"Resposta muito pequena ({len(response.text)} bytes): {url}")
+                        if attempt < max_retries - 1:
+                            time.sleep(retry_delay)
+                            retry_delay *= 1.5
+                            continue
+                    
                     # Salvar em cache para uso futuro
                     try:
                         with open(cache_file, 'w', encoding='utf-8') as f:
@@ -2292,11 +2529,26 @@ def fetch_fbref_data(url):
             time.sleep(retry_delay)
             retry_delay *= 1.5
     
+    # Se falhou com o cache normal, tentar buscar um fallback de cache
+    try:
+        fallback_files = [f for f in os.listdir(DATA_DIR) if f.startswith("cache_") and f.endswith(".html")]
+        if fallback_files:
+            # Usar o cache mais recente de qualquer liga
+            fallback_file = os.path.join(DATA_DIR, sorted(fallback_files, 
+                            key=lambda x: os.path.getmtime(os.path.join(DATA_DIR, x)), 
+                            reverse=True)[0])
+            
+            logger.warning(f"Usando cache de fallback: {fallback_file}")
+            with open(fallback_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+                if content and len(content) > 1000:
+                    return content
+    except Exception as e:
+        logger.error(f"Erro ao tentar usar cache de fallback: {str(e)}")
+    
     # Mensagem de erro simples e clara
     logger.error("Não foi possível carregar os dados do campeonato após múltiplas tentativas")
-    st.error("Não foi possível carregar os dados do campeonato. Tente novamente mais tarde.")
-    return None
-    
+    return None    
 def get_stat(stats, col, default='N/A'):
     """
     Função auxiliar para extrair estatísticas com tratamento de erro
