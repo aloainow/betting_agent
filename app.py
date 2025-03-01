@@ -2248,7 +2248,6 @@ class UserManager:
     - num_markets: number of markets analyzed
     - analysis_data: dictionary with league, teams and markets details
     """
-    # Bloco de código indentado começa aqui
     try:
         if email not in self.users:
             logger.warning(f"Tentativa de registrar uso para usuário inexistente: {email}")
@@ -2261,7 +2260,8 @@ class UserManager:
             "date": today,
             "markets": num_markets,  # Each market = 1 credit
             "timestamp": datetime.now().isoformat(),
-        }        
+        }
+        
         # Adicionar dados de análise se fornecidos
         if analysis_data:
             usage.update({
@@ -2311,6 +2311,7 @@ class UserManager:
     except Exception as e:
         logger.error(f"Erro ao registrar uso para {email}: {str(e)}")
         return False
+        
 # 2. ATUALIZAR CHAMADA EM show_main_dashboard
 # No trecho da análise em show_main_dashboard, atualizar a chamada do record_usage:
 # Registro de uso com dados detalhados
