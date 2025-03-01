@@ -2313,9 +2313,9 @@ class UserManager:
         logger.error(f"Erro ao registrar uso para {email}: {str(e)}")
         return False
 
+
 # 2. ATUALIZAR CHAMADA EM show_main_dashboard
 # No trecho da análise em show_main_dashboard, atualizar a chamada do record_usage:
-
 # Registro de uso com dados detalhados
 analysis_data = {
     "league": selected_league,
@@ -2328,7 +2328,6 @@ success = st.session_state.user_manager.record_usage(
     num_markets,
     analysis_data
 )
-
         
     def can_analyze(self, email: str, num_markets: int) -> bool:
         """Check if user can perform analysis"""
