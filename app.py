@@ -2313,17 +2313,17 @@ class UserManager:
             # 2. ATUALIZAR CHAMADA EM show_main_dashboard
             # No trecho da análise em show_main_dashboard, atualizar a chamada do record_usage:
             # Registro de uso com dados detalhados
-            analysis_data = {
-                "league": selected_league,
-                "home_team": home_team,
-                "away_team": away_team,
-                "markets_used": [k for k, v in selected_markets.items() if v]
-            }
-            success = st.session_state.user_manager.record_usage(
-                st.session_state.email, 
-                num_markets,
-                analysis_data
-            )
+                            analysis_data = {
+                                "league": selected_league,
+                                "home_team": home_team,
+                                "away_team": away_team,
+                                "markets_used": [k for k, v in selected_markets.items() if v]
+                            }
+                            success = st.session_state.user_manager.record_usage(
+                                st.session_state.email, 
+                                num_markets,
+                                analysis_data
+                            )
         
     def can_analyze(self, email: str, num_markets: int) -> bool:
         """Check if user can perform analysis"""
