@@ -187,39 +187,57 @@ def init_session_state():
 
 def redirect_to_stripe(checkout_url):
     """
-    Abre o checkout do Stripe em um popup e configura uma ouvinte
-    para detectar a conclusão do pagamento.
+    Abre o checkout do Stripe em um popup e configura um listener
+    para atualizar a janela principal quando o pagamento for bem-sucedido.
     """
-    # JavaScript para abrir popup e configurar ouvinte de mensagens
+    # JavaScript para abrir popup e configurar listener de mensagens
     js_popup = f"""
     <script>
-        // Função para receber mensagem da janela popup
+        // Abrir popup do Stripe no centro da tela
+        var windowWidth = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
+        var windowHeight = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
+        
+        var popupWidth = 600;
+        var popupHeight = 700;
+        
+        var left = (windowWidth - popupWidth) / 2;
+        var top = (windowHeight - popupHeight) / 2;
+        
+        // Adicionar listener para receber mensagem de pagamento bem-sucedido
         window.addEventListener('message', function(event) {{
-            // Verificar se a mensagem é sobre pagamento concluído
-            if (event.data && event.data.type === 'payment_completed') {{
-                console.log('Pagamento concluído!', event.data);
+            if (event.data && event.data.type === 'payment_success') {{
+                console.log('Recebido evento de pagamento bem-sucedido:', event.data);
                 
-                // Construir URL com os parâmetros
-                var baseUrl = window.location.origin + window.location.pathname.split('?')[0];
-                var params = new URLSearchParams();
-                
-                // Adicionar parâmetros do pagamento
-                var data = event.data.data;
-                if (data) {{
-                    params.set('success', data.success);
-                    params.set('credits', data.credits);
-                    params.set('email', data.email);
-                    params.set('session_id', data.session_id);
+                // Atualizar a UI para mostrar que os créditos foram adicionados
+                var creditInfoElement = document.getElementById('payment-success-message');
+                if (creditInfoElement) {{
+                    // Mostrar mensagem de sucesso na página principal
+                    creditInfoElement.innerHTML = `
+                        <div style="background-color: #4CAF50; color: white; padding: 15px; border-radius: 5px; margin: 15px 0;">
+                            <h3>✅ Pagamento processado com sucesso!</h3>
+                            <p><strong>${{event.data.data.credits}} créditos</strong> foram adicionados à sua conta.</p>
+                        </div>
+                    `;
+                    creditInfoElement.style.display = 'block';
                 }}
                 
-                // Redirecionar a janela principal para processar o pagamento
-                window.location.href = baseUrl + '?' + params.toString();
+                // Atualizar informações de crédito se existir (sem recarregar a página)
+                var creditsRemainingElement = document.querySelector('[data-element="credits-remaining"]');
+                if (creditsRemainingElement) {{
+                    // Tentar atualizar o contador de créditos
+                    var currentCredits = parseInt(creditsRemainingElement.textContent.trim()) || 0;
+                    var newCredits = currentCredits + parseInt(event.data.data.credits);
+                    creditsRemainingElement.textContent = newCredits;
+                }}
             }}
         }}, false);
         
-        // Abrir popup do Stripe
-        var stripePopup = window.open('{checkout_url}', 'stripe_checkout', 
-            'width=600,height=700,location=yes,toolbar=yes,scrollbars=yes');
+        // Abrir popup com posicionamento centralizado
+        var stripePopup = window.open(
+            '{checkout_url}', 
+            'stripe_checkout',
+            `width=${{popupWidth}},height=${{popupHeight}},left=${{left}},top=${{top}},location=yes,toolbar=yes,scrollbars=yes`
+        );
         
         // Verificar se o popup foi bloqueado
         if (!stripePopup || stripePopup.closed || typeof stripePopup.closed == 'undefined') {{
@@ -228,9 +246,6 @@ def redirect_to_stripe(checkout_url):
         }} else {{
             // Popup foi aberto com sucesso
             document.getElementById('popup-success').style.display = 'block';
-            
-            // Armazenar referência ao popup na sessão
-            window.stripePopup = stripePopup;
         }}
     </script>
     
@@ -250,12 +265,12 @@ def redirect_to_stripe(checkout_url):
     <div id="popup-success" style="display:none; padding: 15px; background-color: #e6ffe6; border-radius: 5px; margin: 15px 0;">
         <h3>✅ Janela de pagamento aberta!</h3>
         <p>Uma nova janela foi aberta para você concluir seu pagamento.</p>
-        <p>Após concluir o pagamento, a janela será fechada automaticamente e você retornará para esta tela.</p>
-        <p>Se a janela fechou acidentalmente, clique abaixo para retomar o pagamento:</p>
-        <a href="{checkout_url}" target="_blank" style="display: inline-block; padding: 10px 15px; background-color: #fd7014; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; margin-top: 10px;">
-            Reabrir página de pagamento
-        </a>
+        <p>Após completar o pagamento, a janela será fechada automaticamente e seus créditos serão adicionados.</p>
+        <p>Para voltar às análises, use o botão "Voltar para análises" após o pagamento.</p>
     </div>
+    
+    <!-- Área que será atualizada quando o pagamento for bem-sucedido -->
+    <div id="payment-success-message" style="display:none;"></div>
     """
     
     # Renderizar o JavaScript e as mensagens
@@ -516,17 +531,15 @@ def get_base_url():
 
 def get_stripe_success_url(credits, email):
     """
-    Configura uma URL de sucesso especial que fecha a janela do popup
-    e envia uma mensagem para a janela principal.
+    Cria uma URL de sucesso que mostra uma mensagem de confirmação 
+    e fecha o popup após 5 segundos.
     """
-    # Primeiro, crie uma URL para uma página intermediária que fechará o popup
+    # Usar a URL base do seu aplicativo com um parâmetro especial
     base_url = get_base_url()
     
-    # Criar URL com close_popup=true para indicar que esta é a janela popup que deve fechar
-    # Os parâmetros serão passados para a janela principal
+    # Criamos uma URL que mostrará uma página de confirmação especial
     params = urlencode({
-        'close_popup': 'true',
-        'success': 'true',
+        'payment_complete': 'true',
         'credits': credits,
         'email': email,
         'session_id': '{CHECKOUT_SESSION_ID}',  # Stripe substituirá isso
@@ -541,15 +554,13 @@ def get_stripe_cancel_url():
     """Get the cancel URL for Stripe checkout."""
     params = urlencode({
         'canceled': 'true',
-        'redirect': 'main',
-        'email': st.session_state.email,
-        'auth': 'true'
     })
     
     base_url = get_base_url()
     full_url = f"{base_url}/?{params}"
     logger.info(f"URL de cancelamento do Stripe configurada: {full_url}")
     return full_url
+
 
 
 def create_stripe_checkout_session(email, credits, amount):
@@ -662,115 +673,276 @@ def verify_stripe_payment(session_id):
 
 def check_payment_success():
     """
-    Verifica se estamos numa janela de popup que deve fechar ou se estamos
-    processando um pagamento bem-sucedido na janela principal.
+    Verifica se estamos na página de confirmação de pagamento (popup)
+    ou na página principal buscando parâmetros.
     """
-    # Verificar se estamos na janela de popup que deve fechar
-    if 'close_popup' in st.query_params and st.query_params.close_popup == 'true':
-        # Esta é a janela que deve fechar e enviar uma mensagem para a janela principal
-        # Crie uma página simples com JavaScript para fechar esta janela
-        close_script = """
-        <script>
-            // Fechar esta janela após enviar mensagem para a principal
-            function closeAndNotify() {
-                // Enviar mensagem para a janela principal
-                if (window.opener && !window.opener.closed) {
-                    // Extrair os parâmetros da URL atual
-                    var params = new URLSearchParams(window.location.search);
-                    
-                    // Criar objeto com os parâmetros relevantes
-                    var paymentData = {
-                        success: params.get('success'),
-                        credits: params.get('credits'),
-                        email: params.get('email'),
-                        session_id: params.get('session_id')
-                    };
-                    
-                    // Enviar mensagem para a janela principal
-                    window.opener.postMessage({
-                        type: 'payment_completed',
-                        data: paymentData
-                    }, '*');
-                    
-                    // Aguardar um momento e fechar
-                    setTimeout(function() {
-                        window.close();
-                    }, 1000);
-                } else {
-                    // Se não conseguir enviar mensagem, redirecionar para a URL principal
-                    var baseUrl = window.location.origin + window.location.pathname.split('?')[0];
-                    var params = new URLSearchParams(window.location.search);
-                    params.delete('close_popup');  // Remover o parâmetro close_popup
-                    window.location.href = baseUrl + '?' + params.toString();
-                }
-            }
-            
-            // Executar ao carregar
-            window.onload = closeAndNotify;
-        </script>
-        <div style="text-align: center; padding: 40px; font-family: Arial, sans-serif;">
-            <h2>Pagamento Concluído!</h2>
-            <p>Esta janela será fechada automaticamente...</p>
-            <p>Se não fechar, <a href="javascript:window.close()">clique aqui para fechar</a>.</p>
-        </div>
-        """
-        
-        # Renderizar a página de fechamento
-        st.components.v1.html(close_script, height=300)
-        return True
-    
-    # Verificar pagamento normal (na janela principal)
-    if 'success' in st.query_params and st.query_params.success == 'true':
+    # Verificar se estamos na página de confirmação de pagamento no popup
+    if 'payment_complete' in st.query_params and st.query_params.payment_complete == 'true':
         try:
-            logger.info("Processando retorno de pagamento bem-sucedido")
+            # Extrair informações do pagamento
+            credits = int(st.query_params.get('credits', 0))
+            email = st.query_params.get('email', '')
+            session_id = st.query_params.get('session_id', '')
             
-            # Restaurar sessão se necessário
-            if 'email' in st.query_params:
-                email = st.query_params.email
-                logger.info(f"Restaurando sessão após pagamento para: {email}")
-                st.session_state.authenticated = True
-                st.session_state.email = email
-                st.session_state.last_activity = datetime.now()
+            # Verificar o pagamento com o Stripe
+            is_valid, validated_credits, validated_email = verify_stripe_payment(session_id)
             
-            # Verificar pagamento pela ID da sessão
-            if 'session_id' in st.query_params:
-                session_id = st.query_params.session_id
-                is_valid, credits, email = verify_stripe_payment(session_id)
-                
-                if is_valid and credits > 0 and email:
-                    logger.info(f"Pagamento válido: {credits} créditos para {email}")
-                    
-                    if st.session_state.user_manager.add_credits(email, credits):
-                        st.success(f"✅ Pagamento processado com sucesso! {credits} créditos foram adicionados à sua conta.")
+            if is_valid and validated_credits > 0:
+                # Criar a página de confirmação que vai fechar automaticamente
+                success_html = f"""
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Pagamento Confirmado</title>
+                    <style>
+                        body {{
+                            font-family: Arial, sans-serif;
+                            background-color: #3F3F45;
+                            color: white;
+                            text-align: center;
+                            padding: 40px 20px;
+                        }}
+                        .success-container {{
+                            background-color: #4CAF50;
+                            border-radius: 10px;
+                            padding: 30px;
+                            max-width: 500px;
+                            margin: 0 auto;
+                            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+                        }}
+                        h1 {{
+                            color: white;
+                            margin-bottom: 20px;
+                        }}
+                        p {{
+                            font-size: 18px;
+                            margin-bottom: 15px;
+                        }}
+                        .countdown {{
+                            font-size: 24px;
+                            font-weight: bold;
+                            margin: 20px 0;
+                        }}
+                        .credits {{
+                            font-size: 32px;
+                            font-weight: bold;
+                            color: #FFEB3B;
+                            margin: 10px 0;
+                        }}
+                    </style>
+                    <script>
+                        // Temporizador de 5 segundos
+                        var secondsLeft = 5;
                         
-                        # Redirecionar para a página principal e limpar parâmetros
-                        st.session_state.page = "main"
-                        st.query_params.clear()
-                        st.experimental_rerun()
-                        return True
+                        // Função para atualizar o contador
+                        function updateCountdown() {{
+                            document.getElementById('countdown').innerText = secondsLeft;
+                            
+                            if (secondsLeft <= 0) {{
+                                // Enviar mensagem para a janela principal antes de fechar
+                                if (window.opener && !window.opener.closed) {{
+                                    window.opener.postMessage({{
+                                        type: 'payment_success',
+                                        data: {{
+                                            credits: {validated_credits},
+                                            email: '{validated_email}',
+                                            session_id: '{session_id}'
+                                        }}
+                                    }}, '*');
+                                }}
+                                
+                                // Fechar a janela após enviar a mensagem
+                                setTimeout(function() {{
+                                    window.close();
+                                }}, 500);
+                                
+                                return;
+                            }}
+                            
+                            secondsLeft--;
+                            setTimeout(updateCountdown, 1000);
+                        }}
                         
-            # Processamento direto por parâmetros como fallback
-            if 'credits' in st.query_params and 'email' in st.query_params:
-                credits = int(st.query_params.credits)
-                email = st.query_params.email
+                        // Iniciar o temporizador quando a página carregar
+                        window.onload = function() {{
+                            updateCountdown();
+                        }};
+                    </script>
+                </head>
+                <body>
+                    <div class="success-container">
+                        <h1>✅ Pagamento Aprovado!</h1>
+                        <p>Seu pagamento foi processado com sucesso.</p>
+                        <div class="credits">{validated_credits} créditos</div>
+                        <p>foram adicionados à sua conta.</p>
+                        <p>Esta janela será fechada em <span id="countdown">5</span> segundos...</p>
+                    </div>
+                </body>
+                </html>
+                """
                 
-                if credits > 0:
-                    if st.session_state.user_manager.add_credits(email, credits):
-                        st.success(f"✅ Pagamento processado com sucesso! {credits} créditos foram adicionados à sua conta.")
-                        st.session_state.page = "main"
-                        st.query_params.clear()
-                        st.experimental_rerun()
-                        return True
-            
-            # Limpar parâmetros para evitar loops
-            st.query_params.clear()
+                # Adicionar os créditos à conta do usuário
+                st.session_state.user_manager.add_credits(validated_email, validated_credits)
+                
+                # Mostrar página de confirmação
+                st.components.v1.html(success_html, height=600, scrolling=False)
+                return True
+            else:
+                # Se o pagamento não for válido, mostrar uma mensagem de erro
+                error_html = """
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Erro de Pagamento</title>
+                    <style>
+                        body {
+                            font-family: Arial, sans-serif;
+                            background-color: #3F3F45;
+                            color: white;
+                            text-align: center;
+                            padding: 40px 20px;
+                        }
+                        .error-container {
+                            background-color: #F44336;
+                            border-radius: 10px;
+                            padding: 30px;
+                            max-width: 500px;
+                            margin: 0 auto;
+                            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+                        }
+                        h1 {
+                            color: white;
+                            margin-bottom: 20px;
+                        }
+                        p {
+                            font-size: 18px;
+                            margin-bottom: 15px;
+                        }
+                        button {
+                            background-color: white;
+                            color: #F44336;
+                            border: none;
+                            padding: 10px 20px;
+                            border-radius: 5px;
+                            font-weight: bold;
+                            cursor: pointer;
+                            margin-top: 20px;
+                        }
+                    </style>
+                    <script>
+                        function closeWindow() {
+                            window.close();
+                        }
+                    </script>
+                </head>
+                <body>
+                    <div class="error-container">
+                        <h1>❌ Erro no Processamento</h1>
+                        <p>Não foi possível verificar seu pagamento.</p>
+                        <p>Por favor, entre em contato com o suporte ou tente novamente.</p>
+                        <button onclick="closeWindow()">Fechar Janela</button>
+                    </div>
+                </body>
+                </html>
+                """
+                st.components.v1.html(error_html, height=400, scrolling=False)
+                return False
                 
         except Exception as e:
-            logger.error(f"Erro ao processar pagamento: {str(e)}")
-            st.error(f"Erro ao processar pagamento: {str(e)}")
-            st.query_params.clear()
+            logger.error(f"Erro ao processar confirmação de pagamento: {str(e)}")
+            # Mostrar página de erro
+            st.error("Erro ao processar o pagamento. Por favor, tente novamente.")
+            return False
     
+    # Verificar cancelamento
+    if 'canceled' in st.query_params and st.query_params.canceled == 'true':
+        # Script para fechar a janela de cancelamento
+        cancel_html = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Pagamento Cancelado</title>
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    background-color: #3F3F45;
+                    color: white;
+                    text-align: center;
+                    padding: 40px 20px;
+                }
+                .cancel-container {
+                    background-color: #FF9800;
+                    border-radius: 10px;
+                    padding: 30px;
+                    max-width: 500px;
+                    margin: 0 auto;
+                    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+                }
+                h1 {
+                    color: white;
+                    margin-bottom: 20px;
+                }
+                p {
+                    font-size: 18px;
+                    margin-bottom: 15px;
+                }
+                .countdown {
+                    font-size: 24px;
+                    font-weight: bold;
+                    margin: 20px 0;
+                }
+                button {
+                    background-color: white;
+                    color: #FF9800;
+                    border: none;
+                    padding: 10px 20px;
+                    border-radius: 5px;
+                    font-weight: bold;
+                    cursor: pointer;
+                }
+            </style>
+            <script>
+                // Temporizador de 3 segundos
+                var secondsLeft = 3;
+                
+                // Função para atualizar o contador
+                function updateCountdown() {
+                    document.getElementById('countdown').innerText = secondsLeft;
+                    
+                    if (secondsLeft <= 0) {
+                        window.close();
+                        return;
+                    }
+                    
+                    secondsLeft--;
+                    setTimeout(updateCountdown, 1000);
+                }
+                
+                // Iniciar o temporizador quando a página carregar
+                window.onload = function() {
+                    updateCountdown();
+                };
+                
+                function closeWindow() {
+                    window.close();
+                }
+            </script>
+        </head>
+        <body>
+            <div class="cancel-container">
+                <h1>Pagamento Cancelado</h1>
+                <p>O processo de pagamento foi cancelado.</p>
+                <p>Esta janela será fechada em <span id="countdown">3</span> segundos...</p>
+                <button onclick="closeWindow()">Fechar Agora</button>
+            </div>
+        </body>
+        </html>
+        """
+        st.components.v1.html(cancel_html, height=400, scrolling=False)
+        return False
+        
     return False
+
 def show_landing_page():
     """Display landing page with about content and login/register buttons"""
     try:
@@ -940,7 +1112,7 @@ def show_register():
         st.error(f"Detalhes: {str(e)}")  # Adicionar detalhes do erro para diagnóstico
 
 def show_packages_page():
-    """Display simplified credit purchase page with popup Stripe checkout"""
+    """Display credit purchase page with optimized popup checkout flow"""
     try:
         # Header com a logo
         show_valuehunter_logo()
@@ -948,8 +1120,9 @@ def show_packages_page():
         st.title("Comprar Mais Créditos")
         st.markdown("Adquira mais créditos quando precisar, sem necessidade de mudar de pacote.")
         
-        # Check for payment success/cancel from URL parameters
-        check_payment_success()
+        # Verificar se estamos na página de confirmação de pagamento
+        if check_payment_success():
+            return
         
         # Layout da página de compra
         col1, col2 = st.columns(2)
@@ -984,8 +1157,9 @@ def show_packages_page():
         
         1. Ao clicar em "Comprar Créditos", uma nova janela será aberta para pagamento
         2. Complete seu pagamento na página do Stripe
-        3. Feche a janela de pagamento e retorne a esta tela
-        4. Seus créditos serão adicionados automaticamente à sua conta
+        3. Após o pagamento, a janela se fechará automaticamente
+        4. Seus créditos serão adicionados à sua conta
+        5. Você pode voltar às análises usando o botão abaixo
         
         **Nota:** Todo o processo é seguro e seus dados de pagamento são protegidos pelo Stripe
         """)
@@ -1003,6 +1177,17 @@ def show_packages_page():
         if st.button("← Voltar para análises", key="back_to_analysis", use_container_width=True):
             st.session_state.page = "main"
             st.experimental_rerun()
+            
+        # Adicionar um script para atualizar a quantidade de créditos do usuário na sidebar
+        stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
+        st.markdown(
+            f"""
+            <div style="display:none">
+                <span data-element="credits-remaining">{stats['credits_remaining']}</span>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
     except Exception as e:
         logger.error(f"Erro ao exibir página de pacotes: {str(e)}")
         st.error("Erro ao carregar a página de pacotes. Por favor, tente novamente.")
