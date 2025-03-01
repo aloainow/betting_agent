@@ -2372,22 +2372,22 @@ def get_odds_data(selected_markets):
 
         # Money Line
         if selected_markets.get("money_line", False):
-            st.markdown("### Money Line")
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                odds_data["home"] = st.number_input("Casa (@)", min_value=1.01, step=0.01, value=1.50, format="%.2f", key="ml_home")
-            with col2:
-                odds_data["draw"] = st.number_input("Empate (@)", min_value=1.01, step=0.01, value=4.00, format="%.2f", key="ml_draw")
-            with col3:
-                odds_data["away"] = st.number_input("Fora (@)", min_value=1.01, step=0.01, value=6.50, format="%.2f", key="ml_away")
+    st.markdown("### Money Line")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        odds_data["home"] = st.number_input("Casa (@)", min_value=1.01, step=0.01, value=1.50, format="%.2f", key="ml_home")
+    with col2:
+        odds_data["draw"] = st.number_input("Empate (@)", min_value=1.01, step=0.01, value=4.00, format="%.2f", key="ml_draw")
+    with col3:
+        odds_data["away"] = st.number_input("Fora (@)", min_value=1.01, step=0.01, value=6.50, format="%.2f", key="ml_away")
 
-            if all(odds_data.get(k, 0) > 1.01 for k in ["home", "draw", "away"]):
-                has_valid_odds = True
-                odds_text.append(f"""Money Line:
-    f"- Casa: @{odds_data['home']:.2f} (Implícita: {(100/odds_data['home']):.1f}%)"
-    - Empate: @{odds_data['draw']:.2f} (Implícita: {(100/odds_data['draw']):.1f}%)
-    - Fora: @{odds_data['away']:.2f} (Implícita: {(100/odds_data['away']):.1f}%)""")
-
+    if all(odds_data.get(k, 0) > 1.01 for k in ["home", "draw", "away"]):
+        has_valid_odds = True
+        odds_text.append(
+            f"""Money Line:
+- Casa: @{odds_data['home']:.2f} (Implícita: {(100/odds_data['home']):.1f}%)
+- Empate: @{odds_data['draw']:.2f} (Implícita: {(100/odds_data['draw']):.1f}%)
+- Fora: @{odds_data['away']:.2f} (Implícita: {(100/odds_data['away']):.1f}%)""")
         # Over/Under
         if selected_markets.get("over_under", False):
             st.markdown("### Over/Under")
