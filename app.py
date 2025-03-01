@@ -2243,14 +2243,12 @@ class UserManager:
     def record_usage(self, email: str, num_markets: int, analysis_data: dict = None):
     """
     Record usage for a user with detailed analytics data
-
     Parameters:
     - email: user email
     - num_markets: number of markets analyzed
     - analysis_data: dictionary with league, teams and markets details
     """
     try:
-        # Corpo da função (mantido igual ao anterior)
         if email not in self.users:
             logger.warning(f"Tentativa de registrar uso para usuário inexistente: {email}")
             return False
@@ -2313,7 +2311,6 @@ class UserManager:
     except Exception as e:
         logger.error(f"Erro ao registrar uso para {email}: {str(e)}")
         return False
-
 # 2. ATUALIZAR CHAMADA EM show_main_dashboard
 # No trecho da análise em show_main_dashboard, atualizar a chamada do record_usage:
 # Registro de uso com dados detalhados
