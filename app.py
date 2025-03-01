@@ -216,8 +216,8 @@ def get_stripe_cancel_url():
 
 def handle_success_page():
     """
-    Manipula a página de sucesso que será mostrada no popup
-    após o pagamento bem-sucedido.
+    Mostra uma página de sucesso completamente limpa, sem mostrar outros elementos da UI.
+    Inclui timer para fechamento automático.
     """
     try:
         # Parâmetros da URL
@@ -251,59 +251,135 @@ def handle_success_page():
             logger.error(f"Erro ao adicionar créditos na página de sucesso: {str(add_credits_error)}")
             # Não mostrar erro no popup - apenas registrar no log
         
-        # HTML para a página de sucesso com fechamento automático
+        # HTML para a página de sucesso com fechamento automático e estilo que esconde todos os elementos do Streamlit
         success_html = f"""
         <!DOCTYPE html>
         <html>
         <head>
             <title>Pagamento Aprovado</title>
             <style>
-                body {{
-                    font-family: Arial, sans-serif;
-                    background-color: #3F3F45;
-                    color: white;
-                    text-align: center;
-                    padding: 40px 20px;
-                    margin: 0;
+                /* Esconder TODOS os elementos padrão do Streamlit */
+                header, footer, .stDeployButton, div.appview-container > section > div:first-child, 
+                div.appview-container > section > div > div > div > div:first-child,
+                div[data-testid="stDecoration"], div[data-testid="stStatusWidget"], div[data-testid="stToolbar"],
+                div[data-testid="stSidebarNav"], div[data-testid="stSidebarUserContent"],
+                span[data-testid="stSidebarNavVisible"] {{
+                    display: none !important;
+                    visibility: hidden !important;
+                    height: 0 !important;
+                    opacity: 0 !important;
+                    pointer-events: none !important;
                 }}
+                
+                /* Forçar corpo a ocupar toda a tela */
+                body {{
+                    background-color: #3F3F45 !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    width: 100vw !important;
+                    height: 100vh !important;
+                    display: flex !important;
+                    justify-content: center !important;
+                    align-items: center !important;
+                    overflow: hidden !important;
+                }}
+                
+                /* Container principal */
+                .main-container {{
+                    position: fixed !important;
+                    top: 0 !important;
+                    left: 0 !important;
+                    width: 100% !important;
+                    height: 100% !important;
+                    background-color: #3F3F45 !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    flex-direction: column !important;
+                    z-index: 10000 !important;
+                }}
+                
                 .success-container {{
                     background-color: #4CAF50;
-                    border-radius: 10px;
-                    padding: 30px;
+                    border-radius: 12px;
+                    padding: 40px;
                     max-width: 500px;
-                    margin: 0 auto;
-                    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-                }}
-                h1 {{
+                    text-align: center;
+                    box-shadow: 0 6px 12px rgba(0,0,0,0.3);
                     color: white;
-                    margin-bottom: 20px;
+                    margin: 0 20px;
                 }}
-                p {{
-                    font-size: 18px;
-                    margin-bottom: 15px;
+                
+                .logo {{
+                    background-color: #fd7014;
+                    padding: 10px 20px;
+                    border-radius: 8px;
+                    display: inline-flex;
+                    align-items: center;
+                    margin-bottom: 30px;
                 }}
-                .countdown {{
-                    font-size: 24px;
+                
+                .logo-v {{
+                    color: #3F3F45;
+                    font-size: 2.5rem;
                     font-weight: bold;
-                    margin: 20px 0;
                 }}
+                
+                .logo-text {{
+                    font-size: 2rem;
+                    font-weight: bold;
+                    color: white;
+                }}
+                
+                h1 {{
+                    font-size: 2.2rem;
+                    margin-bottom: 15px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 10px;
+                }}
+                
+                .check-icon {{
+                    font-size: 2.5rem;
+                }}
+                
+                p {{
+                    font-size: 1.2rem;
+                    margin: 10px 0;
+                }}
+                
                 .credits {{
-                    font-size: 32px;
+                    font-size: 3rem;
                     font-weight: bold;
                     color: #FFEB3B;
-                    margin: 10px 0;
+                    margin: 20px 0;
+                }}
+                
+                .timer {{
+                    font-size: 1.2rem;
+                    margin-top: 30px;
                 }}
             </style>
             <script>
-                // Temporizador de 5 segundos
-                var secondsLeft = 5;
+                // Temporizador de 8 segundos (mais tempo para garantir que seja visto)
+                var secondsLeft = 8;
                 
                 // Função para atualizar o contador
                 function updateCountdown() {{
-                    document.getElementById('countdown').innerText = secondsLeft;
+                    var timerEl = document.getElementById('countdown');
+                    if (!timerEl) return;
+                    
+                    timerEl.innerText = secondsLeft;
                     
                     if (secondsLeft <= 0) {{
-                        window.close();
+                        // Fechar a janela se for um popup
+                        if (window.opener && !window.opener.closed) {{
+                            window.close();
+                        }} else {{
+                            // Se não for popup, navegar para a página principal
+                            window.location.href = window.location.origin;
+                        }}
                         return;
                     }}
                     
@@ -311,64 +387,161 @@ def handle_success_page():
                     setTimeout(updateCountdown, 1000);
                 }}
                 
-                // Iniciar o temporizador quando a página carregar
-                window.onload = function() {{
+                // Esconder todos os elementos do Streamlit quando a página carregar
+                window.addEventListener('DOMContentLoaded', function() {{
+                    // Ocultar todos os elementos padrão do Streamlit
+                    var streamlitElements = document.querySelectorAll('header, footer, .block-container, [data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stSidebar"]');
+                    streamlitElements.forEach(function(el) {{
+                        if (el) el.style.display = 'none';
+                    }});
+                    
+                    // Iniciar o temporizador
                     updateCountdown();
-                }};
+                }});
             </script>
         </head>
         <body>
-            <div class="success-container">
-                <h1>✅ Pagamento Aprovado!</h1>
-                <p>Seu pagamento foi processado com sucesso.</p>
-                <div class="credits">{credits} créditos</div>
-                <p>foram adicionados à sua conta.</p>
-                <p>Esta janela será fechada em <span id="countdown">5</span> segundos...</p>
+            <div class="main-container">
+                <div class="success-container">
+                    <div class="logo">
+                        <span class="logo-v">V</span>
+                        <span class="logo-text">ValueHunter</span>
+                    </div>
+                    <h1><span class="check-icon">✅</span> Pagamento Aprovado!</h1>
+                    <p>Seu pagamento foi processado com sucesso.</p>
+                    <div class="credits">{credits} créditos</div>
+                    <p>foram adicionados à sua conta.</p>
+                    <p class="timer">Esta janela será fechada em <span id="countdown">8</span> segundos...</p>
+                </div>
             </div>
         </body>
         </html>
         """
         
-        # Exibir a página de sucesso
-        st.components.v1.html(success_html, height=400, scrolling=False)
+        # Ocultar todos os elementos da UI
+        st.set_page_config(initial_sidebar_state="collapsed")
+        
+        # Esconder o sidebar
+        st.markdown(
+            """
+            <style>
+                .css-1d391kg, .css-1wrcr25, .stApp, .appview-container, header, footer {
+                    visibility: hidden;
+                }
+                [data-testid="collapsedControl"] {
+                    display: none
+                }
+                #MainMenu {visibility: hidden;}
+                header {visibility: hidden;}
+                footer {visibility: hidden;}
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+        
+        # Renderizar a página completa com altura máxima
+        st.components.v1.html(success_html, height=1000, scrolling=False)
+        
+        # Impedir execução de outros elementos da UI
+        st.stop()
+        
         return True
+        
     except Exception as e:
         logger.error(f"Erro ao exibir página de sucesso: {str(e)}")
-        # Exibir uma mensagem de erro genérica
+        # Criar uma página de erro genérica
         error_html = """
         <!DOCTYPE html>
         <html>
         <head>
-            <title>Pagamento Processado</title>
+            <title>Processando Pagamento</title>
             <style>
-                body {
-                    font-family: Arial, sans-serif;
-                    background-color: #3F3F45;
-                    color: white;
-                    text-align: center;
-                    padding: 40px 20px;
-                    margin: 0;
+                /* Esconder TODOS os elementos padrão do Streamlit */
+                header, footer, .stDeployButton, div.appview-container > section > div:first-child, 
+                div.appview-container > section > div > div > div > div:first-child,
+                div[data-testid="stDecoration"], div[data-testid="stStatusWidget"], div[data-testid="stToolbar"],
+                div[data-testid="stSidebarNav"], div[data-testid="stSidebarUserContent"],
+                span[data-testid="stSidebarNavVisible"] {
+                    display: none !important;
+                    visibility: hidden !important;
+                    height: 0 !important;
+                    opacity: 0 !important;
+                    pointer-events: none !important;
                 }
+                
+                /* Forçar corpo a ocupar toda a tela */
+                body {
+                    background-color: #3F3F45 !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    width: 100vw !important;
+                    height: 100vh !important;
+                    display: flex !important;
+                    justify-content: center !important;
+                    align-items: center !important;
+                    overflow: hidden !important;
+                }
+                
+                /* Container principal */
+                .main-container {
+                    position: fixed !important;
+                    top: 0 !important;
+                    left: 0 !important;
+                    width: 100% !important;
+                    height: 100% !important;
+                    background-color: #3F3F45 !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    flex-direction: column !important;
+                    z-index: 10000 !important;
+                }
+                
                 .message-container {
                     background-color: #2196F3;
-                    border-radius: 10px;
-                    padding: 30px;
+                    border-radius: 12px;
+                    padding: 40px;
                     max-width: 500px;
-                    margin: 0 auto;
-                    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-                }
-                h1 {
+                    text-align: center;
+                    box-shadow: 0 6px 12px rgba(0,0,0,0.3);
                     color: white;
+                    margin: 0 20px;
+                }
+                
+                .logo {
+                    background-color: #fd7014;
+                    padding: 10px 20px;
+                    border-radius: 8px;
+                    display: inline-flex;
+                    align-items: center;
+                    margin-bottom: 30px;
+                }
+                
+                .logo-v {
+                    color: #3F3F45;
+                    font-size: 2.5rem;
+                    font-weight: bold;
+                }
+                
+                .logo-text {
+                    font-size: 2rem;
+                    font-weight: bold;
+                    color: white;
+                }
+                
+                h1 {
+                    font-size: 2.2rem;
                     margin-bottom: 20px;
                 }
+                
                 p {
-                    font-size: 18px;
-                    margin-bottom: 15px;
+                    font-size: 1.2rem;
+                    margin: 10px 0;
                 }
-                .countdown {
-                    font-size: 24px;
-                    font-weight: bold;
-                    margin: 20px 0;
+                
+                .timer {
+                    font-size: 1.2rem;
+                    margin-top: 30px;
                 }
             </style>
             <script>
@@ -377,10 +550,19 @@ def handle_success_page():
                 
                 // Função para atualizar o contador
                 function updateCountdown() {
-                    document.getElementById('countdown').innerText = secondsLeft;
+                    var timerEl = document.getElementById('countdown');
+                    if (!timerEl) return;
+                    
+                    timerEl.innerText = secondsLeft;
                     
                     if (secondsLeft <= 0) {
-                        window.close();
+                        // Fechar a janela se for um popup
+                        if (window.opener && !window.opener.closed) {
+                            window.close();
+                        } else {
+                            // Se não for popup, navegar para a página principal
+                            window.location.href = window.location.origin;
+                        }
                         return;
                     }
                     
@@ -388,76 +570,168 @@ def handle_success_page():
                     setTimeout(updateCountdown, 1000);
                 }
                 
-                // Iniciar o temporizador quando a página carregar
-                window.onload = function() {
+                // Esconder todos os elementos do Streamlit quando a página carregar
+                window.addEventListener('DOMContentLoaded', function() {
+                    // Ocultar todos os elementos padrão do Streamlit
+                    var streamlitElements = document.querySelectorAll('header, footer, .block-container, [data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stSidebar"]');
+                    streamlitElements.forEach(function(el) {
+                        if (el) el.style.display = 'none';
+                    });
+                    
+                    // Iniciar o temporizador
                     updateCountdown();
-                };
+                });
             </script>
         </head>
         <body>
-            <div class="message-container">
-                <h1>Pagamento Processado</h1>
-                <p>Seu pagamento foi registrado com sucesso.</p>
-                <p>Verifique seus créditos na próxima vez que entrar no aplicativo.</p>
-                <p>Esta janela será fechada em <span id="countdown">5</span> segundos...</p>
+            <div class="main-container">
+                <div class="message-container">
+                    <div class="logo">
+                        <span class="logo-v">V</span>
+                        <span class="logo-text">ValueHunter</span>
+                    </div>
+                    <h1>Processando Pagamento</h1>
+                    <p>Estamos verificando seu pagamento.</p>
+                    <p>Seus créditos estarão disponíveis em breve.</p>
+                    <p class="timer">Esta janela será fechada em <span id="countdown">5</span> segundos...</p>
+                </div>
             </div>
         </body>
         </html>
         """
-        st.components.v1.html(error_html, height=400, scrolling=False)
+        st.components.v1.html(error_html, height=1000, scrolling=False)
+        st.stop()
         return False
 
 
 def handle_cancel_page():
-    """Manipula a página de cancelamento de pagamento"""
+    """
+    Mostra uma página de cancelamento completamente limpa, sem mostrar outros elementos da UI.
+    Inclui timer para fechamento automático.
+    """
     try:
-        # HTML para a página de cancelamento
+        # HTML para a página de cancelamento com fechamento automático
         cancel_html = """
         <!DOCTYPE html>
         <html>
         <head>
             <title>Pagamento Cancelado</title>
             <style>
-                body {
-                    font-family: Arial, sans-serif;
-                    background-color: #3F3F45;
-                    color: white;
-                    text-align: center;
-                    padding: 40px 20px;
-                    margin: 0;
+                /* Esconder TODOS os elementos padrão do Streamlit */
+                header, footer, .stDeployButton, div.appview-container > section > div:first-child, 
+                div.appview-container > section > div > div > div > div:first-child,
+                div[data-testid="stDecoration"], div[data-testid="stStatusWidget"], div[data-testid="stToolbar"],
+                div[data-testid="stSidebarNav"], div[data-testid="stSidebarUserContent"],
+                span[data-testid="stSidebarNavVisible"] {
+                    display: none !important;
+                    visibility: hidden !important;
+                    height: 0 !important;
+                    opacity: 0 !important;
+                    pointer-events: none !important;
                 }
+                
+                /* Forçar corpo a ocupar toda a tela */
+                body {
+                    background-color: #3F3F45 !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    width: 100vw !important;
+                    height: 100vh !important;
+                    display: flex !important;
+                    justify-content: center !important;
+                    align-items: center !important;
+                    overflow: hidden !important;
+                }
+                
+                /* Container principal */
+                .main-container {
+                    position: fixed !important;
+                    top: 0 !important;
+                    left: 0 !important;
+                    width: 100% !important;
+                    height: 100% !important;
+                    background-color: #3F3F45 !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    flex-direction: column !important;
+                    z-index: 10000 !important;
+                }
+                
                 .cancel-container {
                     background-color: #FF9800;
-                    border-radius: 10px;
-                    padding: 30px;
+                    border-radius: 12px;
+                    padding: 40px;
                     max-width: 500px;
-                    margin: 0 auto;
-                    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-                }
-                h1 {
+                    text-align: center;
+                    box-shadow: 0 6px 12px rgba(0,0,0,0.3);
                     color: white;
-                    margin-bottom: 20px;
+                    margin: 0 20px;
                 }
-                p {
-                    font-size: 18px;
-                    margin-bottom: 15px;
+                
+                .logo {
+                    background-color: #fd7014;
+                    padding: 10px 20px;
+                    border-radius: 8px;
+                    display: inline-flex;
+                    align-items: center;
+                    margin-bottom: 30px;
                 }
-                .countdown {
-                    font-size: 24px;
+                
+                .logo-v {
+                    color: #3F3F45;
+                    font-size: 2.5rem;
                     font-weight: bold;
-                    margin: 20px 0;
+                }
+                
+                .logo-text {
+                    font-size: 2rem;
+                    font-weight: bold;
+                    color: white;
+                }
+                
+                h1 {
+                    font-size: 2.2rem;
+                    margin-bottom: 20px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 10px;
+                }
+                
+                .icon {
+                    font-size: 2.5rem;
+                }
+                
+                p {
+                    font-size: 1.2rem;
+                    margin: 10px 0;
+                }
+                
+                .timer {
+                    font-size: 1.2rem;
+                    margin-top: 30px;
                 }
             </style>
             <script>
-                // Temporizador de 3 segundos
-                var secondsLeft = 3;
+                // Temporizador de 5 segundos
+                var secondsLeft = 5;
                 
                 // Função para atualizar o contador
                 function updateCountdown() {
-                    document.getElementById('countdown').innerText = secondsLeft;
+                    var timerEl = document.getElementById('countdown');
+                    if (!timerEl) return;
+                    
+                    timerEl.innerText = secondsLeft;
                     
                     if (secondsLeft <= 0) {
-                        window.close();
+                        // Fechar a janela se for um popup
+                        if (window.opener && !window.opener.closed) {
+                            window.close();
+                        } else {
+                            // Se não for popup, navegar para a página principal
+                            window.location.href = window.location.origin;
+                        }
                         return;
                     }
                     
@@ -465,29 +739,65 @@ def handle_cancel_page():
                     setTimeout(updateCountdown, 1000);
                 }
                 
-                // Iniciar o temporizador quando a página carregar
-                window.onload = function() {
+                // Esconder todos os elementos do Streamlit quando a página carregar
+                window.addEventListener('DOMContentLoaded', function() {
+                    // Ocultar todos os elementos padrão do Streamlit
+                    var streamlitElements = document.querySelectorAll('header, footer, .block-container, [data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stSidebar"]');
+                    streamlitElements.forEach(function(el) {
+                        if (el) el.style.display = 'none';
+                    });
+                    
+                    // Iniciar o temporizador
                     updateCountdown();
-                };
+                });
             </script>
         </head>
         <body>
-            <div class="cancel-container">
-                <h1>Pagamento Cancelado</h1>
-                <p>O processo de pagamento foi cancelado.</p>
-                <p>Esta janela será fechada em <span id="countdown">3</span> segundos...</p>
+            <div class="main-container">
+                <div class="cancel-container">
+                    <div class="logo">
+                        <span class="logo-v">V</span>
+                        <span class="logo-text">ValueHunter</span>
+                    </div>
+                    <h1><span class="icon">⚠️</span> Pagamento Cancelado</h1>
+                    <p>O processo de pagamento foi cancelado.</p>
+                    <p>Você pode tentar novamente mais tarde.</p>
+                    <p class="timer">Esta janela será fechada em <span id="countdown">5</span> segundos...</p>
+                </div>
             </div>
         </body>
         </html>
         """
         
-        # Exibir a página de cancelamento
-        st.components.v1.html(cancel_html, height=300, scrolling=False)
+        # Esconder o sidebar
+        st.markdown(
+            """
+            <style>
+                .css-1d391kg, .css-1wrcr25, .stApp, .appview-container, header, footer {
+                    visibility: hidden;
+                }
+                [data-testid="collapsedControl"] {
+                    display: none
+                }
+                #MainMenu {visibility: hidden;}
+                header {visibility: hidden;}
+                footer {visibility: hidden;}
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+        
+        # Renderizar a página completa com altura máxima
+        st.components.v1.html(cancel_html, height=1000, scrolling=False)
+        
+        # Impedir execução de outros elementos da UI
+        st.stop()
+        
         return True
+        
     except Exception as e:
         logger.error(f"Erro ao exibir página de cancelamento: {str(e)}")
         return False
-
 
 def apply_global_css():
     """Aplica estilos CSS globais para toda a aplicação"""
