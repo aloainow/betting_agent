@@ -2243,7 +2243,7 @@ class UserManager:
     def record_usage(self, email: str, num_markets: int, analysis_data: dict = None):
     """
     Record usage for a user with detailed analytics data
-    
+
     Parameters:
     - email: user email
     - num_markets: number of markets analyzed
@@ -2253,6 +2253,11 @@ class UserManager:
         if email not in self.users:
             logger.warning(f"Tentativa de registrar uso para usuário inexistente: {email}")
             return False
+        # Resto do código da função...
+    except Exception as e:
+        logger.error(f"Erro ao registrar uso para {email}: {str(e)}")
+        return False
+
                 
         today = datetime.now().date().isoformat()
         
@@ -2289,7 +2294,6 @@ class UserManager:
             logger.warning(f"Falha ao salvar dados após registrar uso para: {email}")
             return False
             
-        # Resto do código permanece igual...
         # Verificar estado após a alteração
         stats_after = self.get_usage_stats(email)
         credits_after = stats_after.get('credits_remaining', 0)
