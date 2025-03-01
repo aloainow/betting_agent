@@ -1663,26 +1663,262 @@ def show_main_dashboard():
             st.write("Número de ligas configuradas:", len(FBREF_URLS) if FBREF_URLS else 0)
 
 
-def route_pages():
-    """Function to route to appropriate page with improved refresh handling"""
-    # Verificar se voltamos do processamento de pagamento
-    if 'payment_processed' in st.query_params and st.query_params.payment_processed == 'true':
-        # Forçar refresh dos dados do usuário
-        try:
-            if st.session_state.authenticated and st.session_state.email:
-                # Recarregar a instância do UserManager
-                st.session_state.user_manager = UserManager()
-                # Limpar cache de estatísticas
-                if hasattr(st.session_state, 'user_stats_cache'):
-                    del st.session_state.user_stats_cache
-                logger.info(f"Dados recarregados após pagamento para: {st.session_state.email}")
-                
-                # Limpar parâmetro para evitar múltiplos refreshes
-                st.query_params.clear()
-        except Exception as e:
-            logger.error(f"Erro ao recarregar dados após pagamento: {str(e)}")
+@st.cache_data
+def get_admin_password():
+    """Retorna a senha do administrador de forma cacheada"""
+    return "sua_senha_segura_aqui"  # Altere para uma senha forte
+
+
+def show_admin_page():
+    """Exibe página de administrador com download e estatísticas"""
+    # Header com a logo
+    show_valuehunter_logo()
+    st.title("Painel Administrativo")
     
-    # Roteamento normal
+    # Verificação de senha
+    password = st.text_input("Senha de Administrador", type="password")
+    
+    if password == get_admin_password():
+        st.success("Acesso autorizado!")
+        
+        # Seção 1: Download de dados
+        st.header("Gerenciamento de Dados")
+        if st.button("Baixar Dados de Usuários"):
+            try:
+                # Ler o arquivo de dados
+                file_path = os.path.join(DATA_DIR, "user_data.json")
+                with open(file_path, "r", encoding="utf-8") as f:
+                    data = f.read()
+                
+                # Oferecer para download
+                st.download_button(
+                    "Baixar JSON", 
+                    data, 
+                    "user_data.json", 
+                    "application/json"
+                )
+                
+                # Mostrar informações do arquivo
+                file_size = os.path.getsize(file_path) / 1024  # KB
+                st.info(f"Tamanho do arquivo: {file_size:.2f} KB")
+                
+            except Exception as e:
+                st.error(f"Erro ao ler arquivo: {str(e)}")
+        
+        # Seção 2: Estatísticas do Sistema
+        st.header("Estatísticas do Sistema")
+        
+        # Verificar número de usuários
+        if hasattr(st.session_state, 'user_manager') and hasattr(st.session_state.user_manager, 'users'):
+            users = st.session_state.user_manager.users
+            num_users = len(users)
+            
+            # Estatísticas básicas
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Total de Usuários", num_users)
+            
+            # Distribuição por tipo de pacote
+            tier_counts = {}
+            for user_email, user_data in users.items():
+                tier = user_data.get('tier', 'desconhecido')
+                tier_counts[tier] = tier_counts.get(tier, 0) + 1
+            
+            with col2:
+                # Mostrar distribuição em texto
+                tiers_text = ", ".join([f"{count} {tier}" for tier, count in tier_counts.items()])
+                st.metric("Distribuição de Pacotes", tiers_text)
+            
+            # Lista de usuários (expandable)
+            with st.expander("Lista de Usuários"):
+                for email, user_data in users.items():
+                    tier = user_data.get('tier', 'desconhecido')
+                    name = user_data.get('name', email.split('@')[0])
+                    credits = user_data.get('purchased_credits', 0)
+                    
+                    # Formatar como uma linha com emoji
+                    tier_emoji = "🆓" if tier == "free" else "💎"
+                    st.write(f"{tier_emoji} **{name}** ({email}) - Pacote: {tier.capitalize()}, Créditos: {credits}")
+        else:
+            st.warning("Dados de usuários não disponíveis")
+        
+        # Seção 3: Informações de Armazenamento
+        st.header("Informações de Armazenamento")
+        
+        # Mostrar diretório
+        st.write(f"📁 Diretório de dados: `{DATA_DIR}`")
+        
+        # Listar arquivos
+        if os.path.exists(DATA_DIR):
+            files = os.listdir(DATA_DIR)
+            st.write(f"Arquivos encontrados: {len(files)}")
+            
+            # Tabela de arquivos
+            file_data = []
+            for file in files:
+                file_path = os.path.join(DATA_DIR, file)
+                file_size = os.path.getsize(file_path) / 1024  # KB
+                modified_time = datetime.fromtimestamp(os.path.getmtime(file_path))
+                file_data.append({
+                    "Nome": file,
+                    "Tamanho (KB)": f"{file_size:.2f}",
+                    "Modificado": modified_time.strftime("%Y-%m-%d %H:%M")
+                })
+            
+            # Exibir como dataframe
+            if file_data:
+                st.dataframe(file_data)
+        else:
+            st.warning("Diretório de dados não encontrado!")
+        
+        # Botão para voltar
+        st.markdown("---")
+        if st.button("← Voltar ao Dashboard", use_container_width=True):
+            st.session_state.page = "main"
+            st.experimental_rerun()
+    else:
+        st.error("Senha incorreta")
+        
+        # Sessão 4: Estatísticas de Análise
+        st.header("Estatísticas de Análise")
+        
+        if hasattr(st.session_state, 'user_manager') and hasattr(st.session_state.user_manager, 'users'):
+            users = st.session_state.user_manager.users
+            
+            # Coletar dados de análise
+            all_analyses = []
+            for email, user_data in users.items():
+                if "usage" in user_data and "total" in user_data["usage"]:
+                    for usage in user_data["usage"]["total"]:
+                        if "league" in usage:  # Verificar se contém dados detalhados
+                            # Adicionar email do usuário aos dados
+                            analysis = usage.copy()
+                            analysis["email"] = email
+                            all_analyses.append(analysis)
+            
+            if all_analyses:
+                st.write(f"Total de análises detalhadas registradas: {len(all_analyses)}")
+                
+                # Estatísticas por liga
+                leagues = {}
+                for analysis in all_analyses:
+                    league = analysis.get("league", "Desconhecido")
+                    if league in leagues:
+                        leagues[league] += 1
+                    else:
+                        leagues[league] = 1
+                
+                # Times mais analisados
+                teams = {}
+                for analysis in all_analyses:
+                    home = analysis.get("home_team", "")
+                    away = analysis.get("away_team", "")
+                    
+                    for team in [home, away]:
+                        if team:
+                            if team in teams:
+                                teams[team] += 1
+                            else:
+                                teams[team] = 1
+                
+                # Mercados mais utilizados
+                markets = {}
+                for analysis in all_analyses:
+                    for market in analysis.get("markets_used", []):
+                        if market in markets:
+                            markets[market] += 1
+                        else:
+                            markets[market] = 1
+                
+                # Exibir estatísticas em tabs
+                tab1, tab2, tab3 = st.tabs(["Ligas", "Times", "Mercados"])
+                
+                with tab1:
+                    st.subheader("Ligas Mais Analisadas")
+                    if leagues:
+                        # Ordenar por uso
+                        sorted_leagues = dict(sorted(leagues.items(), 
+                                               key=lambda x: x[1], reverse=True))
+                        
+                        # Criar gráfico ou lista
+                        for league, count in sorted_leagues.items():
+                            st.metric(league, count)
+                    else:
+                        st.info("Nenhuma análise de liga registrada ainda.")
+                
+                with tab2:
+                    st.subheader("Times Mais Analisados")
+                    if teams:
+                        # Mostrar top 10 times
+                        top_teams = dict(sorted(teams.items(), 
+                                        key=lambda x: x[1], reverse=True)[:10])
+                        
+                        # Exibir como barras horizontais ou métricas
+                        for team, count in top_teams.items():
+                            st.metric(team, count)
+                    else:
+                        st.info("Nenhuma análise de time registrada ainda.")
+                
+                with tab3:
+                    st.subheader("Mercados Mais Utilizados")
+                    if markets:
+                        market_names = {
+                            "money_line": "Money Line (1X2)",
+                            "over_under": "Over/Under Gols",
+                            "chance_dupla": "Chance Dupla",
+                            "ambos_marcam": "Ambos Marcam",
+                            "escanteios": "Total de Escanteios",
+                            "cartoes": "Total de Cartões"
+                        }
+                        
+                        # Ordenar por uso
+                        sorted_markets = dict(sorted(markets.items(), 
+                                             key=lambda x: x[1], reverse=True))
+                        
+                        # Exibir métricas
+                        for market_key, count in sorted_markets.items():
+                            market_name = market_names.get(market_key, market_key)
+                            st.metric(market_name, count)
+                    else:
+                        st.info("Nenhuma análise de mercado registrada ainda.")
+                
+                # Análises recentes
+                with st.expander("Análises Recentes"):
+                    # Ordenar por timestamp (mais recentes primeiro)
+                    recent = sorted(all_analyses, 
+                                   key=lambda x: x.get("timestamp", ""), 
+                                   reverse=True)[:20]
+                    
+                    for idx, analysis in enumerate(recent):
+                        # Formatar como cartão
+                        timestamp = datetime.fromisoformat(analysis.get("timestamp", "")).strftime("%d/%m/%Y %H:%M")
+                        league = analysis.get("league", "Liga desconhecida")
+                        home = analysis.get("home_team", "Time casa")
+                        away = analysis.get("away_team", "Time visitante")
+                        markets_used = ", ".join(analysis.get("markets_used", []))
+                        
+                        st.markdown(f"""
+                        **Análise #{idx+1}** - {timestamp}
+                        - **Liga:** {league}
+                        - **Partida:** {home} x {away}
+                        - **Mercados:** {markets_used}
+                        - **Usuário:** {analysis.get("email")}
+                        ---
+                        """)
+            else:
+                st.info("Ainda não há dados detalhados de análise disponíveis. As novas análises serão registradas com detalhes.")
+        else:
+            st.warning("Dados de usuários não disponíveis")    
+
+# Atualização para função route_pages()
+def route_pages():
+    """Roteamento de páginas com suporte à página admin"""
+    # Verificar parâmetro especial para acessar a página admin
+    if 'admin' in st.query_params and st.query_params.admin == 'true':
+        show_admin_page()
+        return
+        
+    # Resto do código de roteamento existente...
     if st.session_state.page == "landing":
         show_landing_page()
     elif st.session_state.page == "login":
@@ -1701,10 +1937,11 @@ def route_pages():
             go_to_login()
             return
         show_packages_page()
+    elif st.session_state.page == "admin":  # Nova opção
+        show_admin_page()
     else:
         st.session_state.page = "landing"
         st.experimental_rerun()
-
 class UserManager:
     def __init__(self, storage_path: str = None):
         # Caminho para armazenamento em disco persistente no Render
@@ -2003,66 +2240,104 @@ class UserManager:
                 "market_limit": float('inf')
             }
     
-    def record_usage(self, email: str, num_markets: int):
-        """Record usage for a user (each market consumes one credit)"""
-        try:
-            if email not in self.users:
-                logger.warning(f"Tentativa de registrar uso para usuário inexistente: {email}")
-                return False
+    def record_usage(self, email: str, num_markets: int, analysis_data: dict = None):
+    """
+    Record usage for a user with detailed analytics data
+    
+    Parameters:
+    - email: user email
+    - num_markets: number of markets analyzed
+    - analysis_data: dictionary with league, teams and markets details
+    """
+    try:
+        if email not in self.users:
+            logger.warning(f"Tentativa de registrar uso para usuário inexistente: {email}")
+            return False
                 
-            today = datetime.now().date().isoformat()
-            usage = {
-                "date": today,
-                "markets": num_markets  # Each market = 1 credit
-            }
-            
-            # Garantir que a estrutura de uso existe
-            if "usage" not in self.users[email]:
-                self.users[email]["usage"] = {"daily": [], "total": []}
-            
-            # Adicionar ao rastreamento diário para análise
-            self.users[email]["usage"]["daily"].append(usage)
-            
-            # Adicionar ao rastreamento de uso total
-            self.users[email]["usage"]["total"].append(usage)
-            
-            # Salvar alterações
-            save_success = self._save_users()
-            
-            if not save_success:
-                logger.warning(f"Falha ao salvar dados após registrar uso para: {email}")
-                return False
-            
-            # Verificar estado após a alteração
-            stats_after = self.get_usage_stats(email)
-            credits_after = stats_after.get('credits_remaining', 0)
-            
-            # Check if Free tier user has exhausted credits
-            if self.users[email]["tier"] == "free":
-                if credits_after == 0 and not self.users[email].get("free_credits_exhausted_at"):
-                    # Mark when credits were exhausted
-                    self.users[email]["free_credits_exhausted_at"] = datetime.now().isoformat()
-                    # Forçar salvamento novamente após atualizar timestamp
-                    self._save_users()
-                    logger.info(f"Marcando esgotamento de créditos gratuitos para: {email}")
-            
-            # Check if paid tier user has exhausted credits
-            elif self.users[email]["tier"] in ["standard", "pro"]:
-                if credits_after == 0 and not self.users[email].get("paid_credits_exhausted_at"):
-                    # Mark when credits were exhausted
-                    self.users[email]["paid_credits_exhausted_at"] = datetime.now().isoformat()
-                    # Forçar salvamento novamente após atualizar timestamp
-                    self._save_users()
-                    logger.info(f"Marcando esgotamento de créditos pagos para: {email}")
-            
-            # Registrar uso
-            logger.info(f"Uso registrado com sucesso: {num_markets} créditos para {email}")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Erro ao registrar uso para {email}: {str(e)}")
+        today = datetime.now().date().isoformat()
+        
+        # Criar registro de uso com dados detalhados
+        usage = {
+            "date": today,
+            "markets": num_markets,  # Each market = 1 credit
+            "timestamp": datetime.now().isoformat(),
+        }
+        
+        # Adicionar dados de análise se fornecidos
+        if analysis_data:
+            usage.update({
+                "league": analysis_data.get("league"),
+                "home_team": analysis_data.get("home_team"),
+                "away_team": analysis_data.get("away_team"),
+                "markets_used": analysis_data.get("markets_used", [])
+            })
+        
+        # Garantir que a estrutura de uso existe
+        if "usage" not in self.users[email]:
+            self.users[email]["usage"] = {"daily": [], "total": []}
+        
+        # Adicionar ao rastreamento diário para análise
+        self.users[email]["usage"]["daily"].append(usage)
+        
+        # Adicionar ao rastreamento de uso total
+        self.users[email]["usage"]["total"].append(usage)
+        
+        # Salvar alterações
+        save_success = self._save_users()
+        
+        if not save_success:
+            logger.warning(f"Falha ao salvar dados após registrar uso para: {email}")
             return False
             
+        # Resto do código permanece igual...
+        # Verificar estado após a alteração
+        stats_after = self.get_usage_stats(email)
+        credits_after = stats_after.get('credits_remaining', 0)
+        
+        # Check if Free tier user has exhausted credits
+        if self.users[email]["tier"] == "free":
+            if credits_after == 0 and not self.users[email].get("free_credits_exhausted_at"):
+                # Mark when credits were exhausted
+                self.users[email]["free_credits_exhausted_at"] = datetime.now().isoformat()
+                # Forçar salvamento novamente após atualizar timestamp
+                self._save_users()
+                logger.info(f"Marcando esgotamento de créditos gratuitos para: {email}")
+        
+        # Check if paid tier user has exhausted credits
+        elif self.users[email]["tier"] in ["standard", "pro"]:
+            if credits_after == 0 and not self.users[email].get("paid_credits_exhausted_at"):
+                # Mark when credits were exhausted
+                self.users[email]["paid_credits_exhausted_at"] = datetime.now().isoformat()
+                # Forçar salvamento novamente após atualizar timestamp
+                self._save_users()
+                logger.info(f"Marcando esgotamento de créditos pagos para: {email}")
+        
+        # Registrar uso
+        logger.info(f"Uso registrado com sucesso: {num_markets} créditos para {email}")
+        return True
+            
+    except Exception as e:
+        logger.error(f"Erro ao registrar uso para {email}: {str(e)}")
+        return False
+
+
+# 2. ATUALIZAR CHAMADA EM show_main_dashboard
+# No trecho da análise em show_main_dashboard, atualizar a chamada do record_usage:
+
+# Registro de uso com dados detalhados
+analysis_data = {
+    "league": selected_league,
+    "home_team": home_team,
+    "away_team": away_team,
+    "markets_used": [k for k, v in selected_markets.items() if v]
+}
+success = st.session_state.user_manager.record_usage(
+    st.session_state.email, 
+    num_markets,
+    analysis_data
+)
+
+        
     def can_analyze(self, email: str, num_markets: int) -> bool:
         """Check if user can perform analysis"""
         try:
