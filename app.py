@@ -2240,73 +2240,75 @@ class UserManager:
                 "market_limit": float('inf')
             }
     
-    def record_usage(self, email: str, num_markets: int, analysis_data: dict = None):
+def record_usage(self, email: str, num_markets: int, analysis_data: dict = None):
+    """
     Record usage for a user with detailed analytics data
+
     Parameters:
     - email: user email
     - num_markets: number of markets analyzed
     - analysis_data: dictionary with league, teams and markets details
     """
-    # Bloco de código começa aqui, indentado corretamente
-    if email not in self.users:
-        logger.warning(f"Tentativa de registrar uso para usuário inexistente: {email}")
-        return False
+    try:
+        if email not in self.users:
+            logger.warning(f"Tentativa de registrar uso para usuário inexistente: {email}")
+            return False
 
-    today = datetime.now().date().isoformat()
-    
-    # Criar registro de uso com dados detalhados
-    usage = {
-        "date": today,
-        "markets": num_markets,  # Each market = 1 credit
-        "timestamp": datetime.now().isoformat(),
-    }
-    
-    # Adicionar dados de análise se fornecidos
-    if analysis_data:
-        usage.update({
-            "league": analysis_data.get("league"),
-            "home_team": analysis_data.get("home_team"),
-            "away_team": analysis_data.get("away_team"),
-            "markets_used": analysis_data.get("markets_used", [])
-        })
-    
-    # Garantir que a estrutura de uso existe
-    if "usage" not in self.users[email]:
-        self.users[email]["usage"] = {"daily": [], "total": []}
-    
-    # Adicionar ao rastreamento diário para análise
-    self.users[email]["usage"]["daily"].append(usage)
-    
-    # Adicionar ao rastreamento de uso total
-    self.users[email]["usage"]["total"].append(usage)
-    
-    # Salvar alterações
-    save_success = self._save_users()
-    
-    if not save_success:
-        logger.warning(f"Falha ao salvar dados após registrar uso para: {email}")
-        return False
+        today = datetime.now().date().isoformat()
         
-    # Verificar estado após a alteração
-    stats_after = self.get_usage_stats(email)
-    credits_after = stats_after.get('credits_remaining', 0)
-    
-    # Check if Free tier user has exhausted credits
-    if self.users[email]["tier"] == "free":
-        if credits_after == 0 and not self.users[email].get("free_credits_exhausted_at"):
-            self.users[email]["free_credits_exhausted_at"] = datetime.now().isoformat()
-            self._save_users()
-            logger.info(f"Marcando esgotamento de créditos gratuitos para: {email}")
-    
-    # Check if paid tier user has exhausted credits
-    elif self.users[email]["tier"] in ["standard", "pro"]:
-        if credits_after == 0 and not self.users[email].get("paid_credits_exhausted_at"):
-            self.users[email]["paid_credits_exhausted_at"] = datetime.now().isoformat()
-            self._save_users()
-            logger.info(f"Marcando esgotamento de créditos pagos para: {email}")
-    
-    logger.info(f"Uso registrado com sucesso: {num_markets} créditos para {email}")
-    return True
+        # Criar registro de uso com dados detalhados
+        usage = {
+            "date": today,
+            "markets": num_markets,  # Cada mercado consome 1 crédito
+            "timestamp": datetime.now().isoformat(),
+        }
+        
+        # Adicionar dados de análise se fornecidos
+        if analysis_data:
+            usage.update({
+                "league": analysis_data.get("league"),
+                "home_team": analysis_data.get("home_team"),
+                "away_team": analysis_data.get("away_team"),
+                "markets_used": analysis_data.get("markets_used", [])
+            })
+        
+        # Garantir que a estrutura de uso existe para o usuário
+        if "usage" not in self.users[email]:
+            self.users[email]["usage"] = {"daily": [], "total": []}
+        
+        # Adicionar o registro ao rastreamento diário e total
+        self.users[email]["usage"]["daily"].append(usage)
+        self.users[email]["usage"]["total"].append(usage)
+        
+        # Salvar alterações
+        save_success = self._save_users()
+        if not save_success:
+            logger.warning(f"Falha ao salvar dados após registrar uso para: {email}")
+            return False
+            
+        # Verificar créditos restantes após a atualização
+        stats_after = self.get_usage_stats(email)
+        credits_after = stats_after.get('credits_remaining', 0)
+        
+        # Se o usuário for do tier Free e esgotou os créditos, marcar o esgotamento
+        if self.users[email]["tier"] == "free":
+            if credits_after == 0 and not self.users[email].get("free_credits_exhausted_at"):
+                self.users[email]["free_credits_exhausted_at"] = datetime.now().isoformat()
+                self._save_users()
+                logger.info(f"Marcando esgotamento de créditos gratuitos para: {email}")
+        
+        # Para usuários dos tiers Standard ou Pro
+        elif self.users[email]["tier"] in ["standard", "pro"]:
+            if credits_after == 0 and not self.users[email].get("paid_credits_exhausted_at"):
+                self.users[email]["paid_credits_exhausted_at"] = datetime.now().isoformat()
+                self._save_users()
+                logger.info(f"Marcando esgotamento de créditos pagos para: {email}")
+        
+        logger.info(f"Uso registrado com sucesso: {num_markets} créditos para {email}")
+        return True
+    except Exception as e:
+        logger.error(f"Erro ao registrar uso para {email}: {str(e)}")
+        return False
         
 # 2. ATUALIZAR CHAMADA EM show_main_dashboard
 # No trecho da análise em show_main_dashboard, atualizar a chamada do record_usage:
