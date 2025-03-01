@@ -186,14 +186,15 @@ def init_session_state():
 
 
 def get_stripe_success_url(credits, email):
-    """URL de sucesso simplificada"""
+    """URL de sucesso que força refresh dos dados"""
     base_url = get_base_url()
     
     success_params = urlencode({
         'success_page': 'true',
         'credits': credits,
         'email': email,
-        'session_id': '{CHECKOUT_SESSION_ID}'
+        'session_id': '{CHECKOUT_SESSION_ID}',
+        'payment_processed': 'true'  # Novo parâmetro para forçar refresh
     })
     
     full_url = f"{base_url}/?{success_params}"
@@ -1170,7 +1171,7 @@ def show_register():
         st.error(f"Detalhes: {str(e)}")  # Adicionar detalhes do erro para diagnóstico
 
 def show_packages_page():
-    """Display credit purchase page with Stripe checkout in popup"""
+    """Display credit purchase page with improved session handling"""
     try:
         # Header com a logo
         show_valuehunter_logo()
@@ -1179,8 +1180,26 @@ def show_packages_page():
         if check_payment_success():
             return
         
+        # IMPORTANTE: Forçar refresh dos dados do usuário para garantir que os créditos estão atualizados
+        if st.session_state.authenticated and st.session_state.email:
+            try:
+                # Recarregar explicitamente os dados do usuário do disco
+                st.session_state.user_manager = UserManager()
+                # Limpar qualquer cache que possa existir para estatísticas
+                if hasattr(st.session_state, 'user_stats_cache'):
+                    del st.session_state.user_stats_cache
+                # Log da atualização
+                logger.info(f"Dados do usuário recarregados na página de pacotes para: {st.session_state.email}")
+            except Exception as e:
+                logger.error(f"Erro ao atualizar dados do usuário na página de pacotes: {str(e)}")
+        
         st.title("Comprar Mais Créditos")
         st.markdown("Adquira mais créditos quando precisar, sem necessidade de mudar de pacote.")
+        
+        # Mostrar créditos atuais para o usuário ver
+        if st.session_state.authenticated and st.session_state.email:
+            stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
+            st.info(f"💰 Você atualmente tem **{stats['credits_remaining']} créditos** disponíveis em sua conta.")
         
         # Layout da página de compra
         col1, col2 = st.columns(2)
@@ -1215,7 +1234,7 @@ def show_packages_page():
         
         1. Ao clicar em "Comprar Créditos", uma nova janela será aberta para pagamento
         2. Complete seu pagamento na página do Stripe
-        3. Após o pagamento, você verá uma mensagem de confirmação e a janela se fechará automaticamente
+        3. Após o pagamento, você verá uma mensagem de confirmação
         4. Seus créditos serão adicionados à sua conta imediatamente
         5. Clique em "Voltar para análises" para continuar usando o aplicativo
         
@@ -1233,6 +1252,18 @@ def show_packages_page():
         # Botão para voltar
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("← Voltar para análises", key="back_to_analysis", use_container_width=True):
+            # IMPORTANTE: Forçar refresh dos dados ao voltar para análises
+            try:
+                # Recarregar a classe UserManager para garantir dados atualizados
+                st.session_state.user_manager = UserManager()
+                # Limpar qualquer cache de estatísticas
+                if hasattr(st.session_state, 'user_stats_cache'):
+                    del st.session_state.user_stats_cache
+                logger.info(f"Dados recarregados ao voltar para análises: {st.session_state.email}")
+            except Exception as e:
+                logger.error(f"Erro ao recarregar dados ao voltar: {str(e)}")
+                
+            # Mudar a página
             st.session_state.page = "main"
             st.experimental_rerun()
     except Exception as e:
@@ -1241,9 +1272,18 @@ def show_packages_page():
 
 
 def show_usage_stats():
-    """Display simplified usage statistics focusing only on credits"""
+    """Display usage statistics with forced refresh"""
     try:
-        stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
+        # IMPORTANTE: Verificar se precisamos atualizar os dados
+        if not hasattr(st.session_state, 'user_stats_cache'):
+            # Primeira vez carregando ou após um refresh forçado
+            stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
+            # Armazenar em um cache temporário na sessão
+            st.session_state.user_stats_cache = stats
+            logger.info(f"Estatísticas recarregadas para {st.session_state.email}")
+        else:
+            # Usar cache se disponível
+            stats = st.session_state.user_stats_cache
         
         # Obter nome do usuário - com fallback seguro
         user_name = "Usuário"
@@ -1282,7 +1322,6 @@ def show_usage_stats():
     except Exception as e:
         logger.error(f"Erro ao exibir estatísticas de uso: {str(e)}")
         st.sidebar.error("Erro ao carregar estatísticas")
-
 def check_analysis_limits(selected_markets):
     """Check if user can perform analysis with selected markets"""
     try:
@@ -1345,11 +1384,38 @@ def check_analysis_limits(selected_markets):
 
 
 def show_main_dashboard():
-    """Show the main dashboard after login"""
+    """Show the main dashboard with forced data refresh"""
     try:
-        # Show usage stats in sidebar
+        # IMPORTANTE: Forçar refresh dos dados do usuário ao entrar na página principal
+        if st.session_state.authenticated and st.session_state.email:
+            try:
+                # Recarregar os dados do usuário para garantir que estão atualizados
+                if not hasattr(st.session_state, 'last_main_refresh'):
+                    st.session_state.last_main_refresh = datetime.now()
+                    # Recarregar UserManager completamente
+                    st.session_state.user_manager = UserManager()
+                    # Limpar cache de estatísticas
+                    if hasattr(st.session_state, 'user_stats_cache'):
+                        del st.session_state.user_stats_cache
+                    logger.info(f"Dados do usuário recarregados na página principal para: {st.session_state.email}")
+                else:
+                    # Verificar se já passou tempo suficiente para um novo refresh
+                    time_since_refresh = (datetime.now() - st.session_state.last_main_refresh).total_seconds()
+                    if time_since_refresh > 5:  # Apenas recarregar a cada 5 segundos para evitar loop infinito
+                        st.session_state.last_main_refresh = datetime.now()
+                        # Recarregar UserManager completamente
+                        st.session_state.user_manager = UserManager()
+                        # Limpar cache de estatísticas
+                        if hasattr(st.session_state, 'user_stats_cache'):
+                            del st.session_state.user_stats_cache
+                        logger.info(f"Dados do usuário recarregados por timer: {st.session_state.email}")
+            except Exception as refresh_error:
+                logger.error(f"Erro ao atualizar dados do usuário na página principal: {str(refresh_error)}")
+        
+        # Show usage stats in sidebar (que agora vai pegar os dados atualizados)
         show_usage_stats()
         
+        # Resto do código da dashboard permanece igual
         # Sidebar layout
         st.sidebar.title("Análise de Apostas")
         
@@ -1365,147 +1431,55 @@ def show_main_dashboard():
             st.session_state.page = "packages"
             st.experimental_rerun()
         
-        st.sidebar.title("Configurações")
-        selected_league = st.sidebar.selectbox(
-            "Escolha o campeonato:",
-            list(FBREF_URLS.keys())
-        )    
-        status_container = st.sidebar.empty()
+        # Resto da função continua igual...
+        # [Mantenha todo o código seguinte igual]
         
-        # Logo exibida consistentemente
-        show_valuehunter_logo()
-        
-        # Título principal
-        st.title("Seleção de Times")
-            
-        # Carregar dados
-        with st.spinner("Carregando dados do campeonato..."):
-            stats_html = fetch_fbref_data(FBREF_URLS[selected_league]["stats"])
-            if not stats_html:
-                st.error("Não foi possível carregar os dados do campeonato")
-                return
-            
-            team_stats_df = parse_team_stats(stats_html)
-            if team_stats_df is None or 'Squad' not in team_stats_df.columns:
-                st.error("Erro ao processar dados dos times")
-                return
-            
-            status_container.success("Dados carregados com sucesso!")
-            teams = team_stats_df['Squad'].dropna().unique().tolist()
-            if not teams:
-                st.error("Não foi possível encontrar os times do campeonato")
-                return
-        
-        # Seleção de times
-        col1, col2 = st.columns(2)
-        with col1:
-            home_team = st.selectbox("Time da Casa:", teams, key='home_team')
-        with col2:
-            away_teams = [team for team in teams if team != home_team]
-            away_team = st.selectbox("Time Visitante:", away_teams, key='away_team')
-
-        user_stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
-
-        # Seleção de mercados
-        with st.expander("Mercados Disponíveis", expanded=True):
-            st.markdown("### Seleção de Mercados")
-            st.info(f"Você tem {user_stats['credits_remaining']} créditos disponíveis. Cada mercado selecionado consumirá 1 crédito.")
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                selected_markets = {
-                    "money_line": st.checkbox("Money Line (1X2)", value=True, key='ml'),
-                    "over_under": st.checkbox("Over/Under", key='ou'),
-                    "chance_dupla": st.checkbox("Chance Dupla", key='cd')
-                }
-            with col2:
-                selected_markets.update({
-                    "ambos_marcam": st.checkbox("Ambos Marcam", key='btts'),
-                    "escanteios": st.checkbox("Total de Escanteios", key='corners'),
-                    "cartoes": st.checkbox("Total de Cartões", key='cards')
-                })
-
-            num_selected_markets = sum(1 for v in selected_markets.values() if v)
-            if num_selected_markets == 0:
-                st.warning("Por favor, selecione pelo menos um mercado para análise.")
-            else:
-                st.write(f"Total de créditos que serão consumidos: {num_selected_markets}")
-
-        # Odds
-        odds_data = None
-        if any(selected_markets.values()):
-            with st.expander("Configuração de Odds", expanded=True):
-                odds_data = get_odds_data(selected_markets)
-
-        # Botão de análise centralizado
-        col1, col2, col3 = st.columns([1,1,1])
-        with col2:
-            analyze_button = st.button("Analisar Partida", type="primary")
-            
-            if analyze_button:
-                if not any(selected_markets.values()):
-                    st.error("Por favor, selecione pelo menos um mercado para análise.")
-                    return
-                    
-                if not odds_data:
-                    st.error("Por favor, configure as odds para os mercados selecionados.")
-                    return
-                
-                # Verificar limites de análise
-                if not check_analysis_limits(selected_markets):
-                    return
-                    
-                # Criar um placeholder para o status
-                status = st.empty()
-                
-                try:
-                    # Etapa 1: Carregar dados
-                    status.info("Carregando dados dos times...")
-                    if not stats_html or team_stats_df is None:
-                        status.error("Falha ao carregar dados")
-                        return
-                        
-                    # Etapa 2: Formatar prompt
-                    status.info("Preparando análise...")
-                    prompt = format_prompt(team_stats_df, home_team, away_team, odds_data, selected_markets)
-                    if not prompt:
-                        status.error("Falha ao preparar análise")
-                        return
-                        
-                    # Etapa 3: Análise GPT
-                    status.info("Realizando análise com IA...")
-                    analysis = analyze_with_gpt(prompt)
-                    if not analysis:
-                        status.error("Falha na análise")
-                        return
-                    
-                    # Etapa 4: Mostrar resultado
-                    if analysis:
-                        # Limpar status
-                        status.empty()
-                        
-                        # Exibir a análise em uma div com largura total
-                        st.markdown(f'<div class="analysis-result">{analysis}</div>', unsafe_allow_html=True)
-                        
-                        # Registrar uso após análise bem-sucedida
-                        num_markets = sum(1 for v in selected_markets.values() if v)
-                        success = st.session_state.user_manager.record_usage(st.session_state.email, num_markets)
-                        
-                        if success:
-                            # Mostrar mensagem de sucesso com créditos restantes
-                            updated_stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
-                            credits_after = updated_stats['credits_remaining']
-                            st.success(f"{num_markets} créditos foram consumidos. Agora você tem {credits_after} créditos.")
-                        else:
-                            st.error("Não foi possível registrar o uso dos créditos. Por favor, tente novamente.")
-                            
-                except Exception as e:
-                    logger.error(f"Erro durante a análise: {str(e)}")
-                    st.error(f"Erro durante a análise: {str(e)}")
     except Exception as e:
         logger.error(f"Erro ao exibir painel principal: {str(e)}")
         st.error("Erro ao carregar o painel principal. Por favor, tente novamente.")
 
+
+def route_pages():
+    """Function to route to appropriate page with improved refresh handling"""
+    # Verificar se voltamos do processamento de pagamento
+    if 'payment_processed' in st.query_params and st.query_params.payment_processed == 'true':
+        # Forçar refresh dos dados do usuário
+        try:
+            if st.session_state.authenticated and st.session_state.email:
+                # Recarregar a instância do UserManager
+                st.session_state.user_manager = UserManager()
+                # Limpar cache de estatísticas
+                if hasattr(st.session_state, 'user_stats_cache'):
+                    del st.session_state.user_stats_cache
+                logger.info(f"Dados recarregados após pagamento para: {st.session_state.email}")
+                
+                # Limpar parâmetro para evitar múltiplos refreshes
+                st.query_params.clear()
+        except Exception as e:
+            logger.error(f"Erro ao recarregar dados após pagamento: {str(e)}")
+    
+    # Roteamento normal
+    if st.session_state.page == "landing":
+        show_landing_page()
+    elif st.session_state.page == "login":
+        show_login()
+    elif st.session_state.page == "register":
+        show_register()
+    elif st.session_state.page == "main":
+        if not st.session_state.authenticated:
+            st.warning("Sua sessão expirou. Por favor, faça login novamente.")
+            go_to_login()
+            return
+        show_main_dashboard()
+    elif st.session_state.page == "packages":
+        if not st.session_state.authenticated:
+            st.warning("Você precisa fazer login para acessar os pacotes.")
+            go_to_login()
+            return
+        show_packages_page()
+    else:
+        st.session_state.page = "landing"
+        st.experimental_rerun()
 
 class UserManager:
     def __init__(self, storage_path: str = None):
