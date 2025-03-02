@@ -2253,6 +2253,7 @@ class UserManager:
             }
     
     def record_usage(self, email: str, num_markets: int, analysis_data: dict = None):
+    # Simple docstring
     try:
         if email not in self.users:
             logger.warning(f"Tentativa de registrar uso para usuário inexistente: {email}")
