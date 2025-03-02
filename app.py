@@ -2320,8 +2320,7 @@ class UserManager:
         return True
     except Exception as e:
         logger.error(f"Erro ao registrar uso para {email}: {str(e)}")
-        return False
-        
+        return False        
     def can_analyze(self, email: str, num_markets: int) -> bool:
         """Check if user can perform analysis"""
         try:
