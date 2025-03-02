@@ -2252,47 +2252,8 @@ class UserManager:
                 "market_limit": float('inf')
             }
     
-   def record_usage(self, email, num_markets, analysis_data=None):
-    pass 
-        
-    # Create basic usage record
-    usage = {
-        "date": datetime.now().date().isoformat(),
-        "markets": num_markets,
-        "timestamp": datetime.now().isoformat()
-    }
-    
-    # Add analysis data if provided
-    if analysis_data:
-        usage.update({
-            "league": analysis_data.get("league"),
-            "home_team": analysis_data.get("home_team"),
-            "away_team": analysis_data.get("away_team"),
-            "markets_used": analysis_data.get("markets_used", [])
-        })
-    
-    # Ensure usage structure exists
-    if "usage" not in self.users[email]:
-        self.users[email]["usage"] = {"daily": [], "total": []}
-    
-    # Add to records
-    self.users[email]["usage"]["daily"].append(usage)
-    self.users[email]["usage"]["total"].append(usage)
-    
-    # Save changes
-    self._save_users()
-    return True
-    def can_analyze(self, email: str, num_markets: int) -> bool:
-        """Check if user can perform analysis"""
-        try:
-            stats = self.get_usage_stats(email)
-            
-            # Check if user has enough credits
-            return stats['credits_remaining'] >= num_markets
-        except Exception as e:
-            logger.error(f"Erro ao verificar disponibilidade para análise: {str(e)}")
-            return False
-    
+def record_usage(self, email, num_markets, analysis_data=None): pass  # Empty function as placeholder
+
     # Métodos de upgrade/downgrade - mantidos para uso administrativo
     def _upgrade_to_standard(self, email: str) -> bool:
         """Upgrade a user to Standard package (for admin use)"""
