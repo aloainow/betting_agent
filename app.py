@@ -2253,7 +2253,7 @@ class UserManager:
             }
     
     def record_usage(self, email: str, num_markets: int, analysis_data: dict = None):
-    """  # <-- Properly indented docstring
+    """
     Record usage for a user with detailed analytics data
 
     Parameters:
@@ -2261,7 +2261,7 @@ class UserManager:
     - num_markets: number of markets analyzed
     - analysis_data: dictionary with league, teams and markets details
     """
-    try: 
+    try
         if email not in self.users:
             logger.warning(f"Tentativa de registrar uso para usuário inexistente: {email}")
             return False
