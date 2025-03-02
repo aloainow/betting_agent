@@ -2252,10 +2252,8 @@ class UserManager:
                 "market_limit": float('inf')
             }
     
-    def record_usage(self, email, num_markets, analysis_data=None):
-    """Record usage for a user."""
-    if email not in self.users:
-        return False
+   def record_usage(self, email, num_markets, analysis_data=None):
+    pass 
         
     # Create basic usage record
     usage = {
