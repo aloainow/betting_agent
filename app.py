@@ -139,6 +139,48 @@ def configure_sidebar_visibility():
             display: none !important;
         }
     </style>
+    """, unsafe_allow_html=True)
+def configure_sidebar_visibility():
+    """
+    Configura a visibilidade da barra lateral:
+    1. Restaura a barra lateral que pode ter sido ocultada
+    2. Oculta apenas itens específicos (app e admin)
+    """
+    st.markdown("""
+    <style>
+        /* PRIMEIRO: Garantir que a barra lateral esteja visível (restaurar) */
+        [data-testid="stSidebar"] {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+        
+        /* SEGUNDO: Ocultar apenas os itens específicos no menu */
+        [data-testid="stSidebarNavItems"] a:has(p:contains("app")),
+        [data-testid="stSidebarNavItems"] a:has(p:contains("admin")) {
+            display: none !important;
+        }
+        
+        /* Versão alternativa para Streamlit mais recente */
+        .st-emotion-cache-16idsys a:has(p:contains("app")),
+        .st-emotion-cache-16idsys a:has(p:contains("admin")) {
+            display: none !important;
+        }
+        
+        /* Verificar mais um seletor alternativo */
+        div[data-testid="stSidebarNavContainer"] li:has(a[href*="app"]),
+        div[data-testid="stSidebarNavContainer"] li:has(a[href*="admin"]) {
+            display: none !important;
+        }
+        
+        /* Também oculta os textos diretos contendo app/admin */
+        [data-testid="stSidebarNavItems"] p:contains("app"),
+        [data-testid="stSidebarNavItems"] p:contains("admin"),
+        .st-emotion-cache-16idsys p:contains("app"),
+        .st-emotion-cache-16idsys p:contains("admin") {
+            display: none !important;
+        }
+    </style>
     """, unsafe_allow_html=True)    
 def remove_admin_app_options():
     """Remove as opções 'app' e 'admin' do menu lateral"""
