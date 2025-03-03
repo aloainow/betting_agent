@@ -3108,6 +3108,9 @@ def main():
             
         # Initialize session state
         init_session_state()
+
+        # Remover opções específicas do menu lateral
+        remove_admin_app_options()
         
         # Apply global CSS
         apply_global_css()
