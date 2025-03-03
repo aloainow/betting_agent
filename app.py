@@ -158,7 +158,52 @@ def remove_admin_app_options():
         }
     </style>
     """, unsafe_allow_html=True)
-
+def hide_app_admin_items():
+    """
+    Função para ocultar completamente os itens 'app' e 'admin' 
+    em qualquer parte da interface do Streamlit
+    """
+    st.markdown("""
+    <style>
+        /* Ocultar itens app e admin em qualquer lugar da interface */
+        
+        /* Seletores gerais para qualquer elemento contendo app ou admin */
+        div:has(> p:contains("app")),
+        div:has(> p:contains("admin")),
+        li:has(> a:contains("app")),
+        li:has(> a:contains("admin")),
+        a:contains("app"),
+        a:contains("admin"),
+        [href*="app"],
+        [href*="admin"],
+        p:contains("app"),
+        p:contains("admin") {
+            display: none !important;
+        }
+        
+        /* Itens no menu lateral e dropdown */
+        [data-testid="stSidebarNavItems"] a:has(p:contains("app")),
+        [data-testid="stSidebarNavItems"] a:has(p:contains("admin")),
+        .st-emotion-cache-16idsys a:has(p:contains("app")),
+        .st-emotion-cache-16idsys a:has(p:contains("admin")),
+        div[data-baseweb="select"] li:contains("app"),
+        div[data-baseweb="select"] li:contains("admin") {
+            display: none !important;
+        }
+        
+        /* Itens específicos para o dropdown mostrado na imagem */
+        [aria-label="Select page"] ul li:has(span:contains("app")),
+        [aria-label="Select page"] ul li:has(span:contains("admin")),
+        .streamlit-menu li:has(span:contains("app")),
+        .streamlit-menu li:has(span:contains("admin")),
+        [role="menu"] li:has(span:contains("app")),
+        [role="menu"] li:has(span:contains("admin")),
+        [role="listbox"] li:has(span:contains("app")),
+        [role="listbox"] li:has(span:contains("admin")) {
+            display: none !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
 # Definição das URLs do FBref
 FBREF_URLS = {
     "Premier League": {
@@ -3172,6 +3217,9 @@ def main():
         
         # Initialize Stripe
         init_stripe()
+
+        # Ocultar itens app e admin - ADICIONE ESTA LINHA AQUI
+        hide_app_admin_items()
         
         # Check for payment from popup
         popup_payment = False
