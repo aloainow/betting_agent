@@ -2066,46 +2066,214 @@ class UserManager:
         }
         return tier_display.get(tier, tier.capitalize())
     
-    def register_user(self, email: str, password: str, name: str = None, tier: str = "free") -> tuple[bool, str]:
-        """Register a new user with optional name parameter"""
-        try:
-            if not self._validate_email(email):
-                return False, "Email inválido"
-            if email in self.users:
-                return False, "Email já registrado"
-            if len(password) < 6:
-                return False, "Senha deve ter no mínimo 6 caracteres"
-            if tier not in self.tiers:
-                return False, "Tipo de usuário inválido"
-                    
-            # Se nome não for fornecido, usar parte do email como nome
-            if not name:
-                name = email.split('@')[0].capitalize()
-                    
-            self.users[email] = {
-                "password": self._hash_password(password),
-                "name": name,  # Adicionando o nome
-                "tier": tier,
-                "usage": {
-                    "daily": [],
-                    "total": []  # Track total usage
-                },
-                "purchased_credits": 0,  # Track additional purchased credits
-                "free_credits_exhausted_at": None,  # Timestamp when free credits run out
-                "paid_credits_exhausted_at": None,  # Timestamp when paid credits run out
-                "created_at": datetime.now().isoformat()
-            }
-            
-            save_success = self._save_users()
-            if not save_success:
-                logger.warning(f"Falha ao salvar dados durante registro do usuário: {email}")
+    # Verificação da implementação correta de register_user
+def register_user(self, email: str, password: str, name: str = None, tier: str = "free") -> tuple[bool, str]:
+    """Register a new user with optional name parameter"""
+    try:
+        if not self._validate_email(email):
+            return False, "Email inválido"
+        if email in self.users:
+            return False, "Email já registrado"
+        if len(password) < 6:
+            return False, "Senha deve ter no mínimo 6 caracteres"
+        if tier not in self.tiers:
+            return False, "Tipo de usuário inválido"
                 
-            logger.info(f"Usuário registrado com sucesso: {email}, tier: {tier}")
-            return True, "Registro realizado com sucesso"
-        except Exception as e:
-            logger.error(f"Erro ao registrar usuário {email}: {str(e)}")
-            return False, f"Erro interno ao registrar usuário"
-    
+        # Se nome não for fornecido, usar parte do email como nome
+        if not name:
+            name = email.split('@')[0].capitalize()
+                
+        self.users[email] = {
+            "password": self._hash_password(password),
+            "name": name,  # Adicionando o nome
+            "tier": tier,
+            "usage": {
+                "daily": [],
+                "total": []  # Track total usage
+            },
+            "purchased_credits": 0,  # Track additional purchased credits
+            "free_credits_exhausted_at": None,  # Timestamp when free credits run out
+            "paid_credits_exhausted_at": None,  # Timestamp when paid credits run out
+            "created_at": datetime.now().isoformat()
+        }
+        
+        save_success = self._save_users()
+        if not save_success:
+            logger.warning(f"Falha ao salvar dados durante registro do usuário: {email}")
+            
+        logger.info(f"Usuário registrado com sucesso: {email}, tier: {tier}")
+        return True, "Registro realizado com sucesso"
+    except Exception as e:
+        logger.error(f"Erro ao registrar usuário {email}: {str(e)}")
+        return False, f"Erro interno ao registrar usuário: {str(e)}"
+
+
+# Verificação dos métodos de autenticação
+def show_login():
+    """Display login form with improved error handling"""
+    try:
+        # Header com a logo
+        show_valuehunter_logo()
+        st.title("Login")
+        
+        # Botão para voltar à página inicial
+        if st.button("← Voltar para a página inicial"):
+            go_to_landing()
+        
+        # Login form
+        with st.form("login_form"):
+            email = st.text_input("Email")
+            password = st.text_input("Password", type="password")
+            submitted = st.form_submit_button("Login")
+            
+            if submitted:
+                if not email or not password:
+                    st.error("Por favor, preencha todos os campos.")
+                    return
+                    
+                try:
+                    # Verificar se o método authenticate existe
+                    if not hasattr(st.session_state.user_manager, 'authenticate'):
+                        st.error("Erro interno: método de autenticação não encontrado.")
+                        logger.error("Método authenticate não encontrado na classe UserManager")
+                        return
+                    
+                    # Tentar autenticar
+                    if st.session_state.user_manager.authenticate(email, password):
+                        st.session_state.authenticated = True
+                        st.session_state.email = email
+                        st.success("Login realizado com sucesso!")
+                        st.session_state.page = "main"  # Ir para a página principal
+                        time.sleep(1)
+                        st.experimental_rerun()
+                    else:
+                        st.error("Credenciais inválidas.")
+                except Exception as e:
+                    logger.error(f"Erro durante autenticação: {str(e)}")
+                    st.error(f"Erro ao processar login: {str(e)}")
+                    # Mostrar sugestões de solução
+                    st.info("Sugestões: Verifique se seu email está correto ou tente recuperar sua senha.")
+        
+        # Registration link
+        st.markdown("---")
+        st.markdown("<div style='text-align: center;'>Não tem uma conta?</div>", unsafe_allow_html=True)
+        if st.button("Registre-se aqui", use_container_width=True):
+            go_to_register()
+    except Exception as e:
+        logger.error(f"Erro ao exibir página de login: {str(e)}")
+        st.error("Erro ao carregar a página de login. Por favor, tente novamente.")
+        st.error(f"Detalhes: {str(e)}")
+
+
+def show_register():
+    """Display registration form with improved error handling"""
+    try:
+        # Header com a logo
+        show_valuehunter_logo()
+        st.title("Register")
+        
+        # Botão para voltar à página inicial
+        if st.button("← Voltar para a página inicial"):
+            go_to_landing()
+        
+        with st.form("register_form"):
+            name = st.text_input("Nome")  # Novo campo
+            email = st.text_input("Email")
+            password = st.text_input("Password", type="password")
+            
+            submitted = st.form_submit_button("Register")
+            
+            if submitted:
+                # Verificar se nome foi preenchido
+                if not name:
+                    st.error("Por favor, informe seu nome.")
+                    return
+                
+                # Verificar se email foi preenchido
+                if not email:
+                    st.error("Por favor, informe seu email.")
+                    return
+                
+                # Verificar se senha foi preenchida
+                if not password:
+                    st.error("Por favor, informe uma senha.")
+                    return
+                    
+                # Verificar se o método register_user existe
+                if not hasattr(st.session_state.user_manager, 'register_user'):
+                    st.error("Erro interno: método de registro não encontrado.")
+                    logger.error("Método register_user não encontrado na classe UserManager")
+                    # Tentar registrar o usuário manualmente
+                    try:
+                        user_manager = st.session_state.user_manager
+                        if hasattr(user_manager, 'users') and hasattr(user_manager, '_hash_password'):
+                            # Validar email
+                            if hasattr(user_manager, '_validate_email'):
+                                is_valid = user_manager._validate_email(email)
+                                if not is_valid:
+                                    st.error("Email inválido")
+                                    return
+                            
+                            # Verificar se email já existe
+                            if email in user_manager.users:
+                                st.error("Email já registrado")
+                                return
+                            
+                            # Verificar tamanho da senha
+                            if len(password) < 6:
+                                st.error("Senha deve ter no mínimo 6 caracteres")
+                                return
+                            
+                            # Criar usuário
+                            user_manager.users[email] = {
+                                "password": user_manager._hash_password(password),
+                                "name": name,
+                                "tier": "free",
+                                "usage": {"daily": [], "total": []},
+                                "purchased_credits": 0,
+                                "created_at": datetime.now().isoformat()
+                            }
+                            
+                            # Salvar usuários
+                            if hasattr(user_manager, '_save_users'):
+                                user_manager._save_users()
+                                
+                            st.success("Registro realizado com sucesso!")
+                            st.info("Você foi registrado no pacote Free com 5 créditos. Você pode fazer upgrade a qualquer momento.")
+                            st.session_state.page = "login"
+                            time.sleep(2)
+                            st.experimental_rerun()
+                            return
+                    except Exception as manual_reg_error:
+                        logger.error(f"Erro no registro manual: {str(manual_reg_error)}")
+                        st.error(f"Não foi possível registrar: {str(manual_reg_error)}")
+                    return
+                    
+                # Todo usuário novo começa automaticamente no pacote Free
+                try:
+                    success, message = st.session_state.user_manager.register_user(email, password, name, "free")
+                
+                    if success:
+                        st.success(message)
+                        st.info("Você foi registrado no pacote Free com 5 créditos. Você pode fazer upgrade a qualquer momento.")
+                        st.session_state.page = "login"
+                        st.session_state.show_register = False
+                        time.sleep(2)
+                        st.experimental_rerun()
+                    else:
+                        st.error(message)
+                except Exception as e:
+                    logger.error(f"Erro no registro: {str(e)}")
+                    st.error(f"Erro ao registrar: {str(e)}")
+        
+        st.markdown("---")
+        st.markdown("<div style='text-align: center;'>Já tem uma conta?</div>", unsafe_allow_html=True)
+        if st.button("Fazer login", use_container_width=True):
+            go_to_login()
+    except Exception as e:
+        logger.error(f"Erro ao exibir página de registro: {str(e)}")
+        st.error("Erro ao carregar a página de registro. Por favor, tente novamente.")
+        st.error(f"Detalhes: {str(e)}")    
     def authenticate(self, email: str, password: str) -> bool:
         """Authenticate a user"""
         try:
