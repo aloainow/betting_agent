@@ -101,17 +101,13 @@ except ImportError as e:
 def configure_sidebar_visibility():
     """
     Configura a visibilidade da barra lateral:
-    1. Restaura a barra lateral que pode ter sido ocultada
+    1. NÃO ocultamos a barra lateral globalmente
     2. Oculta apenas itens específicos (app e admin)
     """
     st.markdown("""
     <style>
-        /* PRIMEIRO: Garantir que a barra lateral esteja visível (restaurar) */
-        [data-testid="stSidebar"] {
-            display: block !important;
-            visibility: visible !important;
-            opacity: 1 !important;
-        }
+        /* PRIMEIRO: Garantir que a barra lateral esteja visível nas páginas que precisam dela */
+        /* Deixamos a visibilidade ser controlada por cada página individualmente */
         
         /* SEGUNDO: Ocultar apenas os itens específicos no menu */
         [data-testid="stSidebarNavItems"] a:has(p:contains("app")),
@@ -140,48 +136,6 @@ def configure_sidebar_visibility():
         }
     </style>
     """, unsafe_allow_html=True)
-def configure_sidebar_visibility():
-    """
-    Configura a visibilidade da barra lateral:
-    1. Restaura a barra lateral que pode ter sido ocultada
-    2. Oculta apenas itens específicos (app e admin)
-    """
-    st.markdown("""
-    <style>
-        /* PRIMEIRO: Garantir que a barra lateral esteja visível (restaurar) */
-        [data-testid="stSidebar"] {
-            display: block !important;
-            visibility: visible !important;
-            opacity: 1 !important;
-        }
-        
-        /* SEGUNDO: Ocultar apenas os itens específicos no menu */
-        [data-testid="stSidebarNavItems"] a:has(p:contains("app")),
-        [data-testid="stSidebarNavItems"] a:has(p:contains("admin")) {
-            display: none !important;
-        }
-        
-        /* Versão alternativa para Streamlit mais recente */
-        .st-emotion-cache-16idsys a:has(p:contains("app")),
-        .st-emotion-cache-16idsys a:has(p:contains("admin")) {
-            display: none !important;
-        }
-        
-        /* Verificar mais um seletor alternativo */
-        div[data-testid="stSidebarNavContainer"] li:has(a[href*="app"]),
-        div[data-testid="stSidebarNavContainer"] li:has(a[href*="admin"]) {
-            display: none !important;
-        }
-        
-        /* Também oculta os textos diretos contendo app/admin */
-        [data-testid="stSidebarNavItems"] p:contains("app"),
-        [data-testid="stSidebarNavItems"] p:contains("admin"),
-        .st-emotion-cache-16idsys p:contains("app"),
-        .st-emotion-cache-16idsys p:contains("admin") {
-            display: none !important;
-        }
-    </style>
-    """, unsafe_allow_html=True)    
 def remove_admin_app_options():
     """Remove as opções 'app' e 'admin' do menu lateral"""
     st.markdown("""
@@ -650,10 +604,7 @@ def apply_global_css():
     """Aplica estilos CSS globais para toda a aplicação"""
     st.markdown("""
     <style>
-        /* MODIFICAÇÃO GLOBAL: Ocultar a barra lateral em todas as páginas */
-        [data-testid="stSidebar"] {
-            display: none !important;
-        }
+        /* Removemos a regra que ocultava a barra lateral em todas as páginas */
         /* Estilo para TODOS os botões - LARANJA COM TEXTO BRANCO */
         div.stButton > button, button.css-1rs6os.edgvbvh3 {
             background-color: #fd7014 !important;
@@ -1113,11 +1064,11 @@ def check_payment_success():
 def show_landing_page():
     """Display landing page with about content and login/register buttons"""
     try:
-        # Esconder a barra lateral do Streamlit
+        # Esconder a barra lateral do Streamlit apenas na página inicial
         st.markdown("""
         <style>
         [data-testid="stSidebar"] {
-            display: none;
+            display: none !important;
         }
         </style>
         """, unsafe_allow_html=True)
@@ -1186,6 +1137,15 @@ def show_landing_page():
 def show_login():
     """Display login form"""
     try:
+        # Esconder a barra lateral do Streamlit na página de login
+        st.markdown("""
+        <style>
+        [data-testid="stSidebar"] {
+            display: none !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
         # Header com a logo
         show_valuehunter_logo()
         
@@ -1231,6 +1191,15 @@ def show_login():
 def show_register():
     """Display registration form"""
     try:
+        # Esconder a barra lateral do Streamlit na página de registro
+        st.markdown("""
+        <style>
+        [data-testid="stSidebar"] {
+            display: none !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
         # Header com a logo
         show_valuehunter_logo()
         
@@ -1288,6 +1257,15 @@ def show_register():
 def show_packages_page():
     """Display credit purchase page with improved session handling"""
     try:
+        # Esconder a barra lateral na página de pacotes
+        st.markdown("""
+        <style>
+        [data-testid="stSidebar"] {
+            display: none !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
         # Header com a logo
         show_valuehunter_logo()
         
@@ -1501,6 +1479,17 @@ def check_analysis_limits(selected_markets):
 def show_main_dashboard():
     """Show the main dashboard with improved error handling and debug info"""
     try:
+        # Garantir que a barra lateral esteja visível na página principal (dashboard)
+        st.markdown("""
+        <style>
+        [data-testid="stSidebar"] {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
         # Iniciar com log de diagnóstico
         logger.info("Iniciando renderização do dashboard principal")
         
