@@ -1186,15 +1186,6 @@ def show_landing_page():
 def show_login():
     """Display login form"""
     try:
-        # Esconder a barra lateral do Streamlit
-        st.markdown("""
-        <style>
-        [data-testid="stSidebar"] {
-            display: none;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-        
         # Header com a logo
         show_valuehunter_logo()
         
@@ -1240,15 +1231,6 @@ def show_login():
 def show_register():
     """Display registration form"""
     try:
-        # Esconder a barra lateral do Streamlit
-        st.markdown("""
-        <style>
-        [data-testid="stSidebar"] {
-            display: none;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-        
         # Header com a logo
         show_valuehunter_logo()
         
