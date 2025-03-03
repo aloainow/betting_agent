@@ -158,82 +158,48 @@ def remove_admin_app_options():
         }
     </style>
     """, unsafe_allow_html=True)
-def hide_app_admin_completely():
+def hide_app_admin_items():
     """
-    Função avançada para ocultar completamente os itens 'app' e 'admin'
-    com seletores mais específicos baseados na estrutura exata do menu
+    Função para ocultar completamente os itens 'app' e 'admin' 
+    em qualquer parte da interface do Streamlit
     """
     st.markdown("""
     <style>
-        /* Seletor ultra-específico para os itens do menu lateral exato mostrado na imagem */
-        /* Versão 1: Seletores diretos para os elementos específicos */
-        div.element-container:has(div:contains("app")),
-        div.element-container:has(div:contains("admin")),
-        div.css-1544g2n:has(div:contains("app")),
-        div.css-1544g2n:has(div:contains("admin")),
-        div.st-emotion-cache-1544g2n:has(div:contains("app")),
-        div.st-emotion-cache-1544g2n:has(div:contains("admin")),
-        div.st-emotion-cache-7fm41m:has(div:contains("app")),
-        div.st-emotion-cache-7fm41m:has(div:contains("admin")),
-        .st-emotion-cache-7fm41m:has(p:contains("app")),
-        .st-emotion-cache-7fm41m:has(p:contains("admin")),
-        section:has(.st-emotion-cache-183lzff:contains("app")),
-        section:has(.st-emotion-cache-183lzff:contains("admin")),
-        .streamlit-expanderHeader:has(span:contains("app")),
-        .streamlit-expanderHeader:has(span:contains("admin")),
-        nav[data-testid="stSidebar"] section div p:contains("app"),
-        nav[data-testid="stSidebar"] section div p:contains("admin") {
+        /* Ocultar itens app e admin em qualquer lugar da interface */
+        
+        /* Seletores gerais para qualquer elemento contendo app ou admin */
+        div:has(> p:contains("app")),
+        div:has(> p:contains("admin")),
+        li:has(> a:contains("app")),
+        li:has(> a:contains("admin")),
+        a:contains("app"),
+        a:contains("admin"),
+        [href*="app"],
+        [href*="admin"],
+        p:contains("app"),
+        p:contains("admin") {
             display: none !important;
         }
         
-        /* Versão 2: Seletores baseados nos elementos exatos da captura de tela */
-        nav[data-testid="stSidebar"] > div > div > div > div:first-child > div,
-        nav[data-testid="stSidebar"] > div > div:first-child > div > div:first-child {
-            display: block !important;
-        }
-        
-        /* Versão 3: Manipulação direta de elementos específicos */
-        nav[data-testid="stSidebar"] > div > div > div > div:first-child > div > div:nth-child(1),
-        nav[data-testid="stSidebar"] > div > div > div > div:first-child > div > div:nth-child(2) {
-            display: none !important;
-            visibility: hidden !important;
-            opacity: 0 !important;
-            height: 0 !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            pointer-events: none !important;
-        }
-        
-        /* Versão 4: Seletor para ocultar qualquer elemento no topo do menu antes do texto "Olá" */
-        nav[data-testid="stSidebar"] div:has(+ div:contains("Olá")) {
+        /* Itens no menu lateral e dropdown */
+        [data-testid="stSidebarNavItems"] a:has(p:contains("app")),
+        [data-testid="stSidebarNavItems"] a:has(p:contains("admin")),
+        .st-emotion-cache-16idsys a:has(p:contains("app")),
+        .st-emotion-cache-16idsys a:has(p:contains("admin")),
+        div[data-baseweb="select"] li:contains("app"),
+        div[data-baseweb="select"] li:contains("admin") {
             display: none !important;
         }
         
-        /* Remover também área cinza acima do "Olá" */
-        nav[data-testid="stSidebar"] hr,
-        nav[data-testid="stSidebar"] div:empty,
-        nav[data-testid="stSidebar"] > div > div:first-child > div > div:empty {
-            display: none !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            height: 0 !important;
-        }
-        
-        /* Remoção específica da seção app/admin */
-        div[data-testid="stSidebarUserContent"] > div:first-child {
-            display: none !important;
-        }
-        
-        /* Tentar isolar exatamente por posição */
-        section div.st-emotion-cache-16txtl3 > div:nth-child(1),
-        section div.st-emotion-cache-16txtl3 > div:nth-child(2),
-        section div[data-testid="stSidebarUserContent"] > div:nth-child(1),
-        section div[data-testid="stSidebarUserContent"] > div:nth-child(2) {
-            display: none !important;
-        }
-        
-        /* Ocultar tudo até o elemento com o texto "Olá" */
-        section div[data-testid="stSidebarUserContent"] > div:not(:has(*:contains("Olá"))):not(:has(*:contains("Estatísticas"))):not(:has(*:contains("Créditos"))) {
+        /* Itens específicos para o dropdown mostrado na imagem */
+        [aria-label="Select page"] ul li:has(span:contains("app")),
+        [aria-label="Select page"] ul li:has(span:contains("admin")),
+        .streamlit-menu li:has(span:contains("app")),
+        .streamlit-menu li:has(span:contains("admin")),
+        [role="menu"] li:has(span:contains("app")),
+        [role="menu"] li:has(span:contains("admin")),
+        [role="listbox"] li:has(span:contains("app")),
+        [role="listbox"] li:has(span:contains("admin")) {
             display: none !important;
         }
     </style>
@@ -3253,7 +3219,7 @@ def main():
         init_stripe()
 
         # Ocultar itens app e admin - ADICIONE ESTA LINHA AQUI
-        hide_app_admin_completely()
+        hide_app_admin_items()
         
         # Check for payment from popup
         popup_payment = False
