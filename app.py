@@ -50,21 +50,61 @@ st.set_page_config(
 )
 
 # SEGUNDO: Agora podemos usar outros comandos Streamlit como st.markdown
+# Este CSS deve ser adicionado APÓS st.set_page_config()
 st.markdown("""
 <style>
-    /* Ocultar "app" e "admin" em qualquer contexto */
-    p:contains("app"),
-    p:contains("admin"),
-    div[role="dialog"] div > p:contains("app"),
-    div[role="dialog"] div > p:contains("admin"),
-    div[aria-modal="true"] p:contains("app"),
-    div[aria-modal="true"] p:contains("admin") {
+    /* Seletores específicos para o menu lateral como visto na imagem */
+    [data-testid="stSidebar"] [data-testid="stVerticalBlock"] a:has(div:contains("app")),
+    [data-testid="stSidebar"] [data-testid="stVerticalBlock"] a:has(div:contains("admin")),
+    [data-testid="stSidebar"] .css-1544g2n a:contains("app"),
+    [data-testid="stSidebar"] .css-1544g2n a:contains("admin"),
+    [data-testid="stSidebar"] a[href*="app"],
+    [data-testid="stSidebar"] a[href*="admin"],
+    [data-testid="stSidebar"] div[role="navigation"] a:contains("app"),
+    [data-testid="stSidebar"] div[role="navigation"] a:contains("admin") {
         display: none !important;
     }
     
-    /* Menu dropdown e navegação lateral */
-    [data-testid="stSidebarNavItems"] a:has(p:contains("app")),
-    [data-testid="stSidebarNavItems"] a:has(p:contains("admin")) {
+    /* Seletores para itens específicos como vistos na imagem */
+    div[data-testid="stSidebarNavItems"] div.sidebar-item:has(label:contains("app")),
+    div[data-testid="stSidebarNavItems"] div.sidebar-item:has(label:contains("admin")),
+    [data-testid="stSidebar"] a[href="/app"],
+    [data-testid="stSidebar"] a[href="/admin"],
+    div.sidebar-content div:has(> p:contains("app")),
+    div.sidebar-content div:has(> p:contains("admin")) {
+        display: none !important;
+    }
+    
+    /* IMPORTANTE: Seletores específicos para cada versão do Streamlit */
+    /* Para os elementos de navegação do sidebar exatamente como na imagem */
+    .main-nav a[href="/app"],
+    .main-nav a[href="/admin"],
+    .element-container div:has(> div > a[href="/app"]),
+    .element-container div:has(> div > a[href="/admin"]),
+    .st-emotion-cache-zq5wmm a[href="/app"],
+    .st-emotion-cache-zq5wmm a[href="/admin"],
+    [data-baseweb="tab-panel"] a[href="/app"],
+    [data-baseweb="tab-panel"] a[href="/admin"] {
+        display: none !important;
+    }
+    
+    /* Classes específicas para os elementos da barra lateral mostrados na imagem */
+    div[class*="stSidebar"] a[href="/app"],
+    div[class*="stSidebar"] a[href="/admin"] {
+        display: none !important;
+    }
+    
+    /* Seletor ultra-específico para os itens de menu exatos da imagem */
+    [data-testid="stSidebar"] .element-container div:contains("app"),
+    [data-testid="stSidebar"] .element-container div:contains("admin") {
+        display: none !important;
+    }
+    
+    /* Seletor para itens de navegação como vistos na imagem */
+    nav a:contains("app"),
+    nav a:contains("admin"),
+    nav div:contains("app"),
+    nav div:contains("admin") {
         display: none !important;
     }
 </style>
@@ -246,6 +286,187 @@ def hide_app_admin_from_modal():
             display: none !important;
         }
     </style>
+    """, unsafe_allow_html=True)
+    # Esta função deve ser chamada após st.set_page_config()
+def hide_sidebar_elements():
+    """
+    Oculta completamente os elementos 'app' e 'admin' do menu lateral
+    usando seletores CSS super específicos
+    """
+    st.markdown("""
+    <style>
+        /* Seletores específicos para o menu da barra lateral esquerda */
+        .css-1d391kg a[href*="app"],
+        .css-1d391kg a[href*="admin"],
+        .css-1d391kg div:contains("app"),
+        .css-1d391kg div:contains("admin"),
+        .sidebar-content a[href*="app"],
+        .sidebar-content a[href*="admin"],
+        div[data-testid="stSidebarNav"] a[href*="app"],
+        div[data-testid="stSidebarNav"] a[href*="admin"],
+        div[data-testid="stSidebarNavItems"] a[href*="app"],
+        div[data-testid="stSidebarNavItems"] a[href*="admin"] {
+            display: none !important;
+        }
+        
+        /* Ocultar completamente as páginas app e admin no menu de navegação */
+        [data-testid="stSidebar"] a:has(p:contains("app")),
+        [data-testid="stSidebar"] a:has(p:contains("admin")),
+        [data-baseweb="tab"] a[href*="app"],
+        [data-baseweb="tab"] a[href*="admin"] {
+            display: none !important;
+        }
+        
+        /* Ocultar qualquer DIV que contenha app ou admin como texto */
+        div:has(> div:contains("app")),
+        div:has(> div:contains("admin")) {
+            display: none !important;
+        }
+        
+        /* Seletores ultra-específicos baseados na imagem compartilhada */
+        [data-testid="stVerticalBlock"] div.block-container:has(div:contains("app")),
+        [data-testid="stVerticalBlock"] div.block-container:has(div:contains("admin")),
+        .main-nav-item:has(a[href*="app"]),
+        .main-nav-item:has(a[href*="admin"]) {
+            display: none !important;
+        }
+        
+        /* NOVO: Seletores baseados exatamente na estrutura vista na imagem */
+        .stApp div:has(> p:contains("app")),
+        .stApp div:has(> p:contains("admin")),
+        /* Versão específica para os elementos vistos */
+        .st-emotion-cache-16txtl3 div:contains("app"),
+        .st-emotion-cache-16txtl3 div:contains("admin"),
+        /* Todos os links possíveis */
+        a[href="/app"], a[href="app"],
+        a[href="/admin"], a[href="admin"] {
+            display: none !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+# Esta função deve ser chamada no início da aplicação
+def ocultar_menu_lateral():
+    """
+    Solução alternativa que injeta JavaScript para remover os itens do menu 
+    após o carregamento da página - isso funciona independentemente da estrutura do DOM
+    """
+    st.markdown("""
+    <script>
+        // Função para remover itens do menu
+        function removeMenuItems() {
+            // Obter todos os elementos que podem conter os textos "app" ou "admin"
+            const allElements = document.querySelectorAll('a, div, p, span');
+            
+            // Iterar sobre todos os elementos
+            allElements.forEach(el => {
+                // Verificar o conteúdo de texto
+                if (el.textContent && (
+                    el.textContent.trim().toLowerCase() === 'app' || 
+                    el.textContent.trim().toLowerCase() === 'admin'
+                )) {
+                    // Encontrar o elemento pai que é um item de menu ou link
+                    let parent = el;
+                    while (parent && !parent.href && parent.parentElement) {
+                        parent = parent.parentElement;
+                    }
+                    
+                    // Se for um link ou item de menu, ocultar
+                    if (parent && (parent.href || parent.classList.contains('sidebar-item'))) {
+                        parent.style.display = 'none';
+                    }
+                }
+            });
+        }
+        
+        // Executar quando o DOM estiver carregado
+        document.addEventListener('DOMContentLoaded', removeMenuItems);
+        
+        // Também executar após um breve atraso para garantir que todos os elementos foram renderizados
+        setTimeout(removeMenuItems, 1000);
+    </script>
+    """, unsafe_allow_html=True)
+    # Adicione esta função ao seu código após definir st.set_page_config()
+def ocultar_menu_app_admin():
+    """
+    Função específica para ocultar os itens 'app' e 'admin' exatamente como mostrados na imagem
+    """
+    st.markdown("""
+    <style>
+        /* Seletores muito específicos para os elementos exatos mostrados na imagem */
+        
+        /* Para os itens de texto/link diretos na barra lateral */
+        .stApp .sidebar .element-container:has(div:contains("app")),
+        .stApp .sidebar .element-container:has(div:contains("admin")),
+        .stApp [data-testid="stSidebar"] div:has(> a:contains("app")),
+        .stApp [data-testid="stSidebar"] div:has(> a:contains("admin")),
+        
+        /* Para os exatos links/textos vistos na imagem */
+        .stApp [data-testid="stSidebar"] div.css-1d3kzhn,  /* Classe específica vista na imagem */
+        .stApp [data-testid="stSidebar"] .css-ysnqb2 div:contains("app"),  /* Outra classe específica */
+        .stApp [data-testid="stSidebar"] .css-ysnqb2 div:contains("admin"),
+        
+        /* Para o texto exato no formato visto na imagem */
+        [data-testid="stSidebar"] div:first-child div:has(p:contains("app")),
+        [data-testid="stSidebar"] div:first-child div:has(p:contains("admin")) {
+            display: none !important;
+        }
+        
+        /* Seletores mais genéricos se os específicos não funcionarem */
+        [data-testid="stSidebar"] a[href="/app"],
+        [data-testid="stSidebar"] a[href="/admin"],
+        [data-testid="stSidebar"] > div > div > div > div:nth-child(1),  /* O item "app" na imagem */
+        [data-testid="stSidebar"] > div > div > div > div:nth-child(2) { /* O item "admin" na imagem */
+            display: none !important;
+        }
+        
+        /* Esconder elementos de texto que contêm apenas "app" ou "admin" */
+        [data-testid="stSidebar"] div:has(> div > div > p:only-child:contains("app")),
+        [data-testid="stSidebar"] div:has(> div > div > p:only-child:contains("admin")) {
+            display: none !important;
+        }
+        
+        /* Seletor para exatamente o tipo de container visto na imagem */
+        div.st-emotion-cache-16txtl3 a[href="/app"],
+        div.st-emotion-cache-16txtl3 a[href="/admin"],
+        div.st-emotion-cache-16txtl3 div:contains("app"),
+        div.st-emotion-cache-16txtl3 div:contains("admin") {
+            display: none !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # Adicionar também um JavaScript para garantir que elementos sejam escondidos mesmo após carregamento dinâmico
+    st.markdown("""
+    <script>
+    // Função que esconde elementos com texto "app" ou "admin"
+    function hideAppAdminItems() {
+        // Obter todos elementos na sidebar
+        const sidebarElements = document.querySelectorAll('[data-testid="stSidebar"] div, [data-testid="stSidebar"] a, [data-testid="stSidebar"] p');
+        
+        // Verificar cada elemento
+        sidebarElements.forEach(el => {
+            // Verificar se o texto é exatamente "app" ou "admin"
+            if (el.textContent === "app" || el.textContent === "admin") {
+                // Esconder o elemento e todos seus pais até o item de navegação completo
+                let current = el;
+                // Subir até 5 níveis de pais para garantir que escondemos o item completo
+                for (let i = 0; i < 5; i++) {
+                    if (current) {
+                        current.style.display = 'none';
+                        current = current.parentElement;
+                    }
+                }
+            }
+        });
+    }
+    
+    // Executar uma vez no carregamento
+    document.addEventListener('DOMContentLoaded', hideAppAdminItems);
+    
+    // Também executar após um atraso para pegar elementos carregados dinamicamente
+    setTimeout(hideAppAdminItems, 1000);
+    </script>
     """, unsafe_allow_html=True)
 # Definição das URLs do FBref
 FBREF_URLS = {
