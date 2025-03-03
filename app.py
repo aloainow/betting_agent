@@ -210,7 +210,9 @@ def hide_app_admin_items():
         }
     </style>
     """, unsafe_allow_html=True)
-    def hide_app_admin_from_modal():
+
+# Função movida para fora (não mais dentro de hide_app_admin_items)
+def hide_app_admin_from_modal():
     """
     Função específica para ocultar os itens 'app' e 'admin' no modal/dropdown de navegação
     """
