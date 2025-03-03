@@ -1004,6 +1004,15 @@ def check_payment_success():
 def show_landing_page():
     """Display landing page with about content and login/register buttons"""
     try:
+        # Esconder a barra lateral do Streamlit
+        st.markdown("""
+        <style>
+        [data-testid="stSidebar"] {
+            display: none;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
         # Logo e botões de navegação
         col1, col2 = st.columns([5, 1])
         with col1:
@@ -1068,9 +1077,17 @@ def show_landing_page():
 def show_login():
     """Display login form"""
     try:
+        # Esconder a barra lateral do Streamlit
+        st.markdown("""
+        <style>
+        [data-testid="stSidebar"] {
+            display: none;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
         # Header com a logo
         show_valuehunter_logo()
-        st.title("Login")
         
         # Botão para voltar à página inicial
         if st.button("← Voltar para a página inicial"):
@@ -1112,11 +1129,19 @@ def show_login():
         st.error(f"Detalhes: {str(e)}")  # Adicionar detalhes do erro para diagnóstico    
 
 def show_register():
-    """Display simplified registration form"""
+    """Display registration form"""
     try:
+        # Esconder a barra lateral do Streamlit
+        st.markdown("""
+        <style>
+        [data-testid="stSidebar"] {
+            display: none;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
         # Header com a logo
         show_valuehunter_logo()
-        st.title("Register")
         
         # Botão para voltar à página inicial
         if st.button("← Voltar para a página inicial"):
@@ -2067,45 +2092,45 @@ class UserManager:
         return tier_display.get(tier, tier.capitalize())
     
     # Verificação da implementação correta de register_user
-def register_user(self, email: str, password: str, name: str = None, tier: str = "free") -> tuple[bool, str]:
-    """Register a new user with optional name parameter"""
-    try:
-        if not self._validate_email(email):
-            return False, "Email inválido"
-        if email in self.users:
-            return False, "Email já registrado"
-        if len(password) < 6:
-            return False, "Senha deve ter no mínimo 6 caracteres"
-        if tier not in self.tiers:
-            return False, "Tipo de usuário inválido"
-                
-        # Se nome não for fornecido, usar parte do email como nome
-        if not name:
-            name = email.split('@')[0].capitalize()
-                
-        self.users[email] = {
-            "password": self._hash_password(password),
-            "name": name,  # Adicionando o nome
-            "tier": tier,
-            "usage": {
-                "daily": [],
-                "total": []  # Track total usage
-            },
-            "purchased_credits": 0,  # Track additional purchased credits
-            "free_credits_exhausted_at": None,  # Timestamp when free credits run out
-            "paid_credits_exhausted_at": None,  # Timestamp when paid credits run out
-            "created_at": datetime.now().isoformat()
-        }
-        
-        save_success = self._save_users()
-        if not save_success:
-            logger.warning(f"Falha ao salvar dados durante registro do usuário: {email}")
+def register_user(self, email: str, password: str, name: str = None, tier: str = "free") -> tuple:
+        """Register a new user with optional name parameter"""
+        try:
+            if not self._validate_email(email):
+                return False, "Email inválido"
+            if email in self.users:
+                return False, "Email já registrado"
+            if len(password) < 6:
+                return False, "Senha deve ter no mínimo 6 caracteres"
+            if tier not in self.tiers:
+                return False, "Tipo de usuário inválido"
+                    
+            # Se nome não for fornecido, usar parte do email como nome
+            if not name:
+                name = email.split('@')[0].capitalize()
+                    
+            self.users[email] = {
+                "password": self._hash_password(password),
+                "name": name,  # Adicionando o nome
+                "tier": tier,
+                "usage": {
+                    "daily": [],
+                    "total": []  # Track total usage
+                },
+                "purchased_credits": 0,  # Track additional purchased credits
+                "free_credits_exhausted_at": None,  # Timestamp when free credits run out
+                "paid_credits_exhausted_at": None,  # Timestamp when paid credits run out
+                "created_at": datetime.now().isoformat()
+            }
             
-        logger.info(f"Usuário registrado com sucesso: {email}, tier: {tier}")
-        return True, "Registro realizado com sucesso"
-    except Exception as e:
-        logger.error(f"Erro ao registrar usuário {email}: {str(e)}")
-        return False, f"Erro interno ao registrar usuário: {str(e)}"
+            save_success = self._save_users()
+            if not save_success:
+                logger.warning(f"Falha ao salvar dados durante registro do usuário: {email}")
+                
+            logger.info(f"Usuário registrado com sucesso: {email}, tier: {tier}")
+            return True, "Registro realizado com sucesso"
+        except Exception as e:
+            logger.error(f"Erro ao registrar usuário {email}: {str(e)}")
+            return False, f"Erro interno ao registrar usuário: {str(e)}"
 
 
 # Verificação dos métodos de autenticação
