@@ -98,7 +98,28 @@ except ImportError as e:
             class InvalidRequestError(Exception):
                 pass
     stripe = DummyStripe
-
+def remove_admin_app_options():
+    """Remove as opções 'app' e 'admin' do menu lateral"""
+    st.markdown("""
+    <style>
+        /* Remove opções específicas do menu lateral */
+        [data-testid="stSidebarNavItems"] .css-16idsys p:contains("app"),
+        [data-testid="stSidebarNavItems"] .css-16idsys p:contains("admin") {
+            display: none !important;
+        }
+        
+        /* Para versões mais recentes do Streamlit, usar também o seletor a seguir */
+        .st-emotion-cache-16idsys p:contains("app"),
+        .st-emotion-cache-16idsys p:contains("admin") {
+            display: none !important;
+        }
+        
+        /* Também oculta os links para essas páginas */
+        a[href*="app"], a[href*="admin"] {
+            display: none !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
 
 # Definição das URLs do FBref
 FBREF_URLS = {
