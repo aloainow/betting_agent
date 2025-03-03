@@ -545,6 +545,10 @@ def apply_global_css():
     """Aplica estilos CSS globais para toda a aplicação"""
     st.markdown("""
     <style>
+        /* MODIFICAÇÃO GLOBAL: Ocultar a barra lateral em todas as páginas */
+        [data-testid="stSidebar"] {
+            display: none !important;
+        }
         /* Estilo para TODOS os botões - LARANJA COM TEXTO BRANCO */
         div.stButton > button, button.css-1rs6os.edgvbvh3 {
             background-color: #fd7014 !important;
