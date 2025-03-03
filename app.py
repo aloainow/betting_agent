@@ -40,6 +40,25 @@ logger.info(f"Conteúdo do diretório de dados: {os.listdir(DATA_DIR) if os.path
 
 # Configuração do Streamlit DEVE ser o primeiro comando Streamlit
 import streamlit as st
+st.markdown("""
+<style>
+    /* Ocultar "app" e "admin" em qualquer contexto */
+    p:contains("app"),
+    p:contains("admin"),
+    div[role="dialog"] div > p:contains("app"),
+    div[role="dialog"] div > p:contains("admin"),
+    div[aria-modal="true"] p:contains("app"),
+    div[aria-modal="true"] p:contains("admin") {
+        display: none !important;
+    }
+    
+    /* Menu dropdown e navegação lateral */
+    [data-testid="stSidebarNavItems"] a:has(p:contains("app")),
+    [data-testid="stSidebarNavItems"] a:has(p:contains("admin")) {
+        display: none !important;
+    }
+</style>
+""", unsafe_allow_html=True)
 st.set_page_config(
     page_title="ValueHunter - Análise de Apostas Esportivas",
     page_icon="⚽",
@@ -160,46 +179,83 @@ def remove_admin_app_options():
     """, unsafe_allow_html=True)
 def hide_app_admin_items():
     """
-    Função para ocultar completamente os itens 'app' e 'admin' 
-    em qualquer parte da interface do Streamlit
+    Função aprimorada para ocultar completamente os itens 'app' e 'admin' 
+    em qualquer parte da interface do Streamlit, incluindo dropdowns
     """
     st.markdown("""
     <style>
-        /* Ocultar itens app e admin em qualquer lugar da interface */
-        
-        /* Seletores gerais para qualquer elemento contendo app ou admin */
-        div:has(> p:contains("app")),
-        div:has(> p:contains("admin")),
-        li:has(> a:contains("app")),
-        li:has(> a:contains("admin")),
-        a:contains("app"),
-        a:contains("admin"),
-        [href*="app"],
-        [href*="admin"],
-        p:contains("app"),
-        p:contains("admin") {
-            display: none !important;
-        }
-        
-        /* Itens no menu lateral e dropdown */
+        /* Seletores gerais para qualquer elemento contendo "app" ou "admin" */
         [data-testid="stSidebarNavItems"] a:has(p:contains("app")),
         [data-testid="stSidebarNavItems"] a:has(p:contains("admin")),
         .st-emotion-cache-16idsys a:has(p:contains("app")),
         .st-emotion-cache-16idsys a:has(p:contains("admin")),
-        div[data-baseweb="select"] li:contains("app"),
-        div[data-baseweb="select"] li:contains("admin") {
+        div[data-testid="stSidebarNavContainer"] li:has(a[href*="app"]),
+        div[data-testid="stSidebarNavContainer"] li:has(a[href*="admin"]),
+        
+        /* Seletores específicos para o dropdown mostrado na imagem */
+        div[role="dialog"] p:contains("app"),
+        div[role="dialog"] p:contains("admin"),
+        
+        /* Seletor direto para itens com texto exato */
+        p:text-is("app"),
+        p:text-is("admin"),
+        
+        /* Seletor ultra-específico para o elemento da captura de tela */
+        div[aria-modal="true"] div:has(> p:contains("app")),
+        div[aria-modal="true"] div:has(> p:contains("admin")),
+        
+        /* Itens de menu e lista para dropdown e modais */
+        li:has(a[href*="app"]),
+        li:has(a[href*="admin"]),
+        li:has(p:contains("app")),
+        li:has(p:contains("admin")),
+        li:has(span:contains("app")),
+        li:has(span:contains("admin")),
+        
+        /* Seletores específicos para modais e popups */
+        div[role="menu"] div:has(p:contains("app")),
+        div[role="menu"] div:has(p:contains("admin")),
+        div[role="listbox"] div:has(p:contains("app")),
+        div[role="listbox"] div:has(p:contains("admin")),
+        
+        /* Elementos de texto em geral */
+        [role="menu"] p:contains("app"),
+        [role="menu"] p:contains("admin"),
+        
+        /* Seletores específicos para o painel visualizado na tela */
+        div[class*="stDialogContent"] p:contains("app"),
+        div[class*="stDialogContent"] p:contains("admin") {
+            display: none !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+    def hide_app_admin_from_modal():
+    """
+    Função específica para ocultar os itens 'app' e 'admin' no modal/dropdown de navegação
+    """
+    st.markdown("""
+    <style>
+        /* Seletores ultra-específicos para o modal/dropdown da captura de tela */
+        div[role="dialog"] div > p:contains("app"),
+        div[role="dialog"] div > p:contains("admin") {
             display: none !important;
         }
         
-        /* Itens específicos para o dropdown mostrado na imagem */
-        [aria-label="Select page"] ul li:has(span:contains("app")),
-        [aria-label="Select page"] ul li:has(span:contains("admin")),
-        .streamlit-menu li:has(span:contains("app")),
-        .streamlit-menu li:has(span:contains("admin")),
-        [role="menu"] li:has(span:contains("app")),
-        [role="menu"] li:has(span:contains("admin")),
-        [role="listbox"] li:has(span:contains("app")),
-        [role="listbox"] li:has(span:contains("admin")) {
+        /* Seletor alternativo para o mesmo elemento */
+        div[aria-modal="true"] p:contains("app"),
+        div[aria-modal="true"] p:contains("admin") {
+            display: none !important;
+        }
+        
+        /* Seletor com correspondência de texto exato para maior precisão */
+        p:text-is("app"),
+        p:text-is("admin") {
+            display: none !important;
+        }
+        
+        /* Seletor direto para elementos de página na navegação */
+        div.st-bd p:contains("app"),
+        div.st-bd p:contains("admin") {
             display: none !important;
         }
     </style>
