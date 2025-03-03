@@ -38,8 +38,18 @@ os.makedirs(DATA_DIR, exist_ok=True)
 logger.info(f"Diretório de dados configurado: {DATA_DIR}")
 logger.info(f"Conteúdo do diretório de dados: {os.listdir(DATA_DIR) if os.path.exists(DATA_DIR) else 'Diretório não existe'}")
 
-# Configuração do Streamlit DEVE ser o primeiro comando Streamlit
+# Importar Streamlit - mas NÃO use comandos Streamlit ainda
 import streamlit as st
+
+# PRIMEIRO: Configuração do Streamlit DEVE ser o primeiro comando Streamlit
+st.set_page_config(
+    page_title="ValueHunter - Análise de Apostas Esportivas",
+    page_icon="⚽",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# SEGUNDO: Agora podemos usar outros comandos Streamlit como st.markdown
 st.markdown("""
 <style>
     /* Ocultar "app" e "admin" em qualquer contexto */
@@ -59,12 +69,6 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
-st.set_page_config(
-    page_title="ValueHunter - Análise de Apostas Esportivas",
-    page_icon="⚽",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
 
 # Resto dos imports
 import pandas as pd
