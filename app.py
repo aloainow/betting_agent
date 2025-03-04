@@ -38,15 +38,32 @@ st.set_page_config(
     page_title="ValueHunter - Análise de Apostas Esportivas",
     page_icon="⚽",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
+    menu_items=None  # Tenta remover o menu
 )
 
-# Ocultar o próprio app.py do menu de navegação
+# Ocultar o próprio app.py do menu de navegação e qualquer elemento do menu
 st.markdown("""
 <style>
-/* Ocultar apenas a página app.py no menu */
-[data-testid="stSidebarNav"] ul li:first-child,
-div[data-testid="stSidebarNav"] > div > ul > li:first-child {
+/* Ocultar todos os elementos de navegação do Streamlit */
+header[data-testid="stHeader"],
+footer,
+#MainMenu,
+[data-testid="collapsedControl"],
+button[kind="header"],
+section[data-testid="stSidebarNavContainer"],
+div.stSidebarNavItems, 
+button.stSidebarButton,
+div.st-emotion-cache-16idsys,
+ul.st-emotion-cache-pbk8do,
+div.st-emotion-cache-1vs03zb,
+div.st-emotion-cache-1on073z {
+    display: none !important;
+}
+
+/* Ocultar apenas a página app.py no menu - caso elementos acima não funcionem */
+[data-testid="stSidebarNav"] ul li,
+div[data-testid="stSidebarNav"] > div > ul > li {
     display: none !important;
 }
 </style>
