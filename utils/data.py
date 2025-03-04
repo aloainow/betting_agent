@@ -402,7 +402,16 @@ class UserManager:
         if not save_success:
             logger.warning(f"Falha ao salvar dados após registrar uso para: {email}")
             return False
-            
+        # Após o registro bem-sucedido, adicione:
+    try:
+        # Limpar qualquer cache que possa existir para estatísticas
+        import streamlit as st
+        if hasattr(st.session_state, 'user_stats_cache'):
+            del st.session_state.user_stats_cache
+    except Exception as e:
+        logger.warning(f"Erro ao limpar cache de estatísticas: {str(e)}")
+        
+    return True    
         # Verificar créditos restantes após a atualização
         stats_after = self.get_usage_stats(email)
         credits_after = stats_after.get('credits_remaining', 0)
