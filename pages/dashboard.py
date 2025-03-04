@@ -12,8 +12,16 @@ logger = logging.getLogger("valueHunter.dashboard")
 def show_usage_stats():
     """Display usage statistics with forced refresh"""
     try:
+        # Verificar se temos query params que indicam uma ação recente
+        force_refresh = False
+        if 'payment_processed' in st.query_params or 'force_refresh' in st.query_params:
+            force_refresh = True
+            # Limpar parâmetros após uso
+            if 'force_refresh' in st.query_params:
+                del st.query_params['force_refresh']
+        
         # IMPORTANTE: Verificar se precisamos atualizar os dados
-        if not hasattr(st.session_state, 'user_stats_cache'):
+        if not hasattr(st.session_state, 'user_stats_cache') or force_refresh:
             # Primeira vez carregando ou após um refresh forçado
             stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
             # Armazenar em um cache temporário na sessão
@@ -21,21 +29,21 @@ def show_usage_stats():
             logger.info(f"Estatísticas recarregadas para {st.session_state.email}")
         else:
             # Usar cache se disponível
-            stats = st.session_state.user_stats_cache
-        
+            stats = st.session_state.user_stats_cache        
         # Obter nome do usuário - com fallback seguro
         user_name = "Usuário"
-        try:
-            # Tentar obter o nome do usuário diretamente da estrutura de dados
-            if hasattr(st.session_state.user_manager, "users") and st.session_state.email in st.session_state.user_manager.users:
-                user_data = st.session_state.user_manager.users[st.session_state.email]
-                if "name" in user_data:
-                    user_name = user_data["name"]
-            # Ou dos stats, se disponível
-            elif "name" in stats:
-                user_name = stats["name"]
-        except Exception:
-            pass  # Manter o fallback em caso de erro
+    try:
+        # Tentar obter o nome do usuário diretamente da estrutura de dados
+        if hasattr(st.session_state.user_manager, "users") and st.session_state.email in st.session_state.user_manager.users:
+            user_data = st.session_state.user_manager.users[st.session_state.email]
+            if "name" in user_data:
+                user_name = user_data["name"]
+        # Ou dos stats, se disponível
+        elif "name" in stats:
+            user_name = stats["name"]
+    except Exception:
+        pass  
+        # Manter o fallback em caso de erro
         
         # Saudação com nome do usuário
         st.sidebar.markdown(f"### Olá, {user_name}!")
@@ -412,6 +420,15 @@ def show_main_dashboard():
                                 
                                 # Registrar uso após análise bem-sucedida
                                 num_markets = sum(1 for v in selected_markets.values() if v)
+                            if success:
+                                # Forçar atualização do cache de estatísticas
+                                if hasattr(st.session_state, 'user_stats_cache'):
+                                    del st.session_state.user_stats_cache  # Remover cache para forçar reload
+                                
+                                # Mostrar mensagem de sucesso com créditos restantes
+                                updated_stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
+                                credits_after = updated_stats['credits_remaining']
+                                st.success(f"{num_markets} créditos foram consumidos. Agora você tem {credits_after} créditos.")
                                 
                                 # Registro de uso com dados detalhados
                                 analysis_data = {
