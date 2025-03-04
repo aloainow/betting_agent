@@ -52,37 +52,36 @@ def show_usage_stats():
         st.sidebar.markdown(f"**Créditos Restantes:** {stats['credits_remaining']}")
 
         # Adicione na sidebar
-        if st.sidebar.button("🔄 Forçar Atualização de Dados"):
-            st.session_state.pop('stats_cache', None)  # Limpa qualquer cache de stats na sessão
-            st.success("Buscando dados atualizados...")
+        # Adicione na sidebar, após a seleção da liga
+if st.sidebar.button("🔄 Forçar Atualização de Dados"):
+    # Verificar qual liga está selecionada atualmente
+    if 'selected_league' not in st.session_state:
+        st.session_state.selected_league = selected_league
+    
+    # Obter a URL com base na liga selecionada
+    from utils.data import FBREF_URLS
+    
+    current_league = st.session_state.selected_league
+    if current_league not in FBREF_URLS:
+        st.error(f"Liga não encontrada: {current_league}")
+    else:
+        stats_url = FBREF_URLS[current_league].get("stats")
+        if not stats_url:
+            st.error(f"URL de estatísticas não encontrada para {current_league}")
+        else:
+            st.success(f"Buscando dados atualizados para {current_league}...")
             with st.spinner("Atualizando dados do campeonato..."):
                 try:
+                    from utils.data import fetch_fbref_data, parse_team_stats
                     stats_html = fetch_fbref_data(stats_url, force_reload=True)
                     team_stats_df = parse_team_stats(stats_html)
-                    if team_stats_df is not None:
+                    if team_stats_df is not None and len(team_stats_df) > 0:
                         st.success("✅ Dados atualizados com sucesso!")
                         st.experimental_rerun()
+                    else:
+                        st.error("Não foi possível obter dados válidos")
                 except Exception as e:
                     st.error(f"Falha ao atualizar: {str(e)}")
-        
-        # Add progress bar for credits
-        if stats['credits_total'] > 0:
-            progress = stats['credits_used'] / stats['credits_total']
-            st.sidebar.progress(min(progress, 1.0))
-        
-        # Free tier renewal info (if applicable)
-        if stats['tier'] == 'free' and stats.get('next_free_credits_time'):
-            st.sidebar.info(f"⏱️ Renovação em: {stats['next_free_credits_time']}")
-        elif stats['tier'] == 'free' and stats.get('free_credits_reset'):
-            st.sidebar.success("✅ Créditos renovados!")
-        
-        # Warning for paid tiers about to be downgraded
-        if stats.get('days_until_downgrade'):
-            st.sidebar.warning(f"⚠️ Sem créditos há {7-stats['days_until_downgrade']} dias. Você será rebaixado para o pacote Free em {stats['days_until_downgrade']} dias se não comprar mais créditos.")
-    except Exception as e:
-        logger.error(f"Erro ao exibir estatísticas de uso: {str(e)}")
-        st.sidebar.error("Erro ao carregar estatísticas")
-
 def check_analysis_limits(selected_markets):
     """Check if user can perform analysis with selected markets"""
     try:
