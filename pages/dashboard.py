@@ -127,53 +127,38 @@ def show_main_dashboard():
         # Garantir que a barra lateral esteja visível na página principal (dashboard)
         st.markdown("""
         <style>
+        /* FORÇA a barra lateral a ficar visível */
         [data-testid="stSidebar"] {
             display: block !important;
             visibility: visible !important;
             opacity: 1 !important;
+            width: auto !important;
+            transform: none !important;
         }
         
-        /* Ocultar menu de navegação e barra superior */
-        header[data-testid="stHeader"] {
+        /* Ocultar apenas os elementos de navegação do Streamlit, não a barra toda */
+        header[data-testid="stHeader"],
+        footer,
+        #MainMenu {
             display: none !important;
         }
         
-        /* Ocultar hamburger menu e botão de navegação */
-        button[kind="header"] {
-            display: none !important;
-        }
-        
-        /* Ocultar o menu de navegação de páginas na sidebar */
+        /* Apenas ocultar o CONTAINER de navegação, não a barra lateral inteira */
         section[data-testid="stSidebarNavContainer"] {
             display: none !important;
         }
         
-        /* Seletores alternativos para nova versão do Streamlit */
-        div.stSidebarNavItems, 
+        /* Corrigir - NÃO ocultar o primeiro div do sidebar, apenas elementos específicos */
+        [data-testid="stSidebar"] > div:first-child > div:nth-child(2),  /* Este é o container de navegação */
         button.stSidebarButton,
-        div.st-emotion-cache-16idsys,
+        div.stSidebarNavItems {
+            display: none !important;
+        }
+        
+        /* Seletores mais específicos para navegação */
         ul.st-emotion-cache-pbk8do,
-        div.st-emotion-cache-1vs03zb,
-        div.st-emotion-cache-1on073z {
+        div.st-emotion-cache-16idsys {
             display: none !important;
-        }
-        
-        /* Adicionais seletores para atingir o mesmo alvo */
-        [data-testid="collapsedControl"],
-        #MainMenu,
-        [data-testid="stSidebar"] > div:first-child,
-        footer {
-            display: none !important;
-        }
-        
-        /* Esconder o botão de menu na barra lateral */
-        .stSidebarButton {
-            display: none !important;
-        }
-        
-        /* Remover margens indesejadas */
-        div.streamlit-expanderHeader {
-            margin-top: 0 !important;
         }
         
         /* Remover espaço extra no topo que normalmente é ocupado pelo menu */
@@ -184,7 +169,7 @@ def show_main_dashboard():
         """, unsafe_allow_html=True)
         
         # Iniciar com log de diagnóstico
-        logger.info("Iniciando renderização do dashboard principal")        
+        logger.info("Iniciando renderização do dashboard principal")     
         # ------------------------------------------------------------
         # BARRA LATERAL REORGANIZADA
         # ------------------------------------------------------------
