@@ -77,6 +77,60 @@ def main():
             
         # Initialize session state
         init_session_state()
+
+        def enable_debug_mode():
+    """Ativa o modo de debug para ajudar na resolução de problemas"""
+    if "debug_mode" not in st.session_state:
+        st.session_state.debug_mode = False
+        
+    # Verificar se o modo de debug deve ser ativado
+    if st.sidebar.checkbox("Modo de Debug", value=st.session_state.debug_mode):
+        st.session_state.debug_mode = True
+        st.session_state.use_sample_data = True
+        
+        st.sidebar.success("Modo de debug ativado")
+        
+        # Exibir informações de debug
+        if st.sidebar.checkbox("Mostrar informações do sistema"):
+            st.sidebar.subheader("Informações do Sistema")
+            st.sidebar.info(f"Python: {sys.version}")
+            st.sidebar.info(f"Diretório: {os.getcwd()}")
+            st.sidebar.info(f"DATA_DIR: {DATA_DIR}")
+            
+        # Exibir logs recentes
+        if st.sidebar.checkbox("Mostrar logs recentes"):
+            st.sidebar.subheader("Logs Recentes")
+            try:
+                log_file = "valueHunter.log"
+                if os.path.exists(log_file):
+                    with open(log_file, "r") as f:
+                        logs = f.readlines()[-20:]  # Últimas 20 linhas
+                    for log in logs:
+                        st.sidebar.text(log.strip())
+                else:
+                    st.sidebar.warning("Arquivo de log não encontrado")
+            except Exception as e:
+                st.sidebar.error(f"Erro ao ler logs: {str(e)}")
+        
+        # Ativar dados de exemplo
+        st.session_state.use_sample_data = st.sidebar.checkbox(
+            "Usar dados de exemplo", 
+            value=st.session_state.get("use_sample_data", True)
+        )
+        
+        # Permitir forçar reload do cache
+        if st.sidebar.button("Limpar cache"):
+            import glob
+            cache_files = glob.glob(os.path.join(DATA_DIR, "cache_*.html"))
+            for f in cache_files:
+                try:
+                    os.remove(f)
+                    st.sidebar.success(f"Removido: {os.path.basename(f)}")
+                except Exception as e:
+                    st.sidebar.error(f"Erro ao remover {f}: {str(e)}")
+    else:
+        st.session_state.debug_mode = False
+
         
         # Configurar visibilidade da barra lateral
         configure_sidebar_visibility()
