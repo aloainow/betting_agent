@@ -471,256 +471,514 @@ def rate_limit(seconds):
 
 @rate_limit(1)  # 1 requisição por segundo
 def fetch_fbref_data(url, force_reload=False):
-    """Busca dados do FBref com sistema de retry avançado"""
+    """Busca dados do FBref com recuperação avançada e disfarce de navegador"""
     import random
     import time
     import streamlit as st
     import os
     import requests
+    from datetime import datetime
     
     logger.info(f"Buscando dados do FBref: {url}, force_reload={force_reload}")
     
-    # Diferentes User-Agents para evitar bloqueios
+    # Rotação de User-Agents para evitar detecção como bot
     user_agents = [
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Safari/605.1.15',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15',
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0',
-        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36'
+        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36 Edg/91.0.864.41'
     ]
     
-    # Tente com diferentes abordagens
+    # Sites de referência populares
+    referrers = [
+        'https://www.google.com/',
+        'https://www.bing.com/',
+        'https://search.yahoo.com/',
+        'https://www.facebook.com/',
+        'https://www.reddit.com/',
+        'https://www.espn.com/'
+    ]
+    
+    # Reduzir o path da URL para usar no nome do cache
+    cache_key = url.split('/')[-1]
+    if '?' in cache_key:
+        cache_key = cache_key.split('?')[0]
+    cache_file = os.path.join(DATA_DIR, f"cache_{cache_key.replace('-', '_')}.html")
+    
+    # Verificar cache
+    if not force_reload:
+        try:
+            if os.path.exists(cache_file):
+                # Verificar idade do cache
+                file_age_seconds = time.time() - os.path.getmtime(cache_file)
+                
+                # Usar cache se tiver menos de 2 horas
+                if file_age_seconds < 7200:  # 2 horas em segundos
+                    with open(cache_file, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                        # Verificar se o cache tem conteúdo válido
+                        if content and len(content) > 5000 and '<table' in content:
+                            logger.info(f"Usando cache para {url} (idade: {file_age_seconds/60:.1f} min)")
+                            return content
+                else:
+                    # Informar que o cache expirou
+                    logger.info(f"Cache expirado ({file_age_seconds/3600:.1f} horas)")
+        except Exception as e:
+            logger.warning(f"Erro ao verificar cache: {str(e)}")
+    
+    # Se chegamos aqui, precisamos buscar novos dados
     max_retries = 5
+    
     for attempt in range(max_retries):
         try:
+            # Construir headers que se parecem com um navegador real
             headers = {
                 'User-Agent': random.choice(user_agents),
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
                 'Accept-Encoding': 'gzip, deflate, br',
                 'Connection': 'keep-alive',
-                'Referer': 'https://www.google.com/',
+                'Referer': random.choice(referrers),
                 'Upgrade-Insecure-Requests': '1',
-                'Cache-Control': 'no-cache',
-                'Pragma': 'no-cache',
+                'Cache-Control': 'max-age=0',
+                'TE': 'Trailers',
+                'DNT': '1'
             }
             
-            # Use cache apenas se não estiver forçando recarregamento
-            cache_key = url.split('/')[-1]
-            cache_file = os.path.join(DATA_DIR, f"cache_{cache_key.replace('-', '_')}.html")
+            # Adicionar delay entre tentativas para parecer mais humano
+            delay = random.uniform(2, 5) + attempt * 2
+            time.sleep(delay)
             
-            if not force_reload and attempt == 0:
-                try:
-                    if os.path.exists(cache_file):
-                        file_age_seconds = time.time() - os.path.getmtime(cache_file)
-                        with open(cache_file, 'r', encoding='utf-8') as f:
-                            content = f.read()
-                            # Verificar se o cache é válido
-                            if content and len(content) > 1000 and file_age_seconds < 3600:  # 1 hora
-                                logger.info(f"Usando cache para {url} (idade: {file_age_seconds/60:.1f} minutos)")
-                                return content
-                except Exception as e:
-                    logger.warning(f"Erro ao ler do cache: {str(e)}")
+            logger.info(f"Tentativa {attempt+1}/{max_retries}: Aguardando {delay:.1f}s")
             
-            # Delays progressivos entre tentativas
-            delay = 2 + attempt * 2 + random.random() * 3
-            time.sleep(delay) 
+            # Mostrar mensagem na interface
+            status_msg = (f"Buscando dados (tentativa {attempt+1}/{max_retries})..." 
+                         if attempt > 0 else "Buscando dados atualizados...")
             
-            with st.spinner(f"Carregando dados (tentativa {attempt+1}/{max_retries})..."):
+            with st.spinner(status_msg):
+                # Timeout aumenta a cada tentativa
+                timeout = 20 + attempt * 10
+                
+                logger.info(f"Enviando requisição para {url} (timeout: {timeout}s)")
+                
+                # Fazer a requisição com parâmetros avançados
                 response = requests.get(
                     url, 
                     headers=headers, 
-                    timeout=30 + attempt * 10,  # Timeout aumenta a cada tentativa
+                    timeout=timeout,
+                    allow_redirects=True,
                     verify=True
                 )
                 
+                # Verificar código de status
+                logger.info(f"Status: {response.status_code}, Tamanho: {len(response.text)} bytes")
+                
                 if response.status_code == 200:
-                    # Verificar se a resposta contém o conteúdo esperado
-                    if len(response.text) > 5000 and ('table' in response.text.lower()):
-                        # Salvar em cache apenas respostas válidas
+                    html = response.text
+                    
+                    # Verificar se o HTML parece válido
+                    if len(html) > 5000 and '<table' in html:
+                        # Salvar em cache para uso futuro
                         try:
                             with open(cache_file, 'w', encoding='utf-8') as f:
-                                f.write(response.text)
+                                f.write(html)
                             logger.info(f"Dados salvos em cache: {cache_file}")
                         except Exception as e:
                             logger.warning(f"Erro ao salvar cache: {str(e)}")
                             
-                        return response.text
+                        return html
                     else:
-                        logger.warning(f"Resposta HTML não contém tabelas ou é muito pequena: {len(response.text)} bytes")
+                        logger.warning(f"HTML parece inválido: {len(html)} bytes, contém tabela: {'<table' in html}")
                         # Continuar para próxima tentativa
-                elif response.status_code == 429:
-                    logger.warning(f"Rate limit (429): Esperando {delay} segundos antes da próxima tentativa")
-                    time.sleep(delay * 2)  # Espera mais tempo para rate limit
+                        
+                elif response.status_code == 429:  # Too Many Requests
+                    logger.warning(f"Rate limit (429). Aguardando {delay*2}s antes da próxima tentativa")
+                    time.sleep(delay * 2)  # Aguarda mais tempo em caso de rate limit
+                    
+                elif response.status_code in [403, 404]:
+                    logger.error(f"Erro {response.status_code}: URL inacessível ou bloqueada")
+                    # Tentar URL alternativa - por exemplo, pagina principal
+                    if '/Stats' in url:
+                        alt_url = url.replace('/Stats', '')
+                        logger.info(f"Tentando URL alternativa: {alt_url}")
+                        alt_response = requests.get(alt_url, headers=headers, timeout=timeout)
+                        if alt_response.status_code == 200 and len(alt_response.text) > 5000:
+                            return alt_response.text
+                    break  # Sair do loop se for um erro 403/404
+                    
                 else:
-                    logger.warning(f"Erro HTTP {response.status_code}. Tentativa {attempt+1}/{max_retries}")
-        
+                    logger.warning(f"Erro HTTP {response.status_code}")
+                    
+        except requests.Timeout:
+            logger.warning(f"Timeout na tentativa {attempt+1}")
+        except requests.RequestException as e:
+            logger.warning(f"Erro na requisição ({attempt+1}): {str(e)}")
         except Exception as e:
-            logger.warning(f"Tentativa {attempt+1} falhou: {str(e)}")
+            logger.warning(f"Erro não esperado ({attempt+1}): {str(e)}")
+        
+        # Se não for a última tentativa, aguardar antes de tentar novamente
+        if attempt < max_retries - 1:
+            time.sleep(2)
     
-    # Se todas as tentativas falharem
-    st.error("Não foi possível obter dados atualizados após múltiplas tentativas. Por favor, tente novamente mais tarde.")
-    raise ValueError("Falha ao obter dados do FBref após múltiplas tentativas")
+    # Se chegamos aqui, todas as tentativas falharam
+    logger.error(f"Falha após {max_retries} tentativas de buscar dados de {url}")
+    st.error("Não foi possível obter dados do FBref. Por favor, tente novamente mais tarde.")
+    
+    # Verificar se temos cache antigo - usar como último recurso
+    try:
+        if os.path.exists(cache_file):
+            logger.warning("Usando cache antigo como último recurso")
+            with open(cache_file, 'r', encoding='utf-8') as f:
+                return f.read()
+    except Exception:
+        pass
+        
+    return None
 def parse_team_stats(html_content):
-    """Processa os dados do time com tratamento robusto para extrair estatísticas"""
+    """Função robusta para processar dados de times de futebol de HTML"""
     try:
         import pandas as pd
         import numpy as np
         from bs4 import BeautifulSoup
         import streamlit as st
+        import os
+        import re
+        import time
         
-        logger.info("Iniciando processamento de HTML")
+        logger.info("Iniciando processamento de HTML avançado")
         
         # Verificar se o conteúdo HTML é válido
         if not html_content or len(html_content) < 1000:
             logger.error(f"Conteúdo HTML inválido: {len(html_content) if html_content else 0} caracteres")
-            st.error("Dados recebidos do servidor são inválidos ou incompletos.")
+            st.error("O HTML recebido está incompleto ou inválido")
+            
+            # Salvar HTML para diagnóstico
+            try:
+                debug_path = os.path.join(DATA_DIR, f"debug_html_{int(time.time())}.txt")
+                with open(debug_path, 'w', encoding='utf-8') as f:
+                    f.write(html_content if html_content else "HTML vazio")
+                logger.info(f"HTML inválido salvo para diagnóstico em: {debug_path}")
+            except Exception as save_error:
+                logger.error(f"Erro ao salvar HTML para diagnóstico: {str(save_error)}")
+            
             return None
         
-        # Analisar o HTML com BeautifulSoup
+        # 0. Salvar uma cópia do HTML para diagnóstico
+        try:
+            debug_path = os.path.join(DATA_DIR, f"debug_html_{int(time.time())}.txt")
+            with open(debug_path, 'w', encoding='utf-8') as f:
+                f.write(html_content[:20000])  # Salvar apenas parte inicial para economizar espaço
+            logger.info(f"HTML salvo para diagnóstico em: {debug_path}")
+        except Exception as save_error:
+            logger.warning(f"Não foi possível salvar HTML para diagnóstico: {str(save_error)}")
+            
+        # 1. Método de parsing com BeautifulSoup
         soup = BeautifulSoup(html_content, 'html.parser')
         
-        # Encontrar todas as tabelas
+        # 1.1 Procurar todas as tabelas
         all_tables = soup.find_all('table')
         logger.info(f"Total de tabelas encontradas: {len(all_tables)}")
         
         if len(all_tables) == 0:
             logger.error("Nenhuma tabela encontrada no HTML")
-            st.error("Nenhuma tabela encontrada na página.")
+            st.error("Não foi possível encontrar tabelas na página. O site pode ter mudado de estrutura.")
             return None
+            
+        # 1.2 Lista de possiveis IDs/classes de tabelas de estatísticas
+        table_ids = [
+            'stats_squads_standard_for',
+            'stats_squads_standard_stats',
+            'stats_squads_standard',
+            'stats_squads',
+            'stats_standard'
+        ]
         
-        # MÉTODO 1: Procurar tabela por ID
+        # 1.3 Procurar por tabelas com IDs específicos
         stats_table = None
-        for table_id in ['stats_squads_standard_for', 'stats_squads_standard_stats', 
-                         'stats_squads_standard', 'stats_squads']:
+        for table_id in table_ids:
             table = soup.find('table', {'id': table_id})
             if table:
                 stats_table = table
                 logger.info(f"Tabela encontrada com ID: {table_id}")
                 break
-        
-        # MÉTODO 2: Procurar por conteúdo nos cabeçalhos
+                
+        # 1.4 Se não encontrou por ID, procurar por conteúdo
         if not stats_table:
+            logger.info("Procurando tabelas por conteúdo...")
             for table in all_tables:
+                # Verificar se tem thead/tbody
+                has_thead = table.find('thead') is not None
+                has_tbody = table.find('tbody') is not None
+                
+                # Verificar se tem cabeçalhos
                 headers = table.find_all('th')
-                if headers:
-                    header_text = ' '.join([h.get_text(strip=True).lower() for h in headers])
-                    if any(kw in header_text for kw in ['squad', 'team', 'equipe', 'gols', 'goals']):
-                        stats_table = table
-                        logger.info("Tabela encontrada pelo conteúdo dos cabeçalhos")
-                        break
-        
-        # MÉTODO 3: Usar a tabela com mais linhas
-        if not stats_table and all_tables:
-            max_rows = 0
-            for table in all_tables:
-                rows = table.find_all('tr')
-                if len(rows) > max_rows:
-                    max_rows = len(rows)
+                header_text = " ".join([h.get_text(strip=True).lower() for h in headers])
+                
+                logger.info(f"Tabela: thead={has_thead}, tbody={has_tbody}, headers={len(headers)}")
+                logger.info(f"Header text sample: {header_text[:100]}")
+                
+                # Verificar marcadores específicos de tabelas de estatísticas
+                if (has_thead and has_tbody and len(headers) > 3 and 
+                    any(kw in header_text for kw in ['squad', 'team', 'equipe', 'mp', 'matches', 'jogos', 'gls', 'goals'])):
                     stats_table = table
-            logger.info(f"Usando tabela com {max_rows} linhas como fallback")
-        
+                    logger.info("Tabela de estatísticas encontrada pelo conteúdo dos cabeçalhos")
+                    break
+                    
+        # 1.5 Se ainda não encontrou, usar a maior tabela
+        if not stats_table and all_tables:
+            tables_with_rows = []
+            for i, table in enumerate(all_tables):
+                rows = table.find_all('tr')
+                if len(rows) > 5:  # Uma tabela de estatísticas deve ter pelo menos alguns times
+                    tables_with_rows.append((i, len(rows), table))
+            
+            if tables_with_rows:
+                # Ordenar por número de linhas (maior primeiro)
+                tables_with_rows.sort(key=lambda x: x[1], reverse=True)
+                stats_table = tables_with_rows[0][2]
+                logger.info(f"Usando a maior tabela (índice {tables_with_rows[0][0]}) com {tables_with_rows[0][1]} linhas")
+                
+        # 2. Diagnóstico da tabela encontrada
         if not stats_table:
-            logger.error("Nenhuma tabela adequada encontrada")
-            st.error("Tabela de estatísticas não encontrada.")
+            logger.error("Não foi possível identificar uma tabela de estatísticas válida")
+            st.error("A estrutura da página não contém uma tabela de estatísticas reconhecível")
             return None
+            
+        # 2.1 Analisar estrutura da tabela
+        rows = stats_table.find_all('tr')
+        logger.info(f"A tabela selecionada tem {len(rows)} linhas")
         
-        # MÉTODO A: Tentar ler com pandas
-        try:
-            logger.info("Tentando ler tabela com pandas")
-            tables = pd.read_html(str(stats_table))
-            if tables and len(tables) > 0:
-                df = tables[0]
-                logger.info(f"Leitura com pandas: {df.shape}")
-            else:
-                logger.warning("pd.read_html não retornou tabelas")
-                df = None
-        except Exception as e:
-            logger.warning(f"Erro ao ler com pandas: {str(e)}")
-            df = None
-        
-        # MÉTODO B: Extração manual se pandas falhar
-        if df is None:
-            try:
-                logger.info("Tentando extração manual")
-                rows = stats_table.find_all('tr')
-                
-                # Extrair cabeçalhos
-                headers = []
-                for th in rows[0].find_all(['th']):
-                    header = th.get_text(strip=True)
-                    headers.append(header if header else f"Col{len(headers)}")
-                
-                # Extrair dados
-                data = []
-                for row in rows[1:]:
-                    row_data = []
-                    for cell in row.find_all(['td', 'th']):
-                        row_data.append(cell.get_text(strip=True))
-                    if row_data and len(row_data) == len(headers):
-                        data.append(row_data)
-                
-                # Criar DataFrame
-                df = pd.DataFrame(data, columns=headers)
-                logger.info(f"Extração manual: {df.shape}")
-            except Exception as e:
-                logger.error(f"Erro na extração manual: {str(e)}")
-                st.error("Falha ao extrair dados da tabela.")
-                return None
-        
-        # Verificações e limpeza
-        if df is None or df.empty:
-            logger.error("DataFrame vazio após tentativas de extração")
-            st.error("Não foi possível extrair dados válidos.")
-            return None
-        
-        # Detectar e mapear colunas importantes
-        team_col = None
-        for col in df.columns:
-            if any(x in str(col).lower() for x in ['squad', 'team', 'equipe', 'time', 'clube']):
-                team_col = col
+        # 2.2 Verificar cabeçalhos
+        header_row = None
+        for i, row in enumerate(rows[:5]):  # Verificar apenas as primeiras linhas
+            headers = row.find_all('th')
+            if len(headers) > 3:  # Precisa ter alguns cabeçalhos
+                header_row = i
+                header_texts = [h.get_text(strip=True) for h in headers]
+                logger.info(f"Linha de cabeçalho encontrada (índice {i}): {header_texts}")
                 break
                 
-        # Se não encontrou coluna de time, use a primeira coluna
-        if not team_col and len(df.columns) > 0:
-            team_col = df.columns[0]
+        if header_row is None:
+            logger.error("Não foi possível identificar uma linha de cabeçalho válida")
             
-        # Renomear para padronizar
-        if team_col:
-            df = df.rename(columns={team_col: 'Squad'})
-        
-        # Limpeza final
-        if 'Squad' in df.columns:
-            df['Squad'] = df['Squad'].astype(str).str.strip()
-            # Remover linhas com valores Squad vazios ou muito curtos
-            df = df[df['Squad'].str.len() > 1]
-            # Remover duplicatas
-            df = df.drop_duplicates(subset=['Squad'])
+        # 3. MÉTODO A: Pandas read_html
+        df = None
+        try:
+            logger.info("Tentando extrair com pandas read_html")
+            # Nota: pandas.read_html pode falhar se o HTML for muito complexo
+            tables = pd.read_html(str(stats_table))
             
-            # Converter colunas numéricas
-            for col in df.columns:
-                if col != 'Squad':
-                    try:
-                        df[col] = pd.to_numeric(
-                            df[col].astype(str).str.replace(',', '.').str.extract('([-+]?\d*\.?\d+)', expand=False), 
-                            errors='coerce'
-                        )
-                    except:
-                        pass
-        
-        # Verificação final
-        if 'Squad' not in df.columns or len(df) == 0:
-            logger.error("DataFrame final inválido")
-            st.error("Não foi possível extrair times válidos.")
+            if tables and len(tables) > 0:
+                df = tables[0]
+                
+                # Verificar se o DataFrame tem dados
+                if len(df) > 0 and len(df.columns) > 3:
+                    logger.info(f"Extração bem-sucedida com pandas: {df.shape}")
+                    
+                    # Verificar se há uma coluna com nomes de equipes
+                    has_teams = False
+                    for col in df.columns:
+                        col_values = df[col].astype(str)
+                        if any(len(val) > 3 for val in col_values):  # Nomes de times geralmente têm mais de 3 caracteres
+                            has_teams = True
+                            logger.info(f"Possível coluna de equipes: {col}")
+                            break
+                    
+                    if not has_teams:
+                        logger.warning("O DataFrame não parece conter nomes de equipes")
+                        df = None
+                else:
+                    logger.warning(f"DataFrame extraído com pandas parece vazio ou inválido: {df.shape}")
+                    df = None
+            else:
+                logger.warning("pandas.read_html não retornou nenhuma tabela")
+                df = None
+                
+        except Exception as e:
+            logger.error(f"Erro ao extrair com pandas.read_html: {str(e)}")
+            df = None
+            
+        # 4. MÉTODO B: Extração manual com BeautifulSoup
+        if df is None:
+            try:
+                logger.info("Tentando extração manual com BeautifulSoup")
+                
+                # 4.1 Identificar cabeçalhos
+                header_cells = []
+                
+                # Primeiro, procurar na linha <thead>
+                thead = stats_table.find('thead')
+                if thead:
+                    header_rows = thead.find_all('tr')
+                    if header_rows:
+                        # Pegar a última linha do thead, que geralmente tem os cabeçalhos detalhados
+                        header_cells = header_rows[-1].find_all(['th', 'td'])
+                        
+                # Se não encontrou no thead, procurar nas primeiras linhas
+                if not header_cells:
+                    for row in rows[:3]:  # Verificar apenas as primeiras linhas
+                        cells = row.find_all(['th', 'td'])
+                        if len(cells) > 3:  # Precisa ter alguns cabeçalhos
+                            header_cells = cells
+                            break
+                
+                if not header_cells:
+                    logger.error("Não foi possível encontrar cabeçalhos para extração manual")
+                    return None
+                    
+                # 4.2 Extrair textos dos cabeçalhos
+                headers = []
+                for i, cell in enumerate(header_cells):
+                    header_text = cell.get_text(strip=True)
+                    if not header_text:
+                        header_text = f"Column_{i}"  # Nome de coluna genérico
+                    headers.append(header_text)
+                    
+                logger.info(f"Cabeçalhos extraídos manualmente: {headers}")
+                
+                # 4.3 Identificar tbody ou linhas de dados
+                data_rows = []
+                tbody = stats_table.find('tbody')
+                if tbody:
+                    data_rows = tbody.find_all('tr')
+                else:
+                    # Se não tem tbody, pular a linha de cabeçalho e usar o resto
+                    if header_row is not None:
+                        data_rows = rows[header_row+1:]
+                    else:
+                        # Tentar adivinhar - pular a primeira linha
+                        data_rows = rows[1:]
+                
+                # 4.4 Extrair dados de cada linha
+                data = []
+                for row in data_rows:
+                    cells = row.find_all(['td', 'th'])
+                    row_data = []
+                    for cell in cells:
+                        row_data.append(cell.get_text(strip=True))
+                    
+                    # Verificar se a linha tem dados válidos e o mesmo número de colunas que os cabeçalhos
+                    if row_data and len(row_data) == len(headers):
+                        data.append(row_data)
+                    elif row_data:
+                        logger.warning(f"Linha ignorada - número de colunas não corresponde: {len(row_data)} vs {len(headers)}")
+                
+                # 4.5 Criar DataFrame com os dados extraídos manualmente
+                if data and headers:
+                    df = pd.DataFrame(data, columns=headers)
+                    logger.info(f"DataFrame criado manualmente: {df.shape}")
+                else:
+                    logger.error("Extração manual não produziu dados válidos")
+                    return None
+                    
+            except Exception as e:
+                logger.error(f"Erro na extração manual: {str(e)}")
+                import traceback
+                logger.error(traceback.format_exc())
+                return None
+                
+        # 5. Validação final do DataFrame
+        if df is None or df.empty:
+            logger.error("Falha em todos os métodos de extração")
+            st.error("Não foi possível extrair dados válidos.")
             return None
             
-        logger.info(f"Processamento concluído: {len(df)} times")
+        # 5.1 Identificar coluna com nomes de times
+        squad_col = None
+        for col in df.columns:
+            col_name = str(col).lower()
+            # Verificar se o nome da coluna sugere que contém nomes de times
+            if any(team_kw in col_name for team_kw in ['squad', 'team', 'equipe', 'time', 'clube', 'nombre']):
+                squad_col = col
+                logger.info(f"Coluna de times identificada pelo nome: {col}")
+                break
+                
+        # 5.2 Se não encontrou pelo nome, procurar pela natureza dos dados
+        if squad_col is None:
+            for col in df.columns:
+                # Verificar valores na coluna
+                col_values = df[col].astype(str)
+                # Times geralmente têm nomes com mais de 3 caracteres e são textos, não números
+                if (col_values.str.len() > 3).mean() > 0.8 and not pd.to_numeric(col_values, errors='coerce').notna().any():
+                    squad_col = col
+                    logger.info(f"Coluna de times identificada pela natureza dos dados: {col}")
+                    break
+                    
+        # 5.3 Se ainda não encontrou, usar a primeira coluna
+        if squad_col is None and len(df.columns) > 0:
+            squad_col = df.columns[0]
+            logger.warning(f"Usando primeira coluna como coluna de times: {squad_col}")
+            
+        # 5.4 Renomear coluna de times para padronizar
+        if squad_col is not None:
+            df = df.rename(columns={squad_col: 'Squad'})
+            logger.info(f"Coluna {squad_col} renomeada para 'Squad'")
+        else:
+            logger.error("Não foi possível identificar uma coluna de times")
+            st.error("Estrutura de dados inválida: coluna de times não encontrada")
+            return None
+            
+        # 5.5 Limpar dados
+        # Remover linhas vazias e duplicadas
+        df = df.dropna(subset=['Squad'])
+        df = df.drop_duplicates(subset=['Squad'])
+        
+        # Remover qualquer linha onde Squad é um valor genérico, não um time
+        generic_values = ['team', 'squad', 'equipe', 'time', 'total', 'média', 'average']
+        df = df[~df['Squad'].str.lower().isin(generic_values)]
+        
+        # 5.6 Tentar converter colunas numéricas
+        numeric_cols = []
+        for col in df.columns:
+            if col != 'Squad':
+                try:
+                    # Limpar texto e converter para número
+                    df[col] = pd.to_numeric(
+                        df[col].astype(str)
+                           .str.replace(',', '.')  # Decimal europeu
+                           .str.replace('%', '')   # Percentuais
+                           .str.extract('([-+]?\d*\.?\d+)', expand=False),  # Extrair números
+                        errors='coerce'
+                    )
+                    numeric_cols.append(col)
+                except:
+                    pass
+                    
+        logger.info(f"Colunas convertidas para numéricas: {numeric_cols}")
+        
+        # 5.7 Verificar se temos dados suficientes
+        if len(df) < 3:
+            logger.error(f"DataFrame final tem muito poucos times: {len(df)}")
+            st.warning(f"Foram encontrados apenas {len(df)} times. Os dados podem estar incompletos.")
+            
+        # 5.8 Verificar e mapear colunas importantes
+        important_cols = {
+            'MP': ['mp', 'matches', 'jogos', 'p', 'pj', 'partidas'],
+            'Gls': ['gls', 'goals', 'gols', 'g', 'gf'],
+            'xG': ['xg', 'expected_goals', 'gols_esperados'],
+            'Poss': ['poss', 'possession', 'posse']
+        }
+        
+        for target, possible_names in important_cols.items():
+            if target not in df.columns:
+                for col in df.columns:
+                    if str(col).lower() in possible_names:
+                        df = df.rename(columns={col: target})
+                        logger.info(f"Coluna {col} mapeada para {target}")
+                        break
+                        
+        # Log final
+        logger.info(f"DataFrame final: {df.shape}, colunas: {df.columns.tolist()}")
+        logger.info(f"Primeiros times: {df['Squad'].head(3).tolist()}")
+        
         return df
         
     except Exception as e:
-        logger.error(f"Erro ao processar dados: {str(e)}")
+        logger.error(f"Erro global no processamento de dados: {str(e)}")
         import traceback
         logger.error(traceback.format_exc())
-        st.error("Erro ao processar dados de estatísticas dos times")
+        st.error("Erro ao processar dados de estatísticas dos times.")
         return None
 def get_stat(stats, col, default='N/A'):
     """
