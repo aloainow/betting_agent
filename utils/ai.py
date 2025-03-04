@@ -95,17 +95,7 @@ def analyze_with_gpt(prompt):
         st.error(f"Erro inesperado: {str(e)}")
         return None
 
-def format_prompt(stats_df, home_team, away_team, odds_data, selected_markets):
-    """Formata o prompt para o GPT-4 com os dados coletados"""
-    try:
-        # Importar funções de utils.data
-        from utils.data import get_stat
-        
-        # Extrair dados dos times
-        home_stats = stats_df[stats_df['Squad'] == home_team].iloc[0]
-        away_stats = stats_df[stats_df['Squad'] == away_team].iloc[0]
-        
-        # Calcular probabilidades reais baseadas em xG e outros dados
+# Função auxiliar para calcular probabilidades reais
 def calculate_real_prob(home_xg, away_xg, home_games, away_games):
     """Calcula probabilidades reais com handling melhorado para valores inválidos"""
     try:
@@ -165,6 +155,16 @@ def calculate_real_prob(home_xg, away_xg, home_games, away_games):
         # Retornar valores de fallback razoáveis
         return {'home': 45.0, 'draw': 25.0, 'away': 30.0}
 
+def format_prompt(stats_df, home_team, away_team, odds_data, selected_markets):
+    """Formata o prompt para o GPT-4 com os dados coletados"""
+    try:
+        # Importar funções de utils.data
+        from utils.data import get_stat
+        
+        # Extrair dados dos times
+        home_stats = stats_df[stats_df['Squad'] == home_team].iloc[0]
+        away_stats = stats_df[stats_df['Squad'] == away_team].iloc[0]
+        
         # Formatar estatísticas dos times
         home_team_stats = f"""
   * Jogos Disputados: {get_stat(home_stats, 'MP')}
