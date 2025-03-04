@@ -106,34 +106,64 @@ def format_prompt(stats_df, home_team, away_team, odds_data, selected_markets):
         away_stats = stats_df[stats_df['Squad'] == away_team].iloc[0]
         
         # Calcular probabilidades reais baseadas em xG e outros dados
-        def calculate_real_prob(home_xg, away_xg, home_games, away_games):
-            try:
-                import pandas as pd
-                if pd.isna(home_xg) or pd.isna(away_xg):
-                    return None
-                
-                home_xg_per_game = home_xg / home_games if home_games > 0 else 0
-                away_xg_per_game = away_xg / away_games if away_games > 0 else 0
-                
-                # Ajuste baseado em home advantage
-                home_advantage = 1.1
-                adjusted_home_xg = home_xg_per_game * home_advantage
-                
-                total_xg = adjusted_home_xg + away_xg_per_game
-                if total_xg == 0:
-                    return None
-                    
-                home_prob = (adjusted_home_xg / total_xg) * 100
-                away_prob = (away_xg_per_game / total_xg) * 100
-                draw_prob = 100 - (home_prob + away_prob)
-                
-                return {
-                    'home': home_prob,
-                    'draw': draw_prob,
-                    'away': away_prob
-                }
-            except:
-                return None
+def calculate_real_prob(home_xg, away_xg, home_games, away_games):
+    """Calcula probabilidades reais com handling melhorado para valores inválidos"""
+    try:
+        # Tratar valores não numéricos
+        try:
+            home_xg = float(home_xg) if home_xg != 'N/A' else 0
+            away_xg = float(away_xg) if away_xg != 'N/A' else 0
+            home_games = float(home_games) if home_games != 'N/A' else 1
+            away_games = float(away_games) if away_games != 'N/A' else 1
+        except (ValueError, TypeError):
+            # Fallback para caso não consiga converter
+            logger.warning("Falha ao converter valores para cálculo de probabilidade")
+            # Valores de fallback baseados em médias da liga
+            home_xg = 1.5 * home_games
+            away_xg = 1.0 * away_games
+            
+        # Calcular xG por jogo
+        home_xg_per_game = home_xg / home_games if home_games > 0 else 1.5
+        away_xg_per_game = away_xg / away_games if away_games > 0 else 1.0
+        
+        # Ajuste baseado em home advantage
+        home_advantage = 1.1
+        adjusted_home_xg = home_xg_per_game * home_advantage
+        
+        # Calcular probabilidades
+        total_xg = adjusted_home_xg + away_xg_per_game
+        if total_xg == 0:
+            # Valores padrão
+            return {'home': 45.0, 'draw': 25.0, 'away': 30.0}
+            
+        home_prob = (adjusted_home_xg / total_xg) * 100
+        away_prob = (away_xg_per_game / total_xg) * 100
+        
+        # Ajustar probs para somar 100%
+        total_prob = home_prob + away_prob
+        if total_prob > 100:
+            factor = 100 / total_prob
+            home_prob *= factor
+            away_prob *= factor
+        
+        draw_prob = 100 - (home_prob + away_prob)
+        
+        # Ajustar para valores realistas
+        if draw_prob < 5:
+            draw_prob = 5
+            excess = (home_prob + away_prob + draw_prob) - 100
+            home_prob -= excess * (home_prob / (home_prob + away_prob))
+            away_prob -= excess * (away_prob / (home_prob + away_prob))
+        
+        return {
+            'home': home_prob,
+            'draw': draw_prob,
+            'away': away_prob
+        }
+    except Exception as e:
+        logger.error(f"Erro no cálculo de probabilidades: {str(e)}")
+        # Retornar valores de fallback razoáveis
+        return {'home': 45.0, 'draw': 25.0, 'away': 30.0}
 
         # Formatar estatísticas dos times
         home_team_stats = f"""
