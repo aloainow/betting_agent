@@ -132,53 +132,59 @@ def show_main_dashboard():
             visibility: visible !important;
             opacity: 1 !important;
         }
-        </style>
-        """, unsafe_allow_html=True)
-
-        # Ocultar menu de navegação do Streamlit
-        st.markdown("""
-        <style>
-            /* Ocultar menu de navegação */
-            header[data-testid="stHeader"] {
-                display: none !important;
-            }
-            
-            /* Ocultar hamburger menu e botão de navegação */
-            button[kind="header"] {
-                display: none !important;
-            }
-            
-            /* Ocultar o menu de navegação de páginas na sidebar */
-            section[data-testid="stSidebarNavContainer"] {
-                display: none !important;
-            }
-            
-            /* Seletores alternativos para nova versão do Streamlit */
-            div.stSidebarNavItems, 
-            button.stSidebarButton,
-            div.st-emotion-cache-16idsys,
-            ul.st-emotion-cache-pbk8do {
-                display: none !important;
-            }
-            
-            /* Adicionais seletores para atingir o mesmo alvo */
-            [data-testid="collapsedControl"],
-            #MainMenu,
-            [data-testid="stSidebar"] > div:first-child > div:first-child > div > button,
-            footer {
-                display: none !important;
-            }
-            
-            /* Remover espaço extra no topo que normalmente é ocupado pelo menu */
-            .main .block-container {
-                padding-top: 1rem !important;
-            }
-        </style>
-        """, unsafe_allow_html=True)
-
-        # Iniciar com log de diagnóstico
-        logger.info("Iniciando renderização do dashboard principal")
         
+        /* Ocultar menu de navegação e barra superior */
+        header[data-testid="stHeader"] {
+            display: none !important;
+        }
+        
+        /* Ocultar hamburger menu e botão de navegação */
+        button[kind="header"] {
+            display: none !important;
+        }
+        
+        /* Ocultar o menu de navegação de páginas na sidebar */
+        section[data-testid="stSidebarNavContainer"] {
+            display: none !important;
+        }
+        
+        /* Seletores alternativos para nova versão do Streamlit */
+        div.stSidebarNavItems, 
+        button.stSidebarButton,
+        div.st-emotion-cache-16idsys,
+        ul.st-emotion-cache-pbk8do,
+        div.st-emotion-cache-1vs03zb,
+        div.st-emotion-cache-1on073z {
+            display: none !important;
+        }
+        
+        /* Adicionais seletores para atingir o mesmo alvo */
+        [data-testid="collapsedControl"],
+        #MainMenu,
+        [data-testid="stSidebar"] > div:first-child,
+        footer {
+            display: none !important;
+        }
+        
+        /* Esconder o botão de menu na barra lateral */
+        .stSidebarButton {
+            display: none !important;
+        }
+        
+        /* Remover margens indesejadas */
+        div.streamlit-expanderHeader {
+            margin-top: 0 !important;
+        }
+        
+        /* Remover espaço extra no topo que normalmente é ocupado pelo menu */
+        .main .block-container {
+            padding-top: 1rem !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        # Iniciar com log de diagnóstico
+        logger.info("Iniciando renderização do dashboard principal")        
         # ------------------------------------------------------------
         # BARRA LATERAL REORGANIZADA
         # ------------------------------------------------------------
