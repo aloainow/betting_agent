@@ -164,14 +164,6 @@ def show_main_dashboard():
             
         st.sidebar.markdown("---")
         
-        if st.sidebar.button("Logout", key="sidebar_logout_btn"):
-            st.session_state.authenticated = False
-            st.session_state.email = None
-            st.session_state.page = "landing"
-            st.experimental_rerun()
-            
-        st.sidebar.markdown("---")
-        
         if st.sidebar.button("🚀 Ver Pacotes de Créditos", key="sidebar_packages_button", use_container_width=True):
             st.session_state.page = "packages"
             st.experimental_rerun()
