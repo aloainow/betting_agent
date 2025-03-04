@@ -169,6 +169,7 @@ def show_main_dashboard():
         if st.session_state.stripe_test_mode:
             enable_demo_mode()
         
+        # REMOVA O SEGUNDO BOTÃO DE LOGOUT - mantenha apenas um
         if st.sidebar.button("Logout", key="sidebar_logout_btn"):
             st.session_state.authenticated = False
             st.session_state.email = None
@@ -176,10 +177,16 @@ def show_main_dashboard():
             st.experimental_rerun()
             
         st.sidebar.markdown("---")
-        
+            
         if st.sidebar.button("🚀 Ver Pacotes de Créditos", key="sidebar_packages_button", use_container_width=True):
             st.session_state.page = "packages"
             st.experimental_rerun()
+        
+        # ADICIONE O BOTÃO DE ATUALIZAÇÃO AQUI
+        if st.sidebar.button("🔄 Atualizar Dados", key="refresh_data_btn"):
+            st.session_state.pop('stats_cache', None)  # Limpa qualquer cache
+            st.success("Forçando atualização dos dados...")
+            st.experimental_rerun()  # Recarrega a página inteira
         
         # Log de progresso
         logger.info("Sidebar renderizada com sucesso")
