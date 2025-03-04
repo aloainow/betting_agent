@@ -6,14 +6,6 @@ from utils.core import show_valuehunter_logo, go_to_login, update_purchase_butto
 from utils.data import fetch_fbref_data, parse_team_stats, get_odds_data
 from utils.ai import analyze_with_gpt, format_prompt
 
-def enable_demo_mode():
-    """Ativa o modo de demonstração com dados de exemplo"""
-    if st.sidebar.checkbox("Usar dados de exemplo", value=False, key="demo_mode"):
-        st.session_state.use_sample_data = True
-        st.sidebar.success("Modo de demonstração ativado - usando dados de exemplo")
-    else:
-        st.session_state.use_sample_data = False
-
 # Configuração de logging
 logger = logging.getLogger("valueHunter.dashboard")
 
@@ -152,11 +144,7 @@ def show_main_dashboard():
         # Sidebar layout
         st.sidebar.title("Análise de Apostas")
         
-        # Ativar modo de demonstração (NOVO)
-        if st.session_state.stripe_test_mode:
-            enable_demo_mode()
-        
-        # Botão de logout único (removido o duplicado)
+        # Botão de logout único
         if st.sidebar.button("Logout", key="sidebar_logout_btn"):
             st.session_state.authenticated = False
             st.session_state.email = None
@@ -168,14 +156,6 @@ def show_main_dashboard():
         # Botão de pacotes
         if st.sidebar.button("🚀 Ver Pacotes de Créditos", key="sidebar_packages_button", use_container_width=True):
             st.session_state.page = "packages"
-            st.experimental_rerun()
-        
-        # Botão de atualização de dados
-        if st.sidebar.button("🔄 Forçar Atualização", key="force_refresh_btn"):
-            # Limpar qualquer cache
-            if 'stats_cache' in st.session_state:
-                del st.session_state['stats_cache']
-            st.success("Forçando atualização dos dados...")
             st.experimental_rerun()
         
         # Log de progresso
@@ -397,7 +377,6 @@ def show_main_dashboard():
                                 # Registrar uso após análise bem-sucedida
                                 num_markets = sum(1 for v in selected_markets.values() if v)
                                 
-                                # AQUI É ONDE ADICIONAMOS O NOVO CÓDIGO:
                                 # Registro de uso com dados detalhados
                                 analysis_data = {
                                     "league": selected_league,
@@ -440,13 +419,3 @@ def show_main_dashboard():
         st.error("Erro ao carregar o painel principal. Por favor, tente novamente.")
         st.error(f"Erro: {str(e)}")
         traceback.print_exc()
-        
-        # Exibir informações de depuração em ambiente de teste
-        if st.session_state.stripe_test_mode:
-            st.warning("### Informações de Depuração (apenas em modo de teste)")
-            st.write("Sessão atual:", dict([(k, v) for k, v in st.session_state.items() if k not in ['user_manager']]))
-            
-            # Verificar se FBREF_URLS está definido corretamente
-            from utils.data import FBREF_URLS
-            st.write("FBREF_URLS disponíveis:", FBREF_URLS is not None)
-            st.write("Número de ligas configuradas:", len(FBREF_URLS) if FBREF_URLS else 0)
