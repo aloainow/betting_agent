@@ -16,13 +16,17 @@ lib64/
 parts/
 sdist/
 var/
-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
 
+# Streamlit
+.streamlit/secrets.toml
+
 # Virtual Environment
 venv/
+.env
+.venv
 ENV/
 
 # IDE
@@ -31,9 +35,14 @@ ENV/
 *.swp
 *.swo
 
-# Streamlit
-.streamlit/secrets.toml
-
-# Sistema
+# OS
 .DS_Store
 Thumbs.db
+
+# Logs
+*.log
+
+# Project specific
+data/
+!data/.gitkeep
+.cache/
