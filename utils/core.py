@@ -88,6 +88,17 @@ def hide_streamlit_menu():
     """Oculta o menu de navegação do Streamlit e outros elementos da interface padrão"""
     return """
     <style>
+        /* IMPORTANTE: Apenas ocultar elementos de navegação, não a barra lateral inteira */
+        
+        /* FORÇAR barra lateral a permanecer visível */
+        [data-testid="stSidebar"] {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            width: auto !important;
+            transform: none !important;
+        }
+        
         /* Ocultar menu de navegação */
         header[data-testid="stHeader"] {
             display: none !important;
@@ -98,12 +109,12 @@ def hide_streamlit_menu():
             display: none !important;
         }
         
-        /* Ocultar o menu de navegação de páginas na sidebar */
+        /* Ocultar apenas o container de navegação na sidebar */
         section[data-testid="stSidebarNavContainer"] {
             display: none !important;
         }
         
-        /* Seletores alternativos para nova versão do Streamlit */
+        /* Seletores para itens de navegação, não para a barra inteira */
         div.stSidebarNavItems, 
         button.stSidebarButton,
         div.st-emotion-cache-16idsys,
@@ -111,10 +122,9 @@ def hide_streamlit_menu():
             display: none !important;
         }
         
-        /* Adicionais seletores para atingir o mesmo alvo */
+        /* Adicionais seletores para navegação */
         [data-testid="collapsedControl"],
         #MainMenu,
-        [data-testid="stSidebar"] > div:first-child > div:first-child > div > button,
         footer {
             display: none !important;
         }
@@ -125,7 +135,6 @@ def hide_streamlit_menu():
         }
     </style>
     """
-
 def hide_app_admin_items():
     """
     Função para ocultar completamente os itens 'app' e 'admin' 
