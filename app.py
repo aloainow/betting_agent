@@ -42,22 +42,35 @@ st.set_page_config(
     menu_items=None  # Tenta remover o menu
 )
 
+# Corrija o CSS no início do arquivo app.py:
+
 # Ocultar o próprio app.py do menu de navegação e qualquer elemento do menu
 st.markdown("""
 <style>
-/* Ocultar todos os elementos de navegação do Streamlit */
+/* FORÇAR a barra lateral a permanecer visível */
+[data-testid="stSidebar"] {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: auto !important;
+    transform: none !important;
+}
+
+/* Ocultar apenas elementos de navegação do Streamlit, não a sidebar inteira */
 header[data-testid="stHeader"],
 footer,
 #MainMenu,
 [data-testid="collapsedControl"],
-button[kind="header"],
+button[kind="header"] {
+    display: none !important;
+}
+
+/* Ocultar apenas o container de navegação */
 section[data-testid="stSidebarNavContainer"],
 div.stSidebarNavItems, 
 button.stSidebarButton,
 div.st-emotion-cache-16idsys,
-ul.st-emotion-cache-pbk8do,
-div.st-emotion-cache-1vs03zb,
-div.st-emotion-cache-1on073z {
+ul.st-emotion-cache-pbk8do {
     display: none !important;
 }
 
@@ -68,7 +81,6 @@ div[data-testid="stSidebarNav"] > div > ul > li {
 }
 </style>
 """, unsafe_allow_html=True)
-
 # Importar e disponibilizar funções e classes principais
 from utils.core import (
     go_to_login, go_to_register, go_to_landing,
