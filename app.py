@@ -62,21 +62,7 @@ from pages.landing import show_landing_page
 from pages.auth import show_login, show_register
 from pages.packages import show_packages_page
 
-def main():
-    try:
-        # Verificar se precisamos fechar a janela atual
-        if 'close_window' in st.query_params and st.query_params.close_window == 'true':
-            st.components.v1.html("""
-                <script>
-                    window.opener && window.opener.postMessage('payment_complete', '*');
-                    window.close();
-                </script>
-            """, height=0)
-            st.success("Pagamento concluído! Você pode fechar esta janela.")
-            return
-            
-        # Initialize session state
-        init_session_state()
+# Defina esta função FORA da função main
 def enable_debug_mode():
     """Ativa o modo de debug para ajudar na resolução de problemas"""
     if "debug_mode" not in st.session_state:
@@ -130,6 +116,25 @@ def enable_debug_mode():
     else:
         st.session_state.debug_mode = False
 
+# Agora a função main, com sua estrutura corrigida
+def main():
+    try:
+        # Verificar se precisamos fechar a janela atual
+        if 'close_window' in st.query_params and st.query_params.close_window == 'true':
+            st.components.v1.html("""
+                <script>
+                    window.opener && window.opener.postMessage('payment_complete', '*');
+                    window.close();
+                </script>
+            """, height=0)
+            st.success("Pagamento concluído! Você pode fechar esta janela.")
+            return
+            
+        # Initialize session state
+        init_session_state()
+        
+        # Chamar a função de debug
+        enable_debug_mode()
         
         # Configurar visibilidade da barra lateral
         configure_sidebar_visibility()
@@ -162,7 +167,6 @@ def enable_debug_mode():
         logger.error(f"Erro geral na aplicação: {str(e)}")
         import traceback
         traceback.print_exc()
-
 def route_pages():
     if st.session_state.page == "landing":
         show_landing_page()
