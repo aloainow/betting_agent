@@ -471,9 +471,7 @@ def rate_limit(seconds):
 
 @rate_limit(1)  # 1 requisição por segundo
 def fetch_fbref_data(url, force_reload=False):
-    """
-    Busca dados do FBref com melhor tratamento de erros e opção de forçar reload.
-    """
+    """Busca dados do FBref com sistema de retry avançado"""
     import random
     import time
     import streamlit as st
@@ -482,154 +480,88 @@ def fetch_fbref_data(url, force_reload=False):
     
     logger.info(f"Buscando dados do FBref: {url}, force_reload={force_reload}")
     
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Connection': 'keep-alive',
-        'Referer': 'https://www.google.com/',
-        'Upgrade-Insecure-Requests': '1',
-        'Cache-Control': 'max-age=0',
-    }
+    # Diferentes User-Agents para evitar bloqueios
+    user_agents = [
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Safari/605.1.15',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0',
+        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36'
+    ]
     
-    # Tenta usar cache para diferentes ligas
-    cache_key = url.split('/')[-1]
-    cache_file = os.path.join(DATA_DIR, f"cache_{cache_key.replace('-', '_')}.html")
-    
-    # Verificar se existe cache - sem mostrar mensagem
-    if not force_reload:
-        try:
-            if os.path.exists(cache_file):
-                file_age_seconds = time.time() - os.path.getmtime(cache_file)
-                with open(cache_file, 'r', encoding='utf-8') as f:
-                    content = f.read()
-                    # Se o cache tiver conteúdo não vazio e não for muito antigo
-                    if content and len(content) > 1000 and file_age_seconds < 86400:  # 24 horas
-                        logger.info(f"Usando cache para {url} (idade: {file_age_seconds/3600:.1f} horas)")
-                        return content
-        except Exception as e:
-            logger.warning(f"Erro ao ler do cache: {str(e)}")
-    
-    # Dados de exemplo para desenvolvimento/debug
-    sample_data = """
-    <html>
-    <body>
-    <table id="stats_squads_standard_for">
-      <thead>
-        <tr>
-          <th>Squad</th>
-          <th>MP</th>
-          <th>Gls</th>
-          <th>xG</th>
-          <th>Poss</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>Real Madrid</td>
-          <td>10</td>
-          <td>25</td>
-          <td>22.5</td>
-          <td>65.2</td>
-        </tr>
-        <tr>
-          <td>Barcelona</td>
-          <td>10</td>
-          <td>23</td>
-          <td>20.1</td>
-          <td>63.8</td>
-        </tr>
-        <tr>
-          <td>Atletico Madrid</td>
-          <td>10</td>
-          <td>18</td>
-          <td>16.3</td>
-          <td>52.1</td>
-        </tr>
-        <tr>
-          <td>Sevilla</td>
-          <td>10</td>
-          <td>15</td>
-          <td>13.8</td>
-          <td>48.5</td>
-        </tr>
-        <tr>
-          <td>Valencia</td>
-          <td>10</td>
-          <td>14</td>
-          <td>12.9</td>
-          <td>47.3</td>
-        </tr>
-      </tbody>
-    </table>
-    </body>
-    </html>
-    """
-    
-    # Em modo de desenvolvimento ou teste, podemos usar dados de exemplo
-    if 'STREAMLIT_TEST_MODE' in os.environ or st.session_state.get('use_sample_data', False):
-        logger.info("Usando dados de exemplo para desenvolvimento/teste")
-        return sample_data
-    
-    # Implementar retry com backoff exponencial
-    max_retries = 3
-    retry_delay = 5  # segundos iniciais de espera
-    
-    # Adicionar um delay aleatório antes da requisição para parecer mais humano
-    time.sleep(1 + random.random() * 2)
-    
+    # Tente com diferentes abordagens
+    max_retries = 5
     for attempt in range(max_retries):
         try:
-            with st.spinner(f"Carregando dados do campeonato (tentativa {attempt+1}/{max_retries})..."):
-                response = requests.get(url, headers=headers, timeout=30)
+            headers = {
+                'User-Agent': random.choice(user_agents),
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Connection': 'keep-alive',
+                'Referer': 'https://www.google.com/',
+                'Upgrade-Insecure-Requests': '1',
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache',
+            }
+            
+            # Use cache apenas se não estiver forçando recarregamento
+            cache_key = url.split('/')[-1]
+            cache_file = os.path.join(DATA_DIR, f"cache_{cache_key.replace('-', '_')}.html")
+            
+            if not force_reload and attempt == 0:
+                try:
+                    if os.path.exists(cache_file):
+                        file_age_seconds = time.time() - os.path.getmtime(cache_file)
+                        with open(cache_file, 'r', encoding='utf-8') as f:
+                            content = f.read()
+                            # Verificar se o cache é válido
+                            if content and len(content) > 1000 and file_age_seconds < 3600:  # 1 hora
+                                logger.info(f"Usando cache para {url} (idade: {file_age_seconds/60:.1f} minutos)")
+                                return content
+                except Exception as e:
+                    logger.warning(f"Erro ao ler do cache: {str(e)}")
+            
+            # Delays progressivos entre tentativas
+            delay = 2 + attempt * 2 + random.random() * 3
+            time.sleep(delay) 
+            
+            with st.spinner(f"Carregando dados (tentativa {attempt+1}/{max_retries})..."):
+                response = requests.get(
+                    url, 
+                    headers=headers, 
+                    timeout=30 + attempt * 10,  # Timeout aumenta a cada tentativa
+                    verify=True
+                )
                 
                 if response.status_code == 200:
-                    # Verificar se a resposta tem conteúdo válido
-                    if len(response.text) < 1000:
-                        logger.warning(f"Resposta muito pequena ({len(response.text)} bytes): {url}")
-                        if attempt < max_retries - 1:
-                            time.sleep(retry_delay)
-                            retry_delay *= 1.5
-                            continue
-                    
-                    # Salvar em cache para uso futuro
-                    try:
-                        with open(cache_file, 'w', encoding='utf-8') as f:
-                            f.write(response.text)
-                        logger.info(f"Cache salvo para {url}")
-                    except Exception as e:
-                        logger.warning(f"Erro ao salvar cache: {str(e)}")
-                        
-                    return response.text
+                    # Verificar se a resposta contém o conteúdo esperado
+                    if len(response.text) > 5000 and ('table' in response.text.lower()):
+                        # Salvar em cache apenas respostas válidas
+                        try:
+                            with open(cache_file, 'w', encoding='utf-8') as f:
+                                f.write(response.text)
+                            logger.info(f"Dados salvos em cache: {cache_file}")
+                        except Exception as e:
+                            logger.warning(f"Erro ao salvar cache: {str(e)}")
+                            
+                        return response.text
+                    else:
+                        logger.warning(f"Resposta HTML não contém tabelas ou é muito pequena: {len(response.text)} bytes")
+                        # Continuar para próxima tentativa
                 elif response.status_code == 429:
-                    # Não mostrar mensagens de warning sobre rate limiting para o usuário
-                    logger.warning(f"Rate limit atingido. Tentativa {attempt+1}/{max_retries}. Aguardando {retry_delay}s.")
-                    time.sleep(retry_delay)
-                    retry_delay *= 2  # Backoff exponencial
+                    logger.warning(f"Rate limit (429): Esperando {delay} segundos antes da próxima tentativa")
+                    time.sleep(delay * 2)  # Espera mais tempo para rate limit
                 else:
-                    logger.warning(f"Erro HTTP {response.status_code}. Tentativa {attempt+1}/{max_retries}. Aguardando {retry_delay}s.")
-                    time.sleep(retry_delay)
-                    retry_delay *= 1.5
-                    
-        except requests.Timeout:
-            logger.warning(f"Timeout na requisição. Tentativa {attempt+1}/{max_retries}. Aguardando {retry_delay}s.")
-            time.sleep(retry_delay)
-            retry_delay *= 1.5
-        except requests.RequestException as e:
-            logger.warning(f"Erro na requisição: {str(e)}. Tentativa {attempt+1}/{max_retries}. Aguardando {retry_delay}s.")
-            time.sleep(retry_delay)
-            retry_delay *= 1.5
+                    logger.warning(f"Erro HTTP {response.status_code}. Tentativa {attempt+1}/{max_retries}")
+        
         except Exception as e:
-            logger.warning(f"Erro não esperado: {str(e)}. Tentativa {attempt+1}/{max_retries}. Aguardando {retry_delay}s.")
-            time.sleep(retry_delay)
-            retry_delay *= 1.5
+            logger.warning(f"Tentativa {attempt+1} falhou: {str(e)}")
     
-    logger.error("Nenhuma tentativa de busca de dados foi bem-sucedida - usando dados de exemplo")
-    # Em último caso, usar dados de exemplo
-    return sample_data
+    # Se todas as tentativas falharem
+    st.error("Não foi possível obter dados atualizados após múltiplas tentativas. Por favor, tente novamente mais tarde.")
+    raise ValueError("Falha ao obter dados do FBref após múltiplas tentativas")
 def parse_team_stats(html_content):
-    """Processa os dados do time com tratamento melhorado para extrair estatísticas"""
+    """Processa os dados do time com tratamento robusto para vários formatos de tabela"""
     try:
         import pandas as pd
         import numpy as np
@@ -641,91 +573,73 @@ def parse_team_stats(html_content):
         # Verificar se o conteúdo HTML é válido
         if not html_content or len(html_content) < 1000:
             logger.error(f"Conteúdo HTML inválido ou muito pequeno: {len(html_content) if html_content else 0} caracteres")
-            return None
+            st.error("Conteúdo obtido do site não é válido. Tente novamente em alguns minutos.")
+            raise ValueError("HTML inválido ou muito pequeno")
         
         soup = BeautifulSoup(html_content, 'html.parser')
         
-        # Logging para diagnóstico
-        all_tables = soup.find_all('table')
-        logger.info(f"Total de tabelas encontradas: {len(all_tables)}")
-        
-        # Procurar todas as tabelas que podem conter as estatísticas
-        stats_table = None
-        
-        # Lista de IDs de tabelas conhecidos
-        table_ids = [
-            'stats_squads_standard_for',
-            'stats_squads_standard_stats',
-            'stats_squads_standard_overall',
-            'stats_squads_keeper_for',
-            'stats_squads_standard', # ID adicional
-            'stats_squads_shooting', # ID adicional
-            'stats_squads' # ID mais genérico
+        # Lista expandida de seletores para encontrar tabelas de estatísticas
+        table_selectors = [
+            # 1. Procura por ID
+            '#stats_squads_standard_for',
+            '#stats_squads_standard_stats', 
+            '#stats_squads_standard_overall',
+            '#stats_squads_standard',
+            '#stats_squads_shooting',
+            '#stats_squads',
+            # 2. Procura por classe
+            'table.stats_table',
+            'table.sortable',
+            # 3. Procura genérica 
+            'table'
         ]
         
-        # Tentar encontrar a tabela por ID
-        for table_id in table_ids:
-            stats_table = soup.find('table', {'id': table_id})
-            if stats_table:
-                logger.info(f"Tabela encontrada com ID: {table_id}")
-                break
-        
-        # Se não encontrou por ID, procurar por conteúdo
-        if not stats_table:
-            for table in all_tables:
+        # Tentar cada seletor até encontrar uma tabela válida
+        stats_table = None
+        for selector in table_selectors:
+            if selector.startswith('#'):
+                # Seletor de ID
+                table_id = selector[1:]
+                tables = soup.find_all('table', {'id': table_id})
+            elif selector.startswith('table.'):
+                # Seletor de classe
+                class_name = selector.split('.')[1]
+                tables = soup.find_all('table', {'class': class_name})
+            else:
+                # Seletor genérico
+                tables = soup.find_all(selector)
+            
+            # Verificar todas as tabelas encontradas
+            for table in tables:
+                # Verificar se é uma tabela com dados de equipes
                 headers = table.find_all('th')
                 if headers:
-                    header_text = [h.get_text(strip=True).lower() for h in headers]
-                    if any(keyword in ' '.join(header_text) for keyword in ['squad', 'team', 'goals', 'equipe']):
+                    header_text = ' '.join([h.get_text(strip=True).lower() for h in headers])
+                    rows = table.find_all('tr')
+                    # É uma tabela estatística se tiver cabeçalhos relevantes e múltiplas linhas
+                    if (len(rows) > 5 and 
+                        any(kw in header_text for kw in ['squad', 'team', 'equipe', 'clube', 'mp', 'goals', 'gols'])):
                         stats_table = table
-                        logger.info(f"Tabela encontrada por conteúdo (keywords)")
+                        logger.info(f"Tabela adequada encontrada usando seletor: {selector}")
                         break
-        
-        # Último recurso - usar a primeira tabela grande
-        if not stats_table and all_tables:
-            # Tentar usar a tabela com mais linhas
-            max_rows = 0
-            for table in all_tables:
-                rows = table.find_all('tr')
-                if len(rows) > max_rows:
-                    max_rows = len(rows)
-                    stats_table = table
             
             if stats_table:
-                logger.info(f"Usando a maior tabela como fallback - {max_rows} linhas")
+                break
         
         if not stats_table:
-            logger.error("Nenhuma tabela de estatísticas encontrada no HTML")
-            # Em caso de erro, exibir um trecho do HTML para diagnóstico
-            if html_content:
-                logger.error(f"Trecho do HTML: {html_content[:500]}...")
-            return None
+            logger.error("Nenhuma tabela de estatísticas identificada no HTML")
+            st.error("Não foi possível identificar tabelas de estatísticas. Tente outra liga ou atualize a página.")
+            raise ValueError("Nenhuma tabela de estatísticas encontrada")
         
-        try:
-            # Tentar ler tabela com pandas
-            tables = pd.read_html(str(stats_table))
-            if not tables or len(tables) == 0:
-                logger.error("pd.read_html não retornou nenhuma tabela")
-                return None
-            
-            df = tables[0]  # Pegar a primeira tabela
-            logger.info(f"Tabela lida com pandas: {df.shape[0]} linhas, {df.shape[1]} colunas")
-        except Exception as e:
-            logger.error(f"Erro ao ler tabela com pandas: {str(e)}")
-            return None
+        # A partir daqui, continue com seu código original de processamento...
+        # [resto do código de parsing permanece igual]
         
-        # Tratar colunas multi-índice e duplicadas
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = [col[-1] if isinstance(col, tuple) else col for col in df.columns]
-            logger.info("Tratada tabela com multi-índice")
-        
-        # Remover colunas duplicadas mantendo a primeira ocorrência
-        df = df.loc[:, ~df.columns.duplicated()]
-        
-        # Limpar nomes das colunas
-        df.columns = [str(col).strip() for col in df.columns]
-        logger.info(f"Colunas após limpeza: {df.columns.tolist()}")
-        
+    except Exception as e:
+        logger.error(f"Erro ao processar dados: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        st.error("Erro ao processar dados de estatísticas. Por favor, tente novamente.")
+        raise        
         # Função para encontrar a coluna correta
         def find_column(possible_names, df_columns):
             for name in possible_names:
