@@ -84,6 +84,48 @@ def configure_sidebar_visibility():
     </style>
     """, unsafe_allow_html=True)
 
+def hide_streamlit_menu():
+    """Oculta o menu de navegação do Streamlit e outros elementos da interface padrão"""
+    return """
+    <style>
+        /* Ocultar menu de navegação */
+        header[data-testid="stHeader"] {
+            display: none !important;
+        }
+        
+        /* Ocultar hamburger menu e botão de navegação */
+        button[kind="header"] {
+            display: none !important;
+        }
+        
+        /* Ocultar o menu de navegação de páginas na sidebar */
+        section[data-testid="stSidebarNavContainer"] {
+            display: none !important;
+        }
+        
+        /* Seletores alternativos para nova versão do Streamlit */
+        div.stSidebarNavItems, 
+        button.stSidebarButton,
+        div.st-emotion-cache-16idsys,
+        ul.st-emotion-cache-pbk8do {
+            display: none !important;
+        }
+        
+        /* Adicionais seletores para atingir o mesmo alvo */
+        [data-testid="collapsedControl"],
+        #MainMenu,
+        [data-testid="stSidebar"] > div:first-child > div:first-child > div > button,
+        footer {
+            display: none !important;
+        }
+        
+        /* Remover espaço extra no topo que normalmente é ocupado pelo menu */
+        .main .block-container {
+            padding-top: 1rem !important;
+        }
+    </style>
+    """
+
 def hide_app_admin_items():
     """
     Função para ocultar completamente os itens 'app' e 'admin' 
@@ -145,7 +187,6 @@ def apply_global_css():
     """Aplica estilos CSS globais para toda a aplicação"""
     st.markdown("""
     <style>
-        /* Removemos a regra que ocultava a barra lateral em todas as páginas */
         /* Estilo para TODOS os botões - LARANJA COM TEXTO BRANCO */
         div.stButton > button, button.css-1rs6os.edgvbvh3 {
             background-color: #fd7014 !important;
@@ -289,8 +330,7 @@ def apply_global_css():
             margin-bottom: 15px;
         }
     </style>
-    """, unsafe_allow_html=True)
-
+    """ + hide_streamlit_menu(), unsafe_allow_html=True)
 # Função para exibir a logo do ValueHunter de forma consistente
 def show_valuehunter_logo():
     """Exibe a logo do ValueHunter de forma consistente"""
