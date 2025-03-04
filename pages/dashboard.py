@@ -30,20 +30,22 @@ def show_usage_stats():
         else:
             # Usar cache se disponível
             stats = st.session_state.user_stats_cache        
+        
         # Obter nome do usuário - com fallback seguro
         user_name = "Usuário"
-    try:
-        # Tentar obter o nome do usuário diretamente da estrutura de dados
-        if hasattr(st.session_state.user_manager, "users") and st.session_state.email in st.session_state.user_manager.users:
-            user_data = st.session_state.user_manager.users[st.session_state.email]
-            if "name" in user_data:
-                user_name = user_data["name"]
-        # Ou dos stats, se disponível
-        elif "name" in stats:
-            user_name = stats["name"]
-    except Exception:
-        pass  
-        # Manter o fallback em caso de erro
+        
+        try:
+            # Tentar obter o nome do usuário diretamente da estrutura de dados
+            if hasattr(st.session_state.user_manager, "users") and st.session_state.email in st.session_state.user_manager.users:
+                user_data = st.session_state.user_manager.users[st.session_state.email]
+                if "name" in user_data:
+                    user_name = user_data["name"]
+            # Ou dos stats, se disponível
+            elif "name" in stats:
+                user_name = stats["name"]
+        except Exception:
+            pass  
+            # Manter o fallback em caso de erro
         
         # Saudação com nome do usuário
         st.sidebar.markdown(f"### Olá, {user_name}!")
@@ -65,6 +67,7 @@ def show_usage_stats():
         # Warning for paid tiers about to be downgraded
         if stats.get('days_until_downgrade'):
             st.sidebar.warning(f"⚠️ Sem créditos há {7-stats['days_until_downgrade']} dias. Você será rebaixado para o pacote Free em {stats['days_until_downgrade']} dias se não comprar mais créditos.")
+            
     except Exception as e:
         logger.error(f"Erro ao exibir estatísticas de uso: {str(e)}")
         st.sidebar.error("Erro ao carregar estatísticas")
@@ -420,15 +423,6 @@ def show_main_dashboard():
                                 
                                 # Registrar uso após análise bem-sucedida
                                 num_markets = sum(1 for v in selected_markets.values() if v)
-                            if success:
-                                # Forçar atualização do cache de estatísticas
-                                if hasattr(st.session_state, 'user_stats_cache'):
-                                    del st.session_state.user_stats_cache  # Remover cache para forçar reload
-                                
-                                # Mostrar mensagem de sucesso com créditos restantes
-                                updated_stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
-                                credits_after = updated_stats['credits_remaining']
-                                st.success(f"{num_markets} créditos foram consumidos. Agora você tem {credits_after} créditos.")
                                 
                                 # Registro de uso com dados detalhados
                                 analysis_data = {
@@ -444,6 +438,10 @@ def show_main_dashboard():
                                 )
                                 
                                 if success:
+                                    # Forçar atualização do cache de estatísticas
+                                    if hasattr(st.session_state, 'user_stats_cache'):
+                                        del st.session_state.user_stats_cache  # Remover cache para forçar reload
+                                    
                                     # Mostrar mensagem de sucesso com créditos restantes
                                     updated_stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
                                     credits_after = updated_stats['credits_remaining']
