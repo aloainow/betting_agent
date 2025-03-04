@@ -982,14 +982,35 @@ def parse_team_stats(html_content):
         return None
 def get_stat(stats, col, default='N/A'):
     """
-    Função auxiliar para extrair estatísticas com tratamento de erro
+    Função auxiliar melhorada para extrair estatísticas com tratamento de erro e fallback
     """
     try:
-        value = stats[col]
-        if pd.notna(value) and value != '':
-            return value
+        # Primeiro tenta o nome exato da coluna
+        if col in stats and pd.notna(stats[col]) and stats[col] != '':
+            return stats[col]
+        
+        # Mapeamento de nomes alternativos de colunas
+        col_map = {
+            'MP': ['MP', 'PJ', 'Matches', 'Jogos', 'Games'],
+            'Gls': ['Gls', 'G', 'Gols', 'Goals', 'GF'],
+            'xG': ['xG', 'ExpG', 'Expected_Goals'],
+            'Poss': ['Poss', 'Posse', 'Possession', '%Posse']
+        }
+        
+        # Se a coluna original foi encontrada no mapa, tenta os alternativos
+        if col in col_map:
+            for alt_col in col_map[col]:
+                if alt_col in stats and pd.notna(stats[alt_col]) and stats[alt_col] != '':
+                    return stats[alt_col]
+                    
+        # Verificar variações de case (maiúsculas/minúsculas)
+        for stats_col in stats.index:
+            if stats_col.lower() == col.lower() and pd.notna(stats[stats_col]) and stats[stats_col] != '':
+                return stats[stats_col]
+                
         return default
-    except:
+    except Exception as e:
+        logger.warning(f"Erro ao obter estatística '{col}': {str(e)}")
         return default
 
 def get_odds_data(selected_markets):
