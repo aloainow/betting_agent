@@ -138,28 +138,60 @@ def show_main_dashboard():
         # Iniciar com log de diagnóstico
         logger.info("Iniciando renderização do dashboard principal")
         
-        # Show usage stats in sidebar
+        # ------------------------------------------------------------
+        # BARRA LATERAL REORGANIZADA
+        # ------------------------------------------------------------
+        
+        # 1. Mostrar estatísticas de uso e saudação
         show_usage_stats()
         
-        # Sidebar layout
-        st.sidebar.title("Análise de Apostas")
-        
-        # Botão de logout único
-        if st.sidebar.button("Logout", key="sidebar_logout_btn"):
-            st.session_state.authenticated = False
-            st.session_state.email = None
-            st.session_state.page = "landing"
-            st.experimental_rerun()
+        # 2. Escolha da liga (movida para cima)
+        try:
+            # Importar URLs do FBref
+            from utils.data import FBREF_URLS
             
+            # Lista de ligas disponíveis com fallback seguro
+            available_leagues = list(FBREF_URLS.keys())
+            if not available_leagues:
+                st.sidebar.error("Erro: Nenhuma liga disponível.")
+                logger.error("FBREF_URLS está vazia")
+                return
+            
+            # Seleção de liga
+            selected_league = st.sidebar.selectbox(
+                "Escolha o campeonato:",
+                available_leagues
+            )
+            logger.info(f"Liga selecionada: {selected_league}")
+            
+            # Container para status
+            status_container = st.sidebar.empty()
+        except Exception as sidebar_error:
+            logger.error(f"Erro na seleção de liga: {str(sidebar_error)}")
+            st.sidebar.error("Erro ao carregar ligas disponíveis.")
+            return
+        
+        # Separador
         st.sidebar.markdown("---")
         
-        # Botão de pacotes
+        # 3. Botão de pacotes (agora em segundo lugar)
         if st.sidebar.button("🚀 Ver Pacotes de Créditos", key="sidebar_packages_button", use_container_width=True):
             st.session_state.page = "packages"
             st.experimental_rerun()
         
+        # 4. Botão de logout (movido para o final)
+        if st.sidebar.button("Logout", key="sidebar_logout_btn", use_container_width=True):
+            st.session_state.authenticated = False
+            st.session_state.email = None
+            st.session_state.page = "landing"
+            st.experimental_rerun()
+        
         # Log de progresso
-        logger.info("Sidebar renderizada com sucesso")
+        logger.info("Sidebar reorganizada renderizada com sucesso")
+        
+        # ------------------------------------------------------------
+        # CONTEÚDO PRINCIPAL (mantido como antes)
+        # ------------------------------------------------------------
         
         # Conteúdo principal com tratamento de erro em cada etapa
         try:
@@ -168,34 +200,6 @@ def show_main_dashboard():
             
             # Título principal
             st.title("Seleção de Times")
-                
-            # Sidebar Configurações
-            try:
-                st.sidebar.title("Configurações")
-                
-                # Importar URLs do FBref
-                from utils.data import FBREF_URLS
-                
-                # Lista de ligas disponíveis com fallback seguro
-                available_leagues = list(FBREF_URLS.keys())
-                if not available_leagues:
-                    st.error("Erro: Nenhuma liga disponível.")
-                    logger.error("FBREF_URLS está vazia")
-                    return
-                
-                selected_league = st.sidebar.selectbox(
-                    "Escolha o campeonato:",
-                    available_leagues
-                )
-                logger.info(f"Liga selecionada: {selected_league}")
-                
-                # Container para status
-                status_container = st.sidebar.empty()
-            except Exception as sidebar_error:
-                logger.error(f"Erro na configuração da sidebar: {str(sidebar_error)}")
-                st.error("Erro ao carregar configurações da sidebar.")
-                traceback.print_exc()
-                return
                 
             # Bloco try separado para carregar dados
             try:
