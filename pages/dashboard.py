@@ -220,10 +220,13 @@ def show_main_dashboard():
                 traceback.print_exc()
                 return
                 
-            # Bloco try separado para carregar dados
+            # No bloco try onde você carrega os dados
             try:
                 # Mostrar spinner enquanto carrega
                 with st.spinner("Carregando dados do campeonato..."):
+                    # Debug info
+                    st.session_state.last_stats_url = stats_url
+                    
                     # Tentar carregar dados da liga selecionada
                     if selected_league not in FBREF_URLS:
                         st.error(f"Liga não encontrada: {selected_league}")
@@ -237,39 +240,53 @@ def show_main_dashboard():
                         logger.error(f"URL de estatísticas ausente para {selected_league}")
                         return
                         
-                    # Buscar dados - com tratamento de erro explícito
+                    # Buscar dados com informações extras para diagnóstico
+                    logger.info(f"Buscando dados de: {stats_url}")
+                    st.info(f"Buscando dados mais recentes para: {selected_league}")
                     stats_html = fetch_fbref_data(stats_url)
+                    
                     if not stats_html:
                         st.error(f"Não foi possível carregar os dados do campeonato {selected_league}")
                         logger.error(f"fetch_fbref_data retornou None para {stats_url}")
-                        return
+                        
+                        # Adicionar botão para nova tentativa
+                        if st.button("Tentar Novamente", key="retry_fetch"):
+                            stats_html = fetch_fbref_data(stats_url, force_reload=True)
+                            if not stats_html:
+                                st.error("Nova tentativa falhou. Tente mais tarde.")
+                                return
+                        else:
+                            return
+                        
+                    # Adicionando mais informações de diagnóstico
+                    html_size = len(stats_html) if stats_html else 0
+                    logger.info(f"HTML obtido: {html_size} bytes")
                     
-                    # Parsear estatísticas dos times
+                    if html_size < 5000:
+                        st.warning("Dados obtidos podem estar incompletos. Tentar nova obtenção.")
+                        stats_html = fetch_fbref_data(stats_url, force_reload=True)
+                        html_size = len(stats_html) if stats_html else 0
+                        logger.info(f"Nova tentativa - HTML: {html_size} bytes")
+                    
+                    # Parsear estatísticas dos times com informações extras
+                    st.info("Processando estatísticas...")
                     team_stats_df = parse_team_stats(stats_html)
+                    
                     if team_stats_df is None:
                         st.error("Erro ao processar dados de estatísticas dos times")
+                        
+                        # Adicionar botão para ver diagnóstico em modo de debug/teste
+                        if st.session_state.stripe_test_mode:
+                            if st.button("Ver diagnóstico detalhado"):
+                                st.code(stats_html[:1000] + "..." if stats_html else "Nenhum HTML obtido")
+                                
                         logger.error("parse_team_stats retornou None")
                         return
-                        
-                    if 'Squad' not in team_stats_df.columns:
-                        st.error("Dados incompletos: coluna 'Squad' não encontrada")
-                        logger.error(f"Colunas disponíveis: {team_stats_df.columns.tolist()}")
-                        return
-                    
-                    # Extrair lista de times
-                    teams = team_stats_df['Squad'].dropna().unique().tolist()
-                    if not teams:
-                        st.error("Não foi possível encontrar os times do campeonato")
-                        logger.error("Lista de times vazia após dropna() e unique()")
-                        return
-                        
-                    # Mostrar mensagem de sucesso
-                    status_container.success("Dados carregados com sucesso!")
-                    logger.info(f"Dados carregados: {len(teams)} times encontrados")
-                    
             except Exception as load_error:
                 logger.error(f"Erro ao carregar dados: {str(load_error)}")
                 st.error(f"Erro ao carregar dados: {str(load_error)}")
+                import traceback
+                logger.error(traceback.format_exc())
                 traceback.print_exc()
                 return
                 
