@@ -561,7 +561,7 @@ def fetch_fbref_data(url, force_reload=False):
     st.error("Não foi possível obter dados atualizados após múltiplas tentativas. Por favor, tente novamente mais tarde.")
     raise ValueError("Falha ao obter dados do FBref após múltiplas tentativas")
 def parse_team_stats(html_content):
-    """Processa os dados do time com tratamento robusto para vários formatos de tabela"""
+    """Processa os dados do time com tratamento robusto para extrair estatísticas"""
     try:
         import pandas as pd
         import numpy as np
@@ -572,179 +572,155 @@ def parse_team_stats(html_content):
         
         # Verificar se o conteúdo HTML é válido
         if not html_content or len(html_content) < 1000:
-            logger.error(f"Conteúdo HTML inválido ou muito pequeno: {len(html_content) if html_content else 0} caracteres")
-            st.error("Conteúdo obtido do site não é válido. Tente novamente em alguns minutos.")
-            raise ValueError("HTML inválido ou muito pequeno")
+            logger.error(f"Conteúdo HTML inválido: {len(html_content) if html_content else 0} caracteres")
+            st.error("Dados recebidos do servidor são inválidos ou incompletos.")
+            return None
         
+        # Analisar o HTML com BeautifulSoup
         soup = BeautifulSoup(html_content, 'html.parser')
         
-        # Lista expandida de seletores para encontrar tabelas de estatísticas
-        table_selectors = [
-            # 1. Procura por ID
-            '#stats_squads_standard_for',
-            '#stats_squads_standard_stats', 
-            '#stats_squads_standard_overall',
-            '#stats_squads_standard',
-            '#stats_squads_shooting',
-            '#stats_squads',
-            # 2. Procura por classe
-            'table.stats_table',
-            'table.sortable',
-            # 3. Procura genérica 
-            'table'
-        ]
+        # Encontrar todas as tabelas
+        all_tables = soup.find_all('table')
+        logger.info(f"Total de tabelas encontradas: {len(all_tables)}")
         
-        # Tentar cada seletor até encontrar uma tabela válida
+        if len(all_tables) == 0:
+            logger.error("Nenhuma tabela encontrada no HTML")
+            st.error("Nenhuma tabela encontrada na página.")
+            return None
+        
+        # MÉTODO 1: Procurar tabela por ID
         stats_table = None
-        for selector in table_selectors:
-            if selector.startswith('#'):
-                # Seletor de ID
-                table_id = selector[1:]
-                tables = soup.find_all('table', {'id': table_id})
-            elif selector.startswith('table.'):
-                # Seletor de classe
-                class_name = selector.split('.')[1]
-                tables = soup.find_all('table', {'class': class_name})
-            else:
-                # Seletor genérico
-                tables = soup.find_all(selector)
-            
-            # Verificar todas as tabelas encontradas
-            for table in tables:
-                # Verificar se é uma tabela com dados de equipes
+        for table_id in ['stats_squads_standard_for', 'stats_squads_standard_stats', 
+                         'stats_squads_standard', 'stats_squads']:
+            table = soup.find('table', {'id': table_id})
+            if table:
+                stats_table = table
+                logger.info(f"Tabela encontrada com ID: {table_id}")
+                break
+        
+        # MÉTODO 2: Procurar por conteúdo nos cabeçalhos
+        if not stats_table:
+            for table in all_tables:
                 headers = table.find_all('th')
                 if headers:
                     header_text = ' '.join([h.get_text(strip=True).lower() for h in headers])
-                    rows = table.find_all('tr')
-                    # É uma tabela estatística se tiver cabeçalhos relevantes e múltiplas linhas
-                    if (len(rows) > 5 and 
-                        any(kw in header_text for kw in ['squad', 'team', 'equipe', 'clube', 'mp', 'goals', 'gols'])):
+                    if any(kw in header_text for kw in ['squad', 'team', 'equipe', 'gols', 'goals']):
                         stats_table = table
-                        logger.info(f"Tabela adequada encontrada usando seletor: {selector}")
+                        logger.info("Tabela encontrada pelo conteúdo dos cabeçalhos")
                         break
-            
-            if stats_table:
-                break
+        
+        # MÉTODO 3: Usar a tabela com mais linhas
+        if not stats_table and all_tables:
+            max_rows = 0
+            for table in all_tables:
+                rows = table.find_all('tr')
+                if len(rows) > max_rows:
+                    max_rows = len(rows)
+                    stats_table = table
+            logger.info(f"Usando tabela com {max_rows} linhas como fallback")
         
         if not stats_table:
-            logger.error("Nenhuma tabela de estatísticas identificada no HTML")
-            st.error("Não foi possível identificar tabelas de estatísticas. Tente outra liga ou atualize a página.")
-            raise ValueError("Nenhuma tabela de estatísticas encontrada")
-        
-        # A partir daqui, continue com seu código original de processamento...
-        # [resto do código de parsing permanece igual]
-        
-    except Exception as e:
-        logger.error(f"Erro ao processar dados: {str(e)}")
-        import traceback
-        logger.error(traceback.format_exc())
-        st.error("Erro ao processar dados de estatísticas. Por favor, tente novamente.")
-        raise        
-        # Função para encontrar a coluna correta
-        def find_column(possible_names, df_columns):
-            for name in possible_names:
-                # Procura exata
-                if name in df_columns:
-                    return name
-                # Procura case-insensitive
-                matches = [col for col in df_columns if str(col).strip().lower() == name.lower()]
-                if matches:
-                    return matches[0]
-                # Procura por substring
-                matches = [col for col in df_columns if name.lower() in str(col).strip().lower()]
-                if matches:
-                    return matches[0]
+            logger.error("Nenhuma tabela adequada encontrada")
+            st.error("Tabela de estatísticas não encontrada.")
             return None
-
-        # Mapear colunas importantes
-        column_mapping = {
-            'Squad': ['Squad', 'Team', 'Equipe', 'Time', 'Elenco'],
-            'MP': ['MP', 'Matches', 'Jogos', 'PJ', 'P', 'G'],
-            'Gls': ['Gls', 'Goals', 'Gols', 'G', 'GF'],
-            'G90': ['G90', 'Goals90', 'Gols90', 'Gpm'],
-            'xG': ['xG', 'Expected Goals', 'GE'],
-            'xG90': ['xG90', 'ExpectedGoals90', 'GEpm'],
-            'Poss': ['Poss', 'Possession', 'PosseBola', 'Posse']
-        }
         
-        # Encontrar e renomear colunas usando find_column
-        new_columns = {}
-        for new_name, possible_names in column_mapping.items():
-            found_col = find_column(possible_names, df.columns)
-            if found_col:
-                new_columns[found_col] = new_name
-                logger.info(f"Mapeado: {found_col} -> {new_name}")
-        
-        # Aplicar o mapeamento de colunas
-        df = df.rename(columns=new_columns)
-        logger.info(f"Colunas após mapeamento: {df.columns.tolist()}")
-        
-        # Se não temos coluna Squad, tentar identificar qual coluna poderia ser
-        if 'Squad' not in df.columns and len(df.columns) > 0:
-            # Tentar identificar a coluna que contém nomes de times
-            for col in df.columns:
-                values = df[col].astype(str).tolist()
-                # Verificar se os valores parecem nomes de times
-                if any(len(v) > 3 for v in values) and any(v.isalpha() for v in values):
-                    df = df.rename(columns={col: 'Squad'})
-                    logger.info(f"Coluna {col} identificada como Squad por heurística")
-                    break
-            
-            # Se ainda não tivermos, usar a primeira coluna
-            if 'Squad' not in df.columns:
-                df = df.rename(columns={df.columns[0]: 'Squad'})
-                logger.info(f"Usando primeira coluna como Squad")
-        
-        # Limpar dados
+        # MÉTODO A: Tentar ler com pandas
         try:
-            df['Squad'] = df['Squad'].astype(str).str.strip()
-            df = df.dropna(subset=['Squad'])
-            df = df.drop_duplicates(subset=['Squad'])
-            logger.info(f"Dados limpos: {len(df)} times únicos")
+            logger.info("Tentando ler tabela com pandas")
+            tables = pd.read_html(str(stats_table))
+            if tables and len(tables) > 0:
+                df = tables[0]
+                logger.info(f"Leitura com pandas: {df.shape}")
+            else:
+                logger.warning("pd.read_html não retornou tabelas")
+                df = None
         except Exception as e:
-            logger.error(f"Erro ao limpar dados: {str(e)}")
+            logger.warning(f"Erro ao ler com pandas: {str(e)}")
+            df = None
         
-        # Converter colunas numéricas com segurança
-        numeric_columns = ['MP', 'Gls', 'G90', 'xG', 'xG90', 'Poss']
-        for col in numeric_columns:
-            if col in df.columns:
-                try:
-                    # Primeiro, garantir que a coluna é uma série e não um DataFrame
-                    if isinstance(df[col], pd.DataFrame):
-                        df[col] = df[col].iloc[:, 0]
-                    
-                    # Limpar e converter para número
-                    df[col] = pd.to_numeric(
-                        df[col].astype(str)
-                           .str.replace(',', '.')
-                           .str.extract('([-+]?\d*\.?\d+)', expand=False),
-                        errors='coerce'
-                    )
-                    logger.info(f"Coluna {col} convertida para numérica")
-                except Exception as e:
-                    logger.error(f"Erro ao converter coluna {col}: {str(e)}")
-                    df[col] = np.nan
+        # MÉTODO B: Extração manual se pandas falhar
+        if df is None:
+            try:
+                logger.info("Tentando extração manual")
+                rows = stats_table.find_all('tr')
+                
+                # Extrair cabeçalhos
+                headers = []
+                for th in rows[0].find_all(['th']):
+                    header = th.get_text(strip=True)
+                    headers.append(header if header else f"Col{len(headers)}")
+                
+                # Extrair dados
+                data = []
+                for row in rows[1:]:
+                    row_data = []
+                    for cell in row.find_all(['td', 'th']):
+                        row_data.append(cell.get_text(strip=True))
+                    if row_data and len(row_data) == len(headers):
+                        data.append(row_data)
+                
+                # Criar DataFrame
+                df = pd.DataFrame(data, columns=headers)
+                logger.info(f"Extração manual: {df.shape}")
+            except Exception as e:
+                logger.error(f"Erro na extração manual: {str(e)}")
+                st.error("Falha ao extrair dados da tabela.")
+                return None
         
-        # Preencher valores ausentes
-        df = df.fillna('N/A')
+        # Verificações e limpeza
+        if df is None or df.empty:
+            logger.error("DataFrame vazio após tentativas de extração")
+            st.error("Não foi possível extrair dados válidos.")
+            return None
         
-        # Verificar se temos pelo menos um time
-        if len(df) == 0:
-            logger.error("Dataframe final não tem times")
+        # Detectar e mapear colunas importantes
+        team_col = None
+        for col in df.columns:
+            if any(x in str(col).lower() for x in ['squad', 'team', 'equipe', 'time', 'clube']):
+                team_col = col
+                break
+                
+        # Se não encontrou coluna de time, use a primeira coluna
+        if not team_col and len(df.columns) > 0:
+            team_col = df.columns[0]
+            
+        # Renomear para padronizar
+        if team_col:
+            df = df.rename(columns={team_col: 'Squad'})
+        
+        # Limpeza final
+        if 'Squad' in df.columns:
+            df['Squad'] = df['Squad'].astype(str).str.strip()
+            # Remover linhas com valores Squad vazios ou muito curtos
+            df = df[df['Squad'].str.len() > 1]
+            # Remover duplicatas
+            df = df.drop_duplicates(subset=['Squad'])
+            
+            # Converter colunas numéricas
+            for col in df.columns:
+                if col != 'Squad':
+                    try:
+                        df[col] = pd.to_numeric(
+                            df[col].astype(str).str.replace(',', '.').str.extract('([-+]?\d*\.?\d+)', expand=False), 
+                            errors='coerce'
+                        )
+                    except:
+                        pass
+        
+        # Verificação final
+        if 'Squad' not in df.columns or len(df) == 0:
+            logger.error("DataFrame final inválido")
+            st.error("Não foi possível extrair times válidos.")
             return None
             
-        logger.info(f"Dados dos times processados com sucesso. Total de times: {len(df)}")
-        
-        # Adicionar uma mensagem para o usuário
-        if 'Squad' in df.columns and len(df) > 0:
-            st.success(f"Dados carregados com sucesso: {len(df)} times encontrados")
-            
+        logger.info(f"Processamento concluído: {len(df)} times")
         return df
-    
+        
     except Exception as e:
         logger.error(f"Erro ao processar dados: {str(e)}")
         import traceback
         logger.error(traceback.format_exc())
+        st.error("Erro ao processar dados de estatísticas dos times")
         return None
 def get_stat(stats, col, default='N/A'):
     """
