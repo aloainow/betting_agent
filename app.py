@@ -133,9 +133,6 @@ def main():
         # Initialize session state
         init_session_state()
         
-        # Chamar a função de debug
-        enable_debug_mode()
-        
         # Configurar visibilidade da barra lateral
         configure_sidebar_visibility()
         
