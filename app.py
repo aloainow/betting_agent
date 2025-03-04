@@ -77,8 +77,7 @@ def main():
             
         # Initialize session state
         init_session_state()
-
-        def enable_debug_mode():
+def enable_debug_mode():
     """Ativa o modo de debug para ajudar na resolução de problemas"""
     if "debug_mode" not in st.session_state:
         st.session_state.debug_mode = False
