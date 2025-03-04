@@ -6,6 +6,14 @@ from utils.core import show_valuehunter_logo, go_to_login, update_purchase_butto
 from utils.data import fetch_fbref_data, parse_team_stats, get_odds_data
 from utils.ai import analyze_with_gpt, format_prompt
 
+def enable_demo_mode():
+    """Ativa o modo de demonstração com dados de exemplo"""
+    if st.sidebar.checkbox("Usar dados de exemplo", value=False, key="demo_mode"):
+        st.session_state.use_sample_data = True
+        st.sidebar.success("Modo de demonstração ativado - usando dados de exemplo")
+    else:
+        st.session_state.use_sample_data = False
+
 # Configuração de logging
 logger = logging.getLogger("valueHunter.dashboard")
 
@@ -143,6 +151,18 @@ def show_main_dashboard():
         
         # Sidebar layout
         st.sidebar.title("Análise de Apostas")
+        
+        # Ativar modo de demonstração (NOVO)
+        if st.session_state.stripe_test_mode:
+            enable_demo_mode()
+        
+        if st.sidebar.button("Logout", key="sidebar_logout_btn"):
+            st.session_state.authenticated = False
+            st.session_state.email = None
+            st.session_state.page = "landing"
+            st.experimental_rerun()
+            
+        st.sidebar.markdown("---")
         
         if st.sidebar.button("Logout", key="sidebar_logout_btn"):
             st.session_state.authenticated = False
