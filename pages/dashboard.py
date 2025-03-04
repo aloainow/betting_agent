@@ -50,6 +50,20 @@ def show_usage_stats():
         
         st.sidebar.markdown("### Estatísticas de Uso")
         st.sidebar.markdown(f"**Créditos Restantes:** {stats['credits_remaining']}")
+
+        # Adicione na sidebar
+        if st.sidebar.button("🔄 Forçar Atualização de Dados"):
+            st.session_state.pop('stats_cache', None)  # Limpa qualquer cache de stats na sessão
+            st.success("Buscando dados atualizados...")
+            with st.spinner("Atualizando dados do campeonato..."):
+                try:
+                    stats_html = fetch_fbref_data(stats_url, force_reload=True)
+                    team_stats_df = parse_team_stats(stats_html)
+                    if team_stats_df is not None:
+                        st.success("✅ Dados atualizados com sucesso!")
+                        st.experimental_rerun()
+                except Exception as e:
+                    st.error(f"Falha ao atualizar: {str(e)}")
         
         # Add progress bar for credits
         if stats['credits_total'] > 0:
