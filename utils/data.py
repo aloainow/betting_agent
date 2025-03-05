@@ -618,6 +618,104 @@ def fetch_fbref_data(url, force_reload=False):
     # Mensagem de erro simples e clara
     logger.error("Não foi possível carregar os dados do campeonato após múltiplas tentativas")
     return None
+
+# Adicione esta função em utils/ai.py ou utils/data.py
+
+def extract_team_stats(stats_df, team_name):
+    """
+    Extrai estatísticas abrangentes de um time específico.
+    Retorna um dicionário organizado com todas as estatísticas relevantes.
+    """
+    from utils.data import get_stat
+    import pandas as pd
+    import logging
+    
+    logger = logging.getLogger("valueHunter.stats")
+    
+    # Verifica se o time existe no DataFrame
+    if team_name not in stats_df['Squad'].values:
+        logger.error(f"Time {team_name} não encontrado no DataFrame")
+        return {}
+    
+    # Obter linha de estatísticas do time
+    team_stats = stats_df[stats_df['Squad'] == team_name].iloc[0]
+    
+    # Função auxiliar para obter estatística com tratamento
+    def get_numeric_stat(stat_name, default=0):
+        value = get_stat(team_stats, stat_name, default)
+        if value == 'N/A':
+            return default
+            
+        # Converter para número se for string
+        if isinstance(value, str):
+            value = value.replace(',', '.')
+            try:
+                return float(value)
+            except:
+                return default
+        return value
+    
+    # Função para calcular estatísticas por jogo
+    def per_game(stat, games):
+        if games <= 0:
+            return 0
+        return round(stat / games, 2)
+    
+    # Jogos disputados (valor base importante)
+    matches_played = get_numeric_stat('MP', 1)  # Default 1 para evitar divisão por zero
+    
+    # Estatísticas coletadas
+    stats = {
+        # Básicas
+        "matches_played": matches_played,
+        "points": get_numeric_stat("Pts"),
+        "points_per_game": per_game(get_numeric_stat("Pts"), matches_played),
+        
+        # Ofensivas
+        "goals_scored": get_numeric_stat("Gls"),
+        "goals_per_game": per_game(get_numeric_stat("Gls"), matches_played),
+        "expected_goals": get_numeric_stat("xG"),
+        "expected_goals_per_game": per_game(get_numeric_stat("xG"), matches_played),
+        "shots": get_numeric_stat("Sh"),
+        "shots_on_target": get_numeric_stat("SoT"),
+        "shots_on_target_percentage": get_numeric_stat("SoT%", 0),
+        
+        # Defensivas
+        "goals_against": get_numeric_stat("GA"),
+        "goals_against_per_game": per_game(get_numeric_stat("GA"), matches_played),
+        "expected_goals_against": get_numeric_stat("xGA"),
+        "expected_goals_against_per_game": per_game(get_numeric_stat("xGA"), matches_played),
+        "clean_sheets": get_numeric_stat("CS"),
+        "clean_sheets_percentage": round(get_numeric_stat("CS") * 100 / matches_played, 1) if matches_played > 0 else 0,
+        
+        # Posse e Passes
+        "possession": get_numeric_stat("Poss"),
+        "passes_completed": get_numeric_stat("Cmp"),
+        "passes_attempted": get_numeric_stat("Att"),
+        "pass_completion": get_numeric_stat("Cmp%"),
+        
+        # Outros
+        "yellow_cards": get_numeric_stat("CrdY"),
+        "red_cards": get_numeric_stat("CrdR"),
+        "fouls": get_numeric_stat("Fls"),
+        "corners": get_numeric_stat("CK"),
+        
+        # Eficiência e análise
+        "goal_efficiency": round((get_numeric_stat("Gls") / get_numeric_stat("xG", 0.01)) * 100, 1) if get_numeric_stat("xG", 0) > 0 else 100,
+        "defensive_efficiency": round((get_numeric_stat("GA") / get_numeric_stat("xGA", 0.01)) * 100, 1) if get_numeric_stat("xGA", 0) > 0 else 100,
+        "goal_difference": get_numeric_stat("Gls") - get_numeric_stat("GA"),
+        "expected_goal_difference": round(get_numeric_stat("xG") - get_numeric_stat("xGA"), 2),
+    }
+    
+    # Corrigir valores extremos ou inesperados
+    for key, value in stats.items():
+        if value is None or pd.isna(value):
+            stats[key] = 0
+        elif key.endswith("percentage") and value > 100:
+            stats[key] = 100
+    
+    return stats
+
 def parse_team_stats(html_content):
     """Função robusta para processar dados de times de futebol de HTML"""
     try:
