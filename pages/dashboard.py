@@ -146,28 +146,6 @@ def show_main_dashboard():
             transform: none !important;
         }
         
-        /* Aumentar a largura máxima do container principal */
-        .main .block-container {
-            max-width: 100% !important; 
-            padding: 1rem !important;
-        }
-        
-        /* Resto do seu CSS atual... */
-        </style>
-        """, unsafe_allow_html=True)
-    try:
-        # Garantir que a barra lateral esteja visível na página principal (dashboard)
-        st.markdown("""
-        <style>
-        /* FORÇA a barra lateral a ficar visível */
-        [data-testid="stSidebar"] {
-            display: block !important;
-            visibility: visible !important;
-            opacity: 1 !important;
-            width: auto !important;
-            transform: none !important;
-        }
-        
         /* Ocultar apenas os elementos de navegação do Streamlit, não a barra toda */
         header[data-testid="stHeader"],
         footer,
@@ -390,132 +368,130 @@ def show_main_dashboard():
                 traceback.print_exc()
                 return
             
-            # Botão de análise centralizado
+            # Botão de análise centralizado - NÃO USAR COLUNAS AQUI PARA O BOTÃO
             try:
-                col1, col2, col3 = st.columns([1,1,1])
-                with col2:
-                    analyze_button = st.button("Analisar Partida", type="primary")
+                # Botão em largura total para melhor design
+                analyze_button = st.button("Analisar Partida", type="primary", use_container_width=True)
+                
+                if analyze_button:
+                    if not any(selected_markets.values()):
+                        st.error("Por favor, selecione pelo menos um mercado para análise.")
+                        return
+                        
+                    if not odds_data:
+                        st.error("Por favor, configure as odds para os mercados selecionados.")
+                        return
                     
-                    if analyze_button:
-                        if not any(selected_markets.values()):
-                            st.error("Por favor, selecione pelo menos um mercado para análise.")
+                    # Verificar limites de análise
+                    if not check_analysis_limits(selected_markets):
+                        return
+                        
+                    # Criar um placeholder para o status
+                    status = st.empty()
+                    
+                    # Executar análise com tratamento de erro para cada etapa
+                    try:
+                        # Etapa 1: Carregar dados
+                        status.info("Carregando dados dos times...")
+                        if not stats_html or team_stats_df is None:
+                            status.error("Falha ao carregar dados")
                             return
                             
-                        if not odds_data:
-                            st.error("Por favor, configure as odds para os mercados selecionados.")
+                        # Etapa 2: Formatar prompt
+                        status.info("Preparando análise...")
+                        prompt = format_prompt(team_stats_df, home_team, away_team, odds_data, selected_markets)
+                        if not prompt:
+                            status.error("Falha ao preparar análise")
+                            return
+                            
+                        # Etapa 3: Análise GPT
+                        status.info("Realizando análise com IA...")
+                        analysis = analyze_with_gpt(prompt)
+                        if not analysis:
+                            status.error("Falha na análise com IA")
                             return
                         
-                        # Verificar limites de análise
-                        if not check_analysis_limits(selected_markets):
-                            return
+                        # Etapa 4: Mostrar resultado
+                        if analysis:
+                            # Limpar status
+                            status.empty()
                             
-                        # Criar um placeholder para o status
-                        status = st.empty()
+                            # Exibir a análise em uma div com largura total
+                            st.markdown(f'''
+                            <style>
+                            .analysis-result {{
+                                width: 100% !important;
+                                max-width: 100% !important;
+                                padding: 2rem !important;
+                                background-color: #575760;
+                                border-radius: 8px;
+                                border: 1px solid #6b6b74;
+                                margin: 1rem 0;
+                            }}
+                            
+                            /* Estilos para deixar o cabeçalho mais bonito */
+                            .analysis-result h1, 
+                            .analysis-result h2,
+                            .analysis-result h3 {{
+                                color: #fd7014;
+                                margin-top: 1.5rem;
+                                margin-bottom: 1rem;
+                            }}
+                            
+                            /* Estilos para parágrafos */
+                            .analysis-result p {{
+                                margin-bottom: 1rem;
+                                line-height: 1.5;
+                            }}
+                            
+                            /* Estilos para listas */
+                            .analysis-result ul, 
+                            .analysis-result ol {{
+                                margin-left: 1.5rem;
+                                margin-bottom: 1rem;
+                            }}
+                            
+                            /* Oportunidades destacadas */
+                            .analysis-result strong {{
+                                color: #fd7014;
+                            }}
+                            </style>
+                            <div class="analysis-result">{analysis}</div>
+                            ''', unsafe_allow_html=True)
+                            
+                            # Registrar uso após análise bem-sucedida
+                            num_markets = sum(1 for v in selected_markets.values() if v)
+                            
+                            # Registro de uso com dados detalhados
+                            analysis_data = {
+                                "league": selected_league,
+                                "home_team": home_team,
+                                "away_team": away_team,
+                                "markets_used": [k for k, v in selected_markets.items() if v]
+                            }
+                            success = st.session_state.user_manager.record_usage(
+                                st.session_state.email, 
+                                num_markets,
+                                analysis_data
+                            )
+                            
+                            if success:
+                                # Forçar atualização do cache de estatísticas
+                                if hasattr(st.session_state, 'user_stats_cache'):
+                                    del st.session_state.user_stats_cache  # Remover cache para forçar reload
+                                
+                                # Mostrar mensagem de sucesso com créditos restantes
+                                updated_stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
+                                credits_after = updated_stats['credits_remaining']
+                                st.success(f"{num_markets} créditos foram consumidos. Agora você tem {credits_after} créditos.")
+                            else:
+                                st.error("Não foi possível registrar o uso dos créditos. Por favor, tente novamente.")
+                                    
+                    except Exception as analysis_error:
+                        logger.error(f"Erro durante a análise: {str(analysis_error)}")
+                        status.error(f"Erro durante a análise: {str(analysis_error)}")
+                        traceback.print_exc()
                         
-                        # Executar análise com tratamento de erro para cada etapa
-                        try:
-                            # Etapa 1: Carregar dados
-                            status.info("Carregando dados dos times...")
-                            if not stats_html or team_stats_df is None:
-                                status.error("Falha ao carregar dados")
-                                return
-                                
-                            # Etapa 2: Formatar prompt
-                            status.info("Preparando análise...")
-                            prompt = format_prompt(team_stats_df, home_team, away_team, odds_data, selected_markets)
-                            if not prompt:
-                                status.error("Falha ao preparar análise")
-                                return
-                                
-                            # Etapa 3: Análise GPT
-                            status.info("Realizando análise com IA...")
-                            analysis = analyze_with_gpt(prompt)
-                            if not analysis:
-                                status.error("Falha na análise com IA")
-                                return
-                            
-                            # Etapa 4: Mostrar resultado
-                            if analysis:
-                                # Limpar status
-                                status.empty()
-                                
-                                # Exibir a análise em uma div com largura total
-                                st.markdown(f'''
-                                <style>
-                                .analysis-result {{
-                                    width: 100% !important;
-                                    max-width: 100% !important;
-                                    padding: 2rem !important;
-                                    background-color: #575760;
-                                    border-radius: 8px;
-                                    border: 1px solid #6b6b74;
-                                    margin: 1rem 0;
-                                }}
-                                
-                                /* Estilos para deixar o cabeçalho mais bonito */
-                                .analysis-result h1, 
-                                .analysis-result h2,
-                                .analysis-result h3 {{
-                                    color: #fd7014;
-                                    margin-top: 1.5rem;
-                                    margin-bottom: 1rem;
-                                }}
-                                
-                                /* Estilos para parágrafos */
-                                .analysis-result p {{
-                                    margin-bottom: 1rem;
-                                    line-height: 1.5;
-                                }}
-                                
-                                /* Estilos para listas */
-                                .analysis-result ul, 
-                                .analysis-result ol {{
-                                    margin-left: 1.5rem;
-                                    margin-bottom: 1rem;
-                                }}
-                                
-                                /* Oportunidades destacadas */
-                                .analysis-result strong {{
-                                    color: #fd7014;
-                                }}
-                                </style>
-                                <div class="analysis-result">{analysis}</div>
-                                ''', unsafe_allow_html=True)
-
-                                
-                                # Registrar uso após análise bem-sucedida
-                                num_markets = sum(1 for v in selected_markets.values() if v)
-                                
-                                # Registro de uso com dados detalhados
-                                analysis_data = {
-                                    "league": selected_league,
-                                    "home_team": home_team,
-                                    "away_team": away_team,
-                                    "markets_used": [k for k, v in selected_markets.items() if v]
-                                }
-                                success = st.session_state.user_manager.record_usage(
-                                    st.session_state.email, 
-                                    num_markets,
-                                    analysis_data
-                                )
-                                
-                                if success:
-                                    # Forçar atualização do cache de estatísticas
-                                    if hasattr(st.session_state, 'user_stats_cache'):
-                                        del st.session_state.user_stats_cache  # Remover cache para forçar reload
-                                    
-                                    # Mostrar mensagem de sucesso com créditos restantes
-                                    updated_stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
-                                    credits_after = updated_stats['credits_remaining']
-                                    st.success(f"{num_markets} créditos foram consumidos. Agora você tem {credits_after} créditos.")
-                                else:
-                                    st.error("Não foi possível registrar o uso dos créditos. Por favor, tente novamente.")
-                                    
-                        except Exception as analysis_error:
-                            logger.error(f"Erro durante a análise: {str(analysis_error)}")
-                            status.error(f"Erro durante a análise: {str(analysis_error)}")
-                            traceback.print_exc()
-                            
             except Exception as button_error:
                 logger.error(f"Erro no botão de análise: {str(button_error)}")
                 st.error(f"Erro no botão de análise: {str(button_error)}")
