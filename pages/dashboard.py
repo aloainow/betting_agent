@@ -188,7 +188,7 @@ def show_main_dashboard():
         show_usage_stats()
         
         # 2. Escolha da liga (movida para cima)
-    try:
+        try:
             # Importar URLs do FBref
             from utils.data import FBREF_URLS
             
@@ -350,41 +350,41 @@ def show_main_dashboard():
                 return
                 
             # Bloco try separado para selecionar times
-    try:
-            # Seleção de times com chaves dinâmicas que incluem a liga selecionada
-            # Isso força a recriação dos componentes quando a liga muda
-            home_team_key = f"home_team_{selected_league.replace(' ', '_')}"
-            away_team_key = f"away_team_{selected_league.replace(' ', '_')}"
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                home_team = st.selectbox(
-                    "Time da Casa:", 
-                    teams, 
-                    key=home_team_key
-                )
-            with col2:
-                away_teams = [team for team in teams if team != home_team]
-                away_team = st.selectbox(
-                    "Time Visitante:", 
-                    away_teams, 
-                    key=away_team_key
-                )
-            
-            # Armazenar os times selecionados na session_state
-            st.session_state.home_team = home_team
-            st.session_state.away_team = away_team
-            
-            logger.info(f"Times selecionados: {home_team} vs {away_team} da liga {selected_league}")
-            
-            # Obter estatísticas do usuário
-            user_stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
-            
-        except Exception as teams_error:
-            logger.error(f"Erro ao selecionar times: {str(teams_error)}")
-            st.error(f"Erro ao exibir seleção de times: {str(teams_error)}")
-            traceback.print_exc()
-            return
+            try:
+                # Seleção de times com chaves dinâmicas que incluem a liga selecionada
+                # Isso força a recriação dos componentes quando a liga muda
+                home_team_key = f"home_team_{selected_league.replace(' ', '_')}"
+                away_team_key = f"away_team_{selected_league.replace(' ', '_')}"
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    home_team = st.selectbox(
+                        "Time da Casa:", 
+                        teams, 
+                        key=home_team_key
+                    )
+                with col2:
+                    away_teams = [team for team in teams if team != home_team]
+                    away_team = st.selectbox(
+                        "Time Visitante:", 
+                        away_teams, 
+                        key=away_team_key
+                    )
+                
+                # Armazenar os times selecionados na session_state
+                st.session_state.home_team = home_team
+                st.session_state.away_team = away_team
+                
+                logger.info(f"Times selecionados: {home_team} vs {away_team} da liga {selected_league}")
+                
+                # Obter estatísticas do usuário
+                user_stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
+                
+            except Exception as teams_error:
+                logger.error(f"Erro ao selecionar times: {str(teams_error)}")
+                st.error(f"Erro ao exibir seleção de times: {str(teams_error)}")
+                traceback.print_exc()
+                return
                 
             # Bloco try separado para seleção de mercados
             try:
