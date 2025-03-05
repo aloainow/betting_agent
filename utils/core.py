@@ -194,6 +194,25 @@ def hide_app_admin_from_modal():
 
 def apply_global_css():
     """Aplica estilos CSS globais para toda a aplicação"""
+        """
+        /* Remover limitações de largura do Streamlit */
+        .main .block-container {
+            max-width: 95% !important; 
+            padding: 1rem !important;
+        }
+        
+        /* Resultado da análise em largura total */
+        .analysis-result {
+            width: 100% !important;
+            max-width: 100% !important; 
+            padding: 2rem !important;
+            background-color: #575760;
+            border-radius: 8px;
+            border: 1px solid #6b6b74;
+            margin: 1rem 0;
+        }
+        """
+    
     st.markdown("""
     <style>
         /* Estilo para TODOS os botões - LARANJA COM TEXTO BRANCO */
