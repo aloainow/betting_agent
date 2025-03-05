@@ -44,8 +44,7 @@ def show_usage_stats():
             elif "name" in stats:
                 user_name = stats["name"]
         except Exception:
-            pass  
-            # Manter o fallback em caso de erro
+            pass  # Manter o fallback em caso de erro
         
         # Saudação com nome do usuário
         st.sidebar.markdown(f"### Olá, {user_name}!")
