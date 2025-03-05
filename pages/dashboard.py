@@ -188,30 +188,55 @@ def show_main_dashboard():
         show_usage_stats()
         
         # 2. Escolha da liga (movida para cima)
-        try:
-            # Importar URLs do FBref
-            from utils.data import FBREF_URLS
-            
-            # Lista de ligas disponíveis com fallback seguro
-            available_leagues = list(FBREF_URLS.keys())
-            if not available_leagues:
-                st.sidebar.error("Erro: Nenhuma liga disponível.")
-                logger.error("FBREF_URLS está vazia")
-                return
-            
-            # Seleção de liga
-            selected_league = st.sidebar.selectbox(
-                "Escolha o campeonato:",
-                available_leagues
-            )
-            logger.info(f"Liga selecionada: {selected_league}")
-            
-            # Container para status
-            status_container = st.sidebar.empty()
-        except Exception as sidebar_error:
-            logger.error(f"Erro na seleção de liga: {str(sidebar_error)}")
-            st.sidebar.error("Erro ao carregar ligas disponíveis.")
+    try:
+        # Importar URLs do FBref
+        from utils.data import FBREF_URLS
+        
+        # Lista de ligas disponíveis com fallback seguro
+        available_leagues = list(FBREF_URLS.keys())
+        if not available_leagues:
+            st.sidebar.error("Erro: Nenhuma liga disponível.")
+            logger.error("FBREF_URLS está vazia")
             return
+        
+        # Armazenar liga anterior para detectar mudanças
+        previous_league = st.session_state.get('selected_league', None)
+        
+        # Seleção de liga - adicionamos key específica
+        selected_league = st.sidebar.selectbox(
+            "Escolha o campeonato:",
+            available_leagues,
+            key='league_selector'
+        )
+        
+        # Registrar a liga selecionada na session_state
+        st.session_state.selected_league = selected_league
+        
+        # Verificar se houve mudança de liga
+        league_changed = previous_league != selected_league
+        if league_changed:
+            # Limpar dados da liga anterior
+            if 'team_stats_df' in st.session_state:
+                del st.session_state.team_stats_df
+            if 'league_teams' in st.session_state:
+                del st.session_state.league_teams
+            if 'stats_html' in st.session_state:
+                del st.session_state.stats_html
+            
+            # Log da mudança
+            logger.info(f"Liga alterada de {previous_league} para {selected_league}. Recarregando dados.")
+            
+        # Container para status
+        status_container = st.sidebar.empty()
+        
+        # Verificar se a liga foi alterada nesta sessão para mostrar um indicador
+        if league_changed:
+            status_container.info(f"Carregando dados de {selected_league}...")
+                
+    except Exception as sidebar_error:
+        logger.error(f"Erro na seleção de liga: {str(sidebar_error)}")
+        st.sidebar.error("Erro ao carregar ligas disponíveis.")
+        return
         
         # Separador
         st.sidebar.markdown("---")
@@ -244,58 +269,79 @@ def show_main_dashboard():
             st.title("Seleção de Times")
                 
             # Bloco try separado para carregar dados
-            try:
-                # Mostrar spinner enquanto carrega
-                with st.spinner("Carregando dados do campeonato..."):
-                    # Tentar carregar dados da liga selecionada
-                    if selected_league not in FBREF_URLS:
-                        st.error(f"Liga não encontrada: {selected_league}")
-                        logger.error(f"Liga {selected_league} não encontrada em FBREF_URLS")
-                        return
-                        
-                    # Obter URL das estatísticas
-                    stats_url = FBREF_URLS[selected_league].get("stats")
-                    if not stats_url:
-                        st.error(f"URL de estatísticas não encontrada para {selected_league}")
-                        logger.error(f"URL de estatísticas ausente para {selected_league}")
-                        return
-                        
-                    # Buscar dados - com tratamento de erro explícito
-                    stats_html = fetch_fbref_data(stats_url)
-                    if not stats_html:
-                        st.error(f"Não foi possível carregar os dados do campeonato {selected_league}")
-                        logger.error(f"fetch_fbref_data retornou None para {stats_url}")
-                        return
+        try:
+                # Verificar se já temos dados em cache para esta liga
+                cached_data = (
+                    'team_stats_df' in st.session_state and 
+                    'league_teams' in st.session_state and 
+                    'stats_html' in st.session_state and
+                    st.session_state.get('selected_league') == selected_league
+                )
+                
+                if cached_data:
+                    # Usar dados em cache
+                    stats_html = st.session_state.stats_html
+                    team_stats_df = st.session_state.team_stats_df
+                    teams = st.session_state.league_teams
                     
-                    # Parsear estatísticas dos times
-                    team_stats_df = parse_team_stats(stats_html)
-                    if team_stats_df is None:
-                        st.error("Erro ao processar dados de estatísticas dos times")
-                        logger.error("parse_team_stats retornou None")
-                        return
+                    # Atualizar status
+                    status_container.success("Dados carregados com sucesso! (cache)")
+                    logger.info(f"Usando dados em cache para {selected_league}: {len(teams)} times")
+                else:
+                    # Mostrar spinner enquanto carrega
+                    with st.spinner(f"Carregando dados do campeonato {selected_league}..."):
+                        # Tentar carregar dados da liga selecionada
+                        if selected_league not in FBREF_URLS:
+                            st.error(f"Liga não encontrada: {selected_league}")
+                            logger.error(f"Liga {selected_league} não encontrada em FBREF_URLS")
+                            return
+                            
+                        # Obter URL das estatísticas
+                        stats_url = FBREF_URLS[selected_league].get("stats")
+                        if not stats_url:
+                            st.error(f"URL de estatísticas não encontrada para {selected_league}")
+                            logger.error(f"URL de estatísticas ausente para {selected_league}")
+                            return
+                            
+                        # Buscar dados - com tratamento de erro explícito
+                        stats_html = fetch_fbref_data(stats_url)
+                        if not stats_html:
+                            st.error(f"Não foi possível carregar os dados do campeonato {selected_league}")
+                            logger.error(f"fetch_fbref_data retornou None para {stats_url}")
+                            return
                         
-                    if 'Squad' not in team_stats_df.columns:
-                        st.error("Dados incompletos: coluna 'Squad' não encontrada")
-                        logger.error(f"Colunas disponíveis: {team_stats_df.columns.tolist()}")
-                        return
-                    
-                    # Extrair lista de times
-                    teams = team_stats_df['Squad'].dropna().unique().tolist()
-                    if not teams:
-                        st.error("Não foi possível encontrar os times do campeonato")
-                        logger.error("Lista de times vazia após dropna() e unique()")
-                        return
+                        # Parsear estatísticas dos times
+                        team_stats_df = parse_team_stats(stats_html)
+                        if team_stats_df is None:
+                            st.error("Erro ao processar dados de estatísticas dos times")
+                            logger.error("parse_team_stats retornou None")
+                            return
+                            
+                        if 'Squad' not in team_stats_df.columns:
+                            st.error("Dados incompletos: coluna 'Squad' não encontrada")
+                            logger.error(f"Colunas disponíveis: {team_stats_df.columns.tolist()}")
+                            return
                         
-                    # Mostrar mensagem de sucesso
-                    status_container.success("Dados carregados com sucesso!")
-                    logger.info(f"Dados carregados: {len(teams)} times encontrados")
-                    
+                        # Extrair lista de times
+                        teams = team_stats_df['Squad'].dropna().unique().tolist()
+                        if not teams:
+                            st.error("Não foi possível encontrar os times do campeonato")
+                            logger.error("Lista de times vazia após dropna() e unique()")
+                            return
+                            
+                        # Guardar em cache na session_state
+                        st.session_state.stats_html = stats_html
+                        st.session_state.team_stats_df = team_stats_df
+                        st.session_state.league_teams = teams
+                        
+                        # Mostrar mensagem de sucesso
+                        status_container.success(f"Dados de {selected_league} carregados com sucesso!")
+                        logger.info(f"Dados carregados: {len(teams)} times encontrados")
             except Exception as load_error:
                 logger.error(f"Erro ao carregar dados: {str(load_error)}")
                 st.error(f"Erro ao carregar dados: {str(load_error)}")
                 traceback.print_exc()
-                return
-                
+                return                
             # Bloco try separado para selecionar times
             try:
                 # Seleção de times
