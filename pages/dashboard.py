@@ -147,6 +147,28 @@ def show_main_dashboard():
             transform: none !important;
         }
         
+        /* Aumentar a largura máxima do container principal */
+        .main .block-container {
+            max-width: 100% !important; 
+            padding: 1rem !important;
+        }
+        
+        /* Resto do seu CSS atual... */
+        </style>
+        """, unsafe_allow_html=True)
+    try:
+        # Garantir que a barra lateral esteja visível na página principal (dashboard)
+        st.markdown("""
+        <style>
+        /* FORÇA a barra lateral a ficar visível */
+        [data-testid="stSidebar"] {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            width: auto !important;
+            transform: none !important;
+        }
+        
         /* Ocultar apenas os elementos de navegação do Streamlit, não a barra toda */
         header[data-testid="stHeader"],
         footer,
@@ -419,7 +441,48 @@ def show_main_dashboard():
                                 status.empty()
                                 
                                 # Exibir a análise em uma div com largura total
-                                st.markdown(f'<div class="analysis-result">{analysis}</div>', unsafe_allow_html=True)
+                                st.markdown(f'''
+                                <style>
+                                .analysis-result {{
+                                    width: 100% !important;
+                                    max-width: 100% !important;
+                                    padding: 2rem !important;
+                                    background-color: #575760;
+                                    border-radius: 8px;
+                                    border: 1px solid #6b6b74;
+                                    margin: 1rem 0;
+                                }}
+                                
+                                /* Estilos para deixar o cabeçalho mais bonito */
+                                .analysis-result h1, 
+                                .analysis-result h2,
+                                .analysis-result h3 {{
+                                    color: #fd7014;
+                                    margin-top: 1.5rem;
+                                    margin-bottom: 1rem;
+                                }}
+                                
+                                /* Estilos para parágrafos */
+                                .analysis-result p {{
+                                    margin-bottom: 1rem;
+                                    line-height: 1.5;
+                                }}
+                                
+                                /* Estilos para listas */
+                                .analysis-result ul, 
+                                .analysis-result ol {{
+                                    margin-left: 1.5rem;
+                                    margin-bottom: 1rem;
+                                }}
+                                
+                                /* Oportunidades destacadas */
+                                .analysis-result strong {{
+                                    color: #fd7014;
+                                }}
+                                </style>
+                                <div class="analysis-result">{analysis}</div>
+                                ''', unsafe_allow_html=True)
+
                                 
                                 # Registrar uso após análise bem-sucedida
                                 num_markets = sum(1 for v in selected_markets.values() if v)
