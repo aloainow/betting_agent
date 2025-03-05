@@ -188,55 +188,55 @@ def show_main_dashboard():
         show_usage_stats()
         
         # 2. Escolha da liga (movida para cima)
-    try:
-        # Importar URLs do FBref
-        from utils.data import FBREF_URLS
-        
-        # Lista de ligas disponíveis com fallback seguro
-        available_leagues = list(FBREF_URLS.keys())
-        if not available_leagues:
-            st.sidebar.error("Erro: Nenhuma liga disponível.")
-            logger.error("FBREF_URLS está vazia")
-            return
-        
-        # Armazenar liga anterior para detectar mudanças
-        previous_league = st.session_state.get('selected_league', None)
-        
-        # Seleção de liga - adicionamos key específica
-        selected_league = st.sidebar.selectbox(
-            "Escolha o campeonato:",
-            available_leagues,
-            key='league_selector'
-        )
-        
-        # Registrar a liga selecionada na session_state
-        st.session_state.selected_league = selected_league
-        
-        # Verificar se houve mudança de liga
-        league_changed = previous_league != selected_league
-        if league_changed:
-            # Limpar dados da liga anterior
-            if 'team_stats_df' in st.session_state:
-                del st.session_state.team_stats_df
-            if 'league_teams' in st.session_state:
-                del st.session_state.league_teams
-            if 'stats_html' in st.session_state:
-                del st.session_state.stats_html
+        try:
+            # Importar URLs do FBref
+            from utils.data import FBREF_URLS
             
-            # Log da mudança
-            logger.info(f"Liga alterada de {previous_league} para {selected_league}. Recarregando dados.")
+            # Lista de ligas disponíveis com fallback seguro
+            available_leagues = list(FBREF_URLS.keys())
+            if not available_leagues:
+                st.sidebar.error("Erro: Nenhuma liga disponível.")
+                logger.error("FBREF_URLS está vazia")
+                return
             
-        # Container para status
-        status_container = st.sidebar.empty()
-        
-        # Verificar se a liga foi alterada nesta sessão para mostrar um indicador
-        if league_changed:
-            status_container.info(f"Carregando dados de {selected_league}...")
+            # Armazenar liga anterior para detectar mudanças
+            previous_league = st.session_state.get('selected_league', None)
+            
+            # Seleção de liga - adicionamos key específica
+            selected_league = st.sidebar.selectbox(
+                "Escolha o campeonato:",
+                available_leagues,
+                key='league_selector'
+            )
+            
+            # Registrar a liga selecionada na session_state
+            st.session_state.selected_league = selected_league
+            
+            # Verificar se houve mudança de liga
+            league_changed = previous_league != selected_league
+            if league_changed:
+                # Limpar dados da liga anterior
+                if 'team_stats_df' in st.session_state:
+                    del st.session_state.team_stats_df
+                if 'league_teams' in st.session_state:
+                    del st.session_state.league_teams
+                if 'stats_html' in st.session_state:
+                    del st.session_state.stats_html
                 
-    except Exception as sidebar_error:
-        logger.error(f"Erro na seleção de liga: {str(sidebar_error)}")
-        st.sidebar.error("Erro ao carregar ligas disponíveis.")
-        return
+                # Log da mudança
+                logger.info(f"Liga alterada de {previous_league} para {selected_league}. Recarregando dados.")
+                
+            # Container para status
+            status_container = st.sidebar.empty()
+            
+            # Verificar se a liga foi alterada nesta sessão para mostrar um indicador
+            if league_changed:
+                status_container.info(f"Carregando dados de {selected_league}...")
+                
+        except Exception as sidebar_error:
+            logger.error(f"Erro na seleção de liga: {str(sidebar_error)}")
+            st.sidebar.error("Erro ao carregar ligas disponíveis.")
+            return
         
         # Separador
         st.sidebar.markdown("---")
@@ -269,7 +269,7 @@ def show_main_dashboard():
             st.title("Seleção de Times")
                 
             # Bloco try separado para carregar dados
-        try:
+            try:
                 # Verificar se já temos dados em cache para esta liga
                 cached_data = (
                     'team_stats_df' in st.session_state and 
@@ -341,7 +341,8 @@ def show_main_dashboard():
                 logger.error(f"Erro ao carregar dados: {str(load_error)}")
                 st.error(f"Erro ao carregar dados: {str(load_error)}")
                 traceback.print_exc()
-                return                
+                return
+                
             # Bloco try separado para selecionar times
             try:
                 # Seleção de times
