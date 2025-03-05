@@ -477,6 +477,30 @@ def rate_limit(seconds):
         return wrapper
     return decorator
 
+def fetch_fbref_data_with_proxy(url):
+    # Lista de proxies gratuitos ou pagos
+    proxies = [
+        "http://proxy1.example.com:8080",
+        "http://proxy2.example.com:8080",
+        # Adicione mais proxies
+    ]
+    
+    # Tentar cada proxy
+    for proxy in proxies:
+        try:
+            proxy_dict = {
+                "http": proxy,
+                "https": proxy
+            }
+            response = requests.get(url, proxies=proxy_dict, timeout=30)
+            if response.status_code == 200:
+                return response.text
+        except:
+            continue
+            
+    # Se todos falharem, tentar sem proxy
+    return original_fetch_function(url)
+
 @rate_limit(2)  # 1 requisição a cada 2 segundos para evitar sobrecarga
 def fetch_fbref_data(url, force_reload=False):
     """Busca dados do FBref com recuperação avançada e disfarce de navegador"""
