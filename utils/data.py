@@ -477,377 +477,146 @@ def rate_limit(seconds):
         return wrapper
     return decorator
 
-def fetch_fbref_data_with_proxy(url):
-    # Lista de proxies gratuitos ou pagos
-    proxies = [
-        "http://proxy1.example.com:8080",
-        "http://proxy2.example.com:8080",
-        # Adicione mais proxies
-    ]
-    
-    # Tentar cada proxy
-    for proxy in proxies:
-        try:
-            proxy_dict = {
-                "http": proxy,
-                "https": proxy
-            }
-            response = requests.get(url, proxies=proxy_dict, timeout=30)
-            if response.status_code == 200:
-                return response.text
-        except:
-            continue
-            
-    # Se todos falharem, tentar sem proxy
-    return original_fetch_function(url)
-
-@rate_limit(2)  # 1 requisição a cada 2 segundos para evitar sobrecarga
+@rate_limit(1)  # 1 requisição por segundo
 def fetch_fbref_data(url, force_reload=False):
-    """Busca dados do FBref com recuperação avançada e disfarce de navegador"""
+    """
+    Busca dados do FBref com melhor tratamento de erros e opção de forçar reload.
+    Versão que estava funcionando, com melhorias sutis.
+    """
     import random
     import time
-    import streamlit as st
-    import os
-    import requests
-    from datetime import datetime
-    import json
     
     logger.info(f"Buscando dados do FBref: {url}, force_reload={force_reload}")
     
-    # Lista expandida de User-Agents para evitar bloqueios
+    # Pequena lista de User-Agents para alternar (não muitos para evitar detecção)
     user_agents = [
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36',
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15',
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36',
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0',
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:90.0) Gecko/20100101 Firefox/90.0',
-        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36',
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36 Edg/91.0.864.41',
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36 Edg/92.0.902.78',
-        'Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Mobile/15E148 Safari/604.1',
-        'Mozilla/5.0 (iPad; CPU OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/91.0.4472.80 Mobile/15E148 Safari/604.1',
-        'Mozilla/5.0 (Linux; Android 11; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36',
-        'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:89.0) Gecko/20100101 Firefox/89.0',
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:89.0) Gecko/20100101 Firefox/89.0'
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0'
     ]
     
-    # Sites de referência populares
-    referrers = [
-        'https://www.google.com/search?q=football+statistics',
-        'https://www.bing.com/search?q=soccer+stats',
-        'https://search.yahoo.com/search?p=premier+league+statistics',
-        'https://www.facebook.com/soccerstats',
-        'https://www.reddit.com/r/soccer',
-        'https://www.espn.com/soccer/statistics',
-        'https://www.bbc.com/sport/football',
-        'https://www.skysports.com/football',
-        'https://www.goal.com/en/news/live/transfer-window-live',
-        'https://www.fourfourtwo.com/features/stats'
-    ]
+    # Manter os cabeçalhos simples - não exagerar
+    headers = {
+        'User-Agent': random.choice(user_agents),
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Referer': 'https://www.google.com/',
+        'Upgrade-Insecure-Requests': '1',
+        'Cache-Control': 'max-age=0',
+    }
     
-    # Reduzir o path da URL para usar no nome do cache
+    # Tenta usar cache para diferentes ligas
     cache_key = url.split('/')[-1]
-    if '?' in cache_key:
-        cache_key = cache_key.split('?')[0]
     cache_file = os.path.join(DATA_DIR, f"cache_{cache_key.replace('-', '_')}.html")
-    cache_meta_file = os.path.join(DATA_DIR, f"cache_{cache_key.replace('-', '_')}_meta.json")
     
-    # Verificar cache
+    # Verificar se existe cache - sem mostrar mensagem
     if not force_reload:
         try:
             if os.path.exists(cache_file):
-                # Verificar idade do cache
                 file_age_seconds = time.time() - os.path.getmtime(cache_file)
-                
-                # Verificar metadados do cache, se existirem
-                cache_valid = True
-                if os.path.exists(cache_meta_file):
-                    try:
-                        with open(cache_meta_file, 'r', encoding='utf-8') as f:
-                            meta = json.load(f)
-                            # Verificar se o cache é da mesma temporada/ano
-                            current_year = datetime.now().year
-                            cache_year = meta.get('year', 0)
-                            if current_year != cache_year:
-                                logger.info(f"Cache é de uma temporada diferente: {cache_year} vs {current_year}")
-                                cache_valid = False
-                    except:
-                        # Se não conseguir ler metadados, considerar válido
-                        pass
-                
-                # Usar cache se tiver menos de 4 horas e for da mesma temporada
-                if file_age_seconds < 14400 and cache_valid:  # 4 horas em segundos
-                    with open(cache_file, 'r', encoding='utf-8') as f:
-                        content = f.read()
-                        # Verificar se o cache tem conteúdo válido
-                        if content and len(content) > 5000 and '<table' in content:
-                            logger.info(f"Usando cache para {url} (idade: {file_age_seconds/60:.1f} min)")
-                            return content
-                else:
-                    # Informar que o cache expirou
-                    logger.info(f"Cache expirado ({file_age_seconds/3600:.1f} horas) ou inválido")
+                with open(cache_file, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                    # Se o cache tiver conteúdo não vazio e não for muito antigo (24 horas)
+                    if content and len(content) > 1000 and file_age_seconds < 86400:
+                        logger.info(f"Usando cache para {url} (idade: {file_age_seconds/3600:.1f} horas)")
+                        return content
         except Exception as e:
-            logger.warning(f"Erro ao verificar cache: {str(e)}")
+            logger.warning(f"Erro ao ler do cache: {str(e)}")
     
-    # Se chegamos aqui, precisamos buscar novos dados
-    max_retries = 5
+    # Implementar retry com backoff exponencial
+    max_retries = 3
+    retry_delay = 5  # segundos iniciais de espera
     
-    # Criar uma sessão persistente para manter cookies e outras informações
-    session = requests.Session()
+    # Adicionar um delay aleatório antes da requisição para parecer mais humano
+    time.sleep(1 + random.random() * 2)
     
-    # Gerar um user agent e headers consistentes para toda a sessão
-    selected_user_agent = random.choice(user_agents)
-    selected_referer = random.choice(referrers)
-    
-    # Configurar headers base para a sessão
-    session.headers.update({
-        'User-Agent': selected_user_agent,
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-        'Accept-Language': 'en-US,en;q=0.9,pt-BR;q=0.8,pt;q=0.7,es;q=0.6',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Connection': 'keep-alive',
-        'Referer': selected_referer,
-        'Upgrade-Insecure-Requests': '1',
-        'Cache-Control': 'max-age=0',
-        'sec-ch-ua': '"Chromium";v="92", " Not A;Brand";v="99", "Google Chrome";v="92"',
-        'sec-ch-ua-mobile': '?0',
-        'Sec-Fetch-Site': 'same-origin',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-User': '?1',
-        'Sec-Fetch-Dest': 'document',
-        'TE': 'Trailers',
-        'DNT': '1'
-    })
-    
-    # Adicionar cookies comuns para parecer um navegador real
-    cookies = {
-        'tz': 'America/Sao_Paulo',
-        'has_js': '1',
-        'resolution': f'{random.choice([1920, 1366, 1440, 1280])}-{random.choice([1080, 768, 900, 720])}',
-        '_ga': f'GA1.2.{random.randint(10000000, 99999999)}.{int(time.time()-random.randint(1000000, 9999999))}',
-        '_gid': f'GA1.2.{random.randint(10000000, 99999999)}.{int(time.time())}',
-    }
-    
-    for cookie_name, cookie_value in cookies.items():
-        session.cookies.set(cookie_name, cookie_value)
-    
-    # Lista de URLs alternativas para tentar em caso de falha
-    alt_urls = []
-    
-    # Gerar URLs alternativas baseadas na URL original
-    if 'Stats' in url:
-        alt_urls.append(url.replace('/Stats', ''))
-    if '/en/' in url:
-        alt_urls.append(url.replace('/en/', '/'))
-    
-    all_urls = [url] + alt_urls
-    
-    for url_attempt, current_url in enumerate(all_urls):
-        logger.info(f"Tentando URL {url_attempt+1}/{len(all_urls)}: {current_url}")
-        
-        for attempt in range(max_retries):
-            try:
-                # Delays diferentes para cada tentativa
-                initial_delay = random.uniform(4, 8)  # Delay inicial mais longo
-                backoff_factor = 2  # Fator de backoff exponencial
-                delay = initial_delay * (backoff_factor ** attempt)
+    for attempt in range(max_retries):
+        try:
+            with st.spinner(f"Carregando dados do campeonato (tentativa {attempt+1}/{max_retries})..."):
+                # Variar levemente o user agent entre tentativas
+                if attempt > 0:
+                    headers['User-Agent'] = random.choice(user_agents)
                 
-                # Limite máximo de delay (30 segundos)
-                delay = min(delay, 30)
+                # Aumentar o timeout nas tentativas subsequentes
+                timeout = 30 + (attempt * 10)
                 
-                # Adicionar componente aleatório para parecer mais humano
-                delay = delay + random.uniform(-1, 1)
+                # Fazer a requisição
+                response = requests.get(url, headers=headers, timeout=timeout)
                 
-                logger.info(f"Tentativa {attempt+1}/{max_retries}: Aguardando {delay:.1f}s")
-                time.sleep(delay)
-                
-                # Mostrar mensagem na interface
-                status_msg = (f"Buscando dados (tentativa {attempt+1}/{max_retries})..." 
-                             if attempt > 0 else "Buscando dados atualizados...")
-                
-                with st.spinner(status_msg):
-                    # Timeout aumenta a cada tentativa
-                    timeout = 30 + (attempt * 15)  # Timeouts mais longos
+                if response.status_code == 200:
+                    # Verificar se a resposta tem conteúdo válido
+                    if len(response.text) < 1000 or '<table' not in response.text:
+                        logger.warning(f"Resposta sem tabelas ou muito pequena ({len(response.text)} bytes): {url}")
+                        if attempt < max_retries - 1:
+                            time.sleep(retry_delay)
+                            retry_delay *= 1.5
+                            continue
                     
-                    # Variar um pouco o user agent e referer a cada tentativa para parecer mais natural
-                    if attempt > 0:
-                        session.headers.update({
-                            'User-Agent': random.choice(user_agents),
-                            'Referer': random.choice(referrers)
-                        })
+                    # Salvar em cache para uso futuro
+                    try:
+                        with open(cache_file, 'w', encoding='utf-8') as f:
+                            f.write(response.text)
+                        logger.info(f"Cache salvo para {url}")
+                    except Exception as e:
+                        logger.warning(f"Erro ao salvar cache: {str(e)}")
+                        
+                    return response.text
+                elif response.status_code == 429:
+                    # Não mostrar mensagens de warning sobre rate limiting para o usuário
+                    logger.warning(f"Rate limit atingido. Tentativa {attempt+1}/{max_retries}. Aguardando {retry_delay}s.")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2  # Backoff exponencial
+                else:
+                    logger.warning(f"Erro HTTP {response.status_code}. Tentativa {attempt+1}/{max_retries}. Aguardando {retry_delay}s.")
                     
-                    logger.info(f"Enviando requisição para {current_url} (timeout: {timeout}s)")
+                    # Se for um erro 403/404, tentar URL alternativa se possível
+                    if response.status_code in [403, 404] and '/Stats' in url:
+                        alt_url = url.replace('/Stats', '')
+                        logger.info(f"Tentando URL alternativa: {alt_url}")
+                        try:
+                            alt_response = requests.get(alt_url, headers=headers, timeout=timeout)
+                            if alt_response.status_code == 200 and len(alt_response.text) > 1000:
+                                return alt_response.text
+                        except:
+                            pass
                     
-                    # Fazer a requisição com parâmetros avançados
-                    response = session.get(
-                        current_url, 
-                        timeout=timeout,
-                        allow_redirects=True,
-                        verify=True
-                    )
+                    time.sleep(retry_delay)
+                    retry_delay *= 1.5
                     
-                    # Verificar código de status
-                    logger.info(f"Status: {response.status_code}, Tamanho: {len(response.text)} bytes, Type: {response.headers.get('Content-Type', 'unknown')}")
-                    
-                    if response.status_code == 200:
-                        html = response.text
-                        
-                        # Verificações detalhadas para validar o conteúdo
-                        content_valid = len(html) > 5000
-                        has_tables = '<table' in html
-                        has_error_msg = 'access denied' in html.lower() or 'forbidden' in html.lower()
-                        has_html_struct = '<html' in html.lower() and '</html>' in html.lower()
-                        
-                        logger.info(f"Validação de conteúdo: tamanho={len(html)}, tabelas={has_tables}, " +
-                                   f"estrutura HTML={has_html_struct}, mensagens de erro={has_error_msg}")
-                        
-                        if content_valid and has_tables and has_html_struct and not has_error_msg:
-                            # Salvar em cache para uso futuro
-                            try:
-                                with open(cache_file, 'w', encoding='utf-8') as f:
-                                    f.write(html)
-                                
-                                # Salvar metadados do cache
-                                with open(cache_meta_file, 'w', encoding='utf-8') as f:
-                                    meta = {
-                                        'url': current_url,
-                                        'timestamp': datetime.now().isoformat(),
-                                        'year': datetime.now().year,
-                                        'status_code': response.status_code,
-                                        'content_length': len(html)
-                                    }
-                                    json.dump(meta, f, indent=2)
-                                    
-                                logger.info(f"Dados salvos em cache: {cache_file}")
-                            except Exception as e:
-                                logger.warning(f"Erro ao salvar cache: {str(e)}")
-                                
-                            return html
-                        else:
-                            logger.warning(f"HTML parece inválido ou bloqueado: tamanho={len(html)}, " +
-                                          f"tabelas={has_tables}, html={has_html_struct}, erro={has_error_msg}")
-                            
-                            # Se for o último URL e última tentativa, tente pegar um pedaço para diagnóstico
-                            if url_attempt == len(all_urls) - 1 and attempt == max_retries - 1:
-                                try:
-                                    # Salvar amostra para diagnóstico
-                                    debug_file = os.path.join(DATA_DIR, f"debug_html_failed_{int(time.time())}.txt")
-                                    with open(debug_file, 'w', encoding='utf-8') as f:
-                                        f.write(html[:20000])  # Primeiros 20KB
-                                    logger.info(f"Amostra de HTML inválido salva para diagnóstico: {debug_file}")
-                                except:
-                                    pass
-                            
-                            # Esperar um pouco mais antes da próxima tentativa
-                            time.sleep(random.uniform(2, 5))
-                            
-                    elif response.status_code == 429:  # Too Many Requests
-                        logger.warning(f"Rate limit (429). Aguardando {delay*3}s antes da próxima tentativa")
-                        time.sleep(delay * 3)  # Aguarda muito mais tempo em caso de rate limit
-                        
-                    elif response.status_code in [403, 404]:
-                        logger.error(f"Erro {response.status_code}: URL inacessível ou bloqueada")
-                        # Não precisamos tentar URL alternativa aqui, já estamos no loop de URLs
-                        break  # Sair do loop de tentativas para esta URL
-                        
-                    else:
-                        logger.warning(f"Erro HTTP {response.status_code}")
-                        
-            except requests.Timeout:
-                logger.warning(f"Timeout na tentativa {attempt+1}")
-            except requests.RequestException as e:
-                logger.warning(f"Erro na requisição ({attempt+1}): {str(e)}")
-            except Exception as e:
-                logger.warning(f"Erro não esperado ({attempt+1}): {str(e)}")
+        except requests.Timeout:
+            logger.warning(f"Timeout na requisição. Tentativa {attempt+1}/{max_retries}. Aguardando {retry_delay}s.")
+            time.sleep(retry_delay)
+            retry_delay *= 1.5
+        except requests.RequestException as e:
+            logger.warning(f"Erro na requisição: {str(e)}. Tentativa {attempt+1}/{max_retries}. Aguardando {retry_delay}s.")
+            time.sleep(retry_delay)
+            retry_delay *= 1.5
+        except Exception as e:
+            logger.warning(f"Erro não esperado: {str(e)}. Tentativa {attempt+1}/{max_retries}. Aguardando {retry_delay}s.")
+            time.sleep(retry_delay)
+            retry_delay *= 1.5
+    
+    # Se falhou com o cache normal, tentar buscar um fallback de cache
+    try:
+        fallback_files = [f for f in os.listdir(DATA_DIR) if f.startswith("cache_") and f.endswith(".html")]
+        if fallback_files:
+            # Usar o cache mais recente de qualquer liga
+            fallback_file = os.path.join(DATA_DIR, sorted(fallback_files, 
+                            key=lambda x: os.path.getmtime(os.path.join(DATA_DIR, x)), 
+                            reverse=True)[0])
             
-            # Se não for a última tentativa, aguardar antes de tentar novamente
-            if attempt < max_retries - 1:
-                time.sleep(random.uniform(1, 3))
-    
-    # Se chegamos aqui, todas as tentativas falharam
-    logger.error(f"Falha após {max_retries} tentativas de buscar dados de {url} e alternativas")
-    st.error("Não foi possível obter dados do FBref. Por favor, tente novamente mais tarde.")
-    
-    # Verificar se temos cache antigo - usar como último recurso
-    try:
-        if os.path.exists(cache_file):
-            logger.warning("Usando cache antigo como último recurso")
-            with open(cache_file, 'r', encoding='utf-8') as f:
-                return f.read()
-    except Exception:
-        pass
-        
-    # Se tudo falhar, implementar dados de amostra
-    try:
-        # Verificar se temos dados de amostra para este tipo de URL
-        if 'Premier-League-Stats' in url:
-            logger.info("Gerando dados de amostra para Premier League como último recurso")
-            # Criar um HTML mínimo com uma tabela de amostra
-            sample_html = """
-            <html><body>
-            <table id="stats_squads_standard_for">
-                <thead>
-                    <tr>
-                        <th>Squad</th>
-                        <th>MP</th>
-                        <th>Gls</th>
-                        <th>xG</th>
-                        <th>Poss</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>Manchester City</td>
-                        <td>38</td>
-                        <td>94</td>
-                        <td>89.5</td>
-                        <td>68.5</td>
-                    </tr>
-                    <tr>
-                        <td>Liverpool</td>
-                        <td>38</td>
-                        <td>89</td>
-                        <td>85.2</td>
-                        <td>63.2</td>
-                    </tr>
-                    <tr>
-                        <td>Chelsea</td>
-                        <td>38</td>
-                        <td>76</td>
-                        <td>70.8</td>
-                        <td>62.1</td>
-                    </tr>
-                    <tr>
-                        <td>Arsenal</td>
-                        <td>38</td>
-                        <td>61</td>
-                        <td>65.3</td>
-                        <td>55.8</td>
-                    </tr>
-                    <tr>
-                        <td>Tottenham</td>
-                        <td>38</td>
-                        <td>69</td>
-                        <td>60.1</td>
-                        <td>57.3</td>
-                    </tr>
-                    <tr>
-                        <td>Manchester Utd</td>
-                        <td>38</td>
-                        <td>57</td>
-                        <td>58.9</td>
-                        <td>53.2</td>
-                    </tr>
-                </tbody>
-            </table>
-            </body></html>
-            """
-            return sample_html
+            logger.warning(f"Usando cache de fallback: {fallback_file}")
+            with open(fallback_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+                if content and len(content) > 1000:
+                    return content
     except Exception as e:
-        logger.error(f"Erro ao gerar dados de amostra: {str(e)}")
+        logger.error(f"Erro ao tentar usar cache de fallback: {str(e)}")
     
+    # Mensagem de erro simples e clara
+    logger.error("Não foi possível carregar os dados do campeonato após múltiplas tentativas")
     return None
 def parse_team_stats(html_content):
     """Função robusta para processar dados de times de futebol de HTML"""
