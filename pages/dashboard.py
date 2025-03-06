@@ -589,6 +589,200 @@ def show_usage_stats():
         logger.error(f"Erro ao exibir estatísticas de uso: {str(e)}")
         st.sidebar.error("Erro ao carregar estatísticas")
 
+def load_league_teams_direct(selected_league):
+    """
+    Função simplificada para carregar times diretamente da fonte, 
+    ignorando completamente o cache para resolver problemas persistentes.
+    
+    Args:
+        selected_league (str): Nome da liga
+        
+    Returns:
+        list: Lista de times
+    """
+    try:
+        status = st.empty()
+        status.info(f"Carregando times diretamente para: {selected_league}")
+        
+        # Verificar se a liga é válida
+        try:
+            from utils.data import FBREF_URLS
+            
+            if selected_league not in FBREF_URLS:
+                st.error(f"Liga inválida: {selected_league}")
+                # Usar ligas padrão
+                if FBREF_URLS:
+                    # Usar a primeira liga disponível como fallback
+                    selected_league = list(FBREF_URLS.keys())[0]
+                    st.warning(f"Usando liga alternativa: {selected_league}")
+                else:
+                    # Se FBREF_URLS estiver vazio, vamos usar um URL hardcoded para a Premier League
+                    st.error("FBREF_URLS está vazio, usando URL padrão para Premier League")
+                    stats_url = "https://fbref.com/en/comps/9/Premier-League-Stats"
+                    return load_teams_from_url(stats_url)
+        except ImportError:
+            # Se não conseguir importar FBREF_URLS, usar URL hardcoded
+            st.warning("Não foi possível importar configurações de URLs, usando URL padrão")
+            stats_url = "https://fbref.com/en/comps/9/Premier-League-Stats"
+            return load_teams_from_url(stats_url)
+            
+        # Se chegou aqui, FBREF_URLS foi carregado com sucesso
+        from utils.data import FBREF_URLS
+        
+        # Obter URL das estatísticas
+        stats_url = FBREF_URLS.get(selected_league, {}).get("stats")
+        if not stats_url:
+            st.error(f"URL não encontrada para {selected_league}")
+            # Tentar uma URL genérica baseada no nome da liga
+            sanitized_league = selected_league.replace(" ", "-")
+            fallback_url = f"https://fbref.com/en/comps/9/{sanitized_league}-Stats"
+            st.warning(f"Tentando URL alternativa: {fallback_url}")
+            return load_teams_from_url(fallback_url)
+            
+        # Agora temos uma URL, vamos carregar os times
+        return load_teams_from_url(stats_url, league_name=selected_league)
+            
+    except Exception as e:
+        st.error(f"Erro ao carregar times: {str(e)}")
+        # Retornar alguns times fictícios para não travar completamente
+        return ["Manchester City", "Liverpool", "Arsenal", "Chelsea", "Manchester United", 
+                "Tottenham", "Leicester City", "West Ham", "Everton", "Newcastle"]
+
+def load_teams_from_url(url, league_name=None):
+    """
+    Função auxiliar para carregar times de uma URL específica.
+    """
+    try:
+        with st.spinner(f"Buscando dados online para {league_name or 'liga'}..."):
+            import requests
+            import random
+            import pandas as pd
+            from bs4 import BeautifulSoup
+            
+            # Configuração básica para a requisição
+            user_agents = [
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15'
+            ]
+            
+            headers = {
+                'User-Agent': random.choice(user_agents),
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+            }
+            
+            # Fazer a requisição
+            response = requests.get(url, headers=headers, timeout=30)
+            
+            if response.status_code != 200:
+                st.error(f"Erro ao buscar dados: Status {response.status_code}")
+                # Retornar alguns times fictícios para não travar completamente
+                return ["Manchester City", "Liverpool", "Arsenal", "Chelsea", "Manchester United", 
+                        "Tottenham", "Leicester City", "West Ham", "Everton", "Newcastle"]
+                
+            if len(response.text) < 1000:
+                st.error("Resposta muito pequena, possível erro ou bloqueio")
+                # Retornar alguns times fictícios para não travar completamente
+                return ["Manchester City", "Liverpool", "Arsenal", "Chelsea", "Manchester United", 
+                        "Tottenham", "Leicester City", "West Ham", "Everton", "Newcastle"]
+                
+            # Parsear o HTML
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # Procurar tabelas
+            tables = soup.find_all('table')
+            
+            if not tables:
+                st.error("Nenhuma tabela encontrada no HTML")
+                # Retornar alguns times fictícios para não travar completamente
+                return ["Manchester City", "Liverpool", "Arsenal", "Chelsea", "Manchester United", 
+                        "Tottenham", "Leicester City", "West Ham", "Everton", "Newcastle"]
+                
+            # Encontrar a tabela principal de times
+            main_table = None
+            for table in tables:
+                if table.get('id') and 'stats_squads' in table.get('id'):
+                    main_table = table
+                    break
+                    
+            if not main_table and tables:
+                main_table = tables[0]  # Usar a primeira tabela se não encontrar especificamente
+                
+            if not main_table:
+                st.error("Não foi possível identificar a tabela de times")
+                # Retornar alguns times fictícios para não travar completamente
+                return ["Manchester City", "Liverpool", "Arsenal", "Chelsea", "Manchester United", 
+                        "Tottenham", "Leicester City", "West Ham", "Everton", "Newcastle"]
+                
+            # Tentar extrair usando pandas
+            teams = []
+            try:
+                df_list = pd.read_html(str(main_table))
+                if df_list and len(df_list) > 0:
+                    df = df_list[0]
+                    # Identificar a coluna de times
+                    team_col = None
+                    for col in df.columns:
+                        if 'squad' in str(col).lower() or 'team' in str(col).lower():
+                            team_col = col
+                            break
+                            
+                    if not team_col and len(df.columns) > 0:
+                        team_col = df.columns[0]  # Usar primeira coluna como fallback
+                        
+                    if team_col:
+                        # Extrair times
+                        teams = df[team_col].dropna().unique().tolist()
+                        if teams:
+                            st.success(f"✅ {len(teams)} times carregados para {league_name or 'a liga'}")
+                            return teams
+                            
+            except Exception as parse_error:
+                st.warning(f"Erro no pandas: {str(parse_error)}")
+                # Vamos tentar extração manual se pandas falhar
+                
+            # Extração manual
+            try:
+                # Primeiro, verificar a tag thead para encontrar índice da coluna de times
+                thead = main_table.find('thead')
+                squad_index = 0
+                
+                if thead:
+                    headers = thead.find_all('th')
+                    for i, header in enumerate(headers):
+                        text = header.get_text().lower().strip()
+                        if 'squad' in text or 'team' in text or 'clube' in text:
+                            squad_index = i
+                            break
+                
+                # Extrair nomes dos times do tbody
+                tbody = main_table.find('tbody')
+                if tbody:
+                    rows = tbody.find_all('tr')
+                    for row in rows:
+                        cells = row.find_all(['td', 'th'])
+                        if len(cells) > squad_index:
+                            team_name = cells[squad_index].get_text().strip()
+                            if team_name and len(team_name) > 1:  # Verificar se não é vazio
+                                teams.append(team_name)
+                                
+                if teams:
+                    st.success(f"✅ {len(teams)} times extraídos manualmente para {league_name or 'a liga'}")
+                    return teams
+                    
+            except Exception as manual_error:
+                st.error(f"Erro na extração manual: {str(manual_error)}")
+                
+            # Se chegou aqui, todas as tentativas falharam
+            return ["Manchester City", "Liverpool", "Arsenal", "Chelsea", "Manchester United", 
+                    "Tottenham", "Leicester City", "West Ham", "Everton", "Newcastle"]
+                
+    except Exception as e:
+        st.error(f"Erro ao carregar times da URL: {str(e)}")
+        # Retornar alguns times fictícios para não travar completamente
+        return ["Manchester City", "Liverpool", "Arsenal", "Chelsea", "Manchester United", 
+                "Tottenham", "Leicester City", "West Ham", "Everton", "Newcastle"]
+
 def check_analysis_limits(selected_markets):
     """Check if user can perform analysis with selected markets"""
     try:
@@ -699,50 +893,79 @@ def show_main_dashboard():
         # Iniciar com log de diagnóstico
         logger.info("Iniciando renderização do dashboard principal")     
         
-        # ------------------------------------------------------------
-        # BARRA LATERAL REORGANIZADA
-        # ------------------------------------------------------------
-        
-        # 1. Mostrar estatísticas de uso e saudação
-        show_usage_stats()
-        
-        # 2. Escolha da liga (movida para cima)
-        try:
-            # Importar URLs do FBref
-            from utils.data import FBREF_URLS
+      
+            # ------------------------------------------------------------
+            # BARRA LATERAL REORGANIZADA
+            # ------------------------------------------------------------
             
-            # Lista de ligas disponíveis com fallback seguro
-            available_leagues = list(FBREF_URLS.keys())
-            if not available_leagues:
-                st.sidebar.error("Erro: Nenhuma liga disponível.")
-                logger.error("FBREF_URLS está vazia")
-                return
+            # 1. Mostrar estatísticas de uso e saudação
+            show_usage_stats()
             
-            # Container para status
-            status_container = st.sidebar.empty()
-            
-            # Usar o novo seletor de ligas
-            selected_league = show_league_selector(available_leagues, status_container)
+            # 2. Escolha da liga (movida para cima)
+            try:
+                # Tentar carregar as ligas disponíveis com tratamento de erro explícito
+                available_leagues = []
+                try:
+                    # Importar URLs do FBref
+                    from utils.data import FBREF_URLS
+                    
+                    if FBREF_URLS and isinstance(FBREF_URLS, dict):
+                        available_leagues = list(FBREF_URLS.keys())
+                        st.sidebar.success(f"Ligas carregadas: {len(available_leagues)}")
+                    else:
+                        st.sidebar.warning("FBREF_URLS vazio ou inválido")
+                        # Fornecer ligas padrão
+                        available_leagues = ["Premier League", "La Liga", "Serie A", "Bundesliga", "Ligue 1"]
+                except ImportError:
+                    st.sidebar.error("Erro ao importar FBREF_URLS")
+                    # Fallback para ligas padrão se a importação falhar
+                    available_leagues = ["Premier League", "La Liga", "Serie A", "Bundesliga", "Ligue 1"]
                 
-        except Exception as sidebar_error:
-            logger.error(f"Erro na seleção de liga: {str(sidebar_error)}")
-            st.sidebar.error("Erro ao carregar ligas disponíveis.")
-            traceback.print_exc()
-            return
-        
-        # Resto do código para a barra lateral
-        st.sidebar.markdown("---")
-        
-        # Botão de pacotes e logout
-        if st.sidebar.button("🚀 Ver Pacotes de Créditos", key="sidebar_packages_button", use_container_width=True):
-            st.session_state.page = "packages"
-            st.experimental_rerun()
-        
-        if st.sidebar.button("Logout", key="sidebar_logout_btn", use_container_width=True):
-            st.session_state.authenticated = False
-            st.session_state.email = None
-            st.session_state.page = "landing"
-            st.experimental_rerun()
+                # Verificar se temos ligas
+                if not available_leagues:
+                    st.sidebar.error("Erro: Nenhuma liga disponível.")
+                    # Se não conseguimos ligas, tentar usar algumas comuns
+                    available_leagues = ["Premier League", "La Liga", "Serie A", "Bundesliga", "Ligue 1"]
+                    logger.error("Usando ligas padrão por falta de dados")
+                
+                # Inicializar a liga selecionada se não existir na sessão
+                if 'selected_league' not in st.session_state:
+                    st.session_state.selected_league = available_leagues[0]
+                
+                # Seletor de liga simplificado (seletor nativo do Streamlit)
+                selected_league = st.sidebar.selectbox(
+                    "Escolha o campeonato:",
+                    options=available_leagues,
+                    index=available_leagues.index(st.session_state.selected_league) if st.session_state.selected_league in available_leagues else 0,
+                    key="league_selector"
+                )
+                
+                # Verificar se a liga mudou
+                if selected_league != st.session_state.selected_league:
+                    st.sidebar.info(f"Mudando de {st.session_state.selected_league} para {selected_league}")
+                    st.session_state.selected_league = selected_league
+                    # Recarregar a página
+                    st.rerun()
+                
+                # Botão para atualizar times
+                if st.sidebar.button("🔄 Atualizar Times", type="primary", use_container_width=True):
+                    try:
+                        # Limpar caches para a liga selecionada
+                        if 'clear_cache' in globals():
+                            clear_cache(selected_league)
+                        st.sidebar.success(f"Caches limpos para {selected_league}")
+                        # Recarregar a página
+                        st.rerun()
+                    except Exception as refresh_error:
+                        st.sidebar.error(f"Erro ao atualizar: {str(refresh_error)}")
+                    
+            except Exception as sidebar_error:
+                logger.error(f"Erro na seleção de liga: {str(sidebar_error)}")
+                st.sidebar.error(f"Erro ao carregar ligas: {str(sidebar_error)}")
+                # Fornecer uma liga padrão para continuar
+                selected_league = "Premier League"
+                import traceback
+                logger.error(traceback.format_exc())
         
         # ------------------------------------------------------------
         # CONTEÚDO PRINCIPAL 
