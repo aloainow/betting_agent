@@ -9,6 +9,8 @@ from utils.core import show_valuehunter_logo, go_to_login, update_purchase_butto
 from utils.data import fetch_fbref_data, parse_team_stats, get_odds_data
 from utils.ai import analyze_with_gpt, format_prompt
 
+# Substituição temporária para evitar erros - será removida após correção
+PREDEFINED_TEAMS = {}
 # Configuração de logging
 logger = logging.getLogger("valueHunter.dashboard")
 
