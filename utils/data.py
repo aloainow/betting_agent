@@ -644,7 +644,7 @@ def fetch_fbref_data(url, force_reload=False, league_name=None):
     # Mensagem de erro simples e clara
     logger.error(f"Não foi possível carregar os dados do campeonato {league_name} após múltiplas tentativas")
     return None
-# Adicione esta função em utils/ai.py ou utils/data.py
+    # Adicione esta função em utils/ai.py ou utils/data.py
 
 def extract_team_stats(stats_df, team_name):
     """
