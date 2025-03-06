@@ -725,10 +725,18 @@ def show_main_dashboard():
                             status.error("Falha na análise com IA")
                             return
                         
-                        # Etapa 4: Mostrar resultado
+                       # Etapa 4: Mostrar resultado
                         if analysis:
                             # Limpar status
                             status.empty()
+                            
+                            # Limpar possíveis tags HTML da resposta
+                            if isinstance(analysis, str):
+                                # Verificar se a análise começa com a tag de div
+                                if "<div class=\"analysis-result\">" in analysis:
+                                    analysis = analysis.replace("<div class=\"analysis-result\">", "")
+                                    if "</div>" in analysis:
+                                        analysis = analysis.replace("</div>", "")
                             
                             # Exibir a análise em uma div com largura total
                             st.markdown(f'''
