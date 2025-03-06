@@ -84,143 +84,226 @@ def clear_cache(league_name=None):
         logger.error(f"Erro ao limpar cache: {str(e)}")
         return cleaned
 
-def show_league_selector(available_leagues, status_container):
+def simple_league_selector(available_leagues):
     """
-    Função melhorada para mostrar o seletor de ligas e gerenciar o estado
+    Uma versão simplificada do seletor de ligas que usa componentes nativos do Streamlit
+    para evitar problemas com HTML personalizado e parâmetros de URL.
     
     Args:
         available_leagues (list): Lista de ligas disponíveis
-        status_container: Container do Streamlit para mostrar status
-    
+        
     Returns:
         str: Nome da liga selecionada
     """
-    try:
-        # Registrar o estado atual para debug
-        logger.info(f"Query params: {dict(st.query_params)}")
-        logger.info(f"Session state: {dict([(k, v) for k, v in st.session_state.items() if k in ['selected_league', 'last_league']])}")
+    # Status container para diagnóstico
+    status = st.sidebar.empty()
+    
+    # Inicializar 'selected_league' no estado da sessão, se necessário
+    if 'selected_league' not in st.session_state:
+        st.session_state.selected_league = available_leagues[0]
         
-        # IMPORTANTE: Tratar explicitamente a alteração de liga pelo URL
-        liga_atual = None
-        if 'league' in st.query_params:
-            url_league = st.query_params['league']
-            logger.info(f"Liga detectada na URL: {url_league}")
-            
-            # Verificar se a liga existe na lista disponível
-            if url_league in available_leagues:
-                liga_atual = url_league
-                # Forçar atualização do estado da sessão
-                st.session_state.selected_league = liga_atual
+    # Mostrar diagnóstico para identificar o problema
+    st.sidebar.markdown("### Depuração:")
+    st.sidebar.text(f"Liga atual: {st.session_state.selected_league}")
+    
+    # Usar o seletor nativo do Streamlit
+    new_league = st.sidebar.selectbox(
+        "Escolha o campeonato:",
+        options=available_leagues,
+        index=available_leagues.index(st.session_state.selected_league) if st.session_state.selected_league in available_leagues else 0,
+        key="league_selector"
+    )
+    
+    # Botão para aplicar a seleção e limpar caches
+    if st.sidebar.button("Confirmar Seleção", type="primary", use_container_width=True):
+        if new_league != st.session_state.selected_league:
+            st.sidebar.info(f"Mudando de {st.session_state.selected_league} para {new_league}")
+            # Limpar caches para a nova liga
+            try:
+                clear_cache(new_league)
+                clear_cache(st.session_state.selected_league)  # Limpar caches da liga anterior também
+                st.sidebar.success(f"Caches limpos para {new_league}")
+            except Exception as e:
+                st.sidebar.error(f"Erro ao limpar caches: {str(e)}")
                 
-                # Verificar se a liga mudou
-                if 'last_league' in st.session_state and st.session_state.last_league != liga_atual:
-                    logger.info(f"Mudança de liga detectada: {st.session_state.last_league} -> {liga_atual}")
-                    # Limpar caches antigos para a nova liga
-                    clear_cache(liga_atual)
-                
-                # Atualizar última liga para rastreamento
-                st.session_state.last_league = liga_atual
-                logger.info(f"Liga definida via URL: {liga_atual}")
-            else:
-                logger.warning(f"Liga inválida na URL: {url_league}, verificando sessão")
+        # Atualizar a sessão
+        st.session_state.selected_league = new_league
+        st.session_state.reload_teams = True
         
-        # Se não tiver na URL ou for inválida, verificar na sessão
-        if liga_atual is None and 'selected_league' in st.session_state:
-            liga_atual = st.session_state.selected_league
-            logger.info(f"Liga obtida da sessão: {liga_atual}")
-            
-            # Verificar se a liga da sessão é válida
-            if liga_atual not in available_leagues:
-                logger.warning(f"Liga da sessão inválida: {liga_atual}, usando padrão")
-                liga_atual = None
-        
-        # Se ainda não temos uma liga válida, usar a primeira disponível
-        if liga_atual is None and available_leagues:
-            liga_atual = available_leagues[0]
-            st.session_state.selected_league = liga_atual
-            st.session_state.last_league = liga_atual
-            logger.info(f"Usando liga padrão: {liga_atual}")
-            
-        # Adicionar botão de redefinição para depuração
-        debug_col1, debug_col2 = st.sidebar.columns([3, 1])
-        with debug_col1:
-            status_container.info(f"Liga atual: {liga_atual}")
-        with debug_col2:
-            if st.button("🔄", help="Redefinir seleção de liga", key="reset_league"):
-                clear_cache(liga_atual)
-                status_container.success(f"Caches limpos para {liga_atual}")
-                # Força recarregamento da página
-                st.query_params.league = liga_atual
-                st.query_params.force_refresh = int(time.time())
-                st.rerun()
-                
-        # Mostrar índice da liga atual (para seleção correta)
+        # Recarregar a página
+        st.rerun()
+    
+    # Mostrar botão de reset para depuração
+    if st.sidebar.button("🔄 Reset Completo", help="Limpar todos os caches e estado da sessão"):
+        # Limpar caches
         try:
-            current_index = available_leagues.index(liga_atual)
-        except (ValueError, TypeError):
-            current_index = 0
+            clear_cache()  # Limpar todos os caches
+            # Limpar variáveis de sessão relacionadas às ligas
+            if 'selected_league' in st.session_state:
+                del st.session_state.selected_league
+            if 'last_league' in st.session_state:
+                del st.session_state.last_league
+            if 'league_selector' in st.session_state:
+                del st.session_state.league_selector
+            st.sidebar.success("Reset completo! Recarregando...")
+        except Exception as e:
+            st.sidebar.error(f"Erro no reset: {str(e)}")
             
-        logger.info(f"Liga atual: {liga_atual}, índice: {current_index}")
+        # Recarregar a página
+        time.sleep(1)
+        st.rerun()
         
-        # Form HTML com botão explícito para selecionar
-        html_liga_form = f"""
-        <form action="" id="league_form" style="margin-bottom: 15px;">
-          <label for="league" style="font-weight: bold; display: block; margin-bottom: 5px;">Escolha o campeonato:</label>
-          <select name="league" id="league" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc; background-color: #f0f0f0; color: #333;">
-        """
-        
-        # Adicionar opções
-        for league in available_leagues:
-            selected = "selected" if league == liga_atual else ""
-            html_liga_form += f'<option value="{league}" {selected}>{league}</option>\n'
-        
-        html_liga_form += """
-          </select>
-          <div style="text-align: center; margin-top: 8px;">
-            <input type="submit" value="Selecionar Liga" style="background-color: #fd7014; color: white; border: none; border-radius: 4px; padding: 5px 15px; cursor: pointer;">
-            <small style="color: #666; font-style: italic; display: block; margin-top: 5px;">Clique no botão após selecionar a liga</small>
-          </div>
-          <input type="hidden" name="force_refresh" value="1">
-        </form>
+    return st.session_state.selected_league
 
-        <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const form = document.getElementById('league_form');
-            if (form) {
-                form.addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    const select = document.getElementById('league');
-                    const selectedLeague = select.value;
-                    
-                    // Limpar URL atual
-                    const url = new URL(window.location.href);
-                    url.searchParams.delete('league');
-                    url.searchParams.delete('force_refresh');
-                    
-                    // Adicionar novos parâmetros
-                    url.searchParams.set('league', selectedLeague);
-                    url.searchParams.set('force_refresh', Date.now());
-                    
-                    // Redirecionar para a nova URL
-                    window.location.href = url.toString();
-                });
+def load_league_teams_direct(selected_league):
+    """
+    Função simplificada para carregar times diretamente da fonte, 
+    ignorando completamente o cache para resolver problemas persistentes.
+    
+    Args:
+        selected_league (str): Nome da liga
+        
+    Returns:
+        list: Lista de times
+    """
+    try:
+        st.info(f"Carregando times diretamente para: {selected_league}")
+        
+        # Verificar se a liga é válida
+        from utils.data import FBREF_URLS
+        if selected_league not in FBREF_URLS:
+            st.error(f"Liga inválida: {selected_league}")
+            return []
+            
+        # Obter URL das estatísticas
+        stats_url = FBREF_URLS[selected_league].get("stats")
+        if not stats_url:
+            st.error(f"URL não encontrada para {selected_league}")
+            return []
+            
+        # Buscar dados com tratamento básico de erros
+        with st.spinner(f"Buscando dados online para {selected_league}..."):
+            import requests
+            import random
+            import pandas as pd
+            from bs4 import BeautifulSoup
+            
+            # Configuração básica para a requisição
+            user_agents = [
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15'
+            ]
+            
+            headers = {
+                'User-Agent': random.choice(user_agents),
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
             }
-        });
-        </script>
-        """
-        
-        # Renderizar seletor HTML
-        st.sidebar.markdown(html_liga_form, unsafe_allow_html=True)
-        
-        return liga_atual
-        
+            
+            # Fazer a requisição
+            response = requests.get(stats_url, headers=headers, timeout=30)
+            
+            if response.status_code != 200:
+                st.error(f"Erro ao buscar dados: Status {response.status_code}")
+                return []
+                
+            if len(response.text) < 1000:
+                st.error("Resposta muito pequena, possível erro ou bloqueio")
+                return []
+                
+            # Parsear o HTML
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # Procurar tabelas
+            tables = soup.find_all('table')
+            
+            if not tables:
+                st.error("Nenhuma tabela encontrada no HTML")
+                return []
+                
+            # Encontrar a tabela principal de times
+            main_table = None
+            for table in tables:
+                if table.get('id') and 'stats_squads' in table.get('id'):
+                    main_table = table
+                    break
+                    
+            if not main_table and tables:
+                main_table = tables[0]  # Usar a primeira tabela se não encontrar especificamente
+                
+            if not main_table:
+                st.error("Não foi possível identificar a tabela de times")
+                return []
+                
+            # Tentar extrair usando pandas
+            try:
+                df_list = pd.read_html(str(main_table))
+                if df_list and len(df_list) > 0:
+                    df = df_list[0]
+                    # Identificar a coluna de times
+                    team_col = None
+                    for col in df.columns:
+                        if 'squad' in str(col).lower() or 'team' in str(col).lower():
+                            team_col = col
+                            break
+                            
+                    if not team_col and len(df.columns) > 0:
+                        team_col = df.columns[0]  # Usar primeira coluna como fallback
+                        
+                    if team_col:
+                        # Extrair times
+                        teams = df[team_col].dropna().unique().tolist()
+                        if teams:
+                            st.success(f"✅ {len(teams)} times carregados para {selected_league}")
+                            return teams
+                            
+            except Exception as parse_error:
+                st.warning(f"Erro no pandas: {str(parse_error)}")
+                # Vamos tentar extração manual se pandas falhar
+                
+            # Extração manual
+            try:
+                teams = []
+                # Primeiro, verificar a tag thead para encontrar índice da coluna de times
+                thead = main_table.find('thead')
+                squad_index = 0
+                
+                if thead:
+                    headers = thead.find_all('th')
+                    for i, header in enumerate(headers):
+                        text = header.get_text().lower().strip()
+                        if 'squad' in text or 'team' in text or 'clube' in text:
+                            squad_index = i
+                            break
+                
+                # Extrair nomes dos times do tbody
+                tbody = main_table.find('tbody')
+                if tbody:
+                    rows = tbody.find_all('tr')
+                    for row in rows:
+                        cells = row.find_all(['td', 'th'])
+                        if len(cells) > squad_index:
+                            team_name = cells[squad_index].get_text().strip()
+                            if team_name and len(team_name) > 1:  # Verificar se não é vazio
+                                teams.append(team_name)
+                                
+                if teams:
+                    st.success(f"✅ {len(teams)} times extraídos manualmente para {selected_league}")
+                    return teams
+                else:
+                    st.error("Não foi possível extrair nomes de times")
+                    return []
+                    
+            except Exception as manual_error:
+                st.error(f"Erro na extração manual: {str(manual_error)}")
+                return []
+                
     except Exception as e:
-        logger.error(f"Erro no seletor de ligas: {str(e)}")
-        import traceback
-        logger.error(traceback.format_exc())
-        if available_leagues:
-            return available_leagues[0]
-        return "Premier League"  # Fallback
+        st.error(f"Erro ao carregar times: {str(e)}")
+        return []
+        
+    return []
+
 def get_cached_teams(league):
     """Carrega apenas os nomes dos times do cache persistente"""
     # Sanitizar nome da liga para evitar problemas com caracteres especiais
@@ -672,31 +755,25 @@ def show_main_dashboard():
             # Título principal
             st.title("Seleção de Times")
             
-            # Verificar se a liga foi mudada ou se há forçar refresh
-            force_refresh = False
-            if 'force_refresh' in st.query_params:
-                force_refresh = True
-                logger.info("Forçando atualização pelos parâmetros de URL")
-                
+            # Indicador de estado para depuração
+            st.info(f"Liga selecionada: **{selected_league}**", icon="ℹ️")
+            
             # Container para status
             status_container = st.empty()
             
-            # Usando a nova função de carregamento de times
-            teams = load_league_teams(selected_league, status_container, force_refresh)
+            # Carregar times diretamente (ignorando o cache)
+            with st.spinner(f"Carregando times para {selected_league}..."):
+                teams = load_league_teams_direct(selected_league)
             
             # Verificação adicional para garantir que temos times
             if not teams or len(teams) == 0:
                 st.warning("Não foi possível carregar os times para este campeonato.")
-                st.info("Por favor, clique no botão 'Atualizar Times' na barra lateral para tentar novamente.")
+                st.info("Por favor, use o botão 'Reset Completo' na barra lateral e tente novamente.")
                 
                 # Botão de atualização de emergência
-                if st.button("🆘 Forçar Recarga Completa", type="primary"):
-                    # Limpar todo o cache
-                    cleared = clear_cache()
-                    st.success(f"Limpeza de cache completa: {cleared} arquivos removidos")
-                    # Recarregamento forçado
-                    st.query_params.force_refresh = int(time.time())
-                    st.rerun()
+                if st.button("🆘 Tentar Novamente", type="primary"):
+                    # Forçar nova tentativa
+                    st.experimental_rerun()
                     
                 return
             
