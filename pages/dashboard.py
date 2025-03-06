@@ -16,47 +16,6 @@ logger = logging.getLogger("valueHunter.dashboard")
 TEAMS_CACHE_DIR = os.path.join(DATA_DIR, "teams_cache")
 os.makedirs(TEAMS_CACHE_DIR, exist_ok=True)
 
-# Listas de times pré-definidas para cada liga principal (fallback se a API falhar)
-PREDEFINED_TEAMS = {
-    "Premier League": [
-        "Manchester City", "Arsenal", "Liverpool", "Aston Villa", "Tottenham", 
-        "Manchester United", "Newcastle", "Chelsea", "Brighton", "West Ham",
-        "Wolves", "Crystal Palace", "Bournemouth", "Fulham", "Everton",
-        "Brentford", "Nottingham Forest", "Luton Town", "Burnley", "Sheffield United"
-    ],
-    "La Liga": [
-        "Real Madrid", "Barcelona", "Girona", "Atletico Madrid", "Athletic Club",
-        "Real Sociedad", "Real Betis", "Valencia", "Villarreal", "Getafe",
-        "Alaves", "Osasuna", "Sevilla", "Rayo Vallecano", "Mallorca",
-        "Celta Vigo", "Las Palmas", "Cadiz", "Granada", "Almeria"
-    ],
-    "Serie A": [
-        "Inter", "Juventus", "AC Milan", "Bologna", "Roma", 
-        "Atalanta", "Lazio", "Fiorentina", "Napoli", "Torino",
-        "Genoa", "Monza", "Lecce", "Udinese", "Empoli", 
-        "Frosinone", "Verona", "Cagliari", "Sassuolo", "Salernitana"
-    ],
-    "Bundesliga": [
-        "Bayer Leverkusen", "Bayern Munich", "Stuttgart", "RB Leipzig", "Borussia Dortmund",
-        "Eintracht Frankfurt", "Hoffenheim", "Freiburg", "Heidenheim", "Werder Bremen",
-        "Augsburg", "Borussia M.Gladbach", "Wolfsburg", "Bochum", "Union Berlin",
-        "Mainz 05", "Koln", "Darmstadt 98"
-    ],
-    "Ligue 1": [
-        "PSG", "Monaco", "Brest", "Lille", "Nice",
-        "Lens", "Lyon", "Rennes", "Marseille", "Reims",
-        "Toulouse", "Montpellier", "Strasbourg", "Nantes", "Le Havre",
-        "Metz", "Lorient", "Clermont Foot"
-    ],
-    "Champions League": [
-        "Manchester City", "Real Madrid", "Bayern Munich", "PSG", "Barcelona",
-        "Borussia Dortmund", "Inter", "Atletico Madrid", "Arsenal", "Liverpool",
-        "RB Leipzig", "Porto", "Benfica", "Napoli", "AC Milan",
-        "Celtic", "Feyenoord", "Young Boys", "PSV Eindhoven", "Newcastle",
-        "Shakhtar Donetsk", "Red Star Belgrade", "Salzburg", "Copenhagen", "Club Brugge",
-        "Union SG", "Slovan Bratislava", "Sturm Graz"
-    ]
-}
 
 def clear_cache(league_name=None):
     """
@@ -149,8 +108,6 @@ def get_available_leagues():
     except Exception as api_error:
         logger.error(f"Erro ao obter ligas da API: {str(api_error)}")
     
-    # Fallback para ligas predefinidas
-    return list(PREDEFINED_TEAMS.keys())
 
 def load_league_teams_direct(selected_league):
     """
@@ -175,31 +132,30 @@ def load_league_teams_direct(selected_league):
                 status.success(f"✅ {len(teams)} times carregados para {selected_league}")
                 return teams
             else:
-                status.warning(f"Nenhum time encontrado via API para {selected_league}")
+                status.error(f"Não foi possível obter times para {selected_league}")
+                st.error("""
+                🚨 Erro ao obter dados da API-Football.
+                
+                Possíveis razões:
+                1. Problema de conexão com a API
+                2. A liga selecionada pode não estar disponível na temporada atual
+                
+                Por favor, tente novamente ou selecione outra liga.
+                """)
+                return []
         except Exception as api_error:
             status.error(f"Erro ao obter times da API: {str(api_error)}")
             logger.error(f"Erro na API: {str(api_error)}")
-        
-        # Fallback para times pré-definidos
-        if selected_league in PREDEFINED_TEAMS:
-            predefined_teams = PREDEFINED_TEAMS[selected_league]
-            status.info(f"Usando {len(predefined_teams)} times pré-definidos para {selected_league}")
-            return predefined_teams
-        else:
-            # Usar Premier League como último recurso
-            status.warning(f"Liga {selected_league} não encontrada, usando Premier League")
-            return PREDEFINED_TEAMS["Premier League"]
-    
+            st.error(f"Detalhes do erro: {str(api_error)}")
+            return []
+            
     except Exception as e:
         logger.error(f"Erro ao carregar times: {str(e)}")
         st.error(f"Erro ao carregar times: {str(e)}")
-        
-        # Último recurso: times da Premier League
-        return PREDEFINED_TEAMS["Premier League"]
-
+        return []
 def fetch_stats_data(selected_league, home_team=None, away_team=None):
     """
-    Buscar estatísticas das equipes pela API
+    Buscar estatísticas das equipes exclusivamente pela API-Football
     
     Args:
         selected_league (str): Nome da liga
@@ -207,13 +163,13 @@ def fetch_stats_data(selected_league, home_team=None, away_team=None):
         away_team (str, optional): Nome do time visitante
         
     Returns:
-        tuple: (DataFrame com estatísticas, dados brutos)
+        tuple: (DataFrame com estatísticas, dados brutos) ou (None, None) em caso de erro
     """
     try:
-        with st.spinner("Buscando estatísticas atualizadas..."):
+        with st.spinner("Buscando estatísticas atualizadas da API-Football..."):
             # Verificar se temos times específicos para buscar
             if home_team and away_team:
-                # Tentar obter estatísticas da API
+                # Obter estatísticas exclusivamente da API-Football
                 try:
                     from utils.api_football import get_fixture_statistics, convert_api_stats_to_df_format
                     
@@ -233,158 +189,83 @@ def fetch_stats_data(selected_league, home_team=None, away_team=None):
                             st.success(f"Estatísticas carregadas com sucesso para {home_team} vs {away_team}")
                             return team_stats_df, fixture_stats
                         else:
-                            st.error("Erro ao processar estatísticas")
-                            # Tente gerar um dataframe mínimo com valores estimados
-                            return generate_minimal_stats_df(home_team, away_team), None
+                            st.error("Erro ao processar estatísticas da API")
+                            return None, None
                     else:
-                        st.error("Estatísticas não disponíveis para estes times")
-                        # Tente gerar um dataframe mínimo com valores estimados
-                        return generate_minimal_stats_df(home_team, away_team), None
+                        st.error(f"Estatísticas não disponíveis para {home_team} vs {away_team} na API-Football")
+                        st.warning("Tente selecionar outros times ou outra liga.")
+                        return None, None
                 
                 except Exception as api_error:
-                    st.error(f"Erro ao obter estatísticas da API: {str(api_error)}")
+                    st.error(f"Erro ao obter estatísticas da API-Football: {str(api_error)}")
                     logger.error(f"Erro na API de estatísticas: {str(api_error)}")
-                    # Tente gerar um dataframe mínimo com valores estimados
-                    return generate_minimal_stats_df(home_team, away_team), None
-            
-            # Fallback para o método original (se ele ainda funcionar)
-            try:
-                from utils.data import FBREF_URLS
-                
-                # Verificar se a liga existe
-                if selected_league not in FBREF_URLS:
-                    st.error(f"Liga não encontrada: {selected_league}")
-                    return generate_minimal_stats_df(home_team, away_team), None
-                    
-                # Obter URL das estatísticas
-                stats_url = FBREF_URLS[selected_league].get("stats")
-                if not stats_url:
-                    st.error(f"URL de estatísticas não encontrada para {selected_league}")
-                    return generate_minimal_stats_df(home_team, away_team), None
-                    
-                # Buscar dados
-                stats_html = fetch_fbref_data(stats_url, league_name=selected_league)
-                if not stats_html:
-                    st.error(f"Não foi possível carregar os dados do campeonato {selected_league}")
-                    return generate_minimal_stats_df(home_team, away_team), None
-                
-                # Parsear estatísticas dos times
-                team_stats_df = parse_team_stats(stats_html)
-                if team_stats_df is None:
-                    st.error("Erro ao processar dados de estatísticas dos times")
-                    return generate_minimal_stats_df(home_team, away_team), None
-                    
-                return team_stats_df, stats_html
-            
-            except Exception as fbref_error:
-                st.error(f"Também não foi possível usar o método alternativo: {str(fbref_error)}")
-                logger.error(f"Erro no método alternativo: {str(fbref_error)}")
-                return generate_minimal_stats_df(home_team, away_team), None
+                    return None, None
+            else:
+                st.error("É necessário selecionar dois times diferentes para análise.")
+                return None, None
             
     except Exception as e:
         logger.error(f"Erro ao buscar estatísticas: {str(e)}")
         st.error(f"Erro ao buscar estatísticas: {str(e)}")
-        return generate_minimal_stats_df(home_team, away_team), None
+        return None, None
 
 def generate_minimal_stats_df(home_team, away_team):
     """
-    Gera um DataFrame com valores estimados quando não conseguimos obter dados reais
-    
-    Args:
-        home_team (str): Nome do time da casa
-        away_team (str): Nome do time visitante
-        
-    Returns:
-        pandas.DataFrame: DataFrame com estatísticas estimadas mínimas
+    Função modificada para NÃO gerar dados falsos.
     """
-    import pandas as pd
-    import random
-    
-    try:
-        # Cria valores aleatórios mas realistas para uma análise básica
-        home_row = {
-            "Squad": home_team,
-            "MP": random.randint(5, 10),  # Jogos disputados
-            "W": random.randint(2, 6),    # Vitórias
-            "D": random.randint(1, 3),    # Empates
-            "L": random.randint(1, 4),    # Derrotas
-            "Pts": None,                  # Pontos (calculado abaixo)
-            "Gls": random.randint(8, 18), # Gols marcados
-            "GA": random.randint(5, 15),  # Gols sofridos
-            "xG": None,                   # xG (calculado abaixo)
-            "xGA": None,                  # xGA (calculado abaixo)
-            "Poss": random.randint(45, 55), # Posse de bola
-            "CS": random.randint(1, 3),   # Clean sheets
-        }
-        
-        away_row = {
-            "Squad": away_team,
-            "MP": random.randint(5, 10),  # Jogos disputados
-            "W": random.randint(2, 6),    # Vitórias
-            "D": random.randint(1, 3),    # Empates
-            "L": random.randint(1, 4),    # Derrotas
-            "Pts": None,                  # Pontos (calculado abaixo)
-            "Gls": random.randint(7, 16), # Gols marcados
-            "GA": random.randint(6, 16),  # Gols sofridos
-            "xG": None,                   # xG (calculado abaixo)
-            "xGA": None,                  # xGA (calculado abaixo)
-            "Poss": 100 - home_row["Poss"],  # Posse de bola complementar
-            "CS": random.randint(1, 3),   # Clean sheets
-        }
-        
-        # Calcular pontos
-        home_row["Pts"] = (home_row["W"] * 3) + home_row["D"]
-        away_row["Pts"] = (away_row["W"] * 3) + away_row["D"]
-        
-        # Calcular xG e xGA com pequenas variações dos gols reais
-        variation = lambda x: x * (0.85 + random.random() * 0.3)  # 0.85 a 1.15 do valor original
-        
-        home_row["xG"] = round(variation(home_row["Gls"]), 1)
-        home_row["xGA"] = round(variation(home_row["GA"]), 1)
-        away_row["xG"] = round(variation(away_row["Gls"]), 1)
-        away_row["xGA"] = round(variation(away_row["GA"]), 1)
-        
-        # Criar DataFrame
-        df = pd.DataFrame([home_row, away_row])
-        
-        st.warning("⚠️ Usando estatísticas estimadas para análise básica.")
-        return df
-        
-    except Exception as e:
-        logger.error(f"Erro ao gerar estatísticas mínimas: {str(e)}")
-        # Retorna um DataFrame vazio mas válido
-        return pd.DataFrame([
-            {"Squad": home_team, "MP": 5, "W": 2, "D": 1, "L": 2, "Pts": 7, "Gls": 5, "GA": 5, "xG": 5.0, "xGA": 5.0, "Poss": 50},
-            {"Squad": away_team, "MP": 5, "W": 2, "D": 1, "L": 2, "Pts": 7, "Gls": 5, "GA": 5, "xG": 5.0, "xGA": 5.0, "Poss": 50}
-        ])
+    st.error("⚠️ Dados não disponíveis para esses times na API. Por favor, selecione outros times.")
+    return None
 def get_cached_teams(league):
-    """Carrega apenas os nomes dos times do cache persistente"""
-    cache_file = os.path.join(TEAMS_CACHE_DIR, f"{league.replace(' ', '_')}_teams.json")
+    """Carrega os nomes dos times do cache persistente com verificação de temporada"""
+    from utils.api_football import LEAGUE_SEASONS, CURRENT_SEASON
+    
+    # Determinar a temporada atual para a liga
+    season = LEAGUE_SEASONS.get(league, CURRENT_SEASON)
+    
+    # Incluir a temporada no nome do arquivo de cache
+    cache_file = os.path.join(TEAMS_CACHE_DIR, f"{league.replace(' ', '_')}_{season}_teams.json")
+    
     if os.path.exists(cache_file):
         try:
             with open(cache_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
                 teams = data.get('teams', [])
                 timestamp = data.get('timestamp', 0)
-                logger.info(f"Carregados {len(teams)} times do cache para {league}")
+                
+                # Verificar se o cache não é muito antigo (7 dias)
+                cache_max_age = 7 * 24 * 60 * 60  # 7 dias em segundos
+                if time.time() - timestamp > cache_max_age:
+                    logger.info(f"Cache para {league} (temporada {season}) está desatualizado")
+                    return [], 0
+                
+                logger.info(f"Carregados {len(teams)} times do cache para {league} (temporada {season})")
                 return teams, timestamp
         except Exception as e:
             logger.error(f"Erro ao carregar cache para {league}: {str(e)}")
+    
     return [], 0
 
 def save_teams_to_cache(league, teams):
-    """Salva apenas os nomes dos times no cache persistente"""
-    cache_file = os.path.join(TEAMS_CACHE_DIR, f"{league.replace(' ', '_')}_teams.json")
+    """Salva os times no cache persistente com identificação de temporada"""
+    from utils.api_football import LEAGUE_SEASONS, CURRENT_SEASON
+    
+    # Determinar a temporada atual para a liga
+    season = LEAGUE_SEASONS.get(league, CURRENT_SEASON)
+    
+    # Incluir a temporada no nome do arquivo de cache
+    cache_file = os.path.join(TEAMS_CACHE_DIR, f"{league.replace(' ', '_')}_{season}_teams.json")
+    
     try:
         data = {
             'teams': teams,
-            'timestamp': time.time()
+            'timestamp': time.time(),
+            'season': season  # Armazenar a temporada no cache para referência
         }
         
         with open(cache_file, 'w', encoding='utf-8') as f:
             json.dump(data, f)
             
-        logger.info(f"Salvos {len(teams)} times no cache para {league}")
+        logger.info(f"Salvos {len(teams)} times no cache para {league} (temporada {season})")
         return True
     except Exception as e:
         logger.error(f"Erro ao salvar cache para {league}: {str(e)}")
