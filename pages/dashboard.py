@@ -96,26 +96,50 @@ def show_league_selector(available_leagues, status_container):
         str: Nome da liga selecionada
     """
     try:
-        # Obter liga da URL ou da sessão
-        liga_atual = st.query_params.get('league', None) 
+        # Registrar o estado atual para debug
+        logger.info(f"Query params: {dict(st.query_params)}")
+        logger.info(f"Session state: {dict([(k, v) for k, v in st.session_state.items() if k in ['selected_league', 'last_league']])}")
         
+        # IMPORTANTE: Tratar explicitamente a alteração de liga pelo URL
+        liga_atual = None
+        if 'league' in st.query_params:
+            url_league = st.query_params['league']
+            logger.info(f"Liga detectada na URL: {url_league}")
+            
+            # Verificar se a liga existe na lista disponível
+            if url_league in available_leagues:
+                liga_atual = url_league
+                # Forçar atualização do estado da sessão
+                st.session_state.selected_league = liga_atual
+                
+                # Verificar se a liga mudou
+                if 'last_league' in st.session_state and st.session_state.last_league != liga_atual:
+                    logger.info(f"Mudança de liga detectada: {st.session_state.last_league} -> {liga_atual}")
+                    # Limpar caches antigos para a nova liga
+                    clear_cache(liga_atual)
+                
+                # Atualizar última liga para rastreamento
+                st.session_state.last_league = liga_atual
+                logger.info(f"Liga definida via URL: {liga_atual}")
+            else:
+                logger.warning(f"Liga inválida na URL: {url_league}, verificando sessão")
+        
+        # Se não tiver na URL ou for inválida, verificar na sessão
         if liga_atual is None and 'selected_league' in st.session_state:
             liga_atual = st.session_state.selected_league
-        elif liga_atual is not None:
-            # Verifica se a liga existe na lista disponível
-            if liga_atual in available_leagues:
-                st.session_state.selected_league = liga_atual
-                # Limpar caches antigos e forçar atualização
-                clear_cache(liga_atual)
-                logger.info(f"Liga mudada via URL: {liga_atual}")
-            else:
-                # Se a liga da URL não existe na lista, usa a primeira disponível
-                liga_atual = available_leagues[0]
-                st.session_state.selected_league = liga_atual
-                logger.warning(f"Liga inválida na URL: {st.query_params.get('league')}, usando {liga_atual}")
-        elif available_leagues:
+            logger.info(f"Liga obtida da sessão: {liga_atual}")
+            
+            # Verificar se a liga da sessão é válida
+            if liga_atual not in available_leagues:
+                logger.warning(f"Liga da sessão inválida: {liga_atual}, usando padrão")
+                liga_atual = None
+        
+        # Se ainda não temos uma liga válida, usar a primeira disponível
+        if liga_atual is None and available_leagues:
             liga_atual = available_leagues[0]
             st.session_state.selected_league = liga_atual
+            st.session_state.last_league = liga_atual
+            logger.info(f"Usando liga padrão: {liga_atual}")
             
         # Adicionar botão de redefinição para depuração
         debug_col1, debug_col2 = st.sidebar.columns([3, 1])
@@ -142,44 +166,90 @@ def show_league_selector(available_leagues, status_container):
         
         # Form HTML com recarregamento direto e debug info
         html_liga_form = f"""
-        <form method="get" action="" id="league_form" style="margin-bottom: 15px;">
-          <label for="league" style="font-weight: bold; display: block; margin-bottom: 5px;">Escolha o campeonato:</label>
-          <select name="league" id="league" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc; background-color: #f0f0f0; color: #333;" onchange="this.form.submit()">
-        """
-        
-        # Adicionar opções
-        for league in available_leagues:
-            selected = "selected" if league == liga_atual else ""
-            html_liga_form += f'<option value="{league}" {selected}>{league}</option>\n'
-        
-        html_liga_form += """
-          </select>
-          <div style="text-align: center; margin-top: 8px;">
-            <noscript><input type="submit" value="Selecionar" style="padding: 5px 15px;"></noscript>
-            <small style="color: #666; font-style: italic;">Selecione uma liga para carregar os times</small>
-          </div>
-          <input type="hidden" name="force_refresh" value="1">
-        </form>
-        
-        <script>
-        // Garantir que o formulário seja submetido quando a liga mudar
-        document.addEventListener('DOMContentLoaded', function() {
-            const select = document.getElementById('league');
-            if (select) {
-                select.addEventListener('change', function() {
-                    // Adiciona timestamp para forçar refresh e evitar cache do navegador
-                    const forceInput = document.createElement('input');
-                    forceInput.type = 'hidden';
-                    forceInput.name = 'force_refresh';
-                    forceInput.value = Date.now();
-                    document.getElementById('league_form').appendChild(forceInput);
-                    document.getElementById('league_form').submit();
-                });
-            }
+<form method="get" action="" id="league_form" style="margin-bottom: 15px;">
+  <label for="league" style="font-weight: bold; display: block; margin-bottom: 5px;">Escolha o campeonato:</label>
+  <select name="league" id="league" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc; background-color: #f0f0f0; color: #333;" onchange="this.form.submit()">
+"""
+
+# Adicionar opções
+for league in available_leagues:
+    selected = "selected" if league == liga_atual else ""
+    html_liga_form += f'<option value="{league}" {selected}>{league}</option>\n'
+
+html_liga_form += """
+  </select>
+  <div style="text-align: center; margin-top: 8px;">
+    <noscript><input type="submit" value="Selecionar" style="padding: 5px 15px;"></noscript>
+    <small style="color: #666; font-style: italic;">Selecione uma liga para carregar os times</small>
+  </div>
+  <input type="hidden" name="force_refresh" value="1">
+</form>
+
+<script>
+// Garantir que o formulário seja submetido quando a liga mudar
+document.addEventListener('DOMContentLoaded', function() {
+    const select = document.getElementById('league');
+    if (select) {
+        select.addEventListener('change', function() {
+            // Adiciona timestamp para forçar refresh e evitar cache do navegador
+            const forceInput = document.createElement('input');
+            forceInput.type = 'hidden';
+            forceInput.name = 'force_refresh';
+            forceInput.value = Date.now();
+            document.getElementById('league_form').appendChild(forceInput);
+            document.getElementById('league_form').submit();
         });
-        </script>
-        """
-        
+    }
+});
+</script>
+"""
+
+# PELO CÓDIGO ABAIXO:
+html_liga_form = f"""
+<form action="" id="league_form" style="margin-bottom: 15px;">
+  <label for="league" style="font-weight: bold; display: block; margin-bottom: 5px;">Escolha o campeonato:</label>
+  <select name="league" id="league" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc; background-color: #f0f0f0; color: #333;">
+"""
+
+# Adicionar opções
+for league in available_leagues:
+    selected = "selected" if league == liga_atual else ""
+    html_liga_form += f'<option value="{league}" {selected}>{league}</option>\n'
+
+html_liga_form += """
+  </select>
+  <div style="text-align: center; margin-top: 8px;">
+    <input type="submit" value="Selecionar Liga" style="background-color: #fd7014; color: white; border: none; border-radius: 4px; padding: 5px 15px; cursor: pointer;">
+    <small style="color: #666; font-style: italic; display: block; margin-top: 5px;">Clique no botão após selecionar a liga</small>
+  </div>
+  <input type="hidden" name="force_refresh" value="1">
+</form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('league_form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const select = document.getElementById('league');
+            const selectedLeague = select.value;
+            
+            // Limpar URL atual
+            const url = new URL(window.location.href);
+            url.searchParams.delete('league');
+            url.searchParams.delete('force_refresh');
+            
+            // Adicionar novos parâmetros
+            url.searchParams.set('league', selectedLeague);
+            url.searchParams.set('force_refresh', Date.now());
+            
+            // Redirecionar para a nova URL
+            window.location.href = url.toString();
+        });
+    }
+});
+</script>
+"""        
         # Renderizar seletor HTML
         st.sidebar.markdown(html_liga_form, unsafe_allow_html=True)
         
