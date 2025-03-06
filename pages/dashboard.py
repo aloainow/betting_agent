@@ -1,4 +1,4 @@
-# pages/dashboard.py - Dashboard Principal (com correção de carregamento automático de times)
+# pages/dashboard.py - Dashboard Principal (solução robusta para seleção de times)
 import streamlit as st
 import logging
 import traceback
@@ -186,6 +186,23 @@ def load_league_teams(selected_league):
         st.error(f"Erro ao carregar times: {str(e)}")
         return None, None, None
 
+# SOLUÇÃO ROBUSTA: Função de callback para mudança de liga
+def on_league_change():
+    """Callback executado quando a liga é alterada"""
+    try:
+        # Obter a nova liga selecionada
+        selected_league = st.session_state.league_selector
+        logger.info(f"Callback de mudança de liga ativado: {selected_league}")
+        
+        # Definir flag de carregamento
+        st.session_state.teams_need_loading = True
+        st.session_state.selected_league = selected_league
+        
+        # Não carregamos os times aqui, pois seria duplicado
+        # O carregamento acontecerá no fluxo principal após o rerun
+    except Exception as e:
+        logger.error(f"Erro no callback de mudança de liga: {str(e)}")
+
 def show_main_dashboard():
     """Show the main dashboard with improved error handling and debug info"""
     try:
@@ -255,71 +272,66 @@ def show_main_dashboard():
                 logger.error("FBREF_URLS está vazia")
                 return
             
+            # Inicializar flags se não existirem
+            if 'teams_need_loading' not in st.session_state:
+                st.session_state.teams_need_loading = True
+                
+            if 'selected_league' not in st.session_state and available_leagues:
+                st.session_state.selected_league = available_leagues[0]
+            
+            # Container para status
+            status_container = st.sidebar.empty()
+            
+            # SOLUÇÃO ROBUSTA: Usar callback para detectar mudanças
+            # Seleção de liga com callback que é executado quando o valor muda
+            selected_league = st.sidebar.selectbox(
+                "Escolha o campeonato:",
+                available_leagues,
+                key='league_selector',
+                on_change=on_league_change,
+                index=available_leagues.index(st.session_state.selected_league) if st.session_state.selected_league in available_leagues else 0
+            )
+            
             # Inicializar times, team_stats_df e stats_html
             teams = []
             team_stats_df = None
             stats_html = None
             
-            # Verificar se já temos uma liga selecionada anteriormente
-            current_selection = st.session_state.get('selected_league', '')
-            
-            # Seleção de liga com checkbox para acompanhar mudanças
-            selected_league = st.sidebar.selectbox(
-                "Escolha o campeonato:",
-                available_leagues,
-                key='league_selector'
-            )
-            
-            # CORREÇÃO: Detectar quando o usuário mudou a liga selecionada
-            if 'league_selector' not in st.session_state.get('_previous_selection', {}):
-                # Primeira vez que o selector é exibido - inicializar o estado
-                if 'selected_league' not in st.session_state:
-                    st.session_state.selected_league = selected_league
-                st.session_state._previous_selection = {'league_selector': selected_league}
-                # Carregar times automaticamente na primeira vez também
-                with st.spinner(f"Carregando times de {selected_league} (inicialização)..."):
-                    teams, team_stats_df, stats_html = load_league_teams(selected_league)
-                    if teams and team_stats_df is not None and stats_html is not None:
-                        # Salvar dados em session_state
-                        st.session_state.stats_html = stats_html
-                        st.session_state.team_stats_df = team_stats_df
-                        st.session_state.league_teams = teams
-                        st.sidebar.success(f"Dados de {selected_league} carregados com sucesso!")
-            elif st.session_state._previous_selection['league_selector'] != selected_league:
-                # Usuário mudou a seleção - atualizar estado e forçar carregamento
-                logger.info(f"Mudança de liga detectada: {st.session_state._previous_selection['league_selector']} -> {selected_league}")
-                st.session_state._previous_selection['league_selector'] = selected_league
-                st.session_state.selected_league = selected_league
+            # SOLUÇÃO ROBUSTA: Verificar se precisamos carregar times
+            if st.session_state.teams_need_loading:
+                logger.info(f"Carregando times para liga: {selected_league} (flag ativada)")
+                status_container.info(f"Carregando times de {selected_league}...")
                 
-                # CORREÇÃO: Carregar times automaticamente quando a liga é alterada
-                with st.spinner(f"Carregando times de {selected_league}..."):
-                    teams, team_stats_df, stats_html = load_league_teams(selected_league)
-                    if teams and team_stats_df is not None and stats_html is not None:
-                        # Salvar dados em session_state
-                        st.session_state.stats_html = stats_html
-                        st.session_state.team_stats_df = team_stats_df
-                        st.session_state.league_teams = teams
-                        
-                        # Mensagem de sucesso antes do rerun
-                        status_container = st.sidebar.empty()
-                        status_container.success(f"Dados de {selected_league} carregados com sucesso!")
-                        logger.info(f"Carregados {len(teams)} times. Forçando rerun...")
-                        
-                        # CORREÇÃO PRINCIPAL: Forçar atualização da interface
-                        st.experimental_rerun()
-                    else:
-                        # Tratar o erro quando não conseguir carregar os times
-                        st.sidebar.error(f"Falha ao carregar times de {selected_league}. Tente usar o botão abaixo.")
+                # Carregar times
+                teams, team_stats_df, stats_html = load_league_teams(selected_league)
+                
+                if teams and team_stats_df is not None and stats_html is not None:
+                    # Salvar dados em session_state
+                    st.session_state.stats_html = stats_html
+                    st.session_state.team_stats_df = team_stats_df
+                    st.session_state.league_teams = teams
+                    st.session_state.selected_league = selected_league
+                    
+                    # Resetar flag de carregamento
+                    st.session_state.teams_need_loading = False
+                    
+                    # Mostrar mensagem de sucesso
+                    status_container.success(f"Dados de {selected_league} carregados com sucesso! {len(teams)} times disponíveis.")
+                else:
+                    status_container.error(f"Falha ao carregar times de {selected_league}. Use o botão para tentar novamente.")
             
-            # Ainda mantém o botão para carregamento manual (caso automático falhe)
+            # Verificar se temos times em cache
+            elif 'league_teams' in st.session_state:
+                teams = st.session_state.league_teams
+                team_stats_df = st.session_state.get('team_stats_df')
+                stats_html = st.session_state.get('stats_html')
+                status_container.info(f"Usando dados em cache para {selected_league}. {len(teams) if teams else 0} times disponíveis.")
+            
+            # Botão para carregamento manual (backup)
             load_teams = st.sidebar.button("Recarregar Times desta Liga", 
                                     use_container_width=True,
                                     type="primary")
             
-            # Container para status
-            status_container = st.sidebar.empty()
-            
-            # Se o botão foi clicado, buscar os times
             if load_teams:
                 with st.spinner(f"Carregando dados do campeonato {selected_league}..."):
                     teams, team_stats_df, stats_html = load_league_teams(selected_league)
@@ -329,32 +341,17 @@ def show_main_dashboard():
                         st.session_state.team_stats_df = team_stats_df
                         st.session_state.league_teams = teams
                         st.session_state.selected_league = selected_league
+                        st.session_state.teams_need_loading = False
                         
                         # Mostrar mensagem de sucesso
-                        status_container.success(f"Dados de {selected_league} carregados com sucesso!")
-                        logger.info(f"Dados carregados manualmente: {len(teams)} times encontrados")
-                        
-                        # Forçar rerun para atualizar a interface
-                        st.experimental_rerun()
+                        status_container.success(f"Dados de {selected_league} carregados com sucesso via botão! {len(teams)} times disponíveis.")
                     else:
-                        status_container.error(f"Erro ao carregar times de {selected_league}")
-            
-            # Verificar se temos times na sessão
-            elif 'league_teams' in st.session_state and 'selected_league' in st.session_state:
-                # Usar dados em cache se a liga selecionada for a mesma
-                if st.session_state.selected_league == selected_league:
-                    teams = st.session_state.league_teams
-                    team_stats_df = st.session_state.team_stats_df
-                    stats_html = st.session_state.stats_html
-                    if teams and len(teams) > 0:
-                        status_container.info(f"Usando dados em cache para {selected_league}. {len(teams)} times disponíveis.")
-                    else:
-                        status_container.warning(f"Dados em cache para {selected_league} parecem inválidos. Use o botão para recarregar.")
+                        status_container.error(f"Falha ao carregar times de {selected_league}.")
 
         except Exception as sidebar_error:
             logger.error(f"Erro na seleção de liga: {str(sidebar_error)}")
             st.sidebar.error("Erro ao carregar ligas disponíveis.")
-            traceback.print_exc()  # Adicionado para diagnóstico
+            traceback.print_exc()
             return
         
         # Separador
@@ -392,10 +389,10 @@ def show_main_dashboard():
                     # Seleção de times
                     col1, col2 = st.columns(2)
                     with col1:
-                        home_team = st.selectbox("Time da Casa:", teams, key='home_team')
+                        home_team = st.selectbox("Time da Casa:", teams, key=f'home_team_{selected_league}')
                     with col2:
                         away_teams = [team for team in teams if team != home_team]
-                        away_team = st.selectbox("Time Visitante:", away_teams, key='away_team')
+                        away_team = st.selectbox("Time Visitante:", away_teams, key=f'away_team_{selected_league}')
                         
                     logger.info(f"Times selecionados: {home_team} vs {away_team}")
                     
@@ -412,15 +409,15 @@ def show_main_dashboard():
                             col1, col2 = st.columns(2)
                             with col1:
                                 selected_markets = {
-                                    "money_line": st.checkbox("Money Line (1X2)", value=True, key='ml'),
-                                    "over_under": st.checkbox("Over/Under", key='ou'),
-                                    "chance_dupla": st.checkbox("Chance Dupla", key='cd')
+                                    "money_line": st.checkbox("Money Line (1X2)", value=True, key=f'ml_{selected_league}'),
+                                    "over_under": st.checkbox("Over/Under", key=f'ou_{selected_league}'),
+                                    "chance_dupla": st.checkbox("Chance Dupla", key=f'cd_{selected_league}')
                                 }
                             with col2:
                                 selected_markets.update({
-                                    "ambos_marcam": st.checkbox("Ambos Marcam", key='btts'),
-                                    "escanteios": st.checkbox("Total de Escanteios", key='corners'),
-                                    "cartoes": st.checkbox("Total de Cartões", key='cards')
+                                    "ambos_marcam": st.checkbox("Ambos Marcam", key=f'btts_{selected_league}'),
+                                    "escanteios": st.checkbox("Total de Escanteios", key=f'corners_{selected_league}'),
+                                    "cartoes": st.checkbox("Total de Cartões", key=f'cards_{selected_league}')
                                 })
 
                             num_selected_markets = sum(1 for v in selected_markets.values() if v)
