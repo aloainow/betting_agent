@@ -16,6 +16,183 @@ logger = logging.getLogger("valueHunter.dashboard")
 TEAMS_CACHE_DIR = os.path.join(DATA_DIR, "teams_cache")
 os.makedirs(TEAMS_CACHE_DIR, exist_ok=True)
 
+def clear_cache(league_name=None):
+    """
+    Limpa o cache de times e dados da liga especificada ou de todas as ligas
+    
+    Args:
+        league_name (str, optional): Nome da liga para limpar o cache. Se None, limpa todas as ligas.
+    
+    Returns:
+        int: Número de arquivos de cache removidos
+    """
+    import os
+    import glob
+    from utils.core import DATA_DIR
+    
+    cleaned = 0
+    
+    try:
+        # Limpar cache de times
+        teams_cache_dir = os.path.join(DATA_DIR, "teams_cache")
+        if os.path.exists(teams_cache_dir):
+            if league_name:
+                # Sanitizar nome da liga para o padrão de arquivo
+                safe_league = league_name.replace(' ', '_').replace('/', '_').replace('\\', '_')
+                pattern = os.path.join(teams_cache_dir, f"{safe_league}*.json")
+                for cache_file in glob.glob(pattern):
+                    try:
+                        os.remove(cache_file)
+                        cleaned += 1
+                        logger.info(f"Removido cache de times: {os.path.basename(cache_file)}")
+                    except Exception as e:
+                        logger.error(f"Erro ao remover cache {cache_file}: {str(e)}")
+            else:
+                # Limpar todos os caches de times
+                for cache_file in glob.glob(os.path.join(teams_cache_dir, "*.json")):
+                    try:
+                        os.remove(cache_file)
+                        cleaned += 1
+                        logger.info(f"Removido cache de times: {os.path.basename(cache_file)}")
+                    except Exception as e:
+                        logger.error(f"Erro ao remover cache {cache_file}: {str(e)}")
+        
+        # Limpar cache HTML
+        if league_name:
+            # Limpar apenas caches específicos da liga
+            safe_league = league_name.replace(' ', '_').replace('/', '_').replace('\\', '_')
+            pattern = os.path.join(DATA_DIR, f"cache_{safe_league}*.html")
+            for cache_file in glob.glob(pattern):
+                try:
+                    os.remove(cache_file)
+                    cleaned += 1
+                    logger.info(f"Removido cache HTML: {os.path.basename(cache_file)}")
+                except Exception as e:
+                    logger.error(f"Erro ao remover cache {cache_file}: {str(e)}")
+        else:
+            # Limpar todos os caches HTML
+            for cache_file in glob.glob(os.path.join(DATA_DIR, "cache_*.html")):
+                try:
+                    os.remove(cache_file)
+                    cleaned += 1
+                    logger.info(f"Removido cache HTML: {os.path.basename(cache_file)}")
+                except Exception as e:
+                    logger.error(f"Erro ao remover cache {cache_file}: {str(e)}")
+    
+        return cleaned
+    except Exception as e:
+        logger.error(f"Erro ao limpar cache: {str(e)}")
+        return cleaned
+
+def show_league_selector(available_leagues, status_container):
+    """
+    Função melhorada para mostrar o seletor de ligas e gerenciar o estado
+    
+    Args:
+        available_leagues (list): Lista de ligas disponíveis
+        status_container: Container do Streamlit para mostrar status
+    
+    Returns:
+        str: Nome da liga selecionada
+    """
+    try:
+        # Obter liga da URL ou da sessão
+        liga_atual = st.query_params.get('league', None) 
+        
+        if liga_atual is None and 'selected_league' in st.session_state:
+            liga_atual = st.session_state.selected_league
+        elif liga_atual is not None:
+            # Verifica se a liga existe na lista disponível
+            if liga_atual in available_leagues:
+                st.session_state.selected_league = liga_atual
+                # Limpar caches antigos e forçar atualização
+                clear_cache(liga_atual)
+                logger.info(f"Liga mudada via URL: {liga_atual}")
+            else:
+                # Se a liga da URL não existe na lista, usa a primeira disponível
+                liga_atual = available_leagues[0]
+                st.session_state.selected_league = liga_atual
+                logger.warning(f"Liga inválida na URL: {st.query_params.get('league')}, usando {liga_atual}")
+        elif available_leagues:
+            liga_atual = available_leagues[0]
+            st.session_state.selected_league = liga_atual
+            
+        # Adicionar botão de redefinição para depuração
+        debug_col1, debug_col2 = st.sidebar.columns([3, 1])
+        with debug_col1:
+            status_container.info(f"Liga atual: {liga_atual}")
+        with debug_col2:
+            if st.button("🔄", help="Redefinir seleção de liga", key="reset_league"):
+                clear_cache(liga_atual)
+                status_container.success(f"Caches limpos para {liga_atual}")
+                # Força recarregamento da página
+                liga_param = f"league={liga_atual}"
+                force_param = f"force_refresh={int(time.time())}"
+                st.query_params.league = liga_atual
+                st.query_params.force_refresh = int(time.time())
+                st.rerun()
+                
+        # Mostrar índice da liga atual (para seleção correta)
+        try:
+            current_index = available_leagues.index(liga_atual)
+        except (ValueError, TypeError):
+            current_index = 0
+            
+        logger.info(f"Liga atual: {liga_atual}, índice: {current_index}")
+        
+        # Form HTML com recarregamento direto e debug info
+        html_liga_form = f"""
+        <form method="get" action="" id="league_form" style="margin-bottom: 15px;">
+          <label for="league" style="font-weight: bold; display: block; margin-bottom: 5px;">Escolha o campeonato:</label>
+          <select name="league" id="league" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc; background-color: #f0f0f0; color: #333;" onchange="this.form.submit()">
+        """
+        
+        # Adicionar opções
+        for league in available_leagues:
+            selected = "selected" if league == liga_atual else ""
+            html_liga_form += f'<option value="{league}" {selected}>{league}</option>\n'
+        
+        html_liga_form += """
+          </select>
+          <div style="text-align: center; margin-top: 8px;">
+            <noscript><input type="submit" value="Selecionar" style="padding: 5px 15px;"></noscript>
+            <small style="color: #666; font-style: italic;">Selecione uma liga para carregar os times</small>
+          </div>
+          <input type="hidden" name="force_refresh" value="1">
+        </form>
+        
+        <script>
+        // Garantir que o formulário seja submetido quando a liga mudar
+        document.addEventListener('DOMContentLoaded', function() {
+            const select = document.getElementById('league');
+            if (select) {
+                select.addEventListener('change', function() {
+                    // Adiciona timestamp para forçar refresh e evitar cache do navegador
+                    const forceInput = document.createElement('input');
+                    forceInput.type = 'hidden';
+                    forceInput.name = 'force_refresh';
+                    forceInput.value = Date.now();
+                    document.getElementById('league_form').appendChild(forceInput);
+                    document.getElementById('league_form').submit();
+                });
+            }
+        });
+        </script>
+        """
+        
+        # Renderizar seletor HTML
+        st.sidebar.markdown(html_liga_form, unsafe_allow_html=True)
+        
+        return liga_atual
+        
+    except Exception as e:
+        logger.error(f"Erro no seletor de ligas: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        if available_leagues:
+            return available_leagues[0]
+        return "Premier League"  # Fallback
+
 def get_cached_teams(league):
     """Carrega apenas os nomes dos times do cache persistente"""
     # Sanitizar nome da liga para evitar problemas com caracteres especiais
@@ -92,18 +269,48 @@ def save_teams_to_cache(league, teams):
         logger.error(f"Erro ao salvar cache para {league}: {str(e)}")
         return False
 
-def get_league_teams(selected_league, force_refresh=False):
-    """Obtém apenas os nomes dos times usando cache quando possível"""
+def load_league_teams(selected_league, status_container, force_refresh=False):
+    """
+    Função completa para carregar times de uma liga com tratamento de erros
+    
+    Args:
+        selected_league (str): Nome da liga selecionada
+        status_container: Container do Streamlit para mostrar status
+        force_refresh (bool): Se deve forçar atualização ignorando o cache
+    
+    Returns:
+        list: Lista de times da liga
+    """
     try:
+        # Verificar parâmetros na URL para forçar refresh
+        if 'force_refresh' in st.query_params:
+            force_refresh = True
+            logger.info(f"Forçando atualização pelos parâmetros da URL")
+            
+        # Se a seleção de liga mudou, forçar refresh
+        if 'last_league' in st.session_state and st.session_state.last_league != selected_league:
+            force_refresh = True
+            logger.info(f"Liga mudou de {st.session_state.last_league} para {selected_league}: forçando atualização")
+            
+        # Atualizar última liga selecionada
+        st.session_state.last_league = selected_league
+            
         # Verificar cache primeiro (se não estiver forçando refresh)
         if not force_refresh:
             teams, timestamp = get_cached_teams(selected_league)
             
             # Se temos times em cache e não são muito antigos (30 dias)
             cache_max_age = 30 * 24 * 60 * 60  # 30 dias em segundos
-            if teams and len(teams) > 0 and (time.time() - timestamp) < cache_max_age:
+            if teams and len(teams) > 5 and (time.time() - timestamp) < cache_max_age:
                 logger.info(f"Usando nomes de times em cache para {selected_league} ({len(teams)} times)")
+                
+                # Mostrar feedback ao usuário
+                status_container.success(f"✅ {len(teams)} times carregados para {selected_league}")
                 return teams
+                
+            logger.info(f"Cache não encontrado ou expirado para {selected_league}")
+        else:
+            logger.info(f"Ignorando cache para {selected_league} (force_refresh={force_refresh})")
         
         # Se chegamos aqui, precisamos buscar os nomes dos times online
         from utils.data import FBREF_URLS
@@ -111,41 +318,66 @@ def get_league_teams(selected_league, force_refresh=False):
         # Verificar se a liga existe
         if selected_league not in FBREF_URLS:
             logger.error(f"Liga {selected_league} não encontrada em FBREF_URLS")
+            status_container.error(f"⚠️ Liga '{selected_league}' não encontrada na configuração")
             return []
             
         # Obter URL das estatísticas
         stats_url = FBREF_URLS[selected_league].get("stats")
         if not stats_url:
             logger.error(f"URL de estatísticas ausente para {selected_league}")
+            status_container.error(f"⚠️ URL de estatísticas não encontrada para {selected_league}")
             return []
+        
+        # Mostrar mensagem de loading  
+        status_container.info(f"🔄 Buscando times para {selected_league}...")
             
-        # Buscar dados - MODIFICADO para incluir nome da liga
+        # Buscar dados
+        from utils.data import fetch_fbref_data
         stats_html = fetch_fbref_data(stats_url, force_reload=force_refresh, league_name=selected_league)
         if not stats_html:
             logger.error(f"fetch_fbref_data retornou None para {stats_url}")
+            status_container.error(f"❌ Falha ao carregar dados para {selected_league}")
             return []
         
         # Parsear estatísticas dos times (só para extrair nomes)
+        from utils.data import parse_team_stats
         team_stats_df = parse_team_stats(stats_html)
         if team_stats_df is None or 'Squad' not in team_stats_df.columns:
             logger.error("Erro ao processar dados de estatísticas dos times")
+            status_container.error("❌ Erro ao processar dados dos times")
             return []
         
         # Extrair lista de times
         teams = team_stats_df['Squad'].dropna().unique().tolist()
         if not teams:
             logger.error("Lista de times vazia após dropna() e unique()")
+            status_container.error("❌ Nenhum time encontrado na resposta")
             return []
+            
+        # Validação extra - deve ter pelo menos alguns times
+        if len(teams) < 5:
+            logger.warning(f"Poucos times encontrados para {selected_league}: {len(teams)}")
+            status_container.warning(f"⚠️ Apenas {len(teams)} times encontrados. Dados podem estar incompletos.")
+            
+            # Mostrar os times encontrados para debug
+            logger.info(f"Times encontrados: {teams}")
+            
+            # Mesmo com poucos times, continuamos para permitir testes
         
         # Salvar apenas os nomes dos times no cache persistente
         save_teams_to_cache(selected_league, teams)
             
+        # Sucesso
         logger.info(f"Nomes de times carregados online: {len(teams)} times encontrados")
+        status_container.success(f"✅ {len(teams)} times carregados para {selected_league}")
+        
         return teams
             
     except Exception as e:
         logger.error(f"Erro ao carregar times da liga: {str(e)}")
-        traceback.print_exc()
+        import traceback
+        logger.error(traceback.format_exc())
+        status_container.error(f"❌ Erro: {str(e)}")
         return []
 
 def fetch_stats_data(selected_league):
@@ -183,6 +415,7 @@ def fetch_stats_data(selected_league):
         logger.error(f"Erro ao buscar estatísticas: {str(e)}")
         st.error(f"Erro ao buscar estatísticas: {str(e)}")
         return None, None
+
 def show_usage_stats():
     """Display usage statistics with forced refresh"""
     try:
@@ -377,86 +610,9 @@ def show_main_dashboard():
             # Container para status
             status_container = st.sidebar.empty()
             
-            # Obter a liga atual da URL ou sessão
-            liga_atual = st.query_params.get('league', None) 
-            if liga_atual is None and 'selected_league' in st.session_state:
-                liga_atual = st.session_state.selected_league
-            elif liga_atual is not None:
-                st.session_state.selected_league = liga_atual
-            elif available_leagues:
-                liga_atual = available_leagues[0]
-                st.session_state.selected_league = liga_atual
+            # Usar o novo seletor de ligas
+            selected_league = show_league_selector(available_leagues, status_container)
                 
-            # Mostrar índice da liga atual (para seleção correta)
-            try:
-                current_index = available_leagues.index(liga_atual)
-            except (ValueError, TypeError):
-                current_index = 0
-                
-            logger.info(f"Liga atual: {liga_atual}, índice: {current_index}")
-            
-            # SOLUÇÃO RADICAL: Form HTML puro que recarrega a página
-            html_liga_form = f"""
-            <form method="get" action="" id="league_form" style="margin-bottom: 15px;">
-              <label for="league" style="font-weight: bold; display: block; margin-bottom: 5px;">Escolha o campeonato:</label>
-              <select name="league" id="league" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc; background-color: #f0f0f0; color: #333;" onchange="this.form.submit()">
-            """
-            
-            # Adicionar opções
-            for league in available_leagues:
-                selected = "selected" if league == liga_atual else ""
-                html_liga_form += f'<option value="{league}" {selected}>{league}</option>\n'
-            
-            html_liga_form += """
-              </select>
-              <div style="text-align: center; margin-top: 8px;">
-                <noscript><input type="submit" value="Selecionar" style="padding: 5px 15px;"></noscript>
-                <small style="color: #666; font-style: italic;">Selecione uma liga para carregar os times</small>
-              </div>
-            </form>
-            
-            <script>
-            // Garantir que o formulário seja submetido quando a liga mudar
-            document.addEventListener('DOMContentLoaded', function() {
-                const select = document.getElementById('league');
-                if (select) {
-                    select.addEventListener('change', function() {
-                        document.getElementById('league_form').submit();
-                    });
-                }
-            });
-            </script>
-            """
-            
-            # Renderizar seletor HTML
-            st.sidebar.markdown(html_liga_form, unsafe_allow_html=True)
-            
-            # Carregar times para a liga atual
-            selected_league = liga_atual
-            
-            # Obter times para a liga selecionada (usando cache para nomes)
-            teams = get_league_teams(selected_league)
-            
-            if teams and len(teams) > 0:
-                status_container.success(f"{len(teams)} times disponíveis para {selected_league}")
-            else:
-                status_container.error(f"Não foi possível carregar times para {selected_league}. Tente atualizar.")
-                    
-            # Botão para recarregar times (pular o cache)
-            if st.sidebar.button("🔄 Atualizar Times", type="primary", use_container_width=True):
-                status_container.info(f"Atualizando times para {selected_league}...")
-                
-                # Forçar recarregamento (ignorar cache)
-                teams = get_league_teams(selected_league, force_refresh=True)
-                
-                if teams and len(teams) > 0:
-                    status_container.success(f"Times atualizados! {len(teams)} times disponíveis.")
-                else:
-                    status_container.error(f"Erro ao atualizar times. Tente novamente.")
-                    
-            # Guardar seleção atual
-            st.session_state.selected_league = selected_league
-                    
         except Exception as sidebar_error:
             logger.error(f"Erro na seleção de liga: {str(sidebar_error)}")
             st.sidebar.error("Erro ao carregar ligas disponíveis.")
@@ -488,19 +644,41 @@ def show_main_dashboard():
             # Título principal
             st.title("Seleção de Times")
             
+            # Verificar se a liga foi mudada ou se há forçar refresh
+            force_refresh = False
+            if 'force_refresh' in st.query_params:
+                force_refresh = True
+                logger.info("Forçando atualização pelos parâmetros de URL")
+                
+            # Container para status
+            status_container = st.empty()
+            
+            # Usando a nova função de carregamento de times
+            teams = load_league_teams(selected_league, status_container, force_refresh)
+            
             # Verificação adicional para garantir que temos times
             if not teams or len(teams) == 0:
                 st.warning("Não foi possível carregar os times para este campeonato.")
                 st.info("Por favor, clique no botão 'Atualizar Times' na barra lateral para tentar novamente.")
+                
+                # Botão de atualização de emergência
+                if st.button("🆘 Forçar Recarga Completa", type="primary"):
+                    # Limpar todo o cache
+                    cleared = clear_cache()
+                    st.success(f"Limpeza de cache completa: {cleared} arquivos removidos")
+                    # Recarregamento forçado
+                    st.query_params.force_refresh = int(time.time())
+                    st.rerun()
+                    
                 return
             
             # Usando o seletor nativo do Streamlit
             col1, col2 = st.columns(2)
             with col1:
-                home_team = st.selectbox("Time da Casa:", teams)
+                home_team = st.selectbox("Time da Casa:", teams, key="home_team_selector")
             with col2:
                 away_teams = [team for team in teams if team != home_team]
-                away_team = st.selectbox("Time Visitante:", away_teams)
+                away_team = st.selectbox("Time Visitante:", away_teams, key="away_team_selector")
             
             logger.info(f"Times selecionados: {home_team} vs {away_team}")
             
