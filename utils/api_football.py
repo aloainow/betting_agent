@@ -255,10 +255,10 @@ def get_teams_by_league(league_name):
             })
         
         return teams
-
-# Se não encontrar dados para a temporada atual, retorne lista vazia
-logger.warning(f"Nenhum dado encontrado para {league_name} na temporada {season}")
-return []
+    
+    # Se não encontrar dados para a temporada atual, retorne lista vazia
+    logger.warning(f"Nenhum dado encontrado para {league_name} na temporada {season}")
+    return []  # Este return estava fora da função!
 
 def get_team_names_by_league(league_name):
     """
