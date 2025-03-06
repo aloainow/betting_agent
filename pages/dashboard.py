@@ -1,14 +1,144 @@
-# pages/dashboard.py - Dashboard Principal (solução radical completa)
+# pages/dashboard.py - Solução com cache apenas para nomes dos times
 import streamlit as st
 import logging
 import traceback
+import json
+import os
 import time
-from utils.core import show_valuehunter_logo, go_to_login, update_purchase_button
+from utils.core import show_valuehunter_logo, go_to_login, update_purchase_button, DATA_DIR
 from utils.data import fetch_fbref_data, parse_team_stats, get_odds_data
 from utils.ai import analyze_with_gpt, format_prompt
 
 # Configuração de logging
 logger = logging.getLogger("valueHunter.dashboard")
+
+# Diretório para cache de times
+TEAMS_CACHE_DIR = os.path.join(DATA_DIR, "teams_cache")
+os.makedirs(TEAMS_CACHE_DIR, exist_ok=True)
+
+def get_cached_teams(league):
+    """Carrega apenas os nomes dos times do cache persistente"""
+    cache_file = os.path.join(TEAMS_CACHE_DIR, f"{league.replace(' ', '_')}_teams.json")
+    if os.path.exists(cache_file):
+        try:
+            with open(cache_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                teams = data.get('teams', [])
+                logger.info(f"Carregados {len(teams)} times do cache para {league}")
+                return teams, data.get('timestamp', 0)
+        except Exception as e:
+            logger.error(f"Erro ao carregar cache para {league}: {str(e)}")
+    return [], 0
+
+def save_teams_to_cache(league, teams):
+    """Salva apenas os nomes dos times no cache persistente"""
+    cache_file = os.path.join(TEAMS_CACHE_DIR, f"{league.replace(' ', '_')}_teams.json")
+    try:
+        data = {
+            'teams': teams,
+            'timestamp': time.time()
+        }
+        
+        with open(cache_file, 'w', encoding='utf-8') as f:
+            json.dump(data, f)
+            
+        logger.info(f"Salvos {len(teams)} times no cache para {league}")
+        return True
+    except Exception as e:
+        logger.error(f"Erro ao salvar cache para {league}: {str(e)}")
+        return False
+
+def get_league_teams(selected_league, force_refresh=False):
+    """Obtém apenas os nomes dos times usando cache quando possível"""
+    try:
+        # Verificar cache primeiro (se não estiver forçando refresh)
+        if not force_refresh:
+            teams, timestamp = get_cached_teams(selected_league)
+            
+            # Se temos times em cache e não são muito antigos (30 dias)
+            cache_max_age = 30 * 24 * 60 * 60  # 30 dias em segundos
+            if teams and len(teams) > 0 and (time.time() - timestamp) < cache_max_age:
+                logger.info(f"Usando nomes de times em cache para {selected_league} ({len(teams)} times)")
+                return teams
+        
+        # Se chegamos aqui, precisamos buscar os nomes dos times online
+        from utils.data import FBREF_URLS
+        
+        # Verificar se a liga existe
+        if selected_league not in FBREF_URLS:
+            logger.error(f"Liga {selected_league} não encontrada em FBREF_URLS")
+            return []
+            
+        # Obter URL das estatísticas
+        stats_url = FBREF_URLS[selected_league].get("stats")
+        if not stats_url:
+            logger.error(f"URL de estatísticas ausente para {selected_league}")
+            return []
+            
+        # Buscar dados
+        stats_html = fetch_fbref_data(stats_url)
+        if not stats_html:
+            logger.error(f"fetch_fbref_data retornou None para {stats_url}")
+            return []
+        
+        # Parsear estatísticas dos times (só para extrair nomes)
+        team_stats_df = parse_team_stats(stats_html)
+        if team_stats_df is None or 'Squad' not in team_stats_df.columns:
+            logger.error("Erro ao processar dados de estatísticas dos times")
+            return []
+        
+        # Extrair lista de times
+        teams = team_stats_df['Squad'].dropna().unique().tolist()
+        if not teams:
+            logger.error("Lista de times vazia após dropna() e unique()")
+            return []
+        
+        # Salvar apenas os nomes dos times no cache persistente
+        save_teams_to_cache(selected_league, teams)
+            
+        logger.info(f"Nomes de times carregados online: {len(teams)} times encontrados")
+        return teams
+            
+    except Exception as e:
+        logger.error(f"Erro ao carregar times da liga: {str(e)}")
+        traceback.print_exc()
+        return []
+
+def fetch_stats_data(selected_league):
+    """Busca as estatísticas completas (sem cache)"""
+    try:
+        from utils.data import FBREF_URLS
+        
+        # Verificar se a liga existe
+        if selected_league not in FBREF_URLS:
+            st.error(f"Liga não encontrada: {selected_league}")
+            return None, None
+            
+        # Obter URL das estatísticas
+        stats_url = FBREF_URLS[selected_league].get("stats")
+        if not stats_url:
+            st.error(f"URL de estatísticas não encontrada para {selected_league}")
+            return None, None
+            
+        # Buscar dados - com tratamento de erro explícito
+        with st.spinner("Buscando estatísticas atualizadas..."):
+            stats_html = fetch_fbref_data(stats_url)
+            if not stats_html:
+                st.error(f"Não foi possível carregar os dados do campeonato {selected_league}")
+                return None, None
+            
+            # Parsear estatísticas dos times
+            team_stats_df = parse_team_stats(stats_html)
+            if team_stats_df is None:
+                st.error("Erro ao processar dados de estatísticas dos times")
+                return None, None
+                
+            return team_stats_df, stats_html
+            
+    except Exception as e:
+        logger.error(f"Erro ao buscar estatísticas: {str(e)}")
+        st.error(f"Erro ao buscar estatísticas: {str(e)}")
+        return None, None
 
 def show_usage_stats():
     """Display usage statistics with forced refresh"""
@@ -131,85 +261,6 @@ def check_analysis_limits(selected_markets):
         logger.error(f"Erro ao verificar limites de análise: {str(e)}")
         st.error("Erro ao verificar limites de análise. Por favor, tente novamente.")
         return False
-
-# Função para carregar times com depuração aprimorada
-def load_league_teams(selected_league):
-    """Função para carregar os times da liga selecionada com depuração detalhada"""
-    try:
-        # Importar URLs do FBref
-        from utils.data import FBREF_URLS
-        
-        # Exibir mensagem de carregamento
-        with st.spinner(f"Carregando dados do campeonato {selected_league}..."):
-            logger.info(f"Iniciando carregamento para liga: {selected_league}")
-            
-            # Verificar se a liga existe
-            if selected_league not in FBREF_URLS:
-                st.error(f"Liga não encontrada: {selected_league}")
-                logger.error(f"Liga {selected_league} não encontrada em FBREF_URLS")
-                return None, None, None
-                
-            # Obter URL das estatísticas
-            stats_url = FBREF_URLS[selected_league].get("stats")
-            if not stats_url:
-                st.error(f"URL de estatísticas não encontrada para {selected_league}")
-                logger.error(f"URL de estatísticas ausente para {selected_league}")
-                return None, None, None
-            
-            logger.info(f"URL para {selected_league}: {stats_url}")
-                
-            # Buscar dados - com tratamento de erro explícito
-            logger.info("Buscando HTML da página...")
-            stats_html = fetch_fbref_data(stats_url)
-            if not stats_html:
-                st.error(f"Não foi possível carregar os dados do campeonato {selected_league}")
-                logger.error(f"fetch_fbref_data retornou None para {stats_url}")
-                return None, None, None
-            
-            logger.info(f"HTML obtido: {len(stats_html)} caracteres")
-            
-            # Parsear estatísticas dos times
-            logger.info("Extraindo estatísticas de times...")
-            team_stats_df = parse_team_stats(stats_html)
-            if team_stats_df is None:
-                st.error("Erro ao processar dados de estatísticas dos times")
-                logger.error("parse_team_stats retornou None")
-                return None, None, None
-                
-            if 'Squad' not in team_stats_df.columns:
-                st.error("Dados incompletos: coluna 'Squad' não encontrada")
-                logger.error(f"Colunas disponíveis: {team_stats_df.columns.tolist()}")
-                return None, None, None
-            
-            # Extrair lista de times
-            teams = team_stats_df['Squad'].dropna().unique().tolist()
-            if not teams:
-                st.error("Não foi possível encontrar os times do campeonato")
-                logger.error("Lista de times vazia após dropna() e unique()")
-                return None, None, None
-                
-            logger.info(f"Dados carregados com sucesso: {len(teams)} times encontrados")
-            logger.info(f"Times: {teams}")
-            return teams, team_stats_df, stats_html
-            
-    except Exception as e:
-        logger.error(f"Erro ao carregar times da liga: {str(e)}")
-        st.error(f"Erro ao carregar times: {str(e)}")
-        traceback.print_exc()
-        return None, None, None
-
-# Dados fixos de fallback caso tudo falhe
-def get_fallback_teams(selected_league):
-    """Fornece times de fallback caso o carregamento falhe"""
-    fallback_teams = {
-        "Premier League": ["Arsenal", "Aston Villa", "Brentford", "Brighton", "Chelsea", "Crystal Palace", "Everton", "Liverpool", "Manchester City", "Manchester United", "Newcastle", "Tottenham", "West Ham", "Wolves"],
-        "La Liga": ["Atletico Madrid", "Barcelona", "Real Madrid", "Sevilla", "Valencia", "Villarreal", "Athletic Bilbao", "Real Sociedad", "Real Betis", "Celta Vigo"],
-        "Serie A": ["AC Milan", "Inter Milan", "Juventus", "Napoli", "Roma", "Lazio", "Atalanta", "Fiorentina", "Torino", "Bologna"],
-        "Bundesliga": ["Bayern Munich", "Borussia Dortmund", "RB Leipzig", "Bayer Leverkusen", "Wolfsburg", "Frankfurt", "Monchengladbach", "Hoffenheim", "Stuttgart", "Union Berlin"],
-        "Ligue 1": ["PSG", "Marseille", "Lyon", "Lille", "Monaco", "Rennes", "Nice", "Lens", "Montpellier", "Strasbourg"],
-        "Champions League": ["Real Madrid", "Manchester City", "Bayern Munich", "Liverpool", "PSG", "Barcelona", "Chelsea", "Juventus", "Atletico Madrid", "Borussia Dortmund"]
-    }
-    return fallback_teams.get(selected_league, [])
 
 def show_main_dashboard():
     """Show the main dashboard with improved error handling and debug info"""
@@ -340,54 +391,25 @@ def show_main_dashboard():
             # Carregar times para a liga atual
             selected_league = liga_atual
             
-            # Verificar se já temos os times para esta liga em cache
-            cache_key = f"teams_{selected_league}"
-            if cache_key in st.session_state and st.session_state[cache_key] and len(st.session_state[cache_key]) > 0:
-                logger.info(f"Usando times em cache para {selected_league}")
-                teams = st.session_state[cache_key]
-                team_stats_df = st.session_state.get('team_stats_df')
-                stats_html = st.session_state.get('stats_html')
-                status_container.info(f"Usando {len(teams)} times em cache para {selected_league}")
+            # Obter times para a liga selecionada (usando cache para nomes)
+            teams = get_league_teams(selected_league)
+            
+            if teams and len(teams) > 0:
+                status_container.success(f"{len(teams)} times disponíveis para {selected_league}")
             else:
-                # Carregar times
-                logger.info(f"Carregando times para {selected_league} (sem cache)")
-                status_container.info(f"Carregando times de {selected_league}...")
-                
-                teams, team_stats_df, stats_html = load_league_teams(selected_league)
-                if teams and team_stats_df is not None and stats_html is not None:
-                    # Salvar no cache
-                    st.session_state[cache_key] = teams
-                    st.session_state.team_stats_df = team_stats_df
-                    st.session_state.stats_html = stats_html
+                status_container.error(f"Não foi possível carregar times para {selected_league}. Tente atualizar.")
                     
-                    status_container.success(f"Dados de {selected_league} carregados! {len(teams)} times disponíveis.")
-                else:
-                    # Usar dados de fallback se o carregamento falhar
-                    logger.warning(f"Usando dados de fallback para {selected_league}")
-                    teams = get_fallback_teams(selected_league)
-                    if teams:
-                        st.session_state[cache_key] = teams
-                        status_container.warning(f"Usando {len(teams)} times de fallback para {selected_league}")
-                    else:
-                        status_container.error(f"Não foi possível carregar times para {selected_league}")
-                        
-            # Botão para recarregar times
-            if st.sidebar.button("🔄 Recarregar Times", type="primary", use_container_width=True):
-                status_container.info(f"Recarregando times para {selected_league}...")
+            # Botão para recarregar times (pular o cache)
+            if st.sidebar.button("🔄 Atualizar Times", type="primary", use_container_width=True):
+                status_container.info(f"Atualizando times para {selected_league}...")
                 
-                # Forçar recarregamento
-                teams, team_stats_df, stats_html = load_league_teams(selected_league)
-                if teams and team_stats_df is not None and stats_html is not None:
-                    # Atualizar cache
-                    st.session_state[cache_key] = teams
-                    st.session_state.team_stats_df = team_stats_df
-                    st.session_state.stats_html = stats_html
-                    
-                    status_container.success(f"Dados recarregados! {len(teams)} times disponíveis.")
-                    # Forçar atualização da página
-                    st.experimental_rerun()
+                # Forçar recarregamento (ignorar cache)
+                teams = get_league_teams(selected_league, force_refresh=True)
+                
+                if teams and len(teams) > 0:
+                    status_container.success(f"Times atualizados! {len(teams)} times disponíveis.")
                 else:
-                    status_container.error(f"Erro ao recarregar times. Tente novamente.")
+                    status_container.error(f"Erro ao atualizar times. Tente novamente.")
                     
             # Guardar seleção atual
             st.session_state.selected_league = selected_league
@@ -425,11 +447,9 @@ def show_main_dashboard():
             
             # Verificação adicional para garantir que temos times
             if not teams or len(teams) == 0:
-                # Tentar uma última vez carregar os times
-                teams = get_fallback_teams(selected_league)
-                if not teams or len(teams) == 0:
-                    st.error("Não foi possível carregar os times. Por favor, selecione outro campeonato ou clique em 'Recarregar Times'.")
-                    return
+                st.warning("Não foi possível carregar os times para este campeonato.")
+                st.info("Por favor, clique no botão 'Atualizar Times' na barra lateral para tentar novamente.")
+                return
             
             # Usando o seletor nativo do Streamlit
             col1, col2 = st.columns(2)
@@ -516,11 +536,19 @@ def show_main_dashboard():
                     # Criar um placeholder para o status
                     status = st.empty()
                     
+                    # Buscar estatísticas sempre em tempo real (sem cache)
+                    status.info("Buscando estatísticas atualizadas...")
+                    team_stats_df, stats_html = fetch_stats_data(selected_league)
+                    
+                    if team_stats_df is None:
+                        status.error("Falha ao carregar estatísticas. Tente novamente.")
+                        return
+                        
                     # Executar análise com tratamento de erro para cada etapa
                     try:
-                        # Etapa 1: Carregar dados
-                        status.info("Carregando dados dos times...")
-                        if not stats_html or team_stats_df is None:
+                        # Etapa 1: Verificar dados
+                        status.info("Preparando dados para análise...")
+                        if team_stats_df is None:
                             status.error("Falha ao carregar dados")
                             return
                             
