@@ -478,7 +478,7 @@ def rate_limit(seconds):
     return decorator
 
 @rate_limit(1)  # 1 requisição por segundo
-def fetch_fbref_data(url, force_reload=False):
+def fetch_fbref_data(url, force_reload=False, league_name=None):
     """
     Busca dados do FBref com melhor tratamento de erros e opção de forçar reload.
     Versão que estava funcionando, com melhorias sutis.
@@ -486,7 +486,7 @@ def fetch_fbref_data(url, force_reload=False):
     import random
     import time
     
-    logger.info(f"Buscando dados do FBref: {url}, force_reload={force_reload}")
+    logger.info(f"Buscando dados do FBref: {url}, force_reload={force_reload}, league_name={league_name}")
     
     # Pequena lista de User-Agents para alternar (não muitos para evitar detecção)
     user_agents = [
@@ -507,9 +507,23 @@ def fetch_fbref_data(url, force_reload=False):
         'Cache-Control': 'max-age=0',
     }
     
-    # Tenta usar cache para diferentes ligas
-    cache_key = url.split('/')[-1]
-    cache_file = os.path.join(DATA_DIR, f"cache_{cache_key.replace('-', '_')}.html")
+    # Gerar cache_key incluindo o nome da liga quando disponível
+    if league_name:
+        # Se temos o nome da liga, usar isso como base para o cache
+        base_key = league_name.replace(' ', '_')
+        # Adicionar um sufixo específico para diferenciar entre URLs da mesma liga
+        if "stats" in url.lower():
+            cache_key = f"{base_key}_stats" 
+        elif "fixtures" in url.lower():
+            cache_key = f"{base_key}_fixtures"
+        else:
+            # Fallback para qualquer outro tipo de URL
+            cache_key = f"{base_key}_{url.split('/')[-1].replace('-', '_')}"
+    else:
+        # Comportamento original como fallback
+        cache_key = url.split('/')[-1].replace('-', '_')
+    
+    cache_file = os.path.join(DATA_DIR, f"cache_{cache_key}.html")
     
     # Verificar se existe cache - sem mostrar mensagem
     if not force_reload:
@@ -558,7 +572,7 @@ def fetch_fbref_data(url, force_reload=False):
                     try:
                         with open(cache_file, 'w', encoding='utf-8') as f:
                             f.write(response.text)
-                        logger.info(f"Cache salvo para {url}")
+                        logger.info(f"Cache salvo para {url} como {cache_file}")
                     except Exception as e:
                         logger.warning(f"Erro ao salvar cache: {str(e)}")
                         
@@ -600,14 +614,26 @@ def fetch_fbref_data(url, force_reload=False):
     
     # Se falhou com o cache normal, tentar buscar um fallback de cache
     try:
-        fallback_files = [f for f in os.listdir(DATA_DIR) if f.startswith("cache_") and f.endswith(".html")]
+        if league_name:
+            # CORREÇÃO: Procurar apenas arquivos de cache que correspondam à liga atual
+            base_key = league_name.replace(' ', '_')
+            fallback_files = [f for f in os.listdir(DATA_DIR) 
+                             if f.startswith(f"cache_{base_key}") and f.endswith(".html")]
+            
+            logger.info(f"Procurando caches específicos para a liga '{league_name}': {len(fallback_files)} encontrados")
+        else:
+            # Comportamento anterior como fallback
+            fallback_files = [f for f in os.listdir(DATA_DIR) 
+                             if f.startswith("cache_") and f.endswith(".html")]
+            logger.info(f"Procurando qualquer cache válido: {len(fallback_files)} encontrados")
+            
         if fallback_files:
-            # Usar o cache mais recente de qualquer liga
+            # Usar o cache mais recente da liga solicitada
             fallback_file = os.path.join(DATA_DIR, sorted(fallback_files, 
                             key=lambda x: os.path.getmtime(os.path.join(DATA_DIR, x)), 
                             reverse=True)[0])
             
-            logger.warning(f"Usando cache de fallback: {fallback_file}")
+            logger.warning(f"Usando cache de fallback específico para '{league_name}': {fallback_file}")
             with open(fallback_file, 'r', encoding='utf-8') as f:
                 content = f.read()
                 if content and len(content) > 1000:
@@ -616,9 +642,8 @@ def fetch_fbref_data(url, force_reload=False):
         logger.error(f"Erro ao tentar usar cache de fallback: {str(e)}")
     
     # Mensagem de erro simples e clara
-    logger.error("Não foi possível carregar os dados do campeonato após múltiplas tentativas")
+    logger.error(f"Não foi possível carregar os dados do campeonato {league_name} após múltiplas tentativas")
     return None
-
 # Adicione esta função em utils/ai.py ou utils/data.py
 
 def extract_team_stats(stats_df, team_name):
