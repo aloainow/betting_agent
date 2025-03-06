@@ -61,6 +61,9 @@ FBREF_URLS = {
     }
 }
 
+# Verificar e corrigir URLs
+FBREF_URLS = verify_fbref_urls()
+
 @dataclass
 class UserTier:
     name: str
@@ -477,6 +480,54 @@ def rate_limit(seconds):
         return wrapper
     return decorator
 
+# Em utils/data.py - função para verificar e corrigir URLs
+def verify_fbref_urls():
+    """Verifica e corrige URLs do FBref"""
+    global FBREF_URLS
+    
+    # URLss corretas para cada liga
+    correct_urls = {
+        "Premier League": {
+            "stats": "https://fbref.com/en/comps/9/Premier-League-Stats",
+            "fixtures": "https://fbref.com/en/comps/9/schedule/Premier-League-Scores-and-Fixtures"
+        },
+        "La Liga": {
+            "stats": "https://fbref.com/en/comps/12/La-Liga-Stats",
+            "fixtures": "https://fbref.com/en/comps/12/schedule/La-Liga-Scores-and-Fixtures"
+        },
+        "Serie A": {
+            "stats": "https://fbref.com/en/comps/11/Serie-A-Stats",
+            "fixtures": "https://fbref.com/en/comps/11/schedule/Serie-A-Scores-and-Fixtures"
+        },
+        "Bundesliga": {
+            "stats": "https://fbref.com/en/comps/20/Bundesliga-Stats",
+            "fixtures": "https://fbref.com/en/comps/20/schedule/Bundesliga-Scores-and-Fixtures"
+        },
+        "Ligue 1": {
+            "stats": "https://fbref.com/en/comps/13/Ligue-1-Stats",
+            "fixtures": "https://fbref.com/en/comps/13/schedule/Ligue-1-Scores-and-Fixtures"
+        },
+        "Champions League": {
+            "stats": "https://fbref.com/en/comps/8/Champions-League-Stats",
+            "fixtures": "https://fbref.com/en/comps/8/schedule/Champions-League-Scores-and-Fixtures"
+        }
+    }
+    
+    # Verificar e corrigir cada liga
+    for league, urls in correct_urls.items():
+        if league in FBREF_URLS:
+            # Verificar se as URLs estão corretas
+            if FBREF_URLS[league].get("stats") != urls["stats"]:
+                print(f"Corrigindo URL para {league}: {FBREF_URLS[league].get('stats')} -> {urls['stats']}")
+                FBREF_URLS[league]["stats"] = urls["stats"]
+            if FBREF_URLS[league].get("fixtures") != urls["fixtures"]:
+                FBREF_URLS[league]["fixtures"] = urls["fixtures"]
+        else:
+            # Adicionar liga se não existir
+            FBREF_URLS[league] = urls
+    
+    return FBREF_URLS
+
 @rate_limit(1)  # 1 requisição por segundo
 def fetch_fbref_data(url, force_reload=False):
     """
@@ -485,8 +536,9 @@ def fetch_fbref_data(url, force_reload=False):
     """
     import random
     import time
-    
-    logger.info(f"Buscando dados do FBref: {url}, force_reload={force_reload}")
+
+    # Log para verificar a URL que está sendo usada
+    logger.info(f"Buscando dados do FBref: URL={url}")
     
     # Pequena lista de User-Agents para alternar (não muitos para evitar detecção)
     user_agents = [
