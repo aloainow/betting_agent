@@ -163,44 +163,20 @@ def api_request(endpoint, params=None, use_cache=True, cache_duration=CACHE_DURA
 
 def get_league_season(league_name):
     """
-    Obter a temporada mais recente disponível para uma liga específica
+    Obter a temporada definida para uma liga específica
     
     Args:
         league_name (str): Nome da liga
         
     Returns:
-        int: Temporada (ano) mais recente para a liga
+        int: Temporada (ano) definida para a liga
     """
-    # Verificar se temos uma temporada específica definida para esta liga
+    # Simplesmente retornar a temporada definida ou a atual
     if league_name in LEAGUE_SEASONS:
         return LEAGUE_SEASONS[league_name]
     
-    # Tentar descobrir a temporada mais recente disponível para a liga
-    try:
-        league_id = LEAGUE_IDS.get(league_name)
-        if not league_id:
-            return CURRENT_SEASON
-        
-        # Tentar a temporada atual primeiro
-        params = {"league": league_id, "season": CURRENT_SEASON}
-        data = api_request("/fixtures", params, use_cache=True)
-        
-        if data and "response" in data and len(data["response"]) > 0:
-            return CURRENT_SEASON
-        
-        # Se não houver jogos na temporada atual, tentar a temporada anterior
-        params = {"league": league_id, "season": CURRENT_SEASON - 1}
-        data = api_request("/fixtures", params, use_cache=True)
-        
-        if data and "response" in data and len(data["response"]) > 0:
-            return CURRENT_SEASON - 1
-    
-    except Exception as e:
-        logger.error(f"Erro ao determinar temporada para {league_name}: {str(e)}")
-    
-    # Fallback para a temporada atual
+    # Retornar a temporada atual como fallback
     return CURRENT_SEASON
-
 def get_available_leagues():
     """
     Obter lista de ligas disponíveis com suas temporadas atuais
@@ -279,29 +255,10 @@ def get_teams_by_league(league_name):
             })
         
         return teams
-    
-    # Se a temporada principal falhar, tentar a anterior como fallback
-    if season == CURRENT_SEASON:
-        logger.warning(f"Temporada {season} falhou para {league_name}, tentando {season-1}")
-        params["season"] = season - 1
-        data = api_request("/teams", params)
-        
-        if data and "response" in data:
-            teams = []
-            for team_item in data["response"]:
-                team = team_item["team"]
-                teams.append({
-                    "id": team["id"],
-                    "name": team["name"],
-                    "logo": team.get("logo", "")
-                })
-            
-            # Atualizar a temporada correta para esta liga
-            LEAGUE_SEASONS[league_name] = season - 1
-            
-            return teams
-    
-    return []
+
+# Se não encontrar dados para a temporada atual, retorne lista vazia
+logger.warning(f"Nenhum dado encontrado para {league_name} na temporada {season}")
+return []
 
 def get_team_names_by_league(league_name):
     """
@@ -348,17 +305,6 @@ def get_team_statistics(team_id, league_name):
     
     if data and "response" in data:
         return data["response"]
-    
-    # Se a temporada principal falhar, tentar a anterior como fallback
-    if season == CURRENT_SEASON:
-        logger.warning(f"Temporada {season} falhou para estatísticas, tentando {season-1}")
-        params["season"] = season - 1
-        data = api_request("/teams/statistics", params)
-        
-        if data and "response" in data:
-            return data["response"]
-    
-    return None
 
 def get_team_id_by_name(team_name, league_name):
     """
