@@ -18,29 +18,73 @@ os.makedirs(TEAMS_CACHE_DIR, exist_ok=True)
 
 def get_cached_teams(league):
     """Carrega apenas os nomes dos times do cache persistente"""
-    cache_file = os.path.join(TEAMS_CACHE_DIR, f"{league.replace(' ', '_')}_teams.json")
+    # Sanitizar nome da liga para evitar problemas com caracteres especiais
+    safe_league_name = league.replace(' ', '_').replace('/', '_').replace('\\', '_')
+    cache_file = os.path.join(TEAMS_CACHE_DIR, f"{safe_league_name}_teams.json")
+    
+    logger.info(f"Verificando cache de times para liga '{league}' em: {cache_file}")
+    
     if os.path.exists(cache_file):
         try:
             with open(cache_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
                 teams = data.get('teams', [])
+                timestamp = data.get('timestamp', 0)
+                
+                # Verificar se os dados são válidos
+                if not teams or len(teams) < 3:  # Espera-se pelo menos alguns times
+                    logger.warning(f"Cache para {league} tem poucos times: {len(teams)}")
+                    return [], 0
+                    
                 logger.info(f"Carregados {len(teams)} times do cache para {league}")
-                return teams, data.get('timestamp', 0)
+                return teams, timestamp
         except Exception as e:
             logger.error(f"Erro ao carregar cache para {league}: {str(e)}")
+            
+            # Tentar fazer backup do arquivo corrompido
+            try:
+                backup_file = f"{cache_file}.bak.{int(time.time())}"
+                os.rename(cache_file, backup_file)
+                logger.info(f"Backup do cache corrompido criado: {backup_file}")
+            except:
+                pass
+    else:
+        logger.info(f"Nenhum cache encontrado para {league}")
+        
     return [], 0
 
 def save_teams_to_cache(league, teams):
     """Salva apenas os nomes dos times no cache persistente"""
-    cache_file = os.path.join(TEAMS_CACHE_DIR, f"{league.replace(' ', '_')}_teams.json")
+    # Sanitizar nome da liga para evitar problemas com caracteres especiais
+    safe_league_name = league.replace(' ', '_').replace('/', '_').replace('\\', '_')
+    cache_file = os.path.join(TEAMS_CACHE_DIR, f"{safe_league_name}_teams.json")
+    
     try:
+        # Verificar se os dados são válidos para salvar
+        if not teams or len(teams) < 3:  # Espera-se pelo menos alguns times
+            logger.warning(f"Tentando salvar cache com poucos times para {league}: {len(teams)}")
+            return False
+            
+        # Verificar se o diretório existe
+        if not os.path.exists(TEAMS_CACHE_DIR):
+            os.makedirs(TEAMS_CACHE_DIR, exist_ok=True)
+            logger.info(f"Diretório de cache de times criado: {TEAMS_CACHE_DIR}")
+        
+        # Salvar temporariamente primeiro para garantir atomicidade
+        temp_file = f"{cache_file}.tmp"
+        
         data = {
             'teams': teams,
-            'timestamp': time.time()
+            'timestamp': time.time(),
+            'league': league,  # Guardar o nome original da liga
+            'count': len(teams)
         }
         
-        with open(cache_file, 'w', encoding='utf-8') as f:
-            json.dump(data, f)
+        with open(temp_file, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2)
+            
+        # Renomear o arquivo temporário para o arquivo final
+        os.replace(temp_file, cache_file)
             
         logger.info(f"Salvos {len(teams)} times no cache para {league}")
         return True
@@ -75,8 +119,8 @@ def get_league_teams(selected_league, force_refresh=False):
             logger.error(f"URL de estatísticas ausente para {selected_league}")
             return []
             
-        # Buscar dados
-        stats_html = fetch_fbref_data(stats_url)
+        # Buscar dados - MODIFICADO para incluir nome da liga
+        stats_html = fetch_fbref_data(stats_url, force_reload=force_refresh, league_name=selected_league)
         if not stats_html:
             logger.error(f"fetch_fbref_data retornou None para {stats_url}")
             return []
@@ -120,9 +164,9 @@ def fetch_stats_data(selected_league):
             st.error(f"URL de estatísticas não encontrada para {selected_league}")
             return None, None
             
-        # Buscar dados - com tratamento de erro explícito
+        # Buscar dados - com tratamento de erro explícito e MODIFICADO para incluir nome da liga
         with st.spinner("Buscando estatísticas atualizadas..."):
-            stats_html = fetch_fbref_data(stats_url)
+            stats_html = fetch_fbref_data(stats_url, league_name=selected_league)
             if not stats_html:
                 st.error(f"Não foi possível carregar os dados do campeonato {selected_league}")
                 return None, None
@@ -139,7 +183,6 @@ def fetch_stats_data(selected_league):
         logger.error(f"Erro ao buscar estatísticas: {str(e)}")
         st.error(f"Erro ao buscar estatísticas: {str(e)}")
         return None, None
-
 def show_usage_stats():
     """Display usage statistics with forced refresh"""
     try:
