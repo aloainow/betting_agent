@@ -691,55 +691,54 @@ def show_main_dashboard():
         # 1. Mostrar estatísticas de uso e saudação
         show_usage_stats()
         
-       # Trecho para substituir na função show_main_dashboard onde está a seleção de liga
-# Substitua o bloco existente por este - agora sem fallback
-
-try:
-    # Tentar carregar as ligas disponíveis com país incluído
-    available_leagues = get_available_leagues()
-    if not available_leagues:
-        st.sidebar.error("Erro: Nenhuma liga disponível da API.")
-        st.error("Não foi possível obter ligas da API FootyStats. Verifique sua conexão e assinatura.")
-        st.stop()  # Para a execução em vez de usar fallback
-    
-    # Inicializar a liga selecionada se não existir na sessão ou não estiver na lista atualizada
-    if 'selected_league' not in st.session_state or st.session_state.selected_league not in available_leagues:
-        st.session_state.selected_league = available_leagues[0]
-    
-    # Seletor de liga com país incluído
-    selected_league = st.sidebar.selectbox(
-        "Escolha o campeonato:",
-        options=available_leagues,
-        index=available_leagues.index(st.session_state.selected_league) if st.session_state.selected_league in available_leagues else 0,
-        key="league_selector"
-    )
-    
-    # Verificar se a liga mudou
-    if selected_league != st.session_state.selected_league:
-        st.sidebar.info(f"Mudando de {st.session_state.selected_league} para {selected_league}")
-        st.session_state.selected_league = selected_league
-        # Recarregar a página
-        st.rerun()
-    
-    # Botão para atualizar times
-    if st.sidebar.button("🔄 Atualizar Times", type="primary", use_container_width=True):
+        # 2. Escolha da liga (movida para cima)
+        # CÓDIGO CORRIGIDO PARA SELEÇÃO DE LIGAS
         try:
-            # Limpar caches para a liga selecionada
-            from utils.footystats_api import clear_league_cache
-            num_cleared = clear_league_cache(selected_league)
-            st.sidebar.success(f"Caches limpos para {selected_league}: {num_cleared} arquivos")
-            # Recarregar a página
-            st.rerun()
-        except Exception as refresh_error:
-            st.sidebar.error(f"Erro ao atualizar: {str(refresh_error)}")
-        
-except Exception as sidebar_error:
-    import traceback
-    logger.error(f"Erro na seleção de liga: {str(sidebar_error)}")
-    logger.error(traceback.format_exc())
-    st.sidebar.error(f"Erro ao carregar ligas: {str(sidebar_error)}")
-    st.error("Erro crítico ao carregar ligas. Por favor, recarregue a página ou tente mais tarde.")
-    st.stop()  # Para a execução em vez de usar fallback
+            # Tentar carregar as ligas disponíveis com país incluído
+            available_leagues = get_available_leagues()
+            if not available_leagues:
+                st.sidebar.error("Erro: Nenhuma liga disponível da API.")
+                st.error("Não foi possível obter ligas da API FootyStats. Verifique sua conexão e assinatura.")
+                return  # Para a execução em vez de usar fallback
+            
+            # Inicializar a liga selecionada se não existir na sessão ou não estiver na lista atualizada
+            if 'selected_league' not in st.session_state or st.session_state.selected_league not in available_leagues:
+                st.session_state.selected_league = available_leagues[0]
+            
+            # Seletor de liga com país incluído
+            selected_league = st.sidebar.selectbox(
+                "Escolha o campeonato:",
+                options=available_leagues,
+                index=available_leagues.index(st.session_state.selected_league) if st.session_state.selected_league in available_leagues else 0,
+                key="league_selector"
+            )
+            
+            # Verificar se a liga mudou
+            if selected_league != st.session_state.selected_league:
+                st.sidebar.info(f"Mudando de {st.session_state.selected_league} para {selected_league}")
+                st.session_state.selected_league = selected_league
+                # Recarregar a página
+                st.rerun()
+            
+            # Botão para atualizar times
+            if st.sidebar.button("🔄 Atualizar Times", type="primary", use_container_width=True):
+                try:
+                    # Limpar caches para a liga selecionada
+                    from utils.footystats_api import clear_league_cache
+                    num_cleared = clear_league_cache(selected_league)
+                    st.sidebar.success(f"Caches limpos para {selected_league}: {num_cleared} arquivos")
+                    # Recarregar a página
+                    st.rerun()
+                except Exception as refresh_error:
+                    st.sidebar.error(f"Erro ao atualizar: {str(refresh_error)}")
+                
+        except Exception as sidebar_error:
+            import traceback
+            logger.error(f"Erro na seleção de liga: {str(sidebar_error)}")
+            logger.error(traceback.format_exc())
+            st.sidebar.error(f"Erro ao carregar ligas: {str(sidebar_error)}")
+            st.error("Erro crítico ao carregar ligas. Por favor, recarregue a página ou tente mais tarde.")
+            return  # Para a execução em vez de usar fallback
         
         # Resto do código para a barra lateral
         st.sidebar.markdown("---")
@@ -754,7 +753,7 @@ except Exception as sidebar_error:
             st.session_state.email = None
             st.session_state.page = "landing"
             st.experimental_rerun()
-        
+
         # ------------------------------------------------------------
         # CONTEÚDO PRINCIPAL 
         # ------------------------------------------------------------
