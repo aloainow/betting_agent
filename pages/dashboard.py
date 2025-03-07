@@ -115,7 +115,7 @@ def get_available_leagues():
     logger.info("Usando lista padrão de ligas principais")
     return ["Premier League", "La Liga", "Serie A", "Bundesliga", "Ligue 1", "Champions League"]
 
-# Corrected function for pages/dashboard.py with proper syntax
+# Updated diagnose_api_issues function for dashboard.py
 
 def diagnose_api_issues(selected_league):
     """
@@ -128,7 +128,7 @@ def diagnose_api_issues(selected_league):
         str: Mensagem de diagnóstico
     """
     try:
-        from utils.footystats_api import LEAGUE_IDS, LEAGUE_SEASONS, BASE_URL, API_KEY
+        from utils.footystats_api import LEAGUE_IDS, LEAGUE_SEASONS, BASE_URL, API_KEY, test_specific_league_request
         
         # Verificar se a liga existe no mapeamento
         if selected_league not in LEAGUE_IDS:
@@ -146,34 +146,66 @@ def diagnose_api_issues(selected_league):
         if not API_KEY or API_KEY == "your_api_key_here":
             return "❌ API key não configurada ou inválida."
         
-        # Construir URL para diagnóstico manual
-        params = {
-            "competition_id": league_id,
-            "season": season
-        }
+        # Test direct API request
+        test_result = test_specific_league_request(selected_league)
         
-        param_str = "&".join([f"{k}={v}" for k, v in params.items()])
-        diagnostic_url = f"{BASE_URL}/league-teams?{param_str}"
-        
-        return f"""
-        ✅ API configurada corretamente!
-        
-        Detalhes para diagnóstico manual:
-        - Liga: {selected_league}
-        - ID: {league_id}
-        - Temporada: {season}
-        - Endpoint: /league-teams
-        
-        Se o problema persistir, verifique se essa liga e temporada estão disponíveis 
-        no seu plano da API FootyStats.
-        """
-        
+        if test_result.get("success", False):
+            teams_count = test_result.get("teams_count", 0)
+            sample_teams = test_result.get("sample_teams", [])
+            
+            return f"""
+            ✅ API configurada corretamente e está funcionando!
+            
+            ✅ Encontrados {teams_count} times para {selected_league} (temporada {season})
+            
+            Exemplos: {', '.join(sample_teams[:5])}
+            
+            ℹ️ Se você ainda está tendo problemas, experimente:
+            1. Limpar o cache (botão abaixo)
+            2. Verificar se sua chave API tem acesso a esta liga
+            3. Verificar se a temporada está correta ({season})
+            """
+        else:
+            error = test_result.get("error", "unknown_error")
+            message = test_result.get("message", "Erro desconhecido")
+            
+            response_details = ""
+            if "response_text" in test_result:
+                response_details = f"""
+                Resposta da API:
+                ```
+                {test_result['response_text']}
+                ```
+                """
+            
+            return f"""
+            ❌ Problema detectado com a API FootyStats!
+            
+            • URL: {BASE_URL}/league-teams
+            • Liga: {selected_league} (ID: {league_id})
+            • Temporada: {season}
+            • Erro: {error}
+            • Mensagem: {message}
+            
+            {response_details}
+            
+            Possíveis soluções:
+            1. Verifique se sua chave API está correta e ativa
+            2. Verifique se sua assinatura FootyStats inclui esta liga
+            3. Experimente uma temporada diferente (atualmente usando {season})
+            4. Verifique se a URL base está correta ({BASE_URL})
+            """
+            
     except Exception as e:
         logger.error(f"Erro ao diagnosticar problemas na API: {str(e)}")
         import traceback
         logger.error(traceback.format_exc())
-        return f"❌ Erro durante diagnóstico: {str(e)}"
-
+        return f"""
+        ❌ Erro durante diagnóstico: {str(e)}
+        
+        Isso pode indicar um problema com a configuração do módulo FootyStats API.
+        Verifique se todas as dependências estão instaladas e se o arquivo utils/footystats_api.py está correto.
+        """
 def load_league_teams_direct(selected_league):
     """
     Carregar times de uma liga usando a API FootyStats com diagnóstico simplificado
