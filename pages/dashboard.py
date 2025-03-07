@@ -1,14 +1,13 @@
 # pages/dashboard.py - Solução com integrações de API-Football
 import streamlit as st
 import logging
-import traceback
+import traceback  # Importado globalmente para evitar o erro
 import json
 import os
 import time
 from utils.core import show_valuehunter_logo, go_to_login, update_purchase_button, DATA_DIR
 from utils.data import parse_team_stats, get_odds_data, format_prompt
 from utils.ai import analyze_with_gpt
-
 
 # Configuração de logging
 logger = logging.getLogger("valueHunter.dashboard")
