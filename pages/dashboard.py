@@ -9,8 +9,7 @@ from utils.core import show_valuehunter_logo, go_to_login, update_purchase_butto
 from utils.data import fetch_fbref_data, parse_team_stats, get_odds_data
 from utils.ai import analyze_with_gpt, format_prompt
 
-# Substituição temporária para evitar erros - será removida após correção
-PREDEFINED_TEAMS = {}
+
 # Configuração de logging
 logger = logging.getLogger("valueHunter.dashboard")
 
@@ -98,11 +97,13 @@ def clear_cache(league_name=None):
         logger.error(f"Erro ao limpar cache: {str(e)}")
         return cleaned
 
+# Substitua essas funções no arquivo pages/dashboard.py
+
 def get_available_leagues():
-    """Obter ligas disponíveis da API ou usar lista predefinida"""
+    """Obter ligas disponíveis da API FootyStats"""
     try:
-        # Tentar obter ligas da API
-        from utils.api_football import get_available_leagues
+        # Tentar obter ligas da API FootyStats
+        from utils.footystats_api import get_available_leagues
         leagues = list(get_available_leagues().keys())
         
         if leagues and len(leagues) > 0:
@@ -110,10 +111,13 @@ def get_available_leagues():
     except Exception as api_error:
         logger.error(f"Erro ao obter ligas da API: {str(api_error)}")
     
+    # Fallback para ligas principais mais comuns
+    logger.info("Usando lista padrão de ligas principais")
+    return ["Premier League", "La Liga", "Serie A", "Bundesliga", "Ligue 1", "Champions League"]
 
 def load_league_teams_direct(selected_league):
     """
-    Carregar times de uma liga usando a API-Football
+    Carregar times de uma liga usando a API FootyStats
     
     Args:
         selected_league (str): Nome da liga
@@ -125,39 +129,30 @@ def load_league_teams_direct(selected_league):
         status = st.empty()
         status.info(f"Carregando times para {selected_league}...")
         
-        # Tentar obter times da API
+        # Tentar obter times da API FootyStats
         try:
-            from utils.api_football import get_team_names_by_league
+            from utils.footystats_api import get_team_names_by_league
             teams = get_team_names_by_league(selected_league)
             
             if teams and len(teams) > 0:
                 status.success(f"✅ {len(teams)} times carregados para {selected_league}")
                 return teams
             else:
-                status.error(f"Não foi possível obter times para {selected_league}")
-                st.error("""
-                🚨 Erro ao obter dados da API-Football.
-                
-                Possíveis razões:
-                1. Problema de conexão com a API
-                2. A liga selecionada pode não estar disponível na temporada atual
-                
-                Por favor, tente novamente ou selecione outra liga.
-                """)
+                status.warning(f"Nenhum time encontrado via API para {selected_league}")
                 return []
         except Exception as api_error:
             status.error(f"Erro ao obter times da API: {str(api_error)}")
             logger.error(f"Erro na API: {str(api_error)}")
-            st.error(f"Detalhes do erro: {str(api_error)}")
             return []
-            
+    
     except Exception as e:
         logger.error(f"Erro ao carregar times: {str(e)}")
         st.error(f"Erro ao carregar times: {str(e)}")
         return []
+
 def fetch_stats_data(selected_league, home_team=None, away_team=None):
     """
-    Buscar estatísticas das equipes exclusivamente pela API-Football
+    Buscar estatísticas das equipes pela API FootyStats
     
     Args:
         selected_league (str): Nome da liga
@@ -168,15 +163,15 @@ def fetch_stats_data(selected_league, home_team=None, away_team=None):
         tuple: (DataFrame com estatísticas, dados brutos) ou (None, None) em caso de erro
     """
     try:
-        with st.spinner("Buscando estatísticas atualizadas da API-Football..."):
+        with st.spinner("Buscando estatísticas atualizadas..."):
             # Verificar se temos times específicos para buscar
             if home_team and away_team:
-                # Obter estatísticas exclusivamente da API-Football
+                # Obter estatísticas da API FootyStats
                 try:
-                    from utils.api_football import get_fixture_statistics, convert_api_stats_to_df_format
+                    from utils.footystats_api import get_fixture_statistics, convert_api_stats_to_df_format
                     
                     # Mostrar qual temporada estamos usando
-                    from utils.api_football import LEAGUE_SEASONS, CURRENT_SEASON
+                    from utils.footystats_api import LEAGUE_SEASONS, CURRENT_SEASON
                     season = LEAGUE_SEASONS.get(selected_league, CURRENT_SEASON)
                     st.info(f"Buscando estatísticas da temporada {season} para {selected_league}")
                     
@@ -191,35 +186,28 @@ def fetch_stats_data(selected_league, home_team=None, away_team=None):
                             st.success(f"Estatísticas carregadas com sucesso para {home_team} vs {away_team}")
                             return team_stats_df, fixture_stats
                         else:
-                            st.error("Erro ao processar estatísticas da API")
+                            st.error("Erro ao processar estatísticas")
                             return None, None
                     else:
-                        st.error(f"Estatísticas não disponíveis para {home_team} vs {away_team} na API-Football")
-                        st.warning("Tente selecionar outros times ou outra liga.")
+                        st.error("Estatísticas não disponíveis para estes times")
+                        st.info("Isso pode ocorrer se os times não fizerem parte da mesma liga ou temporada.")
                         return None, None
                 
                 except Exception as api_error:
-                    st.error(f"Erro ao obter estatísticas da API-Football: {str(api_error)}")
+                    st.error(f"Erro ao obter estatísticas da API: {str(api_error)}")
                     logger.error(f"Erro na API de estatísticas: {str(api_error)}")
                     return None, None
             else:
-                st.error("É necessário selecionar dois times diferentes para análise.")
+                st.error("É necessário selecionar dois times para análise.")
                 return None, None
-            
     except Exception as e:
         logger.error(f"Erro ao buscar estatísticas: {str(e)}")
         st.error(f"Erro ao buscar estatísticas: {str(e)}")
         return None, None
 
-def generate_minimal_stats_df(home_team, away_team):
-    """
-    Função modificada para NÃO gerar dados falsos.
-    """
-    st.error("⚠️ Dados não disponíveis para esses times na API. Por favor, selecione outros times.")
-    return None
 def get_cached_teams(league):
-    """Carrega os nomes dos times do cache persistente com verificação de temporada"""
-    from utils.api_football import LEAGUE_SEASONS, CURRENT_SEASON
+    """Carrega apenas os nomes dos times do cache persistente com verificação de temporada"""
+    from utils.footystats_api import LEAGUE_SEASONS, CURRENT_SEASON
     
     # Determinar a temporada atual para a liga
     season = LEAGUE_SEASONS.get(league, CURRENT_SEASON)
@@ -249,7 +237,7 @@ def get_cached_teams(league):
 
 def save_teams_to_cache(league, teams):
     """Salva os times no cache persistente com identificação de temporada"""
-    from utils.api_football import LEAGUE_SEASONS, CURRENT_SEASON
+    from utils.footystats_api import LEAGUE_SEASONS, CURRENT_SEASON
     
     # Determinar a temporada atual para a liga
     season = LEAGUE_SEASONS.get(league, CURRENT_SEASON)
@@ -280,55 +268,32 @@ def get_league_teams(selected_league, force_refresh=False):
         if not force_refresh:
             teams, timestamp = get_cached_teams(selected_league)
             
-            # Se temos times em cache e não são muito antigos (30 dias)
-            cache_max_age = 30 * 24 * 60 * 60  # 30 dias em segundos
-            if teams and len(teams) > 0 and (time.time() - timestamp) < cache_max_age:
+            # Se temos times em cache válido
+            if teams and len(teams) > 0:
                 logger.info(f"Usando nomes de times em cache para {selected_league} ({len(teams)} times)")
                 return teams
         
         # Se chegamos aqui, precisamos buscar os nomes dos times online
-        from utils.data import FBREF_URLS
+        from utils.footystats_api import get_team_names_by_league
         
-        # Verificar se a liga existe
-        if selected_league not in FBREF_URLS:
-            logger.error(f"Liga {selected_league} não encontrada em FBREF_URLS")
-            return []
+        # Buscar times da FootyStats API
+        teams = get_team_names_by_league(selected_league)
             
-        # Obter URL das estatísticas
-        stats_url = FBREF_URLS[selected_league].get("stats")
-        if not stats_url:
-            logger.error(f"URL de estatísticas ausente para {selected_league}")
-            return []
-            
-        # Buscar dados
-        stats_html = fetch_fbref_data(stats_url)
-        if not stats_html:
-            logger.error(f"fetch_fbref_data retornou None para {stats_url}")
-            return []
-        
-        # Parsear estatísticas dos times (só para extrair nomes)
-        team_stats_df = parse_team_stats(stats_html)
-        if team_stats_df is None or 'Squad' not in team_stats_df.columns:
-            logger.error("Erro ao processar dados de estatísticas dos times")
-            return []
-        
-        # Extrair lista de times
-        teams = team_stats_df['Squad'].dropna().unique().tolist()
         if not teams:
-            logger.error("Lista de times vazia após dropna() e unique()")
+            logger.error(f"API não retornou times para {selected_league}")
             return []
         
         # Salvar apenas os nomes dos times no cache persistente
         save_teams_to_cache(selected_league, teams)
             
-        logger.info(f"Nomes de times carregados online: {len(teams)} times encontrados")
+        logger.info(f"Times carregados da API: {len(teams)} times encontrados")
         return teams
             
     except Exception as e:
         logger.error(f"Erro ao carregar times da liga: {str(e)}")
+        import traceback
         traceback.print_exc()
         return []
-
 def show_usage_stats():
     """Display usage statistics with forced refresh"""
     try:
