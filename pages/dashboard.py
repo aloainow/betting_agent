@@ -159,21 +159,36 @@ def clear_cache(league_name=None):
 # Substitua essas funções no arquivo pages/dashboard.py
 
 def get_available_leagues():
-    """Obter ligas disponíveis da API FootyStats"""
+    """
+    Obter ligas disponíveis da API FootyStats incluindo o país de cada liga
+    para evitar confusão entre ligas com nomes semelhantes.
+    Sem fallback - retorna lista vazia se a API falhar.
+    
+    Returns:
+        list: Lista de ligas no formato "Nome (País)" ou lista vazia se falhar
+    """
     try:
-        # Tentar obter ligas da API FootyStats
-        from utils.footystats_api import get_available_leagues
-        leagues = list(get_available_leagues().keys())
+        # Tentar obter ligas da API com formato país incluído
+        from utils.footystats_api import retrieve_available_leagues
         
-        if leagues and len(leagues) > 0:
-            return leagues
+        # Forçar refresh para garantir dados atualizados
+        leagues_with_ids = retrieve_available_leagues(force_refresh=True)
+        
+        if leagues_with_ids and len(leagues_with_ids) > 0:
+            # As chaves já estão no formato "Nome (País)"
+            league_names = list(leagues_with_ids.keys())
+            
+            # Ordenar alfabeticamente
+            league_names.sort()
+            
+            logger.info(f"Ligas disponíveis obtidas da API: {len(league_names)}")
+            return league_names
+        else:
+            logger.error("API não retornou ligas válidas")
+            return []
     except Exception as api_error:
         logger.error(f"Erro ao obter ligas da API: {str(api_error)}")
-    
-    # Fallback para ligas principais mais comuns
-    logger.info("Usando lista padrão de ligas principais")
-    return ["Premier League", "La Liga", "Serie A", "Bundesliga", "Ligue 1", "Champions League"]
-
+        return []  
 # Updated diagnose_api_issues function for dashboard.py
 
 def diagnose_api_issues(selected_league):
@@ -606,60 +621,55 @@ def show_main_dashboard():
         # 1. Mostrar estatísticas de uso e saudação
         show_usage_stats()
         
-        # 2. Escolha da liga (movida para cima)
+       # Trecho para substituir na função show_main_dashboard onde está a seleção de liga
+# Substitua o bloco existente por este - agora sem fallback
+
+try:
+    # Tentar carregar as ligas disponíveis com país incluído
+    available_leagues = get_available_leagues()
+    if not available_leagues:
+        st.sidebar.error("Erro: Nenhuma liga disponível da API.")
+        st.error("Não foi possível obter ligas da API FootyStats. Verifique sua conexão e assinatura.")
+        st.stop()  # Para a execução em vez de usar fallback
+    
+    # Inicializar a liga selecionada se não existir na sessão ou não estiver na lista atualizada
+    if 'selected_league' not in st.session_state or st.session_state.selected_league not in available_leagues:
+        st.session_state.selected_league = available_leagues[0]
+    
+    # Seletor de liga com país incluído
+    selected_league = st.sidebar.selectbox(
+        "Escolha o campeonato:",
+        options=available_leagues,
+        index=available_leagues.index(st.session_state.selected_league) if st.session_state.selected_league in available_leagues else 0,
+        key="league_selector"
+    )
+    
+    # Verificar se a liga mudou
+    if selected_league != st.session_state.selected_league:
+        st.sidebar.info(f"Mudando de {st.session_state.selected_league} para {selected_league}")
+        st.session_state.selected_league = selected_league
+        # Recarregar a página
+        st.rerun()
+    
+    # Botão para atualizar times
+    if st.sidebar.button("🔄 Atualizar Times", type="primary", use_container_width=True):
         try:
-            # Tentar carregar as ligas disponíveis
-            available_leagues = get_available_leagues()
-            if not available_leagues:
-                st.sidebar.error("Erro: Nenhuma liga disponível.")
-                available_leagues = list(PREDEFINED_TEAMS.keys())
-                logger.error("Usando ligas predefinidas por falta de dados")
-            
-            # Verificar se temos ligas
-            if not available_leagues:
-                st.sidebar.error("Erro: Nenhuma liga disponível.")
-                # Se não conseguimos ligas, tentar usar algumas comuns
-                available_leagues = ["Premier League", "La Liga", "Serie A", "Bundesliga", "Ligue 1"]
-                logger.error("Usando ligas padrão por falta de dados")
-            
-            # Inicializar a liga selecionada se não existir na sessão
-            if 'selected_league' not in st.session_state:
-                st.session_state.selected_league = available_leagues[0]
-            
-            # Seletor de liga simplificado (seletor nativo do Streamlit)
-            selected_league = st.sidebar.selectbox(
-                "Escolha o campeonato:",
-                options=available_leagues,
-                index=available_leagues.index(st.session_state.selected_league) if st.session_state.selected_league in available_leagues else 0,
-                key="league_selector"
-            )
-            
-            # Verificar se a liga mudou
-            if selected_league != st.session_state.selected_league:
-                st.sidebar.info(f"Mudando de {st.session_state.selected_league} para {selected_league}")
-                st.session_state.selected_league = selected_league
-                # Recarregar a página
-                st.rerun()
-            
-            # Botão para atualizar times
-            if st.sidebar.button("🔄 Atualizar Times", type="primary", use_container_width=True):
-                try:
-                    # Limpar caches para a liga selecionada
-                    if 'clear_cache' in globals():
-                        clear_cache(selected_league)
-                    st.sidebar.success(f"Caches limpos para {selected_league}")
-                    # Recarregar a página
-                    st.rerun()
-                except Exception as refresh_error:
-                    st.sidebar.error(f"Erro ao atualizar: {str(refresh_error)}")
-                
-        except Exception as sidebar_error:
-            logger.error(f"Erro na seleção de liga: {str(sidebar_error)}")
-            st.sidebar.error(f"Erro ao carregar ligas: {str(sidebar_error)}")
-            # Fornecer uma liga padrão para continuar
-            selected_league = "Premier League"
-            import traceback
-            logger.error(traceback.format_exc())
+            # Limpar caches para a liga selecionada
+            from utils.footystats_api import clear_league_cache
+            num_cleared = clear_league_cache(selected_league)
+            st.sidebar.success(f"Caches limpos para {selected_league}: {num_cleared} arquivos")
+            # Recarregar a página
+            st.rerun()
+        except Exception as refresh_error:
+            st.sidebar.error(f"Erro ao atualizar: {str(refresh_error)}")
+        
+except Exception as sidebar_error:
+    import traceback
+    logger.error(f"Erro na seleção de liga: {str(sidebar_error)}")
+    logger.error(traceback.format_exc())
+    st.sidebar.error(f"Erro ao carregar ligas: {str(sidebar_error)}")
+    st.error("Erro crítico ao carregar ligas. Por favor, recarregue a página ou tente mais tarde.")
+    st.stop()  # Para a execução em vez de usar fallback
         
         # Resto do código para a barra lateral
         st.sidebar.markdown("---")
