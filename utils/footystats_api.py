@@ -490,3 +490,400 @@ def convert_api_stats_to_df_format(fixture_stats):
         import traceback
         logger.error(traceback.format_exc())
         return None
+    # ===== ENDPOINTS PARA ESTATÍSTICAS DE LIGAS =====
+
+def get_league_standings(league_name):
+    """
+    Obter classificação da liga
+    
+    Args:
+        league_name (str): Nome da liga
+        
+    Returns:
+        list: Lista de times com suas posições e estatísticas na liga
+    """
+    # Obter o ID da liga
+    league_id = LEAGUE_IDS.get(league_name)
+    if not league_id:
+        logger.error(f"Liga não encontrada: {league_name}")
+        return []
+    
+    # Obter a temporada adequada para esta liga
+    season = LEAGUE_SEASONS.get(league_name, CURRENT_SEASON)
+    
+    # Parâmetros da requisição
+    params = {
+        "competition_id": league_id,
+        "season": season
+    }
+    
+    # Fazer requisição à API
+    data = api_request("/league-table", params)
+    
+    if data and "data" in data:
+        return data["data"]
+    
+    logger.warning(f"Não foi possível obter classificação para {league_name}")
+    return []
+
+def get_league_stats(league_name):
+    """
+    Obter estatísticas gerais da liga
+    
+    Args:
+        league_name (str): Nome da liga
+        
+    Returns:
+        dict: Estatísticas gerais da liga
+    """
+    # Obter o ID da liga
+    league_id = LEAGUE_IDS.get(league_name)
+    if not league_id:
+        logger.error(f"Liga não encontrada: {league_name}")
+        return {}
+    
+    # Obter a temporada adequada para esta liga
+    season = LEAGUE_SEASONS.get(league_name, CURRENT_SEASON)
+    
+    # Parâmetros da requisição
+    params = {
+        "competition_id": league_id,
+        "season": season
+    }
+    
+    # Fazer requisição à API
+    data = api_request("/league-stats", params)
+    
+    if data and "data" in data:
+        return data["data"]
+    
+    logger.warning(f"Não foi possível obter estatísticas para {league_name}")
+    return {}
+
+# ===== ENDPOINTS PARA ESTATÍSTICAS DE TIMES =====
+
+def get_team_form(team_id, league_name, last_n=5):
+    """
+    Obter o retrospecto recente de um time
+    
+    Args:
+        team_id (int): ID do time
+        league_name (str): Nome da liga
+        last_n (int): Número de jogos recentes para analisar
+        
+    Returns:
+        list: Lista dos últimos jogos com resultados
+    """
+    # Obter o ID da liga
+    league_id = LEAGUE_IDS.get(league_name)
+    if not league_id:
+        logger.error(f"Liga não encontrada: {league_name}")
+        return []
+    
+    # Obter a temporada adequada para esta liga
+    season = LEAGUE_SEASONS.get(league_name, CURRENT_SEASON)
+    
+    # Parâmetros da requisição
+    params = {
+        "team_id": team_id,
+        "competition_id": league_id,
+        "season": season,
+        "last": last_n
+    }
+    
+    # Fazer requisição à API
+    data = api_request("/team-form", params)
+    
+    if data and "data" in data:
+        return data["data"]
+    
+    logger.warning(f"Não foi possível obter retrospecto para o time {team_id}")
+    return []
+
+def get_team_players(team_id, league_name):
+    """
+    Obter lista de jogadores de um time
+    
+    Args:
+        team_id (int): ID do time
+        league_name (str): Nome da liga
+        
+    Returns:
+        list: Lista de jogadores com estatísticas
+    """
+    # Obter o ID da liga
+    league_id = LEAGUE_IDS.get(league_name)
+    if not league_id:
+        logger.error(f"Liga não encontrada: {league_name}")
+        return []
+    
+    # Obter a temporada adequada para esta liga
+    season = LEAGUE_SEASONS.get(league_name, CURRENT_SEASON)
+    
+    # Parâmetros da requisição
+    params = {
+        "team_id": team_id,
+        "competition_id": league_id,
+        "season": season
+    }
+    
+    # Fazer requisição à API
+    data = api_request("/team-players", params)
+    
+    if data and "data" in data:
+        return data["data"]
+    
+    logger.warning(f"Não foi possível obter jogadores para o time {team_id}")
+    return []
+
+def get_team_matches(team_id, league_name, include_upcoming=True):
+    """
+    Obter partidas de um time
+    
+    Args:
+        team_id (int): ID do time
+        league_name (str): Nome da liga
+        include_upcoming (bool): Incluir partidas futuras
+        
+    Returns:
+        list: Lista de partidas
+    """
+    # Obter o ID da liga
+    league_id = LEAGUE_IDS.get(league_name)
+    if not league_id:
+        logger.error(f"Liga não encontrada: {league_name}")
+        return []
+    
+    # Obter a temporada adequada para esta liga
+    season = LEAGUE_SEASONS.get(league_name, CURRENT_SEASON)
+    
+    # Parâmetros da requisição
+    params = {
+        "team_id": team_id,
+        "competition_id": league_id,
+        "season": season,
+        "upcoming": "true" if include_upcoming else "false"
+    }
+    
+    # Fazer requisição à API
+    data = api_request("/team-matches", params)
+    
+    if data and "data" in data:
+        return data["data"]
+    
+    logger.warning(f"Não foi possível obter partidas para o time {team_id}")
+    return []
+
+# ===== ENDPOINTS PARA ANÁLISES HEAD-TO-HEAD =====
+
+def get_head_to_head(team1_id, team2_id):
+    """
+    Obter estatísticas de confrontos diretos entre dois times
+    
+    Args:
+        team1_id (int): ID do primeiro time
+        team2_id (int): ID do segundo time
+        
+    Returns:
+        dict: Estatísticas de confrontos diretos
+    """
+    # Parâmetros da requisição
+    params = {
+        "team1_id": team1_id,
+        "team2_id": team2_id
+    }
+    
+    # Fazer requisição à API
+    data = api_request("/head2head", params)
+    
+    if data and "data" in data:
+        return data["data"]
+    
+    logger.warning(f"Não foi possível obter head-to-head entre {team1_id} e {team2_id}")
+    return {}
+
+# ===== ENDPOINTS PARA ANÁLISES AVANÇADAS =====
+
+def get_team_advanced_stats(team_id, league_name):
+    """
+    Obter estatísticas avançadas de um time
+    
+    Args:
+        team_id (int): ID do time
+        league_name (str): Nome da liga
+        
+    Returns:
+        dict: Estatísticas avançadas
+    """
+    # Obter o ID da liga
+    league_id = LEAGUE_IDS.get(league_name)
+    if not league_id:
+        logger.error(f"Liga não encontrada: {league_name}")
+        return {}
+    
+    # Obter a temporada adequada para esta liga
+    season = LEAGUE_SEASONS.get(league_name, CURRENT_SEASON)
+    
+    # Parâmetros da requisição
+    params = {
+        "team_id": team_id,
+        "competition_id": league_id,
+        "season": season
+    }
+    
+    # Fazer requisição à API
+    data = api_request("/team-advanced-stats", params)
+    
+    if data and "data" in data:
+        return data["data"]
+    
+    logger.warning(f"Não foi possível obter estatísticas avançadas para o time {team_id}")
+    return {}
+
+def get_odds_analysis(team1_id, team2_id, league_name):
+    """
+    Obter análise de probabilidades para uma partida
+    
+    Args:
+        team1_id (int): ID do time da casa
+        team2_id (int): ID do time visitante
+        league_name (str): Nome da liga
+        
+    Returns:
+        dict: Análise de probabilidades
+    """
+    # Obter o ID da liga
+    league_id = LEAGUE_IDS.get(league_name)
+    if not league_id:
+        logger.error(f"Liga não encontrada: {league_name}")
+        return {}
+    
+    # Obter a temporada adequada para esta liga
+    season = LEAGUE_SEASONS.get(league_name, CURRENT_SEASON)
+    
+    # Parâmetros da requisição
+    params = {
+        "home_team_id": team1_id,
+        "away_team_id": team2_id,
+        "competition_id": league_id,
+        "season": season
+    }
+    
+    # Fazer requisição à API
+    data = api_request("/match-odds", params)
+    
+    if data and "data" in data:
+        return data["data"]
+    
+    logger.warning(f"Não foi possível obter análise de odds para {team1_id} vs {team2_id}")
+    return {}
+
+# ===== FUNÇÕES DE CONVERSÃO PARA INTEGRAÇÃO COM O VALUEHUNTER =====
+
+def extract_betting_markets(fixture_stats):
+    """
+    Extrair mercados de apostas das estatísticas de uma partida
+    
+    Args:
+        fixture_stats (dict): Estatísticas obtidas da API
+        
+    Returns:
+        dict: Mercados de apostas formatados para o ValueHunter
+    """
+    try:
+        if not fixture_stats:
+            return None
+        
+        # Tentar extrair odd analysis ou fazer uma chamada direta
+        home_team_id = fixture_stats["home_team"]["id"]
+        away_team_id = fixture_stats["away_team"]["id"]
+        league_name = fixture_stats["league"]["name"]
+        
+        # Obter análise de odds para esta partida
+        odds_data = get_odds_analysis(home_team_id, away_team_id, league_name)
+        
+        if not odds_data:
+            return {}
+        
+        # Mapeamento para o formato esperado pelo ValueHunter
+        betting_markets = {
+            "money_line": {
+                "home": odds_data.get("home_win_odds", 0),
+                "draw": odds_data.get("draw_odds", 0),
+                "away": odds_data.get("away_win_odds", 0)
+            },
+            "over_under": {
+                "over": odds_data.get("over_2_5_odds", 0),
+                "under": odds_data.get("under_2_5_odds", 0),
+                "line": 2.5
+            },
+            "btts": {
+                "yes": odds_data.get("btts_yes_odds", 0),
+                "no": odds_data.get("btts_no_odds", 0)
+            }
+        }
+        
+        return betting_markets
+    except Exception as e:
+        logger.error(f"Erro ao extrair mercados de apostas: {str(e)}")
+        return {}
+
+def get_complete_fixture_analysis(home_team_name, away_team_name, league_name):
+    """
+    Função abrangente que combina diversas análises para uma partida
+    
+    Args:
+        home_team_name (str): Nome do time da casa
+        away_team_name (str): Nome do time visitante
+        league_name (str): Nome da liga
+        
+    Returns:
+        dict: Análise completa da partida
+    """
+    try:
+        # Obter IDs dos times
+        home_team_id = get_team_id_by_name(home_team_name, league_name)
+        away_team_id = get_team_id_by_name(away_team_name, league_name)
+        
+        if not home_team_id or not away_team_id:
+            logger.error(f"Não foi possível encontrar IDs para {home_team_name} ou {away_team_name}")
+            return None
+        
+        # 1. Estatísticas básicas dos times
+        fixture_stats = get_fixture_statistics(home_team_name, away_team_name, league_name)
+        if not fixture_stats:
+            return None
+        
+        # 2. Retrospecto recente
+        home_form = get_team_form(home_team_id, league_name)
+        away_form = get_team_form(away_team_id, league_name)
+        
+        # 3. Head to head
+        h2h_data = get_head_to_head(home_team_id, away_team_id)
+        
+        # 4. Estatísticas avançadas
+        home_advanced = get_team_advanced_stats(home_team_id, league_name)
+        away_advanced = get_team_advanced_stats(away_team_id, league_name)
+        
+        # 5. Odds e probabilidades
+        betting_markets = extract_betting_markets(fixture_stats)
+        
+        # Combinar tudo em uma análise completa
+        complete_analysis = {
+            "basic_stats": fixture_stats,
+            "team_form": {
+                "home": home_form,
+                "away": away_form
+            },
+            "head_to_head": h2h_data,
+            "advanced_stats": {
+                "home": home_advanced,
+                "away": away_advanced
+            },
+            "betting_markets": betting_markets
+        }
+        
+        return complete_analysis
+    except Exception as e:
+        logger.error(f"Erro ao gerar análise completa: {str(e)}")
+        return None    
