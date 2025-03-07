@@ -1068,3 +1068,96 @@ def get_complete_fixture_analysis(home_team_name, away_team_name, league_name):
     except Exception as e:
         logger.error(f"Erro ao gerar análise completa: {str(e)}")
         return None    
+# Add this to the end of utils/footystats_api.py to help with testing
+
+def test_specific_league_request(league_name):
+    """
+    Test a specific league request to check if it works
+    
+    Args:
+        league_name (str): The name of the league to test
+        
+    Returns:
+        dict: The API response or error details
+    """
+    if league_name not in LEAGUE_IDS:
+        return {"error": "league_not_found", "message": f"League '{league_name}' not found in LEAGUE_IDS mapping"}
+    
+    league_id = LEAGUE_IDS[league_name]
+    season = LEAGUE_SEASONS.get(league_name, CURRENT_SEASON)
+    
+    # Build request parameters
+    params = {
+        "key": API_KEY,
+        "competition_id": league_id,
+        "season": season
+    }
+    
+    # Make the request directly (bypassing the api_request function)
+    url = f"{BASE_URL}/league-teams"
+    
+    try:
+        logger.info(f"Testing direct request for {league_name} (id: {league_id}, season: {season})")
+        response = requests.get(url, params=params, timeout=10)
+        
+        if response.status_code == 200:
+            try:
+                data = response.json()
+                if data and isinstance(data, dict):
+                    # Check for API error messages
+                    if "error" in data:
+                        return {
+                            "success": False,
+                            "error": data.get("error"),
+                            "message": data.get("message", "Unknown API error")
+                        }
+                    
+                    # Check if 'data' field exists and has content
+                    if "data" in data:
+                        if data["data"] and len(data["data"]) > 0:
+                            return {
+                                "success": True,
+                                "teams_count": len(data["data"]),
+                                "sample_teams": [team.get("name", "Unknown") for team in data["data"][:5]],
+                                "response": data
+                            }
+                        else:
+                            return {
+                                "success": False,
+                                "error": "empty_data",
+                                "message": "API returned empty data array"
+                            }
+                    else:
+                        return {
+                            "success": False,
+                            "error": "missing_data_field",
+                            "message": "API response doesn't contain 'data' field",
+                            "response": data
+                        }
+                else:
+                    return {
+                        "success": False,
+                        "error": "invalid_response",
+                        "message": "API response is not a valid dictionary",
+                        "response": data
+                    }
+            except json.JSONDecodeError as e:
+                return {
+                    "success": False,
+                    "error": "json_decode_error",
+                    "message": f"Failed to parse API response as JSON: {str(e)}",
+                    "response_text": response.text[:500]  # First 500 chars
+                }
+        else:
+            return {
+                "success": False,
+                "error": f"http_{response.status_code}",
+                "message": f"API returned status code {response.status_code}",
+                "response_text": response.text[:500]  # First 500 chars
+            }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": "request_exception",
+            "message": f"Exception during API request: {str(e)}"
+        }
