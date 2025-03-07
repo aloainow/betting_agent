@@ -26,26 +26,81 @@ def get_current_season():
 # Temporada atual por padrão
 CURRENT_SEASON = get_current_season()
 
-# Mapeamento de IDs das principais ligas (ajuste conforme os IDs da FootyStats)
+# Updated section for utils/footystats_api.py
+
+# Mapeamento atualizado de IDs das principais ligas
 LEAGUE_IDS = {
+    # Top 5 European Leagues
     "Premier League": 2,
     "La Liga": 3,
     "Serie A": 4,
     "Bundesliga": 5,
     "Ligue 1": 6,
-    "Champions League": 7
+    
+    # European Competitions
+    "Champions League": 7,
+    "Europa League": 8,
+    "Conference League": 9,
+    
+    # Other Popular Leagues
+    "Brasileirão": 98,  # Brazilian Serie A
+    "Liga Portugal": 10,
+    "Eredivisie": 11,   # Dutch League
+    "Belgian Pro League": 12,
+    "Scottish Premiership": 13,
+    "Super Lig": 14,    # Turkish League
+    "Swiss Super League": 15,
+    "Championship": 16, # English 2nd tier
+    "Serie B": 17,      # Italian 2nd tier
+    "La Liga 2": 18,    # Spanish 2nd tier
+    "Bundesliga 2": 19, # German 2nd tier
+    "Ligue 2": 20,      # French 2nd tier
+    "MLS": 21,          # US Major League Soccer
+    "Liga MX": 22,      # Mexican League
+    "J1 League": 23,    # Japanese League
+    "K League 1": 24,   # Korean League
+    "A-League": 25,     # Australian League
+    "Campeonato Argentino": 26, # Argentine League
+    "Primeira Liga": 27, # Brazilian 1st tier (alternative name)
+    
+    # Add any other leagues you need with appropriate IDs
 }
 
 # Mapeamento de temporadas específicas para cada liga
+# European leagues use 2024 for 2024-2025 season
+# Other leagues may still be in their 2023 season
 LEAGUE_SEASONS = {
+    # European leagues that have started 2024-2025 season
     "Premier League": 2024,
     "La Liga": 2024,
     "Serie A": 2024,
     "Bundesliga": 2024,
     "Ligue 1": 2024,
-    "Champions League": 2024
+    "Champions League": 2024,
+    "Europa League": 2024,
+    "Conference League": 2024,
+    "Liga Portugal": 2024,
+    "Eredivisie": 2024,
+    "Belgian Pro League": 2024,
+    "Scottish Premiership": 2024,
+    "Super Lig": 2024,
+    "Swiss Super League": 2024,
+    "Championship": 2024,
+    "Serie B": 2024,
+    "La Liga 2": 2024,
+    "Bundesliga 2": 2024,
+    "Ligue 2": 2024,
+    
+    # Leagues that might still be in 2023 season or using calendar year
+    "Brasileirão": 2024,  # Brazilian league runs calendar year
+    "MLS": 2023,         # Runs from spring to fall
+    "Liga MX": 2024,
+    "J1 League": 2024,    # Calendar year season
+    "K League 1": 2024,   # Calendar year season
+    "A-League": 2023,     # Southern hemisphere (may be between seasons)
+    "Campeonato Argentino": 2024,
+    "Primeira Liga": 2024,
 }
-
 # Cache para minimizar requisições
 CACHE_DURATION = 24 * 60 * 60  # 24 horas em segundos
 CACHE_DIR = os.path.join("data", "api_cache")
