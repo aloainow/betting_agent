@@ -1,4 +1,4 @@
-# utils/footystats_api.py - Final fixed implementation
+# utils/footystats_api.py - Complete fixed implementation with country info
 
 import os
 import json
@@ -27,16 +27,35 @@ def get_current_season():
 # Temporada atual por padrão
 CURRENT_SEASON = get_current_season()
 
-# Mapeamento de IDs das principais ligas BASEADOS NA DOCUMENTAÇÃO
-# Nota: Estes são IDs de temporada específica, não apenas da liga
+# Mapeamento de IDs das principais ligas COM PAÍSES
+# Formato: "Nome da Liga (País)": ID
+# Nota: Os IDs são exemplos e serão substituídos pelos IDs reais obtidos da API
 LEAGUE_IDS = {
-    "Premier League": 1625,  # English Premier League 2018/2019 (exemplo da documentação)
-    "La Liga": 1869,         # Exemplo hipotético - substituir pelos corretos
-    "Serie A": 1870,         # Exemplo hipotético - substituir pelos corretos
-    "Bundesliga": 1871,      # Exemplo hipotético - substituir pelos corretos
-    "Ligue 1": 1872,         # Exemplo hipotético - substituir pelos corretos
-    "Champions League": 1873, # Exemplo hipotético - substituir pelos corretos
-    # Adicione mais ligas conforme necessário
+    "Premier League (England)": 1625,
+    "La Liga (Spain)": 1869,
+    "Serie A (Italy)": 1870,
+    "Bundesliga (Germany)": 1871,
+    "Ligue 1 (France)": 1872,
+    "Champions League (Europe)": 1873,
+    "Brasileirão (Brazil)": 1874,
+    "Eredivisie (Netherlands)": 1875,
+    "Liga Portugal (Portugal)": 1876
+}
+
+# Mapeamento de temporadas - inicializado como vazio, será preenchido com dados da API
+LEAGUE_SEASONS = {}
+
+# Mapeamento reverso para compatibilidade
+SIMPLE_LEAGUE_NAMES = {
+    "Premier League (England)": "Premier League",
+    "La Liga (Spain)": "La Liga",
+    "Serie A (Italy)": "Serie A",
+    "Bundesliga (Germany)": "Bundesliga",
+    "Ligue 1 (France)": "Ligue 1",
+    "Champions League (Europe)": "Champions League",
+    "Brasileirão (Brazil)": "Brasileirão",
+    "Eredivisie (Netherlands)": "Eredivisie",
+    "Liga Portugal (Portugal)": "Liga Portugal"
 }
 
 # Cache para minimizar requisições
@@ -94,7 +113,7 @@ def api_request(endpoint, params=None, use_cache=True, cache_duration=CACHE_DURA
     Fazer requisição à API com tratamento de erros e cache
     
     Args:
-        endpoint (str): Endpoint da API (ex: "/leagues")
+        endpoint (str): Endpoint da API (ex: "leagues")
         params (dict): Parâmetros da requisição
         use_cache (bool): Se deve usar o cache
         cache_duration (int): Duração do cache em segundos
@@ -176,23 +195,75 @@ def api_request(endpoint, params=None, use_cache=True, cache_duration=CACHE_DURA
         logger.error(traceback.format_exc())
         return None
 
+def retrieve_available_leagues():
+    """
+    Buscar todas as ligas disponíveis para o usuário na API
+    
+    Returns:
+        dict: Mapeamento de nomes de liga para IDs
+    """
+    # Verificar cache
+    cache_key = "available_leagues"
+    cached_data = get_from_cache(cache_key)
+    if cached_data:
+        return cached_data
+    
+    # Se não houver cache, buscar da API
+    leagues_data = api_request("competitions")
+    
+    if leagues_data and "data" in leagues_data:
+        leagues = {}
+        
+        for league in leagues_data["data"]:
+            # Extrair informações da liga
+            league_id = league.get("id")
+            name = league.get("name", "Unknown")
+            country = league.get("country", "Unknown")
+            
+            # Criar nome completo com país
+            full_name = f"{name} ({country})"
+            
+            # Adicionar ao mapeamento
+            if league_id:
+                leagues[full_name] = league_id
+                
+                # Adicionar também ao mapeamento simples
+                SIMPLE_LEAGUE_NAMES[full_name] = name
+                
+                # Atualizar o mapeamento de IDs
+                LEAGUE_IDS[full_name] = league_id
+                
+                # Guardar também informações de temporada se disponíveis
+                if "season" in league:
+                    LEAGUE_SEASONS[full_name] = league["season"]
+        
+        # Salvar no cache
+        if leagues:
+            save_to_cache(leagues, cache_key)
+            logger.info(f"Recuperadas {len(leagues)} ligas da API")
+            return leagues
+    
+    # Se falhar, retornar mapeamento estático
+    logger.warning("Usando mapeamento estático de ligas")
+    return LEAGUE_IDS
+
 def fetch_league_teams(league_id):
     """
-    Buscar times de uma liga específica usando o endpoint correto
+    Buscar times de uma liga específica
     
     Args:
-        league_id (int): ID da liga/temporada
+        league_id (int): ID da liga
         
     Returns:
         list: Lista de times ou lista vazia em caso de erro
     """
-    # SIMPLIFICADO: usar apenas a league_id conforme a documentação
+    # Parâmetros conforme documentação
     params = {
         "key": API_KEY,
         "league_id": league_id
     }
     
-    # Endpoint correto conforme documentação (sem barra inicial)
+    # Endpoint correto conforme documentação
     endpoint = "league-teams"
     
     logger.info(f"Buscando times para liga ID {league_id}")
@@ -208,9 +279,42 @@ def fetch_league_teams(league_id):
     logger.warning(f"Nenhum time encontrado para liga ID {league_id}")
     return []
 
+def find_league_id_by_name(league_name):
+    """
+    Encontrar o ID de uma liga a partir do nome
+    
+    Args:
+        league_name (str): Nome da liga (com ou sem país)
+        
+    Returns:
+        int: ID da liga ou None se não encontrado
+    """
+    # Inicializar dicionários de ligas se ainda não tiver sido feito
+    if not LEAGUE_IDS or len(LEAGUE_IDS) < 5:
+        retrieve_available_leagues()
+    
+    # Caso 1: Nome exato com país
+    if league_name in LEAGUE_IDS:
+        return LEAGUE_IDS[league_name]
+    
+    # Caso 2: Nome sem país
+    for full_name, league_id in LEAGUE_IDS.items():
+        # Verificar se o nome da liga está contido no nome completo
+        if league_name in full_name or SIMPLE_LEAGUE_NAMES.get(full_name) == league_name:
+            return league_id
+    
+    # Caso 3: Correspondência parcial
+    for full_name, league_id in LEAGUE_IDS.items():
+        simple_name = SIMPLE_LEAGUE_NAMES.get(full_name, "")
+        if (league_name.lower() in full_name.lower() or 
+            (simple_name and league_name.lower() in simple_name.lower())):
+            return league_id
+    
+    return None
+
 def get_team_names_by_league(league_name):
     """
-    Obter apenas os nomes dos times de uma liga
+    Obter nomes dos times de uma liga
     
     Args:
         league_name (str): Nome da liga
@@ -218,35 +322,38 @@ def get_team_names_by_league(league_name):
     Returns:
         list: Lista de nomes dos times
     """
-    # OPÇÃO 1: Tenta usar o ID da liga específica
-    if league_name in LEAGUE_IDS:
-        league_id = LEAGUE_IDS[league_name]
-        logger.info(f"Usando ID específico para {league_name}: {league_id}")
-        
-        # Verificar cache
-        cache_key = f"teams_{league_name}"
-        cached_names = get_from_cache(cache_key)
-        if cached_names:
-            return cached_names
-        
-        # Buscar times da API
-        teams_data = fetch_league_teams(league_id)
-        
-        if teams_data and len(teams_data) > 0:
-            # Extrair apenas os nomes dos times
-            team_names = []
-            for team in teams_data:
-                name = team.get("name", "Unknown")
-                if name and name != "Unknown":
-                    team_names.append(name)
-            
-            if team_names:
-                # Salvar nomes no cache
-                save_to_cache(team_names, cache_key)
-                return team_names
+    # Verificar cache
+    cache_key = f"teams_{league_name}"
+    cached_names = get_from_cache(cache_key)
+    if cached_names:
+        return cached_names
     
-    # OPÇÃO 2: Tentar usar o exemplo para Premier League
-    if league_name == "Premier League":
+    # Buscar ID da liga
+    league_id = find_league_id_by_name(league_name)
+    
+    if not league_id:
+        logger.error(f"Não foi possível encontrar ID para a liga: {league_name}")
+        return []
+    
+    # Buscar times da API
+    teams_data = fetch_league_teams(league_id)
+    
+    if teams_data and len(teams_data) > 0:
+        # Extrair apenas os nomes dos times
+        team_names = []
+        for team in teams_data:
+            name = team.get("name")
+            if name:
+                team_names.append(name)
+        
+        if team_names:
+            # Salvar nomes no cache
+            save_to_cache(team_names, cache_key)
+            return team_names
+    
+    # Se não encontrou times para esta liga,
+    # tentar usando a chave de exemplo para Premier League
+    if league_name in ["Premier League", "Premier League (England)"]:
         logger.info("Tentando buscar times de exemplo da Premier League")
         
         # Verificar cache
@@ -272,8 +379,8 @@ def get_team_names_by_league(league_name):
             # Extrair apenas os nomes dos times
             team_names = []
             for team in teams:
-                name = team.get("name", "Unknown")
-                if name and name != "Unknown":
+                name = team.get("name")
+                if name:
                     team_names.append(name)
             
             if team_names:
@@ -281,44 +388,11 @@ def get_team_names_by_league(league_name):
                 save_to_cache(team_names, cache_key)
                 return team_names
     
-    # OPÇÃO 3: Tentar buscar qualquer time com apenas a chave API
-    logger.info("Tentando buscar times com apenas a chave API")
-    
-    # Verificar cache
-    cache_key = "teams_fallback"
-    cached_names = get_from_cache(cache_key)
-    if cached_names:
-        return cached_names
-    
-    # Fazer a requisição mais simples possível
-    endpoint = "league-teams"
-    params = {"key": API_KEY}
-    
-    data = api_request(endpoint, params)
-    
-    if data and isinstance(data, dict) and "data" in data:
-        teams = data["data"]
-        logger.info(f"Encontrados {len(teams)} times com chave API")
-        
-        # Extrair apenas os nomes dos times
-        team_names = []
-        for team in teams:
-            name = team.get("name", "Unknown")
-            if name and name != "Unknown":
-                team_names.append(name)
-        
-        if team_names:
-            # Salvar nomes no cache
-            save_to_cache(team_names, cache_key)
-            return team_names
-    
-    # Última opção: retornar lista vazia
-    logger.error(f"Não foi possível obter times para {league_name} com nenhum método")
     return []
 
 def test_api_connection():
     """
-    Testa a conexão com a API e exibe detalhes de diagnóstico
+    Testa a conexão com a API
     
     Returns:
         bool: True se a conexão foi bem sucedida, False caso contrário
@@ -345,6 +419,7 @@ def test_api_connection():
                 logger.warning("✗ Teste 1: API retornou resposta que não é um JSON válido")
         else:
             logger.warning(f"✗ Teste 1: API retornou código de status {response.status_code}")
+            logger.warning(f"Response: {response.text[:200]}")
         
         # Teste 2: Usando sua chave real
         logger.info("Teste 2: Usando sua chave real")
@@ -377,11 +452,23 @@ def get_available_leagues():
     Obter lista de ligas disponíveis
     
     Returns:
-        dict: Dicionário com nomes das ligas como chaves e IDs como valores
+        dict: Dicionário com nomes das ligas
     """
-    # Para FootyStats, retornamos o mapeamento estático
-    # já que a API não parece ter um endpoint para listar ligas disponíveis
-    leagues = {}
-    for name, id in LEAGUE_IDS.items():
-        leagues[name] = name  # Retorna o nome como chave e valor para compatibilidade
-    return leagues
+    # Buscar ligas da API
+    leagues = retrieve_available_leagues()
+    
+    # Retornar nomes para compatibilidade
+    result = {}
+    for league_name in leagues.keys():
+        # Usar nome simples como valor se disponível
+        simple_name = SIMPLE_LEAGUE_NAMES.get(league_name, league_name)
+        result[simple_name] = simple_name
+    
+    return result
+
+# Inicialização - buscar ligas disponíveis
+try:
+    # Tenta buscar ligas disponíveis ao importar o módulo
+    retrieve_available_leagues()
+except Exception as e:
+    logger.warning(f"Erro ao inicializar ligas: {str(e)}")
