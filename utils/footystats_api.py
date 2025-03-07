@@ -1,4 +1,4 @@
-# Complete overhaul of key functions in utils/footystats_api.py
+# utils/footystats_api.py - Updated with proper headers and authentication
 
 import os
 import json
@@ -10,9 +10,9 @@ from datetime import datetime
 # Configuração de logging
 logger = logging.getLogger("valueHunter.footystats_api")
 
-# Configuração da API com chave corrigida
+# Configuração da API
 BASE_URL = "https://footystats.org/api"
-API_KEY = "b1742f67bda1c097be51c61409f1797a334d1889c291fedd5bcc0b3e070aa6c1"  # Chave corrigida
+API_KEY = "b1742f67bda1c097be51c61409f1797a334d1889c291fedd5bcc0b3e070aa6c1"
 
 # Obter a temporada atual
 def get_current_season():
@@ -27,33 +27,28 @@ def get_current_season():
 # Temporada atual por padrão
 CURRENT_SEASON = get_current_season()
 
-# Mapeamento de IDs das principais ligas (corrigidos conforme documentação da API)
+# Mapeamento de IDs das principais ligas
 LEAGUE_IDS = {
-    # Top 5 European Leagues - Using correct IDs
-    "Premier League": 2012,    # England Premier League
-    "La Liga": 2014,           # Spain La Liga
-    "Serie A": 2019,           # Italy Serie A
-    "Bundesliga": 2002,        # Germany Bundesliga
-    "Ligue 1": 2015,           # France Ligue 1
-    
-    # European Competitions
-    "Champions League": 2001,  # UEFA Champions League
-    "Europa League": 2146,     # UEFA Europa League
-    
-    # Other Popular Leagues - Verify these IDs in your FootyStats account
-    "Brasileirão": 2013,       # Brazil Serie A
-    "Liga Portugal": 2017,     # Portugal Primeira Liga
-    "Eredivisie": 2003,        # Netherlands Eredivisie
-    "Belgian Pro League": 2009, # Belgium First Division
-    "Scottish Premiership": 2084, # Scotland Premiership
-    "Super Lig": 2070,         # Turkey Super Lig
-    "Championship": 2016,      # England Championship
-    "MLS": 2087,               # USA MLS
+    "Premier League": 1,     # England Premier League
+    "La Liga": 3,            # Spain La Liga
+    "Serie A": 4,            # Italy Serie A
+    "Bundesliga": 5,         # Germany Bundesliga
+    "Ligue 1": 7,            # France Ligue 1
+    "Champions League": 8,   # UEFA Champions League
+    "Europa League": 9,      # UEFA Europa League
+    "Brasileirão": 26,       # Brazil Serie A
+    "Liga Portugal": 13,     # Portugal Primeira Liga
+    "Eredivisie": 10,        # Netherlands Eredivisie
+    "Belgian Pro League": 14, # Belgium First Division
+    "Scottish Premiership": 27, # Scotland Premiership
+    "Super Lig": 19,         # Turkey Super Lig
+    "Championship": 2,       # England Championship
+    "MLS": 23,               # USA MLS
 }
 
 # Mapeamento de temporadas por liga
 LEAGUE_SEASONS = {
-    # European leagues 2023-2024 season (may need to be updated)
+    # European leagues
     "Premier League": 2023,
     "La Liga": 2023,
     "Serie A": 2023,
@@ -123,39 +118,112 @@ def get_from_cache(endpoint, params=None, max_age=CACHE_DURATION):
         logger.error(f"Erro ao ler cache: {str(e)}")
         return None
 
-def fetch_competitions():
+def api_request(endpoint, params=None, use_cache=True, cache_duration=CACHE_DURATION):
     """
-    Buscar todas as competições disponíveis na API
+    Fazer requisição à API com tratamento de erros e cache
     
+    Args:
+        endpoint (str): Endpoint da API (ex: "/leagues")
+        params (dict): Parâmetros da requisição
+        use_cache (bool): Se deve usar o cache
+        cache_duration (int): Duração do cache em segundos
+        
     Returns:
-        dict: Lista de competições disponíveis ou None em caso de erro
+        dict: Dados da resposta ou None se ocorrer erro
     """
-    url = f"{BASE_URL}/competitions"
-    params = {"key": API_KEY}
+    # Verificar cache se estiver habilitado
+    if use_cache:
+        cached_data = get_from_cache(endpoint, params, cache_duration)
+        if cached_data:
+            return cached_data
+    
+    # Montar URL completa
+    url = f"{BASE_URL}{endpoint}"
+    
+    # Garantir que params é um dicionário
+    if params is None:
+        params = {}
+    
+    # Adicionar API key aos parâmetros
+    params["key"] = API_KEY
+    
+    # Configurar headers de acordo com a documentação do FootyStats
+    headers = {
+        "Accept": "application/json",
+        "User-Agent": "ValueHunter/1.0",
+        "Referer": "https://footystats.org/",
+        "Origin": "https://footystats.org"
+    }
     
     try:
-        logger.info("Buscando lista de competições disponíveis")
-        response = requests.get(url, params=params, timeout=15)
+        # Log detalhado da requisição (omitindo a API key por segurança)
+        param_log = {k: v for k, v in params.items() if k != "key"}
+        logger.info(f"API Request: {url} - Params: {param_log}")
+        
+        # Fazer a requisição com timeout e retentativas
+        for attempt in range(3):  # Try up to 3 times
+            try:
+                response = requests.get(url, params=params, headers=headers, timeout=15)
+                break
+            except requests.exceptions.Timeout:
+                logger.warning(f"Timeout na tentativa {attempt+1}/3 para {endpoint}")
+                if attempt == 2:  # Last attempt
+                    raise
+                time.sleep(1)  # Wait before retry
+            except requests.exceptions.ConnectionError:
+                logger.warning(f"Erro de conexão na tentativa {attempt+1}/3 para {endpoint}")
+                if attempt == 2:  # Last attempt
+                    raise
+                time.sleep(1)  # Wait before retry
+        
+        # Informações detalhadas da resposta para diagnóstico
+        logger.info(f"API Response: {url} - Status: {response.status_code}")
         
         if response.status_code == 200:
-            data = response.json()
-            if "data" in data and len(data["data"]) > 0:
-                logger.info(f"Encontradas {len(data['data'])} competições disponíveis")
-                return data
-            else:
-                logger.warning("API retornou lista vazia de competições")
+            try:
+                data = response.json()
+            except json.JSONDecodeError:
+                logger.error(f"Resposta não é um JSON válido: {response.text[:100]}...")
                 return None
+            
+            # Verificar se a API retornou erro explícito
+            if isinstance(data, dict) and "error" in data:
+                logger.error(f"Erro da API: {data.get('error')}")
+                return None
+                
+            # Verificar se a resposta está vazia ou é None
+            if data is None or (isinstance(data, dict) and not data):
+                logger.warning(f"API retornou dados vazios para {endpoint}")
+                return None
+                
+            # Salvar no cache se estiver habilitado
+            if use_cache:
+                save_to_cache(data, endpoint, params)
+                
+            return data
         else:
-            logger.error(f"Erro ao buscar competições: {response.status_code}")
-            logger.error(f"Resposta: {response.text[:200]}...")
+            logger.error(f"Erro na requisição: {response.status_code}")
+            logger.error(f"Resposta: {response.text[:500]}")
+            
+            # Informações detalhadas para ajudar no diagnóstico
+            if response.status_code == 403:
+                logger.error("Erro 403 Forbidden - Possíveis causas:")
+                logger.error("1. Autenticação incorreta")
+                logger.error("2. Restrição de IP")
+                logger.error("3. Headers incorretos")
+                logger.error("4. Endpoint restrito para seu plano")
+                
             return None
+            
     except Exception as e:
-        logger.error(f"Exceção ao buscar competições: {str(e)}")
+        logger.error(f"Erro ao acessar a API: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
         return None
 
-def fetch_teams_by_league_id(league_id, season=None):
+def fetch_league_teams(league_id, season=None):
     """
-    Buscar times por ID de liga
+    Buscar times de uma liga específica
     
     Args:
         league_id (int): ID da liga
@@ -164,45 +232,67 @@ def fetch_teams_by_league_id(league_id, season=None):
     Returns:
         list: Lista de times ou lista vazia em caso de erro
     """
-    url = f"{BASE_URL}/teams"  # Endpoint correto conforme documentação
-    
     # Usar temporada atual se não for especificada
     if season is None:
         season = CURRENT_SEASON
     
+    # Parâmetros de acordo com a documentação
     params = {
         "key": API_KEY,
-        "comp_id": league_id,  # Parâmetro correto conforme documentação
+        "comp_id": league_id,
+        "season_id": season
     }
     
-    # Log detalhado
+    # Endpoint correto conforme documentação
+    endpoint = "/league-teams"
+    
     logger.info(f"Buscando times para liga ID {league_id}, temporada {season}")
-    logger.info(f"URL: {url}, Parâmetros: comp_id={league_id}")
+    
+    # Fazer requisição sem usar api_request para ter mais controle
+    url = f"{BASE_URL}{endpoint}"
+    
+    # Headers específicos
+    headers = {
+        "Accept": "application/json",
+        "User-Agent": "ValueHunter/1.0",
+        "Referer": "https://footystats.org/",
+        "Origin": "https://footystats.org"
+    }
     
     try:
-        response = requests.get(url, params=params, timeout=15)
+        # Log detalhado
+        logger.info(f"Requisição direta: {url} com params comp_id={league_id}, season_id={season}")
+        
+        # Requisição direta
+        response = requests.get(url, params=params, headers=headers, timeout=15)
+        
         logger.info(f"Status da resposta: {response.status_code}")
         
         if response.status_code == 200:
             data = response.json()
+            
             if "data" in data and len(data["data"]) > 0:
-                logger.info(f"Encontrados {len(data['data'])} times")
+                logger.info(f"Encontrados {len(data['data'])} times para liga ID {league_id}")
                 return data["data"]
             else:
-                logger.warning(f"Nenhum time encontrado para liga ID {league_id}")
-                logger.warning(f"Resposta: {json.dumps(data)[:200]}...")
+                logger.warning(f"API retornou array vazio para liga ID {league_id}")
+                if "message" in data:
+                    logger.warning(f"Mensagem da API: {data['message']}")
                 return []
         else:
-            logger.error(f"Erro {response.status_code} ao buscar times")
-            logger.error(f"Resposta: {response.text[:200]}...")
+            logger.error(f"Erro ao buscar times: {response.status_code}")
+            logger.error(f"Resposta: {response.text[:500]}")
             return []
+    
     except Exception as e:
         logger.error(f"Exceção ao buscar times: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
         return []
 
 def get_team_names_by_league(league_name):
     """
-    Obter apenas os nomes dos times de uma liga (formato simplificado)
+    Obter apenas os nomes dos times de uma liga
     
     Args:
         league_name (str): Nome da liga
@@ -210,31 +300,138 @@ def get_team_names_by_league(league_name):
     Returns:
         list: Lista de nomes dos times
     """
-    # Primeiro, verificar se a liga existe no mapeamento
-    league_id = LEAGUE_IDS.get(league_name)
-    if not league_id:
-        logger.error(f"Liga não encontrada: {league_name}")
+    # Verificar se a liga existe no mapeamento
+    if league_name not in LEAGUE_IDS:
+        logger.error(f"Liga não encontrada no mapeamento: {league_name}")
         return []
     
-    # Verificar cache
-    cache_key = f"teams_{league_name}_{CURRENT_SEASON}"
-    cached_data = get_from_cache(cache_key)
-    if cached_data:
-        return cached_data
+    league_id = LEAGUE_IDS[league_name]
+    season = LEAGUE_SEASONS.get(league_name, CURRENT_SEASON)
     
-    # Se não está em cache, buscar da API
-    teams_data = fetch_teams_by_league_id(league_id, CURRENT_SEASON)
+    # Verificar cache
+    cache_key = f"teams_{league_name}_{season}"
+    cached_names = get_from_cache(cache_key)
+    if cached_names:
+        return cached_names
+    
+    # Buscar times da API
+    teams_data = fetch_league_teams(league_id, season)
     
     if teams_data and len(teams_data) > 0:
         # Extrair apenas os nomes dos times
-        team_names = [team.get("name", "Unknown") for team in teams_data]
+        team_names = []
+        for team in teams_data:
+            name = team.get("name", "Unknown")
+            if name and name != "Unknown":
+                team_names.append(name)
         
-        # Salvar no cache
-        save_to_cache(team_names, cache_key)
+        if team_names:
+            # Salvar nomes no cache
+            save_to_cache(team_names, cache_key)
+            return team_names
+    
+    # Se não encontrou times, tentar endpoint alternativo
+    logger.warning("Tentando endpoint alternativo para obter times...")
+    
+    # Tentar endpoint teams
+    try:
+        params = {
+            "key": API_KEY,
+            "comp_id": league_id
+        }
         
-        return team_names
+        headers = {
+            "Accept": "application/json",
+            "User-Agent": "ValueHunter/1.0",
+            "Referer": "https://footystats.org/",
+            "Origin": "https://footystats.org"
+        }
+        
+        url = f"{BASE_URL}/teams"
+        response = requests.get(url, params=params, headers=headers, timeout=15)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if "data" in data and len(data["data"]) > 0:
+                teams = []
+                for team in data["data"]:
+                    name = team.get("name", "Unknown")
+                    if name and name != "Unknown":
+                        teams.append(name)
+                
+                if teams:
+                    # Salvar no cache
+                    save_to_cache(teams, cache_key)
+                    return teams
+    except Exception as e:
+        logger.error(f"Erro ao usar endpoint alternativo: {str(e)}")
     
     return []
+
+def test_auth_methods():
+    """
+    Testa diferentes métodos de autenticação para diagnosticar problemas
+    
+    Returns:
+        dict: Resultados dos testes
+    """
+    results = {}
+    
+    # Teste 1: Chave na URL como parâmetro query
+    try:
+        url = f"{BASE_URL}/leagues?key={API_KEY}"
+        response = requests.get(url, timeout=10)
+        results["query_param"] = {
+            "status": response.status_code,
+            "success": response.status_code == 200
+        }
+    except Exception as e:
+        results["query_param"] = {"error": str(e)}
+    
+    # Teste 2: Chave como header de autorização
+    try:
+        url = f"{BASE_URL}/leagues"
+        headers = {"Authorization": f"Bearer {API_KEY}"}
+        response = requests.get(url, headers=headers, timeout=10)
+        results["auth_header"] = {
+            "status": response.status_code,
+            "success": response.status_code == 200
+        }
+    except Exception as e:
+        results["auth_header"] = {"error": str(e)}
+    
+    # Teste 3: Chave como parâmetro + user agent
+    try:
+        url = f"{BASE_URL}/leagues"
+        params = {"key": API_KEY}
+        headers = {"User-Agent": "ValueHunter/1.0"}
+        response = requests.get(url, params=params, headers=headers, timeout=10)
+        results["user_agent"] = {
+            "status": response.status_code,
+            "success": response.status_code == 200
+        }
+    except Exception as e:
+        results["user_agent"] = {"error": str(e)}
+    
+    # Teste 4: Completo com todos os headers
+    try:
+        url = f"{BASE_URL}/leagues"
+        params = {"key": API_KEY}
+        headers = {
+            "Accept": "application/json",
+            "User-Agent": "ValueHunter/1.0",
+            "Referer": "https://footystats.org/",
+            "Origin": "https://footystats.org"
+        }
+        response = requests.get(url, params=params, headers=headers, timeout=10)
+        results["full_headers"] = {
+            "status": response.status_code,
+            "success": response.status_code == 200
+        }
+    except Exception as e:
+        results["full_headers"] = {"error": str(e)}
+    
+    return results
 
 def test_api_connection():
     """
@@ -246,89 +443,56 @@ def test_api_connection():
     try:
         logger.info("Testando conexão com a API FootyStats...")
         
-        # Teste simples para verificar se a API está acessível
-        response = requests.get(f"{BASE_URL}/competitions", params={"key": API_KEY}, timeout=10)
+        # Testar diferentes métodos de autenticação
+        auth_results = test_auth_methods()
         
-        if response.status_code == 200:
-            try:
-                data = response.json()
-                if data and "data" in data and len(data["data"]) > 0:
-                    logger.info("✓ Conexão com API FootyStats bem sucedida")
-                    logger.info(f"✓ {len(data['data'])} competições disponíveis")
-                    
-                    # Mostrar algumas competições disponíveis
-                    for comp in data["data"][:5]:
-                        logger.info(f"  - {comp.get('name', 'Unknown')} (ID: {comp.get('id', 'Unknown')})")
-                    
-                    return True
-                else:
-                    logger.error("✗ API retornou resposta vazia ou inválida")
-            except json.JSONDecodeError:
-                logger.error("✗ API retornou resposta que não é um JSON válido")
+        # Verificar se algum método funcionou
+        working_methods = [method for method, result in auth_results.items() 
+                         if result.get("success", False)]
+        
+        if working_methods:
+            logger.info(f"✓ Conexão com API FootyStats bem sucedida")
+            logger.info(f"✓ Métodos de autenticação que funcionaram: {working_methods}")
+            return True
         else:
-            logger.error(f"✗ API retornou código de status {response.status_code}")
-            if response.status_code == 401:
-                logger.error("✗ Erro de autenticação: verifique sua API key")
-            elif response.status_code == 429:
-                logger.error("✗ Limite de requisições atingido")
-                
-        return False
-        
+            logger.error("✗ Nenhum método de autenticação funcionou")
+            for method, result in auth_results.items():
+                status = result.get("status", "Erro")
+                logger.error(f"  - {method}: Status {status}")
+            
+            logger.error("Verifique:")
+            logger.error("1. Se sua API key está correta")
+            logger.error("2. Se sua assinatura está ativa")
+            logger.error("3. Se você tem permissão para acessar a API")
+            logger.error("4. Se há restrições de IP")
+            
+            return False
     except Exception as e:
         logger.error(f"✗ Erro ao testar conexão com API: {str(e)}")
         return False
 
-def fetch_available_leagues():
-    """
-    Buscar ligas disponíveis na API
-    
-    Returns:
-        dict: Mapeamento de nomes para IDs das ligas disponíveis
-    """
-    data = None
-    # Try to fetch from API
-    try:
-        response = requests.get(f"{BASE_URL}/competitions", params={"key": API_KEY}, timeout=15)
-        if response.status_code == 200:
-            data = response.json()
-    except Exception as e:
-        logger.error(f"Erro ao buscar ligas disponíveis: {str(e)}")
-        
-    # Process the data if available
-    if data and "data" in data and len(data["data"]) > 0:
-        available_leagues = {}
-        for league in data["data"]:
-            name = league.get("name", "Unknown")
-            league_id = league.get("id")
-            if name and league_id:
-                available_leagues[name] = league_id
-                logger.info(f"Liga disponível: {name} (ID: {league_id})")
-        
-        # Update the global mapping with what we found
-        if available_leagues:
-            for name, id in available_leagues.items():
-                # Only add if there's a match with our predefined leagues
-                for key in LEAGUE_IDS.keys():
-                    if key.lower() in name.lower() or name.lower() in key.lower():
-                        logger.info(f"Atualizando ID para {key}: {id} (foi {LEAGUE_IDS[key]})")
-                        LEAGUE_IDS[key] = id
-                        break
-        
-        return available_leagues
-    
-    # Fall back to our predefined mapping
-    return {k: v for k, v in LEAGUE_IDS.items()}
-
 def get_available_leagues():
     """
-    Obter ligas disponíveis (com fallback para mapeamento estático)
+    Obter lista de ligas disponíveis
     
     Returns:
-        dict: Mapeamento de nomes para IDs das ligas disponíveis
+        dict: Dicionário com nomes das ligas como chaves e IDs como valores
     """
-    leagues = fetch_available_leagues()
-    if leagues and len(leagues) > 0:
-        return leagues
+    # Tentar obter da API
+    data = api_request("/leagues", {"key": API_KEY})
     
-    # If API fails, fall back to our predefined mapping
-    return {k: v for k, v in LEAGUE_IDS.items()}
+    if data and isinstance(data, dict) and "data" in data:
+        leagues = {}
+        for league in data["data"]:
+            league_name = league.get("name", "Unknown")
+            league_id = league.get("id")
+            if league_id:
+                leagues[league_name] = league_id
+                
+        if leagues:
+            logger.info(f"Obtidas {len(leagues)} ligas da API")
+            return leagues
+    
+    # Se falhar, usar o mapeamento estático
+    logger.warning("Usando mapeamento estático de ligas")
+    return LEAGUE_IDS
