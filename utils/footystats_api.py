@@ -157,6 +157,48 @@ def get_from_cache(endpoint, params=None, max_age=CACHE_DURATION):
         logger.error(f"Erro ao ler cache: {str(e)}")
         return None
 
+def test_api_connection():
+    """
+    Testa a conexão com a API e exibe detalhes de diagnóstico
+    
+    Returns:
+        bool: True se a conexão foi bem sucedida, False caso contrário
+    """
+    try:
+        logger.info("Testando conexão com a API FootyStats...")
+        
+        # Teste simples para verificar se a API está acessível
+        test_endpoint = "/competitions"
+        
+        # Adicionar chave de API aos parâmetros
+        auth_params = get_auth_params()
+        
+        response = requests.get(f"{BASE_URL}{test_endpoint}", params=auth_params, timeout=10)
+        
+        if response.status_code == 200:
+            try:
+                data = response.json()
+                if data and "data" in data and len(data["data"]) > 0:
+                    logger.info("✓ Conexão com API FootyStats bem sucedida")
+                    logger.info(f"✓ {len(data['data'])} competições disponíveis")
+                    return True
+                else:
+                    logger.error("✗ API retornou resposta vazia ou inválida")
+            except json.JSONDecodeError:
+                logger.error("✗ API retornou resposta que não é um JSON válido")
+        else:
+            logger.error(f"✗ API retornou código de status {response.status_code}")
+            if response.status_code == 401:
+                logger.error("✗ Erro de autenticação: verifique sua API key")
+            elif response.status_code == 429:
+                logger.error("✗ Limite de requisições atingido")
+                
+        return False
+        
+    except Exception as e:
+        logger.error(f"✗ Erro ao testar conexão com API: {str(e)}")
+        return False
+
 # Enhanced api_request function for utils/footystats_api.py
 
 def api_request(endpoint, params=None, use_cache=True, cache_duration=CACHE_DURATION):
