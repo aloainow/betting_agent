@@ -1,4 +1,5 @@
-# utils/footystats_api.py - Integração com a API FootyStats
+# Complete overhaul of key functions in utils/footystats_api.py
+
 import os
 import json
 import time
@@ -9,9 +10,9 @@ from datetime import datetime
 # Configuração de logging
 logger = logging.getLogger("valueHunter.footystats_api")
 
-# Configuração da API
+# Configuração da API - URL BASE CORRIGIDA
 BASE_URL = "https://api.football-data-api.com"
-API_KEY = "b1742f67bda1c097be51c61409f1797a334d1889c291fedd5bcc0b3e070aa6c1"  # Substitua pela sua chave da FootyStats
+API_KEY = "b1742f67bda1c097be51c61409f1897a334d1889c291fedd5bcc0b3e070aa6c1"  # Substitua pela sua chave da FootyStats
 
 # Obter a temporada atual
 def get_current_season():
@@ -26,97 +27,62 @@ def get_current_season():
 # Temporada atual por padrão
 CURRENT_SEASON = get_current_season()
 
-# Updated section for utils/footystats_api.py
-
-# Mapeamento atualizado de IDs das principais ligas
+# Mapeamento de IDs das principais ligas (corrigidos conforme documentação da API)
 LEAGUE_IDS = {
-    # Top 5 European Leagues
-    "Premier League": 2,
-    "La Liga": 3,
-    "Serie A": 4,
-    "Bundesliga": 5,
-    "Ligue 1": 6,
+    # Top 5 European Leagues - Using correct IDs
+    "Premier League": 2012,    # England Premier League
+    "La Liga": 2014,           # Spain La Liga
+    "Serie A": 2019,           # Italy Serie A
+    "Bundesliga": 2002,        # Germany Bundesliga
+    "Ligue 1": 2015,           # France Ligue 1
     
     # European Competitions
-    "Champions League": 7,
-    "Europa League": 8,
-    "Conference League": 9,
+    "Champions League": 2001,  # UEFA Champions League
+    "Europa League": 2146,     # UEFA Europa League
     
-    # Other Popular Leagues
-    "Brasileirão": 98,  # Brazilian Serie A
-    "Liga Portugal": 10,
-    "Eredivisie": 11,   # Dutch League
-    "Belgian Pro League": 12,
-    "Scottish Premiership": 13,
-    "Super Lig": 14,    # Turkish League
-    "Swiss Super League": 15,
-    "Championship": 16, # English 2nd tier
-    "Serie B": 17,      # Italian 2nd tier
-    "La Liga 2": 18,    # Spanish 2nd tier
-    "Bundesliga 2": 19, # German 2nd tier
-    "Ligue 2": 20,      # French 2nd tier
-    "MLS": 21,          # US Major League Soccer
-    "Liga MX": 22,      # Mexican League
-    "J1 League": 23,    # Japanese League
-    "K League 1": 24,   # Korean League
-    "A-League": 25,     # Australian League
-    "Campeonato Argentino": 26, # Argentine League
-    "Primeira Liga": 27, # Brazilian 1st tier (alternative name)
-    
-    # Add any other leagues you need with appropriate IDs
+    # Other Popular Leagues - Verify these IDs in your FootyStats account
+    "Brasileirão": 2013,       # Brazil Serie A
+    "Liga Portugal": 2017,     # Portugal Primeira Liga
+    "Eredivisie": 2003,        # Netherlands Eredivisie
+    "Belgian Pro League": 2009, # Belgium First Division
+    "Scottish Premiership": 2084, # Scotland Premiership
+    "Super Lig": 2070,         # Turkey Super Lig
+    "Championship": 2016,      # England Championship
+    "MLS": 2087,               # USA MLS
 }
 
-# Mapeamento de temporadas específicas para cada liga
-# European leagues use 2024 for 2024-2025 season
-# Other leagues may still be in their 2023 season
+# Mapeamento de temporadas por liga
 LEAGUE_SEASONS = {
-    # European leagues that have started 2024-2025 season
-    "Premier League": 2024,
-    "La Liga": 2024,
-    "Serie A": 2024,
-    "Bundesliga": 2024,
-    "Ligue 1": 2024,
-    "Champions League": 2024,
-    "Europa League": 2024,
-    "Conference League": 2024,
-    "Liga Portugal": 2024,
-    "Eredivisie": 2024,
-    "Belgian Pro League": 2024,
-    "Scottish Premiership": 2024,
-    "Super Lig": 2024,
-    "Swiss Super League": 2024,
-    "Championship": 2024,
-    "Serie B": 2024,
-    "La Liga 2": 2024,
-    "Bundesliga 2": 2024,
-    "Ligue 2": 2024,
+    # European leagues 2023-2024 season (may need to be updated)
+    "Premier League": 2023,
+    "La Liga": 2023,
+    "Serie A": 2023,
+    "Bundesliga": 2023,
+    "Ligue 1": 2023,
+    "Champions League": 2023,
+    "Europa League": 2023,
     
-    # Leagues that might still be in 2023 season or using calendar year
-    "Brasileirão": 2024,  # Brazilian league runs calendar year
-    "MLS": 2023,         # Runs from spring to fall
-    "Liga MX": 2024,
-    "J1 League": 2024,    # Calendar year season
-    "K League 1": 2024,   # Calendar year season
-    "A-League": 2023,     # Southern hemisphere (may be between seasons)
-    "Campeonato Argentino": 2024,
-    "Primeira Liga": 2024,
+    # Other leagues
+    "Brasileirão": 2023,
+    "Liga Portugal": 2023,
+    "Eredivisie": 2023,
+    "Belgian Pro League": 2023,
+    "Scottish Premiership": 2023,
+    "Super Lig": 2023,
+    "Championship": 2023,
+    "MLS": 2023,
 }
+
 # Cache para minimizar requisições
 CACHE_DURATION = 24 * 60 * 60  # 24 horas em segundos
 CACHE_DIR = os.path.join("data", "api_cache")
 os.makedirs(CACHE_DIR, exist_ok=True)
 
-def get_auth_params():
-    """Obter parâmetros de autenticação para as requisições à API"""
-    return {
-        "key": API_KEY
-    }
-
 def get_cache_file(endpoint, params=None):
     """Gerar nome de arquivo para cache baseado no endpoint e parâmetros"""
     cache_key = endpoint.replace("/", "_")
     if params:
-        param_str = "_".join([f"{k}_{v}" for k, v in sorted(params.items())])
+        param_str = "_".join([f"{k}_{v}" for k, v in sorted(params.items()) if k != "key"])
         cache_key += "_" + param_str
     
     # Limitar o tamanho e garantir que o nome do arquivo seja válido
@@ -157,191 +123,119 @@ def get_from_cache(endpoint, params=None, max_age=CACHE_DURATION):
         logger.error(f"Erro ao ler cache: {str(e)}")
         return None
 
-# Updated test_specific_league_request function in utils/footystats_api.py
-
-def test_specific_league_request(league_name):
+def fetch_competitions():
     """
-    Test a specific league request to check if it works
+    Buscar todas as competições disponíveis na API
     
-    Args:
-        league_name (str): The name of the league to test
-        
     Returns:
-        dict: The API response or error details
+        dict: Lista de competições disponíveis ou None em caso de erro
     """
-    if league_name not in LEAGUE_IDS:
-        return {"error": "league_not_found", "message": f"League '{league_name}' not found in LEAGUE_IDS mapping"}
-    
-    league_id = LEAGUE_IDS[league_name]
-    season = LEAGUE_SEASONS.get(league_name, CURRENT_SEASON)
-    
-    # Build request parameters - CORRECTED
-    params = {
-        "key": API_KEY,
-        "season_id": season,  # Changed from "season" to "season_id"
-        "competition_id": league_id
-    }
-    
-    # Make the request directly
-    url = f"{BASE_URL}/league-teams"
+    url = f"{BASE_URL}/competitions"
+    params = {"key": API_KEY}
     
     try:
-        logger.info(f"Testing direct request for {league_name} (id: {league_id}, season_id: {season})")
+        logger.info("Buscando lista de competições disponíveis")
         response = requests.get(url, params=params, timeout=15)
         
         if response.status_code == 200:
-            try:
-                data = response.json()
-                if data and isinstance(data, dict):
-                    # Check for API error messages
-                    if "error" in data:
-                        return {
-                            "success": False,
-                            "error": data.get("error"),
-                            "message": data.get("message", "Unknown API error")
-                        }
-                    
-                    # Check if 'data' field exists and has content
-                    if "data" in data:
-                        if data["data"] and len(data["data"]) > 0:
-                            return {
-                                "success": True,
-                                "teams_count": len(data["data"]),
-                                "sample_teams": [team.get("name", "Unknown") for team in data["data"][:5]],
-                                "response": data
-                            }
-                        else:
-                            return {
-                                "success": False,
-                                "error": "empty_data",
-                                "message": "API returned empty data array",
-                                "response": data
-                            }
-                    else:
-                        return {
-                            "success": False,
-                            "error": "missing_data_field",
-                            "message": "API response doesn't contain 'data' field",
-                            "response": data
-                        }
-                else:
-                    return {
-                        "success": False,
-                        "error": "invalid_response",
-                        "message": "API response is not a valid dictionary",
-                        "response": data
-                    }
-            except json.JSONDecodeError as e:
-                return {
-                    "success": False,
-                    "error": "json_decode_error",
-                    "message": f"Failed to parse API response as JSON: {str(e)}",
-                    "response_text": response.text[:500]  # First 500 chars
-                }
+            data = response.json()
+            if "data" in data and len(data["data"]) > 0:
+                logger.info(f"Encontradas {len(data['data'])} competições disponíveis")
+                return data
+            else:
+                logger.warning("API retornou lista vazia de competições")
+                return None
         else:
-            return {
-                "success": False,
-                "error": f"http_{response.status_code}",
-                "message": f"API returned status code {response.status_code}",
-                "response_text": response.text[:500]  # First 500 chars
-            }
-    except Exception as e:
-        return {
-            "success": False,
-            "error": "request_exception",
-            "message": f"Exception during API request: {str(e)}"
-        }
-# Updated api_request function in utils/footystats_api.py
-
-def api_request(endpoint, params=None, use_cache=True, cache_duration=CACHE_DURATION):
-    """
-    Fazer requisição à API com tratamento de erros e cache
-    
-    Args:
-        endpoint (str): Endpoint da API (ex: "/leagues")
-        params (dict): Parâmetros da requisição
-        use_cache (bool): Se deve usar o cache
-        cache_duration (int): Duração do cache em segundos
-        
-    Returns:
-        dict: Dados da resposta ou None se ocorrer erro
-    """
-    # Verificar cache se estiver habilitado
-    if use_cache:
-        cached_data = get_from_cache(endpoint, params, cache_duration)
-        if cached_data:
-            return cached_data
-    
-    url = f"{BASE_URL}{endpoint}"
-    
-    # Adicionar chave de API aos parâmetros
-    # CORREÇÃO: API key deve ser incluída diretamente nos parâmetros, não usando auth_params
-    if params is None:
-        params = {}
-    
-    # Adicionar API key se não estiver nos parâmetros
-    if "key" not in params:
-        params["key"] = API_KEY
-    
-    try:
-        # Log detalhado da requisição (omitindo a API key por segurança)
-        param_log = {k: v for k, v in params.items() if k != "key"}
-        logger.info(f"API Request: {url} - Params: {param_log}")
-        
-        # Fazer a requisição com timeout e retentativas
-        for attempt in range(3):  # Try up to 3 times
-            try:
-                response = requests.get(url, params=params, timeout=10)
-                break
-            except requests.exceptions.Timeout:
-                logger.warning(f"Timeout na tentativa {attempt+1}/3 para {endpoint}")
-                if attempt == 2:  # Last attempt
-                    raise
-                time.sleep(1)  # Wait before retry
-            except requests.exceptions.ConnectionError:
-                logger.warning(f"Erro de conexão na tentativa {attempt+1}/3 para {endpoint}")
-                if attempt == 2:  # Last attempt
-                    raise
-                time.sleep(1)  # Wait before retry
-        
-        # Log da resposta para diagnóstico
-        logger.info(f"API Response: {url} - Status: {response.status_code}")
-        
-        if response.status_code == 200:
-            try:
-                data = response.json()
-            except json.JSONDecodeError:
-                logger.error(f"Resposta não é um JSON válido: {response.text[:100]}...")
-                return None
-            
-            # Verificar se a API retornou erro explícito
-            if isinstance(data, dict) and "error" in data:
-                logger.error(f"Erro da API: {data.get('error')}")
-                return None
-                
-            # Verificar se a resposta está vazia ou é None
-            if data is None or (isinstance(data, dict) and not data):
-                logger.warning(f"API retornou dados vazios para {endpoint}")
-                return None
-                
-            # Salvar no cache se estiver habilitado
-            if use_cache:
-                save_to_cache(data, endpoint, params)
-                
-            return data
-            
-        else:
-            logger.error(f"Erro na requisição: {response.status_code}")
+            logger.error(f"Erro ao buscar competições: {response.status_code}")
             logger.error(f"Resposta: {response.text[:200]}...")
             return None
-            
     except Exception as e:
-        logger.error(f"Erro ao acessar a API: {str(e)}")
-        import traceback
-        logger.error(traceback.format_exc())
+        logger.error(f"Exceção ao buscar competições: {str(e)}")
         return None
 
-# Add this function to check API configuration
+def fetch_teams_by_league_id(league_id, season=None):
+    """
+    Buscar times por ID de liga
+    
+    Args:
+        league_id (int): ID da liga
+        season (int, optional): Temporada
+        
+    Returns:
+        list: Lista de times ou lista vazia em caso de erro
+    """
+    url = f"{BASE_URL}/teams"  # Endpoint correto conforme documentação
+    
+    # Usar temporada atual se não for especificada
+    if season is None:
+        season = CURRENT_SEASON
+    
+    params = {
+        "key": API_KEY,
+        "comp_id": league_id,  # Parâmetro correto conforme documentação
+    }
+    
+    # Log detalhado
+    logger.info(f"Buscando times para liga ID {league_id}, temporada {season}")
+    logger.info(f"URL: {url}, Parâmetros: comp_id={league_id}")
+    
+    try:
+        response = requests.get(url, params=params, timeout=15)
+        logger.info(f"Status da resposta: {response.status_code}")
+        
+        if response.status_code == 200:
+            data = response.json()
+            if "data" in data and len(data["data"]) > 0:
+                logger.info(f"Encontrados {len(data['data'])} times")
+                return data["data"]
+            else:
+                logger.warning(f"Nenhum time encontrado para liga ID {league_id}")
+                logger.warning(f"Resposta: {json.dumps(data)[:200]}...")
+                return []
+        else:
+            logger.error(f"Erro {response.status_code} ao buscar times")
+            logger.error(f"Resposta: {response.text[:200]}...")
+            return []
+    except Exception as e:
+        logger.error(f"Exceção ao buscar times: {str(e)}")
+        return []
+
+def get_team_names_by_league(league_name):
+    """
+    Obter apenas os nomes dos times de uma liga (formato simplificado)
+    
+    Args:
+        league_name (str): Nome da liga
+        
+    Returns:
+        list: Lista de nomes dos times
+    """
+    # Primeiro, verificar se a liga existe no mapeamento
+    league_id = LEAGUE_IDS.get(league_name)
+    if not league_id:
+        logger.error(f"Liga não encontrada: {league_name}")
+        return []
+    
+    # Verificar cache
+    cache_key = f"teams_{league_name}_{CURRENT_SEASON}"
+    cached_data = get_from_cache(cache_key)
+    if cached_data:
+        return cached_data
+    
+    # Se não está em cache, buscar da API
+    teams_data = fetch_teams_by_league_id(league_id, CURRENT_SEASON)
+    
+    if teams_data and len(teams_data) > 0:
+        # Extrair apenas os nomes dos times
+        team_names = [team.get("name", "Unknown") for team in teams_data]
+        
+        # Salvar no cache
+        save_to_cache(team_names, cache_key)
+        
+        return team_names
+    
+    return []
+
 def test_api_connection():
     """
     Testa a conexão com a API e exibe detalhes de diagnóstico
@@ -353,9 +247,7 @@ def test_api_connection():
         logger.info("Testando conexão com a API FootyStats...")
         
         # Teste simples para verificar se a API está acessível
-        test_endpoint = "/competitions"
-        
-        response = requests.get(f"{BASE_URL}{test_endpoint}", params=get_auth_params(), timeout=10)
+        response = requests.get(f"{BASE_URL}/competitions", params={"key": API_KEY}, timeout=10)
         
         if response.status_code == 200:
             try:
@@ -363,6 +255,11 @@ def test_api_connection():
                 if data and "data" in data and len(data["data"]) > 0:
                     logger.info("✓ Conexão com API FootyStats bem sucedida")
                     logger.info(f"✓ {len(data['data'])} competições disponíveis")
+                    
+                    # Mostrar algumas competições disponíveis
+                    for comp in data["data"][:5]:
+                        logger.info(f"  - {comp.get('name', 'Unknown')} (ID: {comp.get('id', 'Unknown')})")
+                    
                     return True
                 else:
                     logger.error("✗ API retornou resposta vazia ou inválida")
@@ -380,849 +277,58 @@ def test_api_connection():
     except Exception as e:
         logger.error(f"✗ Erro ao testar conexão com API: {str(e)}")
         return False
-def get_league_season(league_name):
+
+def fetch_available_leagues():
     """
-    Obter a temporada para uma liga específica
+    Buscar ligas disponíveis na API
     
-    Args:
-        league_name (str): Nome da liga
-        
     Returns:
-        int: Temporada (ano) para a liga
+        dict: Mapeamento de nomes para IDs das ligas disponíveis
     """
-    # Verificar se temos uma temporada específica definida para esta liga
-    if league_name in LEAGUE_SEASONS:
-        return LEAGUE_SEASONS[league_name]
+    data = None
+    # Try to fetch from API
+    try:
+        response = requests.get(f"{BASE_URL}/competitions", params={"key": API_KEY}, timeout=15)
+        if response.status_code == 200:
+            data = response.json()
+    except Exception as e:
+        logger.error(f"Erro ao buscar ligas disponíveis: {str(e)}")
+        
+    # Process the data if available
+    if data and "data" in data and len(data["data"]) > 0:
+        available_leagues = {}
+        for league in data["data"]:
+            name = league.get("name", "Unknown")
+            league_id = league.get("id")
+            if name and league_id:
+                available_leagues[name] = league_id
+                logger.info(f"Liga disponível: {name} (ID: {league_id})")
+        
+        # Update the global mapping with what we found
+        if available_leagues:
+            for name, id in available_leagues.items():
+                # Only add if there's a match with our predefined leagues
+                for key in LEAGUE_IDS.keys():
+                    if key.lower() in name.lower() or name.lower() in key.lower():
+                        logger.info(f"Atualizando ID para {key}: {id} (foi {LEAGUE_IDS[key]})")
+                        LEAGUE_IDS[key] = id
+                        break
+        
+        return available_leagues
     
-    # Fallback para a temporada atual
-    return CURRENT_SEASON
+    # Fall back to our predefined mapping
+    return {k: v for k, v in LEAGUE_IDS.items()}
 
 def get_available_leagues():
     """
-    Obter lista de ligas disponíveis
+    Obter ligas disponíveis (com fallback para mapeamento estático)
     
     Returns:
-        dict: Dicionário com nomes das ligas como chaves e IDs como valores
+        dict: Mapeamento de nomes para IDs das ligas disponíveis
     """
-    try:
-        # Fazer requisição para obter todas as ligas
-        data = api_request("/competitions")
-        
-        if data and "data" in data:
-            available_leagues = {}
-            
-            for league in data["data"]:
-                # Mapear apenas as ligas principais que já conhecemos
-                league_name = league.get("name")
-                league_id = league.get("id")
-                
-                if league_name in LEAGUE_IDS:
-                    available_leagues[league_name] = league_id
-                    logger.info(f"Liga {league_name} disponível (ID: {league_id})")
-            
-            if available_leagues:
-                return available_leagues
-    except Exception as e:
-        logger.error(f"Erro ao verificar ligas disponíveis: {str(e)}")
-    
-    # Se não conseguir obter ligas da API, retornar as principais que conhecemos
-    return LEAGUE_IDS
-
-# Updated get_teams_by_league function in utils/footystats_api.py
-
-def get_teams_by_league(league_name):
-    """
-    Obter lista de times para uma liga específica
-    
-    Args:
-        league_name (str): Nome da liga
-        
-    Returns:
-        list: Lista de dicionários com informações dos times
-    """
-    # Obter o ID da liga
-    league_id = LEAGUE_IDS.get(league_name)
-    if not league_id:
-        logger.error(f"Liga não encontrada: {league_name}")
-        return []
-    
-    # Obter a temporada adequada para esta liga
-    season = LEAGUE_SEASONS.get(league_name, CURRENT_SEASON)
-    
-    # Parâmetros da requisição - CORRIGIDOS de acordo com a documentação
-    # https://footystats.org/api/documentations/
-    params = {
-        "key": API_KEY,  # API key deve ser enviada como parâmetro, não em auth_params separado
-        "season_id": season,  # Corrigido de "season" para "season_id"
-        "competition_id": league_id
-    }
-    
-    # Log da temporada sendo usada
-    logger.info(f"Buscando times para {league_name} (temporada {season})")
-    
-    # URL direta de acordo com a documentação
-    url = f"{BASE_URL}/league-teams"
-    
-    try:
-        # Fazer requisição direta (sem usar a função api_request)
-        logger.info(f"Requisição direta: {url} com parâmetros: season_id={season}, competition_id={league_id}")
-        response = requests.get(url, params=params, timeout=15)
-        
-        logger.info(f"Status da resposta: {response.status_code}")
-        
-        if response.status_code == 200:
-            try:
-                data = response.json()
-                
-                # Verificar se a resposta tem a estrutura esperada
-                if "data" in data:
-                    # Formatar a resposta para retornar apenas o necessário
-                    teams = []
-                    for team in data["data"]:
-                        teams.append({
-                            "id": team.get("id", 0),
-                            "name": team.get("name", "Unknown Team"),
-                            "logo": team.get("image_path", "")
-                        })
-                    
-                    logger.info(f"Encontrados {len(teams)} times para {league_name}")
-                    return teams
-                else:
-                    logger.warning(f"Resposta não contém campo 'data': {data}")
-            except json.JSONDecodeError as e:
-                logger.error(f"Erro ao decodificar resposta JSON: {str(e)}")
-                logger.error(f"Texto da resposta: {response.text[:200]}...")
-        else:
-            logger.error(f"Erro na requisição: {response.status_code}")
-            logger.error(f"Resposta: {response.text[:200]}...")
-    
-    except Exception as e:
-        logger.error(f"Exceção ao buscar times: {str(e)}")
-        import traceback
-        logger.error(traceback.format_exc())
-    
-    # Se não encontrar dados, retorne lista vazia
-    return []
-
-# Também corrigir a função get_team_names_by_league que utiliza a função acima
-def get_team_names_by_league(league_name):
-    """
-    Obter apenas os nomes dos times de uma liga (formato simplificado)
-    
-    Args:
-        league_name (str): Nome da liga
-        
-    Returns:
-        list: Lista de nomes dos times
-    """
-    teams = get_teams_by_league(league_name)
-    return [team["name"] for team in teams]
-
-def get_team_statistics(team_id, league_name):
-    """
-    Obter estatísticas detalhadas de um time
-    
-    Args:
-        team_id (int): ID do time
-        league_name (str): Nome da liga
-        
-    Returns:
-        dict: Estatísticas do time ou None se ocorrer erro
-    """
-    # Obter o ID da liga
-    league_id = LEAGUE_IDS.get(league_name)
-    if not league_id:
-        logger.error(f"Liga não encontrada: {league_name}")
-        return None
-    
-    # Obter a temporada adequada para esta liga
-    season = LEAGUE_SEASONS.get(league_name, CURRENT_SEASON)
-    
-    # Parâmetros da requisição
-    params = {
-        "team_id": team_id,
-        "competition_id": league_id,
-        "season": season
-    }
-    
-    # Fazer requisição à API
-    data = api_request("/team-statistics", params)
-    
-    if data and "data" in data:
-        return data["data"]
-    
-    return None
-
-def get_team_id_by_name(team_name, league_name):
-    """
-    Encontrar o ID de um time pelo nome
-    
-    Args:
-        team_name (str): Nome do time
-        league_name (str): Nome da liga
-        
-    Returns:
-        int: ID do time ou None se não encontrado
-    """
-    # Buscar todos os times da liga
-    teams = get_teams_by_league(league_name)
-    
-    # Log para diagnóstico
-    logger.info(f"Buscando ID para '{team_name}' em {league_name} ({len(teams)} times disponíveis)")
-    
-    # Procurar pelo nome exato primeiro
-    for team in teams:
-        if team["name"].lower() == team_name.lower():
-            logger.info(f"Time encontrado com correspondência exata: {team['name']} (ID: {team['id']})")
-            return team["id"]
-    
-    # Se não encontrar pelo nome exato, tentar nome parcial
-    for team in teams:
-        if team_name.lower() in team["name"].lower() or team["name"].lower() in team_name.lower():
-            logger.info(f"Time encontrado com correspondência parcial: {team['name']} (ID: {team['id']})")
-            return team["id"]
-    
-    logger.warning(f"Não foi possível encontrar o time '{team_name}' na liga {league_name}")
-    return None
-
-def get_fixture_statistics(home_team_name, away_team_name, league_name):
-    """
-    Obter estatísticas para uma partida entre dois times
-    
-    Args:
-        home_team_name (str): Nome do time da casa
-        away_team_name (str): Nome do time visitante
-        league_name (str): Nome da liga
-        
-    Returns:
-        dict: Estatísticas de ambos os times formatadas para análise
-    """
-    # Obter IDs dos times
-    home_team_id = get_team_id_by_name(home_team_name, league_name)
-    away_team_id = get_team_id_by_name(away_team_name, league_name)
-    
-    if not home_team_id or not away_team_id:
-        teams_not_found = []
-        if not home_team_id:
-            teams_not_found.append(home_team_name)
-        if not away_team_id:
-            teams_not_found.append(away_team_name)
-        
-        logger.error(f"Times não encontrados: {', '.join(teams_not_found)}")
-        return None
-    
-    # Obter estatísticas de cada time
-    home_team_stats = get_team_statistics(home_team_id, league_name)
-    away_team_stats = get_team_statistics(away_team_id, league_name)
-    
-    if not home_team_stats or not away_team_stats:
-        missing_stats = []
-        if not home_team_stats:
-            missing_stats.append(home_team_name)
-        if not away_team_stats:
-            missing_stats.append(away_team_name)
-            
-        logger.error(f"Estatísticas não disponíveis para: {', '.join(missing_stats)}")
-        return None
-    
-    # Formatar estatísticas para análise
-    season = LEAGUE_SEASONS.get(league_name, CURRENT_SEASON)
-    return {
-        "home_team": {
-            "name": home_team_name,
-            "id": home_team_id,
-            "stats": home_team_stats
-        },
-        "away_team": {
-            "name": away_team_name,
-            "id": away_team_id,
-            "stats": away_team_stats
-        },
-        "league": {
-            "name": league_name,
-            "id": LEAGUE_IDS.get(league_name)
-        },
-        "season": season
-    }
-
-def convert_api_stats_to_df_format(fixture_stats):
-    """
-    Converter estatísticas da API FootyStats para o formato de DataFrame esperado
-    
-    Args:
-        fixture_stats (dict): Estatísticas obtidas da API
-        
-    Returns:
-        pandas.DataFrame: DataFrame com estatísticas no formato esperado
-    """
-    import pandas as pd
-    
-    try:
-        if not fixture_stats:
-            return None
-        
-        home_team = fixture_stats["home_team"]
-        away_team = fixture_stats["away_team"]
-        
-        # Verificar se temos dados completos para ambos os times
-        if not home_team.get("stats") or not away_team.get("stats"):
-            logger.error("Dados de estatísticas incompletos")
-            return None
-        
-        # Extrair estatísticas com verificação de existência para evitar erros
-        def safe_get(obj, *keys, default=None):
-            current = obj
-            for key in keys:
-                if isinstance(current, dict) and key in current:
-                    current = current[key]
-                else:
-                    return default
-            return current
-        
-        # Extrair estatísticas básicas dos times
-        home_stats = home_team["stats"]
-        away_stats = away_team["stats"]
-        
-        # Mapeamento de campos da FootyStats para o formato esperado pelo ValueHunter
-        # Nota: Estes campos precisam ser ajustados com base na documentação real da FootyStats
-        home_row = {
-            "Squad": home_team["name"],
-            "MP": safe_get(home_stats, "matches_played", default=0),
-            "W": safe_get(home_stats, "wins", default=0),
-            "D": safe_get(home_stats, "draws", default=0),
-            "L": safe_get(home_stats, "losses", default=0),
-            "Pts": safe_get(home_stats, "points", default=0),
-            "Gls": safe_get(home_stats, "goals_scored", default=0),
-            "GA": safe_get(home_stats, "goals_conceded", default=0),
-            "xG": safe_get(home_stats, "expected_goals", default=None),
-            "xGA": safe_get(home_stats, "expected_goals_against", default=None),
-            "Poss": safe_get(home_stats, "possession_percent", default=50),
-            "CS": safe_get(home_stats, "clean_sheets", default=0)
-        }
-        
-        away_row = {
-            "Squad": away_team["name"],
-            "MP": safe_get(away_stats, "matches_played", default=0),
-            "W": safe_get(away_stats, "wins", default=0),
-            "D": safe_get(away_stats, "draws", default=0),
-            "L": safe_get(away_stats, "losses", default=0),
-            "Pts": safe_get(away_stats, "points", default=0),
-            "Gls": safe_get(away_stats, "goals_scored", default=0),
-            "GA": safe_get(away_stats, "goals_conceded", default=0),
-            "xG": safe_get(away_stats, "expected_goals", default=None),
-            "xGA": safe_get(away_stats, "expected_goals_against", default=None),
-            "Poss": safe_get(away_stats, "possession_percent", default=50),
-            "CS": safe_get(away_stats, "clean_sheets", default=0)
-        }
-
-        # Fallback para dados de xG se não estiverem disponíveis
-        if home_row["xG"] is None:
-            home_row["xG"] = round(home_row["Gls"] * 0.9, 1)  # Estimativa baseada em gols
-        if home_row["xGA"] is None:
-            home_row["xGA"] = round(home_row["GA"] * 0.9, 1)  # Estimativa baseada em gols sofridos
-        
-        if away_row["xG"] is None:
-            away_row["xG"] = round(away_row["Gls"] * 0.9, 1)  # Estimativa baseada em gols
-        if away_row["xGA"] is None:
-            away_row["xGA"] = round(away_row["GA"] * 0.9, 1)  # Estimativa baseada em gols sofridos
-        
-        # Criar DataFrame
-        df = pd.DataFrame([home_row, away_row])
-        
-        return df
-    
-    except Exception as e:
-        logger.error(f"Erro ao converter estatísticas: {str(e)}")
-        import traceback
-        logger.error(traceback.format_exc())
-        return None
-    # ===== ENDPOINTS PARA ESTATÍSTICAS DE LIGAS =====
-
-def get_league_standings(league_name):
-    """
-    Obter classificação da liga
-    
-    Args:
-        league_name (str): Nome da liga
-        
-    Returns:
-        list: Lista de times com suas posições e estatísticas na liga
-    """
-    # Obter o ID da liga
-    league_id = LEAGUE_IDS.get(league_name)
-    if not league_id:
-        logger.error(f"Liga não encontrada: {league_name}")
-        return []
-    
-    # Obter a temporada adequada para esta liga
-    season = LEAGUE_SEASONS.get(league_name, CURRENT_SEASON)
-    
-    # Parâmetros da requisição
-    params = {
-        "competition_id": league_id,
-        "season": season
-    }
-    
-    # Fazer requisição à API
-    data = api_request("/league-table", params)
-    
-    if data and "data" in data:
-        return data["data"]
-    
-    logger.warning(f"Não foi possível obter classificação para {league_name}")
-    return []
-
-def get_league_stats(league_name):
-    """
-    Obter estatísticas gerais da liga
-    
-    Args:
-        league_name (str): Nome da liga
-        
-    Returns:
-        dict: Estatísticas gerais da liga
-    """
-    # Obter o ID da liga
-    league_id = LEAGUE_IDS.get(league_name)
-    if not league_id:
-        logger.error(f"Liga não encontrada: {league_name}")
-        return {}
-    
-    # Obter a temporada adequada para esta liga
-    season = LEAGUE_SEASONS.get(league_name, CURRENT_SEASON)
-    
-    # Parâmetros da requisição
-    params = {
-        "competition_id": league_id,
-        "season": season
-    }
-    
-    # Fazer requisição à API
-    data = api_request("/league-stats", params)
-    
-    if data and "data" in data:
-        return data["data"]
-    
-    logger.warning(f"Não foi possível obter estatísticas para {league_name}")
-    return {}
-
-# ===== ENDPOINTS PARA ESTATÍSTICAS DE TIMES =====
-
-def get_team_form(team_id, league_name, last_n=5):
-    """
-    Obter o retrospecto recente de um time
-    
-    Args:
-        team_id (int): ID do time
-        league_name (str): Nome da liga
-        last_n (int): Número de jogos recentes para analisar
-        
-    Returns:
-        list: Lista dos últimos jogos com resultados
-    """
-    # Obter o ID da liga
-    league_id = LEAGUE_IDS.get(league_name)
-    if not league_id:
-        logger.error(f"Liga não encontrada: {league_name}")
-        return []
-    
-    # Obter a temporada adequada para esta liga
-    season = LEAGUE_SEASONS.get(league_name, CURRENT_SEASON)
-    
-    # Parâmetros da requisição
-    params = {
-        "team_id": team_id,
-        "competition_id": league_id,
-        "season": season,
-        "last": last_n
-    }
-    
-    # Fazer requisição à API
-    data = api_request("/team-form", params)
-    
-    if data and "data" in data:
-        return data["data"]
-    
-    logger.warning(f"Não foi possível obter retrospecto para o time {team_id}")
-    return []
-
-def get_team_players(team_id, league_name):
-    """
-    Obter lista de jogadores de um time
-    
-    Args:
-        team_id (int): ID do time
-        league_name (str): Nome da liga
-        
-    Returns:
-        list: Lista de jogadores com estatísticas
-    """
-    # Obter o ID da liga
-    league_id = LEAGUE_IDS.get(league_name)
-    if not league_id:
-        logger.error(f"Liga não encontrada: {league_name}")
-        return []
-    
-    # Obter a temporada adequada para esta liga
-    season = LEAGUE_SEASONS.get(league_name, CURRENT_SEASON)
-    
-    # Parâmetros da requisição
-    params = {
-        "team_id": team_id,
-        "competition_id": league_id,
-        "season": season
-    }
-    
-    # Fazer requisição à API
-    data = api_request("/team-players", params)
-    
-    if data and "data" in data:
-        return data["data"]
-    
-    logger.warning(f"Não foi possível obter jogadores para o time {team_id}")
-    return []
-
-def get_team_matches(team_id, league_name, include_upcoming=True):
-    """
-    Obter partidas de um time
-    
-    Args:
-        team_id (int): ID do time
-        league_name (str): Nome da liga
-        include_upcoming (bool): Incluir partidas futuras
-        
-    Returns:
-        list: Lista de partidas
-    """
-    # Obter o ID da liga
-    league_id = LEAGUE_IDS.get(league_name)
-    if not league_id:
-        logger.error(f"Liga não encontrada: {league_name}")
-        return []
-    
-    # Obter a temporada adequada para esta liga
-    season = LEAGUE_SEASONS.get(league_name, CURRENT_SEASON)
-    
-    # Parâmetros da requisição
-    params = {
-        "team_id": team_id,
-        "competition_id": league_id,
-        "season": season,
-        "upcoming": "true" if include_upcoming else "false"
-    }
-    
-    # Fazer requisição à API
-    data = api_request("/team-matches", params)
-    
-    if data and "data" in data:
-        return data["data"]
-    
-    logger.warning(f"Não foi possível obter partidas para o time {team_id}")
-    return []
-
-# ===== ENDPOINTS PARA ANÁLISES HEAD-TO-HEAD =====
-
-def get_head_to_head(team1_id, team2_id):
-    """
-    Obter estatísticas de confrontos diretos entre dois times
-    
-    Args:
-        team1_id (int): ID do primeiro time
-        team2_id (int): ID do segundo time
-        
-    Returns:
-        dict: Estatísticas de confrontos diretos
-    """
-    # Parâmetros da requisição
-    params = {
-        "team1_id": team1_id,
-        "team2_id": team2_id
-    }
-    
-    # Fazer requisição à API
-    data = api_request("/head2head", params)
-    
-    if data and "data" in data:
-        return data["data"]
-    
-    logger.warning(f"Não foi possível obter head-to-head entre {team1_id} e {team2_id}")
-    return {}
-
-# ===== ENDPOINTS PARA ANÁLISES AVANÇADAS =====
-
-def get_team_advanced_stats(team_id, league_name):
-    """
-    Obter estatísticas avançadas de um time
-    
-    Args:
-        team_id (int): ID do time
-        league_name (str): Nome da liga
-        
-    Returns:
-        dict: Estatísticas avançadas
-    """
-    # Obter o ID da liga
-    league_id = LEAGUE_IDS.get(league_name)
-    if not league_id:
-        logger.error(f"Liga não encontrada: {league_name}")
-        return {}
-    
-    # Obter a temporada adequada para esta liga
-    season = LEAGUE_SEASONS.get(league_name, CURRENT_SEASON)
-    
-    # Parâmetros da requisição
-    params = {
-        "team_id": team_id,
-        "competition_id": league_id,
-        "season": season
-    }
-    
-    # Fazer requisição à API
-    data = api_request("/team-advanced-stats", params)
-    
-    if data and "data" in data:
-        return data["data"]
-    
-    logger.warning(f"Não foi possível obter estatísticas avançadas para o time {team_id}")
-    return {}
-
-def get_odds_analysis(team1_id, team2_id, league_name):
-    """
-    Obter análise de probabilidades para uma partida
-    
-    Args:
-        team1_id (int): ID do time da casa
-        team2_id (int): ID do time visitante
-        league_name (str): Nome da liga
-        
-    Returns:
-        dict: Análise de probabilidades
-    """
-    # Obter o ID da liga
-    league_id = LEAGUE_IDS.get(league_name)
-    if not league_id:
-        logger.error(f"Liga não encontrada: {league_name}")
-        return {}
-    
-    # Obter a temporada adequada para esta liga
-    season = LEAGUE_SEASONS.get(league_name, CURRENT_SEASON)
-    
-    # Parâmetros da requisição
-    params = {
-        "home_team_id": team1_id,
-        "away_team_id": team2_id,
-        "competition_id": league_id,
-        "season": season
-    }
-    
-    # Fazer requisição à API
-    data = api_request("/match-odds", params)
-    
-    if data and "data" in data:
-        return data["data"]
-    
-    logger.warning(f"Não foi possível obter análise de odds para {team1_id} vs {team2_id}")
-    return {}
-
-# ===== FUNÇÕES DE CONVERSÃO PARA INTEGRAÇÃO COM O VALUEHUNTER =====
-
-def extract_betting_markets(fixture_stats):
-    """
-    Extrair mercados de apostas das estatísticas de uma partida
-    
-    Args:
-        fixture_stats (dict): Estatísticas obtidas da API
-        
-    Returns:
-        dict: Mercados de apostas formatados para o ValueHunter
-    """
-    try:
-        if not fixture_stats:
-            return None
-        
-        # Tentar extrair odd analysis ou fazer uma chamada direta
-        home_team_id = fixture_stats["home_team"]["id"]
-        away_team_id = fixture_stats["away_team"]["id"]
-        league_name = fixture_stats["league"]["name"]
-        
-        # Obter análise de odds para esta partida
-        odds_data = get_odds_analysis(home_team_id, away_team_id, league_name)
-        
-        if not odds_data:
-            return {}
-        
-        # Mapeamento para o formato esperado pelo ValueHunter
-        betting_markets = {
-            "money_line": {
-                "home": odds_data.get("home_win_odds", 0),
-                "draw": odds_data.get("draw_odds", 0),
-                "away": odds_data.get("away_win_odds", 0)
-            },
-            "over_under": {
-                "over": odds_data.get("over_2_5_odds", 0),
-                "under": odds_data.get("under_2_5_odds", 0),
-                "line": 2.5
-            },
-            "btts": {
-                "yes": odds_data.get("btts_yes_odds", 0),
-                "no": odds_data.get("btts_no_odds", 0)
-            }
-        }
-        
-        return betting_markets
-    except Exception as e:
-        logger.error(f"Erro ao extrair mercados de apostas: {str(e)}")
-        return {}
-
-def get_complete_fixture_analysis(home_team_name, away_team_name, league_name):
-    """
-    Função abrangente que combina diversas análises para uma partida
-    
-    Args:
-        home_team_name (str): Nome do time da casa
-        away_team_name (str): Nome do time visitante
-        league_name (str): Nome da liga
-        
-    Returns:
-        dict: Análise completa da partida
-    """
-    try:
-        # Obter IDs dos times
-        home_team_id = get_team_id_by_name(home_team_name, league_name)
-        away_team_id = get_team_id_by_name(away_team_name, league_name)
-        
-        if not home_team_id or not away_team_id:
-            logger.error(f"Não foi possível encontrar IDs para {home_team_name} ou {away_team_name}")
-            return None
-        
-        # 1. Estatísticas básicas dos times
-        fixture_stats = get_fixture_statistics(home_team_name, away_team_name, league_name)
-        if not fixture_stats:
-            return None
-        
-        # 2. Retrospecto recente
-        home_form = get_team_form(home_team_id, league_name)
-        away_form = get_team_form(away_team_id, league_name)
-        
-        # 3. Head to head
-        h2h_data = get_head_to_head(home_team_id, away_team_id)
-        
-        # 4. Estatísticas avançadas
-        home_advanced = get_team_advanced_stats(home_team_id, league_name)
-        away_advanced = get_team_advanced_stats(away_team_id, league_name)
-        
-        # 5. Odds e probabilidades
-        betting_markets = extract_betting_markets(fixture_stats)
-        
-        # Combinar tudo em uma análise completa
-        complete_analysis = {
-            "basic_stats": fixture_stats,
-            "team_form": {
-                "home": home_form,
-                "away": away_form
-            },
-            "head_to_head": h2h_data,
-            "advanced_stats": {
-                "home": home_advanced,
-                "away": away_advanced
-            },
-            "betting_markets": betting_markets
-        }
-        
-        return complete_analysis
-    except Exception as e:
-        logger.error(f"Erro ao gerar análise completa: {str(e)}")
-        return None    
-# Add this to the end of utils/footystats_api.py to help with testing
-
-def test_specific_league_request(league_name):
-    """
-    Test a specific league request to check if it works
-    
-    Args:
-        league_name (str): The name of the league to test
-        
-    Returns:
-        dict: The API response or error details
-    """
-    if league_name not in LEAGUE_IDS:
-        return {"error": "league_not_found", "message": f"League '{league_name}' not found in LEAGUE_IDS mapping"}
-    
-    league_id = LEAGUE_IDS[league_name]
-    season = LEAGUE_SEASONS.get(league_name, CURRENT_SEASON)
-    
-    # Build request parameters
-    params = {
-        "key": API_KEY,
-        "competition_id": league_id,
-        "season": season
-    }
-    
-    # Make the request directly (bypassing the api_request function)
-    url = f"{BASE_URL}/league-teams"
-    
-    try:
-        logger.info(f"Testing direct request for {league_name} (id: {league_id}, season: {season})")
-        response = requests.get(url, params=params, timeout=10)
-        
-        if response.status_code == 200:
-            try:
-                data = response.json()
-                if data and isinstance(data, dict):
-                    # Check for API error messages
-                    if "error" in data:
-                        return {
-                            "success": False,
-                            "error": data.get("error"),
-                            "message": data.get("message", "Unknown API error")
-                        }
-                    
-                    # Check if 'data' field exists and has content
-                    if "data" in data:
-                        if data["data"] and len(data["data"]) > 0:
-                            return {
-                                "success": True,
-                                "teams_count": len(data["data"]),
-                                "sample_teams": [team.get("name", "Unknown") for team in data["data"][:5]],
-                                "response": data
-                            }
-                        else:
-                            return {
-                                "success": False,
-                                "error": "empty_data",
-                                "message": "API returned empty data array"
-                            }
-                    else:
-                        return {
-                            "success": False,
-                            "error": "missing_data_field",
-                            "message": "API response doesn't contain 'data' field",
-                            "response": data
-                        }
-                else:
-                    return {
-                        "success": False,
-                        "error": "invalid_response",
-                        "message": "API response is not a valid dictionary",
-                        "response": data
-                    }
-            except json.JSONDecodeError as e:
-                return {
-                    "success": False,
-                    "error": "json_decode_error",
-                    "message": f"Failed to parse API response as JSON: {str(e)}",
-                    "response_text": response.text[:500]  # First 500 chars
-                }
-        else:
-            return {
-                "success": False,
-                "error": f"http_{response.status_code}",
-                "message": f"API returned status code {response.status_code}",
-                "response_text": response.text[:500]  # First 500 chars
-            }
-    except Exception as e:
-        return {
-            "success": False,
-            "error": "request_exception",
-            "message": f"Exception during API request: {str(e)}"
-        }
+    leagues = fetch_available_leagues()
+    if leagues and len(leagues) > 0:
+        return leagues
+    
+    # If API fails, fall back to our predefined mapping
+    return {k: v for k, v in LEAGUE_IDS.items()}
