@@ -10,9 +10,9 @@ from datetime import datetime
 # Configuração de logging
 logger = logging.getLogger("valueHunter.footystats_api")
 
-# Configuração da API - URL BASE CORRIGIDA
+# Configuração da API com chave corrigida
 BASE_URL = "https://api.football-data-api.com"
-API_KEY = "b1742f67bda1c097be51c61409f1897a334d1889c291fedd5bcc0b3e070aa6c1"  # Substitua pela sua chave da FootyStats
+API_KEY = "b1742f67bda1c097be51c61409f1797a334d1889c291fedd5bcc0b3e070aa6c1"  # Chave corrigida
 
 # Obter a temporada atual
 def get_current_season():
