@@ -19,49 +19,119 @@ os.makedirs(TEAMS_CACHE_DIR, exist_ok=True)
 def load_league_teams_direct(selected_league):
     """
     Carregar times de uma liga usando a API FootyStats com diagnóstico aprimorado.
-    Sem qualquer tipo de dados de exemplo ou fallback.
     
     Args:
-        selected_league (str): Nome da liga
+        selected_league (str): Nome da liga com país, formato "Nome (País)"
         
     Returns:
         list: Lista de nomes dos times ou lista vazia se falhar
     """
-    # Importar o módulo traceback aqui para evitar o erro de escopo
     import traceback
     
     status = st.empty()
     status.info(f"Carregando times para {selected_league}...")
     
     try:
-        # Buscar times da API com refresh forçado para garantir dados atuais
-        from utils.footystats_api import get_team_names_by_league
-        teams = get_team_names_by_league(selected_league, force_refresh=False)
+        # Verificar se temos país na seleção
+        if "(" not in selected_league and ")" not in selected_league:
+            status.warning(f"Nome da liga sem país: {selected_league}. Isso pode causar ambiguidade.")
         
-        if teams and len(teams) > 0:
-            status.success(f"✅ {len(teams)} times carregados para {selected_league}")
-            return teams
-        else:
-            status.warning(f"Nenhum time encontrado via API para {selected_league}")
+        # Buscar times da API usando o nome completo com país
+        from utils.footystats_api import get_team_names_by_league, clear_league_cache, test_api_connection
+        
+        # Primeiro, verificar estatísticas da API
+        api_test = test_api_connection()
+        if api_test["success"]:
+            # Se a API está funcionando, tentar obter os times
+            teams = get_team_names_by_league(selected_league, force_refresh=False)
             
-            # Mostrar diagnóstico detalhado
-            with st.expander("Diagnóstico da API FootyStats", expanded=True):
-                diagnosis = diagnose_api_issues(selected_league)
-                st.markdown(diagnosis)
+            if teams and len(teams) > 0:
+                # Sucesso!
+                status.success(f"✅ {len(teams)} times carregados para {selected_league}")
+                return teams
+            else:
+                # API funcionou mas não retornou times
+                status.warning(f"Nenhum time encontrado via API para {selected_league}")
                 
-                # Oferecer apenas opção para limpar cache
+                # Verificar se a liga existe na lista retornada pela API
+                if api_test["available_leagues"]:
+                    has_match = False
+                    similar_leagues = []
+                    
+                    for league in api_test["available_leagues"]:
+                        # Verificar correspondência exata
+                        if league.lower() == selected_league.lower():
+                            has_match = True
+                            break
+                        
+                        # Verificar correspondência parcial para sugestões
+                        # Extrair só o nome da liga sem o país
+                        league_name = league.split(" (")[0] if " (" in league else league
+                        selected_name = selected_league.split(" (")[0] if " (" in selected_league else selected_league
+                        
+                        if (league_name.lower() in selected_name.lower() or 
+                            selected_name.lower() in league_name.lower()):
+                            similar_leagues.append(league)
+                    
+                    # Exibir diagnóstico baseado na correspondência
+                    with st.expander("Diagnóstico da API FootyStats", expanded=True):
+                        if has_match:
+                            st.warning(f"A liga '{selected_league}' foi encontrada, mas não retornou times.")
+                            st.info("Isso pode acontecer se a liga foi selecionada recentemente e o cache da API ainda não foi atualizado.")
+                        else:
+                            st.error(f"A liga '{selected_league}' não foi encontrada exatamente nesse formato.")
+                            
+                            if similar_leagues:
+                                st.info(f"Ligas similares disponíveis: {', '.join(similar_leagues)}")
+                                st.info("Tente selecionar uma dessas ligas em vez da atual.")
+                        
+                        # Mostrar diagnóstico completo
+                        diagnosis = diagnose_api_issues(selected_league)
+                        st.markdown(diagnosis)
+                        
+                        # Botão para limpar cache
+                        if st.button("Limpar Cache e Tentar Novamente", key="clear_cache_btn"):
+                            try:
+                                num_cleared = clear_league_cache(selected_league)
+                                st.success(f"Cache limpo: {num_cleared} arquivos removidos. Recarregando...")
+                                time.sleep(1)
+                                st.experimental_rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao limpar cache: {str(e)}")
+                else:
+                    # Não conseguimos obter a lista de ligas disponíveis
+                    with st.expander("Diagnóstico da API FootyStats", expanded=True):
+                        st.error("Não foi possível obter a lista de ligas disponíveis.")
+                        st.info("Verifique sua conexão com a API e sua assinatura FootyStats.")
+                        
+                        # Mostrar diagnóstico completo
+                        diagnosis = diagnose_api_issues(selected_league)
+                        st.markdown(diagnosis)
+        else:
+            # API não está funcionando
+            status.error("Não foi possível conectar com a API FootyStats")
+            
+            with st.expander("Diagnóstico da API FootyStats", expanded=True):
+                st.error("Falha na conexão com a API FootyStats")
+                
+                if "error" in api_test and api_test["error"]:
+                    st.error(f"Erro: {api_test['error']}")
+                
+                details = "\n".join([f"- {detail}" for detail in api_test["details"]])
+                st.markdown(f"**Detalhes:**\n{details}")
+                
+                # Botão para limpar cache
                 if st.button("Limpar Cache e Tentar Novamente", key="clear_cache_btn"):
                     try:
-                        from utils.footystats_api import clear_league_cache
                         num_cleared = clear_league_cache(selected_league)
                         st.success(f"Cache limpo: {num_cleared} arquivos removidos. Recarregando...")
                         time.sleep(1)
                         st.experimental_rerun()
                     except Exception as e:
                         st.error(f"Erro ao limpar cache: {str(e)}")
-            
-            # Retornar lista vazia - sem fallback de qualquer tipo
-            return []
+        
+        # Se chegamos aqui, não temos times
+        return []
             
     except Exception as e:
         status.error(f"Erro ao carregar times: {str(e)}")
