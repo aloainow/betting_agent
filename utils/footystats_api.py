@@ -86,6 +86,73 @@ def get_from_cache(endpoint, params=None, max_age=CACHE_DURATION):
         logger.error(f"Erro ao ler cache: {str(e)}")
         return None
 
+# Adicione esta função ao arquivo utils/footystats_api.py
+
+def get_league_id_mapping(force_refresh=False):
+    """
+    Obtém um mapeamento completo de nomes de ligas para seus IDs
+    
+    Args:
+        force_refresh (bool): Se True, ignora o cache
+    
+    Returns:
+        dict: Mapeamento de nomes de liga para IDs
+    """
+    # Verificar cache
+    cache_key = "league_id_mapping"
+    if not force_refresh:
+        cached_data = get_from_cache(cache_key)
+        if cached_data:
+            logger.info(f"Usando mapeamento de IDs em cache: {len(cached_data)} ligas")
+            return cached_data
+    
+    # Buscar dados da API
+    params = {"key": API_KEY}
+    data = api_request("league-list", params, use_cache=not force_refresh)
+    
+    if data and "data" in data and isinstance(data["data"], list):
+        # Criar mapeamento
+        mapping = {}
+        for league in data["data"]:
+            if "id" in league and "name" in league and "country" in league:
+                league_id = league["id"]
+                name = league["name"]
+                country = league["country"]
+                
+                # Criar o nome completo da liga
+                formatted_name = f"{name} ({country})"
+                
+                # Adicionar ao mapeamento
+                mapping[formatted_name] = league_id
+                
+                # Adicionar também versão sem país
+                mapping[name] = league_id
+                
+                # Para ligas mais conhecidas, adicionar nomes alternativos 
+                if "Premier League" in name and "England" in country:
+                    mapping["Premier League"] = league_id
+                elif "La Liga" in name and "Spain" in country:
+                    mapping["La Liga"] = league_id
+                elif "Serie A" in name and "Italy" in country:
+                    mapping["Serie A"] = league_id
+                elif "Bundesliga" in name and "Germany" in country and not "2." in name:
+                    mapping["Bundesliga"] = league_id
+                elif "Ligue 1" in name and "France" in country:
+                    mapping["Ligue 1"] = league_id
+                elif "Champions League" in name and "Europe" in country:
+                    mapping["Champions League"] = league_id
+                elif "Brasileirão" in name or ("Série A" in name and "Brazil" in country):
+                    mapping["Brasileirão"] = league_id
+        
+        # Salvar no cache
+        save_to_cache(mapping, cache_key)
+        logger.info(f"Mapeamento de IDs criado: {len(mapping)} entradas")
+        return mapping
+    
+    # Fallback para o mapeamento existente em LEAGUE_IDS
+    logger.warning("Usando mapeamento estático de IDs - a API não retornou dados válidos")
+    return LEAGUE_IDS.copy()
+
 def test_api_connection():
     """
     Testa a conexão com a API e diagnóstica problemas
@@ -476,27 +543,36 @@ def find_league_id_by_name(league_name):
     Returns:
         int: ID da liga ou None se não encontrado
     """
-    # Inicializar dicionários de ligas se ainda não tiver sido feito
-    if not LEAGUE_IDS or len(LEAGUE_IDS) < 3:
-        retrieve_available_leagues()
+    # Obter mapeamento atualizado de ligas
+    league_mapping = get_league_id_mapping()
     
-    # Caso 1: Nome exato com país
-    if league_name in LEAGUE_IDS:
-        return LEAGUE_IDS[league_name]
+    # Caso 1: Nome exato
+    if league_name in league_mapping:
+        logger.info(f"ID encontrado para '{league_name}': {league_mapping[league_name]}")
+        return league_mapping[league_name]
     
-    # Caso 2: Nome sem país
-    for full_name, league_id in LEAGUE_IDS.items():
-        # Verificar se o nome da liga está contido no nome completo
-        if league_name in full_name or SIMPLE_LEAGUE_NAMES.get(full_name) == league_name:
+    # Caso 2: Correspondência parcial
+    for name, league_id in league_mapping.items():
+        if league_name.lower() in name.lower() or name.lower() in league_name.lower():
+            logger.info(f"ID encontrado para '{league_name}' via correspondência parcial com '{name}': {league_id}")
             return league_id
     
-    # Caso 3: Correspondência parcial
-    for full_name, league_id in LEAGUE_IDS.items():
-        simple_name = SIMPLE_LEAGUE_NAMES.get(full_name, "")
-        if (league_name.lower() in full_name.lower() or 
-            (simple_name and league_name.lower() in simple_name.lower())):
-            return league_id
+    # Caso 3: Buscar na lista de ligas disponíveis
+    try:
+        api_test = test_api_connection()
+        if api_test["success"] and api_test["available_leagues"]:
+            for league in api_test["available_leagues"]:
+                if league_name.lower() in league.lower() or league.lower() in league_name.lower():
+                    # Tentar encontrar o ID para esta liga
+                    for name, league_id in league_mapping.items():
+                        if league.lower() in name.lower() or name.lower() in league.lower():
+                            logger.info(f"ID encontrado para '{league_name}' via liga similar '{league}': {league_id}")
+                            return league_id
+    except Exception as e:
+        logger.error(f"Erro ao buscar liga similar: {str(e)}")
     
+    # Não encontrado
+    logger.error(f"ID não encontrado para liga: '{league_name}'")
     return None
 
 def get_team_names_by_league(league_name, force_refresh=False):
@@ -510,21 +586,51 @@ def get_team_names_by_league(league_name, force_refresh=False):
     Returns:
         list: Lista de nomes dos times
     """
+    logger.info(f"Buscando times para liga: {league_name}")
+    
     # Verificar cache, a menos que force_refresh seja True
     cache_key = f"teams_{league_name}"
     if not force_refresh:
         cached_names = get_from_cache(cache_key)
         if cached_names:
+            logger.info(f"Usando times em cache para '{league_name}': {len(cached_names)} times")
             return cached_names
     
-    # Buscar ID da liga
+    # Buscar ID da liga com o mapeamento atualizado
     league_id = find_league_id_by_name(league_name)
+    
+    if not league_id:
+        # Verificar se existe uma liga similar no teste da API
+        try:
+            api_test = test_api_connection()
+            if api_test["success"] and api_test["available_leagues"]:
+                similar_leagues = []
+                for league in api_test["available_leagues"]:
+                    # Comparar os nomes das ligas ignorando case
+                    league_base_name = league_name.split(" (")[0].lower() if " (" in league_name else league_name.lower()
+                    api_league_base_name = league.split(" (")[0].lower() if " (" in league else league.lower()
+                    
+                    # Verificar se há sobreposição entre os nomes
+                    if league_base_name in api_league_base_name or api_league_base_name in league_base_name:
+                        similar_leagues.append(league)
+                        # Tentar usar o primeiro similar que encontrar
+                        new_id = find_league_id_by_name(league)
+                        if new_id:
+                            logger.info(f"Usando ID de liga similar '{league}': {new_id}")
+                            league_id = new_id
+                            break
+                
+                if similar_leagues:
+                    logger.info(f"Ligas similares encontradas: {similar_leagues}")
+        except Exception as e:
+            logger.error(f"Erro ao buscar ligas similares: {str(e)}")
     
     if not league_id:
         logger.error(f"Não foi possível encontrar ID para a liga: {league_name}")
         return []
     
     # Buscar times da API
+    logger.info(f"Buscando times para liga ID {league_id}")
     teams_data = fetch_league_teams(league_id)
     
     if teams_data and len(teams_data) > 0:
@@ -538,46 +644,11 @@ def get_team_names_by_league(league_name, force_refresh=False):
         if team_names:
             # Salvar nomes no cache
             save_to_cache(team_names, cache_key)
+            logger.info(f"Times obtidos para '{league_name}': {len(team_names)} times")
             return team_names
     
-    # Se não encontrou times para esta liga,
-    # tentar usando a chave de exemplo para Premier League
-    if league_name in ["Premier League", "Premier League (England)"]:
-        logger.info("Tentando buscar times de exemplo da Premier League")
-        
-        # Verificar cache
-        cache_key = "teams_premier_league_example"
-        if not force_refresh:
-            cached_names = get_from_cache(cache_key)
-            if cached_names:
-                return cached_names
-        
-        # Usar chave de exemplo conforme documentação
-        params = {
-            "key": "example",
-            "league_id": 1625  # Premier League ID
-        }
-        
-        # Fazer a requisição
-        endpoint = "league-teams"
-        data = api_request(endpoint, params)
-        
-        if data and isinstance(data, dict) and "data" in data:
-            teams = data["data"]
-            logger.info(f"Encontrados {len(teams)} times de exemplo da Premier League")
-            
-            # Extrair apenas os nomes dos times
-            team_names = []
-            for team in teams:
-                name = team.get("name")
-                if name:
-                    team_names.append(name)
-            
-            if team_names:
-                # Salvar nomes no cache
-                save_to_cache(team_names, cache_key)
-                return team_names
-    
+    # Se chegamos aqui, não encontramos times
+    logger.warning(f"Nenhum time encontrado para liga '{league_name}' (ID: {league_id})")
     return []
 
 def test_api_connection():
