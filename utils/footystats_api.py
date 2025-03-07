@@ -10,7 +10,7 @@ from datetime import datetime
 logger = logging.getLogger("valueHunter.footystats_api")
 
 # Configuração da API
-BASE_URL = "https://api.footystats.org"
+BASE_URL = "https://api.football-data-api.com"
 API_KEY = "b1742f67bda1c097be51c61409f1797a334d1889c291fedd5bcc0b3e070aa6c1"  # Substitua pela sua chave da FootyStats
 
 # Obter a temporada atual
