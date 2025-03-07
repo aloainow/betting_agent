@@ -158,12 +158,15 @@ def calculate_real_prob(home_xg, away_xg, home_games, away_games):
 # Substitua a função format_prompt em utils/ai.py
 
 def format_prompt(stats_df, home_team, away_team, odds_data, selected_markets):
-    """Formata o prompt para o GPT-4 com os dados coletados de forma mais abrangente"""
+    """Formata o prompt para o GPT-4 com os dados coletados"""
     try:
+        # Alterar importação
+        from utils.footystats_api import LEAGUE_SEASONS, CURRENT_SEASON
+        
         # Extrair estatísticas detalhadas de ambos os times
         from utils.data import get_stat
         
-        # Importe a função de extração (ou se você a colocou em utils/data.py, ajuste o import)
+        # Importe a função de extração
         try:
             from utils.data import extract_team_stats
         except ImportError:
@@ -355,6 +358,4 @@ INSTRUÇÕES ESPECIAIS: VOCÊ DEVE CALCULAR PROBABILIDADES REAIS PARA TODOS OS M
 
     except Exception as e:
         logger.error(f"Erro ao formatar prompt: {str(e)}")
-        import traceback
-        logger.error(traceback.format_exc())
         return None
