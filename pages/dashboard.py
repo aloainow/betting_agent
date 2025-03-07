@@ -17,6 +17,66 @@ logger = logging.getLogger("valueHunter.dashboard")
 TEAMS_CACHE_DIR = os.path.join(DATA_DIR, "teams_cache")
 os.makedirs(TEAMS_CACHE_DIR, exist_ok=True)
 
+def load_league_teams_direct(selected_league):
+    """
+    Carregar times de uma liga usando a API FootyStats com diagnóstico aprimorado.
+    Sem qualquer tipo de dados de exemplo ou fallback.
+    
+    Args:
+        selected_league (str): Nome da liga
+        
+    Returns:
+        list: Lista de nomes dos times ou lista vazia se falhar
+    """
+    # Importar o módulo traceback aqui para evitar o erro de escopo
+    import traceback
+    
+    status = st.empty()
+    status.info(f"Carregando times para {selected_league}...")
+    
+    try:
+        # Buscar times da API com refresh forçado para garantir dados atuais
+        from utils.footystats_api import get_team_names_by_league
+        teams = get_team_names_by_league(selected_league, force_refresh=False)
+        
+        if teams and len(teams) > 0:
+            status.success(f"✅ {len(teams)} times carregados para {selected_league}")
+            return teams
+        else:
+            status.warning(f"Nenhum time encontrado via API para {selected_league}")
+            
+            # Mostrar diagnóstico detalhado
+            with st.expander("Diagnóstico da API FootyStats", expanded=True):
+                diagnosis = diagnose_api_issues(selected_league)
+                st.markdown(diagnosis)
+                
+                # Oferecer apenas opção para limpar cache
+                if st.button("Limpar Cache e Tentar Novamente", key="clear_cache_btn"):
+                    try:
+                        from utils.footystats_api import clear_league_cache
+                        num_cleared = clear_league_cache(selected_league)
+                        st.success(f"Cache limpo: {num_cleared} arquivos removidos. Recarregando...")
+                        time.sleep(1)
+                        st.experimental_rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao limpar cache: {str(e)}")
+            
+            # Retornar lista vazia - sem fallback de qualquer tipo
+            return []
+            
+    except Exception as e:
+        status.error(f"Erro ao carregar times: {str(e)}")
+        logger.error(f"Erro ao carregar times: {str(e)}")
+        logger.error(traceback.format_exc())
+        
+        # Mostrar diagnóstico detalhado em caso de erro
+        with st.expander("Detalhes do Erro", expanded=True):
+            st.error(f"Erro ao acessar a API FootyStats: {str(e)}")
+            st.code(traceback.format_exc())
+        
+        # Retornar lista vazia - sem fallback
+        return []
+
 
 def clear_cache(league_name=None):
     """
@@ -114,8 +174,6 @@ def get_available_leagues():
     # Fallback para ligas principais mais comuns
     logger.info("Usando lista padrão de ligas principais")
     return ["Premier League", "La Liga", "Serie A", "Bundesliga", "Ligue 1", "Champions League"]
-
-# Updated diagnostic function for pages/dashboard.py
 
 # Updated diagnose_api_issues function for dashboard.py
 
