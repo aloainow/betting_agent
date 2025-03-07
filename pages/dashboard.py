@@ -128,7 +128,8 @@ def diagnose_api_issues(selected_league):
         str: Mensagem de diagnóstico
     """
     try:
-        from utils.footystats_api import LEAGUE_IDS, LEAGUE_SEASONS, BASE_URL, API_KEY, fetch_competitions
+        # Import the correct functions that exist in your footystats_api.py
+        from utils.footystats_api import LEAGUE_IDS, LEAGUE_SEASONS, BASE_URL, API_KEY, test_api_connection
         import requests
         import json
         
@@ -144,7 +145,20 @@ def diagnose_api_issues(selected_league):
         
         # Testar a conexão básica
         try:
-            test_response = requests.get(f"{BASE_URL}/competitions", params={"key": API_KEY}, timeout=10)
+            # Use simple request to test the API
+            test_url = f"{BASE_URL}/leagues"
+            params = {"key": API_KEY}
+            
+            # Headers that might be needed
+            headers = {
+                "Accept": "application/json",
+                "User-Agent": "ValueHunter/1.0",
+                "Referer": "https://footystats.org/",
+                "Origin": "https://footystats.org"
+            }
+            
+            test_response = requests.get(test_url, params=params, headers=headers, timeout=10)
+            
             if test_response.status_code != 200:
                 return f"❌ Não foi possível conectar à API FootyStats. Status: {test_response.status_code}"
                 
@@ -159,13 +173,14 @@ def diagnose_api_issues(selected_league):
         # Testar a obtenção de times para esta liga
         try:
             # Usar o endpoint e parâmetros corretos
-            teams_url = f"{BASE_URL}/teams"
+            teams_url = f"{BASE_URL}/league-teams"
             teams_params = {
                 "key": API_KEY,
-                "comp_id": league_id
+                "comp_id": league_id,
+                "season_id": LEAGUE_SEASONS.get(selected_league, 2023)
             }
             
-            teams_response = requests.get(teams_url, params=teams_params, timeout=15)
+            teams_response = requests.get(teams_url, params=teams_params, headers=headers, timeout=15)
             
             if teams_response.status_code == 200:
                 teams_data = teams_response.json()
@@ -230,7 +245,7 @@ def diagnose_api_issues(selected_league):
         Isso pode indicar um problema com a configuração do módulo FootyStats API.
         Verifique se todas as dependências estão instaladas e se o arquivo utils/footystats_api.py está correto.
         """
-# Updated load_league_teams_direct function for pages/dashboard.py
+        # Updated load_league_teams_direct function for pages/dashboard.py
 
 def load_league_teams_direct(selected_league):
     """
