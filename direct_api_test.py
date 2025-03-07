@@ -1,98 +1,80 @@
-# direct_api_test.py - Add this to your project and run it directly on your server
+# test_correct_api.py - Test the correctly configured FootyStats API
 import requests
 import json
-import os
 
-# Configuration
+# Correct configuration from the documentation
 API_KEY = "b1742f67bda1c097be51c61409f1797a334d1889c291fedd5bcc0b3e070aa6c1"
-TEST_ENDPOINT = "https://footystats.org/api/leagues"
+BASE_URL = "https://api.football-data-api.com"
 
-# Create output directory if it doesn't exist
-os.makedirs("api_test_results", exist_ok=True)
-
-def write_results_file(filename, content):
-    """Write test results to a file"""
-    with open(os.path.join("api_test_results", filename), "w", encoding="utf-8") as f:
-        f.write(content)
-    print(f"Results written to api_test_results/{filename}")
-
-# Test 1: Basic request with key in query string
-print("\nTest 1: Key in query string")
-try:
-    response = requests.get(f"{TEST_ENDPOINT}?key={API_KEY}")
-    status = response.status_code
-    print(f"Status: {status}")
-    
-    output = f"Status: {status}\n\n"
+def test_with_example():
+    """Test using the example key to verify endpoint functionality"""
+    print("\nTesting with example key...")
     try:
-        output += json.dumps(response.json(), indent=2)
-    except:
-        output += response.text[:2000]
-    
-    write_results_file("test1_query_string.txt", output)
-except Exception as e:
-    print(f"Error: {str(e)}")
-    write_results_file("test1_query_string.txt", f"Error: {str(e)}")
+        response = requests.get(f"{BASE_URL}/league-tables?key=example&league_id=1625", timeout=10)
+        print(f"Status code: {response.status_code}")
+        if response.status_code == 200:
+            print("✓ Success with example key!")
+            data = response.json()
+            if "data" in data:
+                print(f"✓ Valid response structure")
+            else:
+                print("✗ Unexpected response structure")
+        else:
+            print(f"✗ Failed with status code {response.status_code}")
+    except Exception as e:
+        print(f"✗ Error: {str(e)}")
 
-# Test 2: With full headers set
-print("\nTest 2: With full headers")
-try:
-    headers = {
-        "Accept": "application/json",
-        "User-Agent": "ValueHunter/1.0",
-        "Referer": "https://footystats.org/",
-        "Origin": "https://footystats.org"
-    }
-    response = requests.get(TEST_ENDPOINT, params={"key": API_KEY}, headers=headers)
-    status = response.status_code
-    print(f"Status: {status}")
-    
-    output = f"Status: {status}\n\n"
+def test_with_real_key():
+    """Test using your actual API key"""
+    print("\nTesting with your API key...")
     try:
-        output += json.dumps(response.json(), indent=2)
-    except:
-        output += response.text[:2000]
-    
-    write_results_file("test2_full_headers.txt", output)
-except Exception as e:
-    print(f"Error: {str(e)}")
-    write_results_file("test2_full_headers.txt", f"Error: {str(e)}")
+        response = requests.get(f"{BASE_URL}/league-teams?key={API_KEY}", timeout=10)
+        print(f"Status code: {response.status_code}")
+        if response.status_code == 200:
+            print("✓ Success with your API key!")
+            data = response.json()
+            if "data" in data:
+                print(f"✓ Found {len(data.get('data', []))} teams")
+                if len(data.get('data', [])) > 0:
+                    first_team = data['data'][0]
+                    print(f"Example team: {first_team.get('name', 'Unknown')}")
+            else:
+                print("✗ Unexpected response structure")
+        else:
+            print(f"✗ Failed with status code {response.status_code}")
+            print(f"Response: {response.text[:500]}")
+    except Exception as e:
+        print(f"✗ Error: {str(e)}")
 
-# Test 3: Check server IP
-print("\nTest 3: Check server IP")
-try:
-    response = requests.get("https://api.ipify.org?format=json")
-    ip_data = response.json()
-    server_ip = ip_data.get("ip", "Unknown")
-    print(f"Server IP: {server_ip}")
-    write_results_file("test3_server_ip.txt", f"Server IP: {server_ip}")
-except Exception as e:
-    print(f"Error getting server IP: {str(e)}")
-    write_results_file("test3_server_ip.txt", f"Error: {str(e)}")
-
-# Test 4: Authorization header
-print("\nTest 4: Authorization header")
-try:
-    headers = {
-        "Authorization": f"Bearer {API_KEY}",
-        "Accept": "application/json"
-    }
-    response = requests.get(TEST_ENDPOINT, headers=headers)
-    status = response.status_code
-    print(f"Status: {status}")
-    
-    output = f"Status: {status}\n\n"
+def test_league_teams():
+    """Test getting teams for a specific league"""
+    print("\nTesting league teams API...")
     try:
-        output += json.dumps(response.json(), indent=2)
-    except:
-        output += response.text[:2000]
-    
-    write_results_file("test4_auth_header.txt", output)
-except Exception as e:
-    print(f"Error: {str(e)}")
-    write_results_file("test4_auth_header.txt", f"Error: {str(e)}")
+        # Using example key and Premier League ID
+        response = requests.get(f"{BASE_URL}/league-teams?key=example&league_id=1625", timeout=10)
+        print(f"Status code: {response.status_code}")
+        if response.status_code == 200:
+            print("✓ Success getting league teams!")
+            data = response.json()
+            if "data" in data and len(data['data']) > 0:
+                print(f"✓ Found {len(data['data'])} teams")
+                team_names = [team.get('name', 'Unknown') for team in data['data'][:5]]
+                print(f"Sample teams: {', '.join(team_names)}")
+            else:
+                print("✗ No teams found in response")
+        else:
+            print(f"✗ Failed with status code {response.status_code}")
+    except Exception as e:
+        print(f"✗ Error: {str(e)}")
 
-print("\nAll tests completed. Check the api_test_results directory for detailed output.")
-print("Use these results to identify why you're getting a 403 error.")
-print(f"Your server IP address is: {server_ip if 'server_ip' in locals() else 'Unknown'}")
-print("Make sure this IP is whitelisted in your FootyStats account if required.")
+if __name__ == "__main__":
+    print("FootyStats API Test")
+    print(f"Base URL: {BASE_URL}")
+    print(f"API Key: {API_KEY[:8]}...{API_KEY[-4:]}")
+    
+    # Run tests
+    test_with_example()
+    test_with_real_key()
+    test_league_teams()
+    
+    print("\nTests complete. If any test succeeded, the API is working correctly.")
