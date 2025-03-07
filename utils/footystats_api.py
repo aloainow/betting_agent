@@ -157,53 +157,105 @@ def get_from_cache(endpoint, params=None, max_age=CACHE_DURATION):
         logger.error(f"Erro ao ler cache: {str(e)}")
         return None
 
-def test_api_connection():
+# Updated test_specific_league_request function in utils/footystats_api.py
+
+def test_specific_league_request(league_name):
     """
-    Testa a conexão com a API e exibe detalhes de diagnóstico
+    Test a specific league request to check if it works
     
+    Args:
+        league_name (str): The name of the league to test
+        
     Returns:
-        bool: True se a conexão foi bem sucedida, False caso contrário
+        dict: The API response or error details
     """
+    if league_name not in LEAGUE_IDS:
+        return {"error": "league_not_found", "message": f"League '{league_name}' not found in LEAGUE_IDS mapping"}
+    
+    league_id = LEAGUE_IDS[league_name]
+    season = LEAGUE_SEASONS.get(league_name, CURRENT_SEASON)
+    
+    # Build request parameters - CORRECTED
+    params = {
+        "key": API_KEY,
+        "season_id": season,  # Changed from "season" to "season_id"
+        "competition_id": league_id
+    }
+    
+    # Make the request directly
+    url = f"{BASE_URL}/league-teams"
+    
     try:
-        logger.info("Testando conexão com a API FootyStats...")
-        
-        # Teste simples para verificar se a API está acessível
-        test_endpoint = "/competitions"
-        
-        # Adicionar chave de API aos parâmetros
-        auth_params = get_auth_params()
-        
-        response = requests.get(f"{BASE_URL}{test_endpoint}", params=auth_params, timeout=10)
+        logger.info(f"Testing direct request for {league_name} (id: {league_id}, season_id: {season})")
+        response = requests.get(url, params=params, timeout=15)
         
         if response.status_code == 200:
             try:
                 data = response.json()
-                if data and "data" in data and len(data["data"]) > 0:
-                    logger.info("✓ Conexão com API FootyStats bem sucedida")
-                    logger.info(f"✓ {len(data['data'])} competições disponíveis")
-                    return True
+                if data and isinstance(data, dict):
+                    # Check for API error messages
+                    if "error" in data:
+                        return {
+                            "success": False,
+                            "error": data.get("error"),
+                            "message": data.get("message", "Unknown API error")
+                        }
+                    
+                    # Check if 'data' field exists and has content
+                    if "data" in data:
+                        if data["data"] and len(data["data"]) > 0:
+                            return {
+                                "success": True,
+                                "teams_count": len(data["data"]),
+                                "sample_teams": [team.get("name", "Unknown") for team in data["data"][:5]],
+                                "response": data
+                            }
+                        else:
+                            return {
+                                "success": False,
+                                "error": "empty_data",
+                                "message": "API returned empty data array",
+                                "response": data
+                            }
+                    else:
+                        return {
+                            "success": False,
+                            "error": "missing_data_field",
+                            "message": "API response doesn't contain 'data' field",
+                            "response": data
+                        }
                 else:
-                    logger.error("✗ API retornou resposta vazia ou inválida")
-            except json.JSONDecodeError:
-                logger.error("✗ API retornou resposta que não é um JSON válido")
+                    return {
+                        "success": False,
+                        "error": "invalid_response",
+                        "message": "API response is not a valid dictionary",
+                        "response": data
+                    }
+            except json.JSONDecodeError as e:
+                return {
+                    "success": False,
+                    "error": "json_decode_error",
+                    "message": f"Failed to parse API response as JSON: {str(e)}",
+                    "response_text": response.text[:500]  # First 500 chars
+                }
         else:
-            logger.error(f"✗ API retornou código de status {response.status_code}")
-            if response.status_code == 401:
-                logger.error("✗ Erro de autenticação: verifique sua API key")
-            elif response.status_code == 429:
-                logger.error("✗ Limite de requisições atingido")
-                
-        return False
-        
+            return {
+                "success": False,
+                "error": f"http_{response.status_code}",
+                "message": f"API returned status code {response.status_code}",
+                "response_text": response.text[:500]  # First 500 chars
+            }
     except Exception as e:
-        logger.error(f"✗ Erro ao testar conexão com API: {str(e)}")
-        return False
-
-# Enhanced api_request function for utils/footystats_api.py
+        return {
+            "success": False,
+            "error": "request_exception",
+            "message": f"Exception during API request: {str(e)}"
+        }
+# Updated api_request function in utils/footystats_api.py
 
 def api_request(endpoint, params=None, use_cache=True, cache_duration=CACHE_DURATION):
     """
-    Fazer requisição à API com tratamento de erros e cache aprimorado
+    Fazer requisição à API com tratamento de erros e cache
     
     Args:
         endpoint (str): Endpoint da API (ex: "/leagues")
@@ -223,15 +275,17 @@ def api_request(endpoint, params=None, use_cache=True, cache_duration=CACHE_DURA
     url = f"{BASE_URL}{endpoint}"
     
     # Adicionar chave de API aos parâmetros
-    auth_params = get_auth_params()
-    if params:
-        params.update(auth_params)
-    else:
-        params = auth_params
+    # CORREÇÃO: API key deve ser incluída diretamente nos parâmetros, não usando auth_params
+    if params is None:
+        params = {}
+    
+    # Adicionar API key se não estiver nos parâmetros
+    if "key" not in params:
+        params["key"] = API_KEY
     
     try:
-        # Log detalhado da requisição
-        param_log = {k: v for k, v in params.items() if k != "key"}  # Omit the key for security
+        # Log detalhado da requisição (omitindo a API key por segurança)
+        param_log = {k: v for k, v in params.items() if k != "key"}
         logger.info(f"API Request: {url} - Params: {param_log}")
         
         # Fazer a requisição com timeout e retentativas
@@ -270,34 +324,15 @@ def api_request(endpoint, params=None, use_cache=True, cache_duration=CACHE_DURA
                 logger.warning(f"API retornou dados vazios para {endpoint}")
                 return None
                 
-            # Verificar se a resposta tem a estrutura esperada
-            if isinstance(data, dict) and "data" in data:
-                if not data["data"]:  # data field is empty
-                    logger.warning(f"API retornou campo data vazio para {endpoint}")
-                
             # Salvar no cache se estiver habilitado
             if use_cache:
                 save_to_cache(data, endpoint, params)
                 
             return data
             
-        elif response.status_code == 429:
-            # Limite de requisições atingido
-            logger.warning("Limite de requisições à API atingido. Aguardando antes de tentar novamente.")
-            time.sleep(5)  # Wait for rate limit to reset
-            return {"error": "rate_limit", "message": "Limite de requisições atingido"}
-            
-        elif response.status_code == 401:
-            logger.error("Erro de autenticação (401): API key inválida ou expirada")
-            return {"error": "auth_error", "message": "API key inválida ou expirada"}
-            
-        elif response.status_code == 404:
-            logger.error(f"Endpoint não encontrado (404): {endpoint}")
-            return {"error": "not_found", "message": f"Endpoint {endpoint} não encontrado"}
-            
         else:
             logger.error(f"Erro na requisição: {response.status_code}")
-            logger.error(f"Resposta: {response.text[:200]}...")  # Log first 200 chars
+            logger.error(f"Resposta: {response.text[:200]}...")
             return None
             
     except Exception as e:
@@ -393,6 +428,8 @@ def get_available_leagues():
     # Se não conseguir obter ligas da API, retornar as principais que conhecemos
     return LEAGUE_IDS
 
+# Updated get_teams_by_league function in utils/footystats_api.py
+
 def get_teams_by_league(league_name):
     """
     Obter lista de times para uma liga específica
@@ -412,34 +449,62 @@ def get_teams_by_league(league_name):
     # Obter a temporada adequada para esta liga
     season = LEAGUE_SEASONS.get(league_name, CURRENT_SEASON)
     
-    # Parâmetros da requisição
+    # Parâmetros da requisição - CORRIGIDOS de acordo com a documentação
+    # https://footystats.org/api/documentations/
     params = {
-        "competition_id": league_id,
-        "season": season
+        "key": API_KEY,  # API key deve ser enviada como parâmetro, não em auth_params separado
+        "season_id": season,  # Corrigido de "season" para "season_id"
+        "competition_id": league_id
     }
     
     # Log da temporada sendo usada
     logger.info(f"Buscando times para {league_name} (temporada {season})")
     
-    # Fazer requisição à API
-    data = api_request("/league-teams", params)
+    # URL direta de acordo com a documentação
+    url = f"{BASE_URL}/league-teams"
     
-    if data and "data" in data:
-        # Formatar a resposta para retornar apenas o necessário
-        teams = []
-        for team in data["data"]:
-            teams.append({
-                "id": team["id"],
-                "name": team["name"],
-                "logo": team.get("image_path", "")
-            })
+    try:
+        # Fazer requisição direta (sem usar a função api_request)
+        logger.info(f"Requisição direta: {url} com parâmetros: season_id={season}, competition_id={league_id}")
+        response = requests.get(url, params=params, timeout=15)
         
-        return teams
+        logger.info(f"Status da resposta: {response.status_code}")
+        
+        if response.status_code == 200:
+            try:
+                data = response.json()
+                
+                # Verificar se a resposta tem a estrutura esperada
+                if "data" in data:
+                    # Formatar a resposta para retornar apenas o necessário
+                    teams = []
+                    for team in data["data"]:
+                        teams.append({
+                            "id": team.get("id", 0),
+                            "name": team.get("name", "Unknown Team"),
+                            "logo": team.get("image_path", "")
+                        })
+                    
+                    logger.info(f"Encontrados {len(teams)} times para {league_name}")
+                    return teams
+                else:
+                    logger.warning(f"Resposta não contém campo 'data': {data}")
+            except json.JSONDecodeError as e:
+                logger.error(f"Erro ao decodificar resposta JSON: {str(e)}")
+                logger.error(f"Texto da resposta: {response.text[:200]}...")
+        else:
+            logger.error(f"Erro na requisição: {response.status_code}")
+            logger.error(f"Resposta: {response.text[:200]}...")
     
-    # Se não encontrar dados para a temporada atual, retorne lista vazia
-    logger.warning(f"Nenhum dado encontrado para {league_name} na temporada {season}")
+    except Exception as e:
+        logger.error(f"Exceção ao buscar times: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+    
+    # Se não encontrar dados, retorne lista vazia
     return []
 
+# Também corrigir a função get_team_names_by_league que utiliza a função acima
 def get_team_names_by_league(league_name):
     """
     Obter apenas os nomes dos times de uma liga (formato simplificado)
