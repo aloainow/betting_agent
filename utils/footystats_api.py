@@ -1,4 +1,4 @@
-# utils/footystats_api.py - Complete fixed implementation with country info
+# utils/footystats_api.py - Implementação corrigida para ligas FootyStats
 
 import os
 import json
@@ -27,39 +27,17 @@ def get_current_season():
 # Temporada atual por padrão
 CURRENT_SEASON = get_current_season()
 
-# Mapeamento de IDs das principais ligas COM PAÍSES
-# Formato: "Nome da Liga (País)": ID
-# Nota: Os IDs são exemplos e serão substituídos pelos IDs reais obtidos da API
-LEAGUE_IDS = {
-    "Premier League (England)": 1625,
-    "La Liga (Spain)": 1869,
-    "Serie A (Italy)": 1870,
-    "Bundesliga (Germany)": 1871,
-    "Ligue 1 (France)": 1872,
-    "Champions League (Europe)": 1873,
-    "Brasileirão (Brazil)": 1874,
-    "Eredivisie (Netherlands)": 1875,
-    "Liga Portugal (Portugal)": 1876
-}
+# Mapeamento de IDs das principais ligas COM PAÍSES - será preenchido dinamicamente
+LEAGUE_IDS = {}
 
 # Mapeamento de temporadas - inicializado como vazio, será preenchido com dados da API
 LEAGUE_SEASONS = {}
 
 # Mapeamento reverso para compatibilidade
-SIMPLE_LEAGUE_NAMES = {
-    "Premier League (England)": "Premier League",
-    "La Liga (Spain)": "La Liga",
-    "Serie A (Italy)": "Serie A",
-    "Bundesliga (Germany)": "Bundesliga",
-    "Ligue 1 (France)": "Ligue 1",
-    "Champions League (Europe)": "Champions League",
-    "Brasileirão (Brazil)": "Brasileirão",
-    "Eredivisie (Netherlands)": "Eredivisie",
-    "Liga Portugal (Portugal)": "Liga Portugal"
-}
+SIMPLE_LEAGUE_NAMES = {}
 
 # Cache para minimizar requisições
-CACHE_DURATION = 24 * 60 * 60  # 24 horas em segundos
+CACHE_DURATION = 6 * 60 * 60  # 6 horas em segundos (reduzido de 24h para evitar problemas de cache)
 CACHE_DIR = os.path.join("data", "api_cache")
 os.makedirs(CACHE_DIR, exist_ok=True)
 
@@ -107,6 +85,52 @@ def get_from_cache(endpoint, params=None, max_age=CACHE_DURATION):
     except Exception as e:
         logger.error(f"Erro ao ler cache: {str(e)}")
         return None
+
+def clear_all_cache():
+    """Limpar todo o cache da API"""
+    try:
+        if not os.path.exists(CACHE_DIR):
+            return 0
+            
+        count = 0
+        for filename in os.listdir(CACHE_DIR):
+            if filename.endswith('.json'):
+                file_path = os.path.join(CACHE_DIR, filename)
+                try:
+                    os.remove(file_path)
+                    count += 1
+                except OSError as e:
+                    logger.error(f"Erro ao remover arquivo de cache {file_path}: {e}")
+                    
+        logger.info(f"Cache limpo: {count} arquivos removidos")
+        return count
+    except Exception as e:
+        logger.error(f"Erro ao limpar cache: {str(e)}")
+        return 0
+
+def clear_league_cache(league_name):
+    """Limpar cache específico para uma liga"""
+    try:
+        if not os.path.exists(CACHE_DIR):
+            return 0
+            
+        count = 0
+        safe_name = league_name.replace(' ', '_').replace('(', '').replace(')', '').lower()
+        
+        for filename in os.listdir(CACHE_DIR):
+            if filename.endswith('.json') and safe_name in filename.lower():
+                file_path = os.path.join(CACHE_DIR, filename)
+                try:
+                    os.remove(file_path)
+                    count += 1
+                except OSError as e:
+                    logger.error(f"Erro ao remover arquivo de cache {file_path}: {e}")
+                    
+        logger.info(f"Cache limpo para {league_name}: {count} arquivos removidos")
+        return count
+    except Exception as e:
+        logger.error(f"Erro ao limpar cache para {league_name}: {str(e)}")
+        return 0
 
 def api_request(endpoint, params=None, use_cache=True, cache_duration=CACHE_DURATION):
     """
@@ -195,21 +219,26 @@ def api_request(endpoint, params=None, use_cache=True, cache_duration=CACHE_DURA
         logger.error(traceback.format_exc())
         return None
 
-def retrieve_available_leagues():
+def retrieve_available_leagues(force_refresh=False):
     """
     Buscar todas as ligas disponíveis para o usuário na API
     
+    Args:
+        force_refresh (bool): Se True, ignora o cache
+        
     Returns:
         dict: Mapeamento de nomes de liga para IDs
     """
-    # Verificar cache
+    # Verificar cache, a menos que force_refresh seja True
     cache_key = "available_leagues"
-    cached_data = get_from_cache(cache_key)
-    if cached_data:
-        return cached_data
+    if not force_refresh:
+        cached_data = get_from_cache(cache_key)
+        if cached_data:
+            return cached_data
     
     # Se não houver cache, buscar da API
-    leagues_data = api_request("competitions")
+    # Endpoint correto para listar ligas disponíveis para o usuário
+    leagues_data = api_request("league-list", use_cache=not force_refresh)
     
     if leagues_data and "data" in leagues_data:
         leagues = {}
@@ -242,10 +271,53 @@ def retrieve_available_leagues():
             save_to_cache(leagues, cache_key)
             logger.info(f"Recuperadas {len(leagues)} ligas da API")
             return leagues
+        else:
+            logger.warning("API retornou lista de ligas vazia - verifique sua assinatura")
     
-    # Se falhar, retornar mapeamento estático
-    logger.warning("Usando mapeamento estático de ligas")
-    return LEAGUE_IDS
+    # Se falhar, tentar com o endpoint alternativo
+    logger.info("Tentando endpoint alternativo para listar ligas")
+    alt_leagues_data = api_request("competitions", use_cache=not force_refresh)
+    
+    if alt_leagues_data and "data" in alt_leagues_data:
+        leagues = {}
+        
+        for league in alt_leagues_data["data"]:
+            league_id = league.get("id")
+            name = league.get("name", "Unknown")
+            country = league.get("country", "Unknown")
+            
+            full_name = f"{name} ({country})"
+            
+            if league_id:
+                leagues[full_name] = league_id
+                SIMPLE_LEAGUE_NAMES[full_name] = name
+                LEAGUE_IDS[full_name] = league_id
+        
+        if leagues:
+            save_to_cache(leagues, cache_key)
+            logger.info(f"Recuperadas {len(leagues)} ligas do endpoint alternativo")
+            return leagues
+    
+    # Se ainda falhar, usar mapeamento com ligas mais comuns
+    logger.warning("Usando mapeamento padrão de ligas - API não retornou dados")
+    
+    # Mapeamento básico com ligas mais comuns
+    fallback_leagues = {
+        "Premier League (England)": 1625,
+        "La Liga (Spain)": 1869,
+        "Serie A (Italy)": 1870,
+        "Bundesliga (Germany)": 1871,
+        "Ligue 1 (France)": 1872,
+        "Champions League (Europe)": 1873
+    }
+    
+    # Atualizar mapeamentos globais
+    for full_name, league_id in fallback_leagues.items():
+        simple_name = full_name.split(" (")[0]
+        SIMPLE_LEAGUE_NAMES[full_name] = simple_name
+        LEAGUE_IDS[full_name] = league_id
+    
+    return fallback_leagues
 
 def fetch_league_teams(league_id):
     """
@@ -276,6 +348,15 @@ def fetch_league_teams(league_id):
         logger.info(f"Encontrados {len(teams)} times para liga ID {league_id}")
         return teams
     
+    # Se não encontramos times, verificar o erro
+    if data and isinstance(data, dict) and "message" in data:
+        error_msg = data.get("message", "")
+        logger.warning(f"Erro ao buscar times: {error_msg}")
+        
+        # Verificar por mensagem específica de liga não selecionada
+        if "League is not chosen by the user" in error_msg:
+            logger.error(f"A liga (ID {league_id}) não está selecionada na sua conta FootyStats")
+            
     logger.warning(f"Nenhum time encontrado para liga ID {league_id}")
     return []
 
@@ -290,7 +371,7 @@ def find_league_id_by_name(league_name):
         int: ID da liga ou None se não encontrado
     """
     # Inicializar dicionários de ligas se ainda não tiver sido feito
-    if not LEAGUE_IDS or len(LEAGUE_IDS) < 5:
+    if not LEAGUE_IDS or len(LEAGUE_IDS) < 3:
         retrieve_available_leagues()
     
     # Caso 1: Nome exato com país
@@ -312,21 +393,23 @@ def find_league_id_by_name(league_name):
     
     return None
 
-def get_team_names_by_league(league_name):
+def get_team_names_by_league(league_name, force_refresh=False):
     """
     Obter nomes dos times de uma liga
     
     Args:
         league_name (str): Nome da liga
+        force_refresh (bool): Se True, ignora o cache
         
     Returns:
         list: Lista de nomes dos times
     """
-    # Verificar cache
+    # Verificar cache, a menos que force_refresh seja True
     cache_key = f"teams_{league_name}"
-    cached_names = get_from_cache(cache_key)
-    if cached_names:
-        return cached_names
+    if not force_refresh:
+        cached_names = get_from_cache(cache_key)
+        if cached_names:
+            return cached_names
     
     # Buscar ID da liga
     league_id = find_league_id_by_name(league_name)
@@ -358,14 +441,15 @@ def get_team_names_by_league(league_name):
         
         # Verificar cache
         cache_key = "teams_premier_league_example"
-        cached_names = get_from_cache(cache_key)
-        if cached_names:
-            return cached_names
+        if not force_refresh:
+            cached_names = get_from_cache(cache_key)
+            if cached_names:
+                return cached_names
         
         # Usar chave de exemplo conforme documentação
         params = {
             "key": "example",
-            "league_id": 1625  # Premier League 2018/2019
+            "league_id": 1625  # Premier League ID
         }
         
         # Fazer a requisição
@@ -392,70 +476,117 @@ def get_team_names_by_league(league_name):
 
 def test_api_connection():
     """
-    Testa a conexão com a API
+    Testa a conexão com a API e diagnóstica problemas
     
     Returns:
-        bool: True se a conexão foi bem sucedida, False caso contrário
+        dict: Resultado do teste com informações detalhadas
     """
     try:
         logger.info("Testando conexão com a API FootyStats...")
+        result = {
+            "success": False,
+            "details": [],
+            "available_leagues": [],
+            "error": None
+        }
         
         # Teste 1: Usando chave de exemplo
         endpoint = "league-teams"
         params = {"key": "example", "league_id": 1625}
         
         logger.info("Teste 1: Usando chave de exemplo")
-        response = requests.get(f"{BASE_URL}/{endpoint}", params=params, timeout=10)
-        
-        if response.status_code == 200:
-            try:
-                data = response.json()
-                if data and "data" in data and len(data["data"]) > 0:
-                    logger.info("✓ Teste 1 bem sucedido com chave de exemplo")
-                    logger.info(f"✓ {len(data['data'])} times encontrados")
-                else:
-                    logger.warning("✗ Teste 1: API retornou resposta vazia ou inválida")
-            except json.JSONDecodeError:
-                logger.warning("✗ Teste 1: API retornou resposta que não é um JSON válido")
-        else:
-            logger.warning(f"✗ Teste 1: API retornou código de status {response.status_code}")
-            logger.warning(f"Response: {response.text[:200]}")
+        try:
+            response = requests.get(f"{BASE_URL}/{endpoint}", params=params, timeout=10)
+            
+            if response.status_code == 200:
+                try:
+                    data = response.json()
+                    if data and "data" in data and len(data["data"]) > 0:
+                        result["details"].append("✓ Conexão com API funciona (endpoint de teste)")
+                        result["details"].append(f"✓ {len(data['data'])} times encontrados no exemplo")
+                    else:
+                        result["details"].append("✗ API retornou resposta vazia no teste")
+                except json.JSONDecodeError:
+                    result["details"].append("✗ API retornou resposta inválida no teste")
+            else:
+                result["details"].append(f"✗ API retornou código {response.status_code} no teste")
+        except Exception as e:
+            result["details"].append(f"✗ Erro no teste com exemplo: {str(e)}")
         
         # Teste 2: Usando sua chave real
-        logger.info("Teste 2: Usando sua chave real")
-        params = {"key": API_KEY}
-        
-        response = requests.get(f"{BASE_URL}/{endpoint}", params=params, timeout=10)
-        
-        if response.status_code == 200:
-            try:
-                data = response.json()
-                if data and "data" in data and len(data["data"]) > 0:
-                    logger.info("✓ Teste 2 bem sucedido com sua chave real")
-                    logger.info(f"✓ {len(data['data'])} times encontrados")
-                    return True
+        logger.info("Teste 2: Verificando ligas disponíveis para sua chave")
+        try:
+            # Tentar endpoint league-list primeiro (recomendado)
+            params = {"key": API_KEY}
+            response = requests.get(f"{BASE_URL}/league-list", params=params, timeout=10)
+            
+            if response.status_code == 200:
+                try:
+                    data = response.json()
+                    if data and "data" in data and len(data["data"]) > 0:
+                        leagues = data["data"]
+                        result["success"] = True
+                        result["details"].append(f"✓ Sua conta tem acesso a {len(leagues)} ligas")
+                        
+                        # Armazenar nomes das ligas disponíveis
+                        available_leagues = []
+                        for league in leagues:
+                            name = league.get("name", "")
+                            country = league.get("country", "")
+                            if name:
+                                formatted_name = f"{name} ({country})" if country else name
+                                available_leagues.append(formatted_name)
+                                
+                        result["available_leagues"] = available_leagues
+                        if available_leagues:
+                            result["details"].append(f"✓ Ligas disponíveis: {', '.join(available_leagues[:5])}{'...' if len(available_leagues) > 5 else ''}")
+                        
+                        # Verificar se Brasileirão está na lista
+                        has_brasileirao = any("brasileir" in league.lower() for league in available_leagues)
+                        if has_brasileirao:
+                            result["details"].append("✓ Brasileirão está disponível na sua conta")
+                        else:
+                            result["details"].append("✗ Brasileirão NÃO está disponível na sua conta")
+                            result["error"] = "Brasileirão não está selecionado na sua conta FootyStats"
+                        
+                    else:
+                        result["details"].append("✗ Nenhuma liga disponível para sua conta")
+                        result["error"] = "Sua conta não tem acesso a nenhuma liga. Verifique sua assinatura."
+                except json.JSONDecodeError:
+                    result["details"].append("✗ API retornou resposta inválida ao verificar ligas")
+            else:
+                result["details"].append(f"✗ API retornou código {response.status_code} ao verificar ligas")
+                if response.status_code == 401:
+                    result["error"] = "Chave de API inválida ou expirada"
                 else:
-                    logger.warning("✗ Teste 2: API retornou resposta vazia ou inválida")
-            except json.JSONDecodeError:
-                logger.warning("✗ Teste 2: API retornou resposta que não é um JSON válido")
-        else:
-            logger.warning(f"✗ Teste 2: API retornou código de status {response.status_code}")
-                
-        return False
+                    result["error"] = f"Erro ao acessar API: código {response.status_code}"
+        except Exception as e:
+            result["details"].append(f"✗ Erro ao verificar ligas: {str(e)}")
+            result["error"] = f"Erro de conexão: {str(e)}"
+        
+        return result
         
     except Exception as e:
         logger.error(f"✗ Erro ao testar conexão com API: {str(e)}")
-        return False
+        return {
+            "success": False,
+            "details": [f"✗ Erro global no teste: {str(e)}"],
+            "available_leagues": [],
+            "error": str(e)
+        }
 
-def get_available_leagues():
+def get_available_leagues(force_refresh=False):
     """
-    Obter lista de ligas disponíveis
+    Obter lista de ligas disponíveis para o usuário
     
+    Args:
+        force_refresh (bool): Se True, ignora o cache
+        
     Returns:
-        dict: Dicionário com nomes das ligas
+        dict: Dicionário com nomes das ligas disponíveis
     """
-    # Buscar ligas da API
-    leagues = retrieve_available_leagues()
+    # Buscar ligas da API (com possível refresh forçado)
+    leagues = retrieve_available_leagues(force_refresh)
     
     # Retornar nomes para compatibilidade
     result = {}
@@ -466,9 +597,94 @@ def get_available_leagues():
     
     return result
 
+def diagnose_league_access(league_name):
+    """
+    Diagnostica problemas de acesso a uma liga específica
+    
+    Args:
+        league_name (str): Nome da liga
+        
+    Returns:
+        dict: Resultado do diagnóstico
+    """
+    result = {
+        "success": False,
+        "league_name": league_name,
+        "error": None,
+        "details": [],
+        "recommendations": []
+    }
+    
+    # Passo 1: Verificar se a liga está no mapeamento
+    league_id = find_league_id_by_name(league_name)
+    if not league_id:
+        result["error"] = f"Liga '{league_name}' não encontrada no mapeamento"
+        result["details"].append("✗ Esta liga não foi encontrada na lista de ligas disponíveis")
+        result["recommendations"].append("Verifique se o nome da liga está correto")
+        result["recommendations"].append("Acesse sua conta FootyStats e selecione esta liga")
+        
+        # Listar algumas ligas disponíveis como sugestão
+        available = list(LEAGUE_IDS.keys())
+        if available:
+            sample = available[:5]
+            result["details"].append(f"✓ Ligas disponíveis incluem: {', '.join(sample)}")
+        return result
+    
+    # Passo 2: Testar acesso à liga
+    params = {"key": API_KEY, "league_id": league_id}
+    data = api_request("league-teams", params, use_cache=False)
+    
+    if not data:
+        result["error"] = f"Não foi possível acessar dados da liga (ID {league_id})"
+        result["details"].append("✗ Falha ao conectar com a API FootyStats")
+        result["recommendations"].append("Verifique sua conexão com a internet")
+        result["recommendations"].append("Verifique se sua chave de API é válida")
+        return result
+    
+    # Passo 3: Analisar resposta
+    if "data" in data and isinstance(data["data"], list) and len(data["data"]) > 0:
+        # Sucesso - encontramos times!
+        teams = data["data"]
+        result["success"] = True
+        result["details"].append(f"✓ Liga acessível com sucesso (ID {league_id})")
+        result["details"].append(f"✓ {len(teams)} times encontrados")
+        
+        # Listar alguns times como exemplo
+        if teams:
+            team_names = [team.get("name", "Unknown") for team in teams[:5] if "name" in team]
+            if team_names:
+                result["details"].append(f"✓ Times incluem: {', '.join(team_names)}")
+        
+        return result
+    
+    # Passo 4: Analisar erro específico
+    if "message" in data:
+        error_msg = data["message"]
+        result["error"] = error_msg
+        
+        if "League is not chosen by the user" in error_msg:
+            result["details"].append(f"✗ Liga '{league_name}' não está selecionada na sua conta FootyStats")
+            result["recommendations"].append("Acesse sua conta FootyStats e selecione explicitamente esta liga")
+            result["recommendations"].append("Após selecionar a liga, aguarde até 30 minutos para o cache ser atualizado")
+            result["recommendations"].append("Use o botão 'Limpar Cache' e tente novamente")
+        elif "not available to this user" in error_msg:
+            result["details"].append(f"✗ Liga '{league_name}' não está disponível no seu plano atual")
+            result["recommendations"].append("Verifique se seu plano FootyStats inclui esta liga")
+            result["recommendations"].append("Considere fazer upgrade do seu plano FootyStats")
+        else:
+            result["details"].append(f"✗ Erro ao acessar a liga: {error_msg}")
+            result["recommendations"].append("Entre em contato com o suporte do FootyStats")
+    else:
+        result["error"] = "Resposta da API não contém times nem mensagem de erro"
+        result["details"].append("✗ Resposta da API está vazia ou em formato inesperado")
+        result["recommendations"].append("Tente novamente mais tarde")
+        result["recommendations"].append("Verifique se sua conta FootyStats está ativa")
+    
+    return result
+
 # Inicialização - buscar ligas disponíveis
 try:
-    # Tenta buscar ligas disponíveis ao importar o módulo
+    # Tenta buscar ligas disponíveis ao importar o módulo (com cache)
     retrieve_available_leagues()
 except Exception as e:
     logger.warning(f"Erro ao inicializar ligas: {str(e)}")
