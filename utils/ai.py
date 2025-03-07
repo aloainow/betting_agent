@@ -157,205 +157,163 @@ def calculate_real_prob(home_xg, away_xg, home_games, away_games):
 
 # Substitua a função format_prompt em utils/ai.py
 
-def format_prompt(stats_df, home_team, away_team, odds_data, selected_markets):
-    """Formata o prompt para o GPT-4 com os dados coletados"""
-    try:
-        # Alterar importação
-        from utils.footystats_api import LEAGUE_SEASONS, CURRENT_SEASON
-        
-        # Extrair estatísticas detalhadas de ambos os times
-        from utils.data import get_stat
-        
-        # Importe a função de extração
-        try:
-            from utils.data import extract_team_stats
-        except ImportError:
-            # Se a função estiver no mesmo arquivo (utils/ai.py)
-            extract_team_stats = globals().get('extract_team_stats')
-        
-        # Extrair estatísticas completas
-        home_team_full_stats = extract_team_stats(stats_df, home_team)
-        away_team_full_stats = extract_team_stats(stats_df, away_team)
-        
-        if not home_team_full_stats or not away_team_full_stats:
-            logger.error("Falha ao extrair estatísticas completas dos times")
-            
-            # Fallback para o método antigo se a extração falhar
-            home_stats = stats_df[stats_df['Squad'] == home_team].iloc[0]
-            away_stats = stats_df[stats_df['Squad'] == away_team].iloc[0]
-            
-            # Formatação básica antiga
-            home_team_stats = f"""
-  * Jogos Disputados: {get_stat(home_stats, 'MP')}
-  * Gols Marcados: {get_stat(home_stats, 'Gls')}
-  * Expected Goals (xG): {get_stat(home_stats, 'xG')}
-  * Posse de Bola: {get_stat(home_stats, 'Poss')}%"""
+def format_enhanced_prompt(complete_analysis, home_team, away_team, odds_data, selected_markets):
+    """
+    Função aprimorada para formatar prompt de análise multi-mercados
+    aproveitando os dados avançados da FootyStats
+    """
+    # Extrair dados do objeto de análise completa
+    basic_stats = complete_analysis["basic_stats"]
+    home_stats = basic_stats["home_team"]["stats"] 
+    away_stats = basic_stats["away_team"]["stats"]
+    home_form = complete_analysis["team_form"]["home"]
+    away_form = complete_analysis["team_form"]["away"]
+    h2h_data = complete_analysis["head_to_head"]
+    home_advanced = complete_analysis["advanced_stats"]["home"]
+    away_advanced = complete_analysis["advanced_stats"]["away"]
+    
+    # 1. ESTATÍSTICAS FUNDAMENTAIS (relevantes para todos os mercados)
+    fundamental_stats = f"""
+# ESTATÍSTICAS FUNDAMENTAIS ({home_team} vs {away_team})
 
-            away_team_stats = f"""
-  * Jogos Disputados: {get_stat(away_stats, 'MP')}
-  * Gols Marcados: {get_stat(away_stats, 'Gls')}
-  * Expected Goals (xG): {get_stat(away_stats, 'xG')}
-  * Posse de Bola: {get_stat(away_stats, 'Poss')}%"""
-        else:
-            # Formatação avançada com todas as estatísticas
-            home_team_stats = f"""
-### Estatísticas Básicas
-* Jogos Disputados: {home_team_full_stats['matches_played']}
-* Pontos: {home_team_full_stats['points']} ({home_team_full_stats['points_per_game']} por jogo)
+## Desempenho Geral na Temporada
+* {home_team}: {home_stats.get('wins', 0)}V {home_stats.get('draws', 0)}E {home_stats.get('losses', 0)}D | {home_stats.get('goals_scored', 0)} gols marcados, {home_stats.get('goals_conceded', 0)} sofridos
+* {away_team}: {away_stats.get('wins', 0)}V {away_stats.get('draws', 0)}E {away_stats.get('losses', 0)}D | {away_stats.get('goals_scored', 0)} gols marcados, {away_stats.get('goals_conceded', 0)} sofridos
 
-### Estatísticas Ofensivas
-* Gols Marcados: {home_team_full_stats['goals_scored']} ({home_team_full_stats['goals_per_game']} por jogo)
-* Expected Goals (xG): {home_team_full_stats['expected_goals']} ({home_team_full_stats['expected_goals_per_game']} por jogo)
-* Eficiência Ofensiva: {home_team_full_stats['goal_efficiency']}% (relação Gols/xG)
-* Chutes: {home_team_full_stats['shots']} (média de {round(home_team_full_stats['shots'] / home_team_full_stats['matches_played'], 1)} por jogo)
-* Chutes no Alvo: {home_team_full_stats['shots_on_target']} ({home_team_full_stats['shots_on_target_percentage']}% de precisão)
+## Métricas Expected Goals (xG)
+* {home_team}: {home_stats.get('xG', 0)} xG a favor, {home_stats.get('xGA', 0)} xG contra | Saldo: {home_stats.get('xG', 0) - home_stats.get('xGA', 0):.2f}
+* {away_team}: {away_stats.get('xG', 0)} xG a favor, {away_stats.get('xGA', 0)} xG contra | Saldo: {away_stats.get('xG', 0) - away_stats.get('xGA', 0):.2f}
 
-### Estatísticas Defensivas
-* Gols Sofridos: {home_team_full_stats['goals_against']} ({home_team_full_stats['goals_against_per_game']} por jogo)
-* Expected Goals Against (xGA): {home_team_full_stats['expected_goals_against']} ({home_team_full_stats['expected_goals_against_per_game']} por jogo)
-* Clean Sheets: {home_team_full_stats['clean_sheets']} ({home_team_full_stats['clean_sheets_percentage']}% dos jogos)
+## Forma Recente (últimos 5 jogos)
+* {home_team}: {' '.join(result.get('result', '?') for result in home_form[:5])}
+* {away_team}: {' '.join(result.get('result', '?') for result in away_form[:5])}
 
-### Estatísticas de Jogo
-* Posse de Bola: {home_team_full_stats['possession']}%
-* Passes Completados: {home_team_full_stats['passes_completed']} de {home_team_full_stats['passes_attempted']} ({home_team_full_stats['pass_completion']}%)
-* Escanteios: {home_team_full_stats['corners']}
-* Cartões Amarelos: {home_team_full_stats['yellow_cards']}
-* Cartões Vermelhos: {home_team_full_stats['red_cards']}
-
-### Diferencial
-* Saldo de Gols: {home_team_full_stats['goal_difference']}
-* Saldo de Expected Goals: {home_team_full_stats['expected_goal_difference']}"""
-
-            away_team_stats = f"""
-### Estatísticas Básicas
-* Jogos Disputados: {away_team_full_stats['matches_played']}
-* Pontos: {away_team_full_stats['points']} ({away_team_full_stats['points_per_game']} por jogo)
-
-### Estatísticas Ofensivas
-* Gols Marcados: {away_team_full_stats['goals_scored']} ({away_team_full_stats['goals_per_game']} por jogo)
-* Expected Goals (xG): {away_team_full_stats['expected_goals']} ({away_team_full_stats['expected_goals_per_game']} por jogo)
-* Eficiência Ofensiva: {away_team_full_stats['goal_efficiency']}% (relação Gols/xG)
-* Chutes: {away_team_full_stats['shots']} (média de {round(away_team_full_stats['shots'] / away_team_full_stats['matches_played'], 1)} por jogo)
-* Chutes no Alvo: {away_team_full_stats['shots_on_target']} ({away_team_full_stats['shots_on_target_percentage']}% de precisão)
-
-### Estatísticas Defensivas
-* Gols Sofridos: {away_team_full_stats['goals_against']} ({away_team_full_stats['goals_against_per_game']} por jogo)
-* Expected Goals Against (xGA): {away_team_full_stats['expected_goals_against']} ({away_team_full_stats['expected_goals_against_per_game']} por jogo)
-* Clean Sheets: {away_team_full_stats['clean_sheets']} ({away_team_full_stats['clean_sheets_percentage']}% dos jogos)
-
-### Estatísticas de Jogo
-* Posse de Bola: {away_team_full_stats['possession']}%
-* Passes Completados: {away_team_full_stats['passes_completed']} de {away_team_full_stats['passes_attempted']} ({away_team_full_stats['pass_completion']}%)
-* Escanteios: {away_team_full_stats['corners']}
-* Cartões Amarelos: {away_team_full_stats['yellow_cards']}
-* Cartões Vermelhos: {away_team_full_stats['red_cards']}
-
-### Diferencial
-* Saldo de Gols: {away_team_full_stats['goal_difference']}
-* Saldo de Expected Goals: {away_team_full_stats['expected_goal_difference']}"""
-
-        # Calcular probabilidades reais com base no xG e outros fatores
-        try:
-            # Extrai valores-chave para o cálculo
-            home_xg = home_team_full_stats.get('expected_goals', 0)
-            away_xg = away_team_full_stats.get('expected_goals', 0)
-            home_games = home_team_full_stats.get('matches_played', 1)
-            away_games = away_team_full_stats.get('matches_played', 1)
-            
-            # Usar a função calculate_real_prob para calcular probabilidades
-            real_probs = calculate_real_prob(home_xg, away_xg, home_games, away_games)
-        except:
-            # Se falhar, tentar método baseado em estatísticas básicas
-            real_probs = None
-            
-            # Tente extrair estatísticas básicas para cálculo alternativo
-            try:
-                home_stats = stats_df[stats_df['Squad'] == home_team].iloc[0]
-                away_stats = stats_df[stats_df['Squad'] == away_team].iloc[0]
-                from utils.data import get_stat
-                
-                home_xg = float(get_stat(home_stats, 'xG', 0))
-                away_xg = float(get_stat(away_stats, 'xG', 0))
-                home_games = float(get_stat(home_stats, 'MP', 1))
-                away_games = float(get_stat(away_stats, 'MP', 1))
-                
-                real_probs = calculate_real_prob(home_xg, away_xg, home_games, away_games)
-            except:
-                pass
-
-        # Montar o prompt completo
-        full_prompt = f"""Role: Agente Analista de Probabilidades Esportivas
-
-KNOWLEDGE BASE INTERNO:
-# Estatísticas de {home_team} (Mandante): 
-{home_team_stats}
-
-# Estatísticas de {away_team} (Visitante):
-{away_team_stats}
-
-# PROBABILIDADES CALCULADAS:
-"""
-        
-        if real_probs:
-            full_prompt += f"""- Vitória {home_team}: {real_probs['home']:.1f}% (Real)
-- Empate: {real_probs['draw']:.1f}% (Real)
-- Vitória {away_team}: {real_probs['away']:.1f}% (Real)
-"""
-        else:
-            full_prompt += "Dados insuficientes para cálculo de probabilidades reais\n"
-
-        # Explicações das estatísticas para o modelo
-        full_prompt += """
-# GLOSSÁRIO DE ESTATÍSTICAS:
-- Expected Goals (xG): Medida da qualidade das chances de gol criadas
-- Expected Goals Against (xGA): Medida da qualidade das chances de gol concedidas
-- Eficiência Ofensiva: Relação entre gols marcados e xG (>100% = eficiência acima do esperado)
-- Eficiência Defensiva: Relação entre gols sofridos e xGA (<100% = defesa melhor que o esperado)
-- Clean Sheets: Jogos sem sofrer gols
-- xG Difference: Diferença entre xG e xGA (valor positivo indica time ofensivamente dominante)
+## Head-to-Head
+* Jogos totais: {h2h_data.get('total_matches', 0)}
+* Vitórias {home_team}: {h2h_data.get('home_wins', 0)}
+* Vitórias {away_team}: {h2h_data.get('away_wins', 0)}
+* Empates: {h2h_data.get('draws', 0)}
 """
 
-        # Adicionar informações sobre quais mercados foram selecionados
-        selected_market_names = []
-        full_prompt += "\n# MERCADOS SELECIONADOS PARA ANÁLISE:\n"
-        for market, selected in selected_markets.items():
-            if selected:
-                market_names = {
-                    "money_line": "Money Line (1X2)",
-                    "over_under": "Over/Under Gols",
-                    "chance_dupla": "Chance Dupla",
-                    "ambos_marcam": "Ambos Marcam",
-                    "escanteios": "Total de Escanteios",
-                    "cartoes": "Total de Cartões"
-                }
-                market_name = market_names.get(market, market)
-                selected_market_names.append(market_name)
-                full_prompt += f"- {market_name}\n"
+    # 2. ESTATÍSTICAS PARA MERCADOS DE RESULTADO (1X2, Dupla Chance)
+    result_stats = ""
+    if any(m in selected_markets for m in ["money_line", "chance_dupla"]):
+        result_stats = f"""
+# ESTATÍSTICAS PARA MERCADOS DE RESULTADO
 
-        # Instrução muito clara sobre o formato de saída
-        full_prompt += f"""
-INSTRUÇÕES ESPECIAIS: VOCÊ DEVE CALCULAR PROBABILIDADES REAIS PARA TODOS OS MERCADOS LISTADOS ACIMA, não apenas para o Money Line. Use os dados disponíveis e sua expertise para estimar probabilidades reais para CADA mercado selecionado.
+## Desempenho como Mandante/Visitante
+* {home_team} como mandante: {home_stats.get('home_wins', 0)}V {home_stats.get('home_draws', 0)}E {home_stats.get('home_losses', 0)}D
+* {away_team} como visitante: {away_stats.get('away_wins', 0)}V {away_stats.get('away_draws', 0)}E {away_stats.get('away_losses', 0)}D
 
-[SAÍDA OBRIGATÓRIA]
+## Tendências de Resultado
+* {home_team} % vitórias: {home_stats.get('win_percentage', 0)}%
+* {away_team} % vitórias: {away_stats.get('win_percentage', 0)}%
+* % empates nos jogos de {home_team}: {home_stats.get('draw_percentage', 0)}%
+* % empates nos jogos de {away_team}: {away_stats.get('draw_percentage', 0)}%
 
+## Métricas Avançadas Relevantes
+* Posse média: {home_stats.get('possession', 0)}% vs {away_stats.get('possession', 0)}%
+* Passes p/ Ação Defensiva: {home_advanced.get('ppda', 'N/A')} vs {away_advanced.get('ppda', 'N/A')} (menor = pressão mais intensa)
+* Deep Completions: {home_advanced.get('deep_completions', 'N/A')} vs {away_advanced.get('deep_completions', 'N/A')}
+"""
+
+    # 3. ESTATÍSTICAS PARA MERCADOS DE GOLS (Over/Under, Ambos Marcam)
+    goals_stats = ""
+    if any(m in selected_markets for m in ["over_under", "ambos_marcam"]):
+        goals_stats = f"""
+# ESTATÍSTICAS PARA MERCADOS DE GOLS
+
+## Médias de Gols
+* {home_team} média de gols marcados: {home_stats.get('goals_scored', 0) / max(home_stats.get('matches_played', 1), 1):.2f} por jogo
+* {away_team} média de gols marcados: {away_stats.get('goals_scored', 0) / max(away_stats.get('matches_played', 1), 1):.2f} por jogo
+* {home_team} média de gols sofridos: {home_stats.get('goals_conceded', 0) / max(home_stats.get('matches_played', 1), 1):.2f} por jogo
+* {away_team} média de gols sofridos: {away_stats.get('goals_conceded', 0) / max(away_stats.get('matches_played', 1), 1):.2f} por jogo
+
+## Clean Sheets e BTTS
+* {home_team} clean sheets: {home_stats.get('clean_sheets', 0)} ({home_stats.get('clean_sheet_percentage', 0)}%)
+* {away_team} clean sheets: {away_stats.get('clean_sheets', 0)} ({away_stats.get('clean_sheet_percentage', 0)}%)
+* {home_team} jogos com Ambos Marcam: {home_stats.get('btts_percentage', 0)}%
+* {away_team} jogos com Ambos Marcam: {away_stats.get('btts_percentage', 0)}%
+
+## Distribuição de Gols por Jogo
+* Jogos do {home_team} com Over 2.5: {home_stats.get('over_2_5_percentage', 0)}%
+* Jogos do {away_team} com Over 2.5: {away_stats.get('over_2_5_percentage', 0)}%
+* Jogos H2H com Over 2.5: {h2h_data.get('over_2_5_percentage', 0)}%
+"""
+
+    # 4. ESTATÍSTICAS PARA MERCADOS DE ESCANTEIOS
+    corners_stats = ""
+    if "escanteios" in selected_markets:
+        corners_stats = f"""
+# ESTATÍSTICAS PARA MERCADOS DE ESCANTEIOS
+
+## Médias de Escanteios
+* {home_team} média de escanteios a favor: {home_stats.get('corners_for', 0) / max(home_stats.get('matches_played', 1), 1):.2f} por jogo
+* {away_team} média de escanteios a favor: {away_stats.get('corners_for', 0) / max(away_stats.get('matches_played', 1), 1):.2f} por jogo
+* {home_team} média de escanteios contra: {home_stats.get('corners_against', 0) / max(home_stats.get('matches_played', 1), 1):.2f} por jogo
+* {away_team} média de escanteios contra: {away_stats.get('corners_against', 0) / max(away_stats.get('matches_played', 1), 1):.2f} por jogo
+
+## Tendências de Escanteios
+* Jogos do {home_team} com Over 9.5 escanteios: {home_stats.get('over_9_5_corners_percentage', 0)}%
+* Jogos do {away_team} com Over 9.5 escanteios: {away_stats.get('over_9_5_corners_percentage', 0)}%
+* Total médio de escanteios em confrontos H2H: {h2h_data.get('average_corners', 'N/A')}
+"""
+
+    # 5. ESTATÍSTICAS PARA MERCADOS DE CARTÕES
+    cards_stats = ""
+    if "cartoes" in selected_markets:
+        cards_stats = f"""
+# ESTATÍSTICAS PARA MERCADOS DE CARTÕES
+
+## Médias de Cartões
+* {home_team} média de cartões recebidos: {home_stats.get('cards_total', 0) / max(home_stats.get('matches_played', 1), 1):.2f} por jogo
+* {away_team} média de cartões recebidos: {away_stats.get('cards_total', 0) / max(away_stats.get('matches_played', 1), 1):.2f} por jogo
+* {home_team} média de cartões provocados: {home_stats.get('cards_against', 0) / max(home_stats.get('matches_played', 1), 1):.2f} por jogo
+* {away_team} média de cartões provocados: {away_stats.get('cards_against', 0) / max(away_stats.get('matches_played', 1), 1):.2f} por jogo
+
+## Tendências de Cartões
+* Jogos do {home_team} com Over 3.5 cartões: {home_stats.get('over_3_5_cards_percentage', 0)}%
+* Jogos do {away_team} com Over 3.5 cartões: {away_stats.get('over_3_5_cards_percentage', 0)}%
+* Média de cartões em jogos H2H: {h2h_data.get('average_cards', 'N/A')}
+* Árbitro da partida: {basic_stats.get('referee', 'Não informado')} (Média de {basic_stats.get('referee_avg_cards', 'N/A')} cartões por jogo)
+"""
+
+    # 6. MERCADOS DISPONÍVEIS E ODDS
+    markets_info = f"""
+# MERCADOS DISPONÍVEIS E ODDS
+{odds_data}
+"""
+
+    # 7. INSTRUÇÕES PARA O MODELO
+    instructions = f"""
+# INSTRUÇÕES PARA ANÁLISE
+
+Usando os dados estatísticos acima, analise as probabilidades reais para cada mercado selecionado e compare com as odds implícitas. Identifique oportunidades onde existe uma discrepância favorável (edge).
+
+1. Para cada mercado, calcule as probabilidades reais baseadas nos dados estatísticos e avançados
+2. Compare com as probabilidades implícitas nas odds fornecidas
+3. Identifique edges (diferenças) de 3% ou mais entre probabilidade real e implícita
+4. Para cada mercado, explique o racional por trás da sua análise
+5. Forneça um nível de confiança para cada recomendação (Baixo, Médio, Alto)
+
+Formato da resposta:
 # Análise da Partida
 ## {home_team} x {away_team}
 
 # Análise de Mercados Disponíveis:
-{odds_data}
+[Resumo das odds de cada mercado]
 
 # Probabilidades Calculadas (REAL vs IMPLÍCITA):
-[IMPORTANTE - Para cada um dos mercados abaixo, você DEVE mostrar a probabilidade REAL calculada, bem como a probabilidade IMPLÍCITA nas odds:]
-{chr(10).join([f"- {name}" for name in selected_market_names])}
+[Para cada mercado, mostrando probabilidades]
 
 # Oportunidades Identificadas (Edges >3%):
-[Listagem detalhada de cada mercado selecionado, indicando explicitamente se há edge ou não para cada opção.]
+[Mercados com valor identificado]
 
 # Nível de Confiança Geral: [Baixo/Médio/Alto]
-[Breve explicação da sua confiança na análise, baseada na qualidade e completude dos dados disponíveis]
+[Justificativa para o nível de confiança]
 """
-        return full_prompt
 
-    except Exception as e:
-        logger.error(f"Erro ao formatar prompt: {str(e)}")
-        return None
+    # Compilar o prompt final
+    full_prompt = fundamental_stats + result_stats + goals_stats + corners_stats + cards_stats + markets_info + instructions
+    
+    return full_prompt
