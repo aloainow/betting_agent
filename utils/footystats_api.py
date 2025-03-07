@@ -86,6 +86,112 @@ def get_from_cache(endpoint, params=None, max_age=CACHE_DURATION):
         logger.error(f"Erro ao ler cache: {str(e)}")
         return None
 
+def test_api_connection():
+    """
+    Testa a conexão com a API e diagnóstica problemas
+    
+    Returns:
+        dict: Resultado do teste com informações detalhadas
+    """
+    try:
+        logger.info("Testando conexão com a API FootyStats...")
+        result = {
+            "success": False,
+            "details": [],
+            "available_leagues": [],
+            "error": None
+        }
+        
+        # Teste 1: Usando chave de exemplo
+        endpoint = "league-teams"
+        params = {"key": "example", "league_id": 1625}
+        
+        logger.info("Teste 1: Usando chave de exemplo")
+        try:
+            response = requests.get(f"{BASE_URL}/{endpoint}", params=params, timeout=10)
+            
+            if response.status_code == 200:
+                try:
+                    data = response.json()
+                    if data and "data" in data and len(data["data"]) > 0:
+                        result["details"].append("✓ Conexão com API funciona (endpoint de teste)")
+                        result["details"].append(f"✓ {len(data['data'])} times encontrados no exemplo")
+                    else:
+                        result["details"].append("✗ API retornou resposta vazia no teste")
+                except json.JSONDecodeError:
+                    result["details"].append("✗ API retornou resposta inválida no teste")
+            else:
+                result["details"].append(f"✗ API retornou código {response.status_code} no teste")
+        except Exception as e:
+            result["details"].append(f"✗ Erro no teste com exemplo: {str(e)}")
+        
+        # Teste 2: Obter todas as ligas disponíveis para seu usuário
+        logger.info("Teste 2: Verificando ligas disponíveis para sua chave")
+        try:
+            # Tentar endpoint league-list primeiro (recomendado)
+            params = {"key": API_KEY}
+            response = requests.get(f"{BASE_URL}/league-list", params=params, timeout=10)
+            
+            if response.status_code == 200:
+                try:
+                    data = response.json()
+                    if data and "data" in data and len(data["data"]) > 0:
+                        leagues = data["data"]
+                        result["success"] = True
+                        result["details"].append(f"✓ Sua conta tem acesso a {len(leagues)} ligas")
+                        
+                        # Armazenar nomes das ligas disponíveis exatamente como retornados pela API
+                        available_leagues = []
+                        for league in leagues:
+                            name = league.get("name", "")
+                            country = league.get("country", "")
+                            if name:
+                                formatted_name = f"{name} ({country})" if country else name
+                                available_leagues.append(formatted_name)
+                                
+                        result["available_leagues"] = available_leagues
+                        if available_leagues:
+                            result["details"].append(f"✓ Ligas disponíveis: {', '.join(available_leagues[:5])}{'...' if len(available_leagues) > 5 else ''}")
+                        
+                        # Verificar se Brasileirão está na lista
+                        has_brasileirao = any("brasileir" in league.lower() for league in available_leagues)
+                        if has_brasileirao:
+                            result["details"].append("✓ Brasileirão está disponível na sua conta")
+                        else:
+                            result["details"].append("✗ Brasileirão NÃO está disponível na sua conta")
+                            result["error"] = "Brasileirão não está selecionado na sua conta FootyStats"
+                        
+                    else:
+                        result["details"].append("✗ Nenhuma liga disponível para sua conta")
+                        result["error"] = "Sua conta não tem acesso a nenhuma liga. Verifique sua assinatura."
+                except json.JSONDecodeError:
+                    result["details"].append("✗ API retornou resposta inválida ao verificar ligas")
+            else:
+                result["details"].append(f"✗ API retornou código {response.status_code} ao verificar ligas")
+                if response.status_code == 401:
+                    result["error"] = "Chave de API inválida ou expirada"
+                else:
+                    result["error"] = f"Erro ao acessar API: código {response.status_code}"
+        except Exception as e:
+            result["details"].append(f"✗ Erro ao verificar ligas: {str(e)}")
+            result["error"] = f"Erro de conexão: {str(e)}"
+        
+        # Log detalhado dos resultados do teste
+        logger.info(f"Resultado do teste API: sucesso={result['success']}, ligas={len(result['available_leagues'])}")
+        if result["error"]:
+            logger.error(f"Erro detectado: {result['error']}")
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"✗ Erro ao testar conexão com API: {str(e)}")
+        return {
+            "success": False,
+            "details": [f"✗ Erro global no teste: {str(e)}"],
+            "available_leagues": [],
+            "error": str(e)
+        }
+
 def clear_all_cache():
     """Limpar todo o cache da API"""
     try:
