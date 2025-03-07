@@ -157,9 +157,11 @@ def get_from_cache(endpoint, params=None, max_age=CACHE_DURATION):
         logger.error(f"Erro ao ler cache: {str(e)}")
         return None
 
+# Enhanced api_request function for utils/footystats_api.py
+
 def api_request(endpoint, params=None, use_cache=True, cache_duration=CACHE_DURATION):
     """
-    Fazer requisição à API com tratamento de erros e cache
+    Fazer requisição à API com tratamento de erros e cache aprimorado
     
     Args:
         endpoint (str): Endpoint da API (ex: "/leagues")
@@ -186,18 +188,50 @@ def api_request(endpoint, params=None, use_cache=True, cache_duration=CACHE_DURA
         params = auth_params
     
     try:
-        response = requests.get(url, params=params)
+        # Log detalhado da requisição
+        param_log = {k: v for k, v in params.items() if k != "key"}  # Omit the key for security
+        logger.info(f"API Request: {url} - Params: {param_log}")
         
-        # Log da requisição para diagnóstico
-        logger.info(f"API Request: {url} - Status: {response.status_code}")
+        # Fazer a requisição com timeout e retentativas
+        for attempt in range(3):  # Try up to 3 times
+            try:
+                response = requests.get(url, params=params, timeout=10)
+                break
+            except requests.exceptions.Timeout:
+                logger.warning(f"Timeout na tentativa {attempt+1}/3 para {endpoint}")
+                if attempt == 2:  # Last attempt
+                    raise
+                time.sleep(1)  # Wait before retry
+            except requests.exceptions.ConnectionError:
+                logger.warning(f"Erro de conexão na tentativa {attempt+1}/3 para {endpoint}")
+                if attempt == 2:  # Last attempt
+                    raise
+                time.sleep(1)  # Wait before retry
+        
+        # Log da resposta para diagnóstico
+        logger.info(f"API Response: {url} - Status: {response.status_code}")
         
         if response.status_code == 200:
-            data = response.json()
-            
-            # Verificar se a API retornou erro
-            if "error" in data:
-                logger.error(f"Erro da API: {data['error']}")
+            try:
+                data = response.json()
+            except json.JSONDecodeError:
+                logger.error(f"Resposta não é um JSON válido: {response.text[:100]}...")
                 return None
+            
+            # Verificar se a API retornou erro explícito
+            if isinstance(data, dict) and "error" in data:
+                logger.error(f"Erro da API: {data.get('error')}")
+                return None
+                
+            # Verificar se a resposta está vazia ou é None
+            if data is None or (isinstance(data, dict) and not data):
+                logger.warning(f"API retornou dados vazios para {endpoint}")
+                return None
+                
+            # Verificar se a resposta tem a estrutura esperada
+            if isinstance(data, dict) and "data" in data:
+                if not data["data"]:  # data field is empty
+                    logger.warning(f"API retornou campo data vazio para {endpoint}")
                 
             # Salvar no cache se estiver habilitado
             if use_cache:
@@ -207,18 +241,68 @@ def api_request(endpoint, params=None, use_cache=True, cache_duration=CACHE_DURA
             
         elif response.status_code == 429:
             # Limite de requisições atingido
-            logger.warning("Limite de requisições à API atingido")
+            logger.warning("Limite de requisições à API atingido. Aguardando antes de tentar novamente.")
+            time.sleep(5)  # Wait for rate limit to reset
             return {"error": "rate_limit", "message": "Limite de requisições atingido"}
+            
+        elif response.status_code == 401:
+            logger.error("Erro de autenticação (401): API key inválida ou expirada")
+            return {"error": "auth_error", "message": "API key inválida ou expirada"}
+            
+        elif response.status_code == 404:
+            logger.error(f"Endpoint não encontrado (404): {endpoint}")
+            return {"error": "not_found", "message": f"Endpoint {endpoint} não encontrado"}
             
         else:
             logger.error(f"Erro na requisição: {response.status_code}")
-            logger.error(f"Resposta: {response.text}")
+            logger.error(f"Resposta: {response.text[:200]}...")  # Log first 200 chars
             return None
             
     except Exception as e:
         logger.error(f"Erro ao acessar a API: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
         return None
 
+# Add this function to check API configuration
+def test_api_connection():
+    """
+    Testa a conexão com a API e exibe detalhes de diagnóstico
+    
+    Returns:
+        bool: True se a conexão foi bem sucedida, False caso contrário
+    """
+    try:
+        logger.info("Testando conexão com a API FootyStats...")
+        
+        # Teste simples para verificar se a API está acessível
+        test_endpoint = "/competitions"
+        
+        response = requests.get(f"{BASE_URL}{test_endpoint}", params=get_auth_params(), timeout=10)
+        
+        if response.status_code == 200:
+            try:
+                data = response.json()
+                if data and "data" in data and len(data["data"]) > 0:
+                    logger.info("✓ Conexão com API FootyStats bem sucedida")
+                    logger.info(f"✓ {len(data['data'])} competições disponíveis")
+                    return True
+                else:
+                    logger.error("✗ API retornou resposta vazia ou inválida")
+            except json.JSONDecodeError:
+                logger.error("✗ API retornou resposta que não é um JSON válido")
+        else:
+            logger.error(f"✗ API retornou código de status {response.status_code}")
+            if response.status_code == 401:
+                logger.error("✗ Erro de autenticação: verifique sua API key")
+            elif response.status_code == 429:
+                logger.error("✗ Limite de requisições atingido")
+                
+        return False
+        
+    except Exception as e:
+        logger.error(f"✗ Erro ao testar conexão com API: {str(e)}")
+        return False
 def get_league_season(league_name):
     """
     Obter a temporada para uma liga específica
