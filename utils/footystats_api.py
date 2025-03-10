@@ -465,6 +465,62 @@ def retrieve_available_leagues(force_refresh=False):
     
     return fallback_leagues
 
+def get_selected_leagues(force_refresh=False):
+    """
+    Get only leagues that are actually selected in the user's FootyStats account.
+    Uses caching to avoid expensive API calls.
+    
+    Args:
+        force_refresh (bool): If True, ignores the cache
+        
+    Returns:
+        list: List of leagues selected in the user's account
+    """
+    # Check cache first (unless force_refresh is True)
+    cache_key = "selected_leagues"
+    if not force_refresh:
+        cached_data = get_from_cache(cache_key)
+        if cached_data:
+            logger.info(f"Using cached selected leagues: {len(cached_data)} leagues")
+            return cached_data
+    
+    # Get all leagues from API
+    params = {"key": API_KEY}
+    all_leagues_data = api_request("league-list", params, use_cache=not force_refresh)
+    
+    if not all_leagues_data or "data" not in all_leagues_data:
+        logger.error("Failed to fetch leagues from API")
+        return []
+    
+    # Parse all leagues
+    all_leagues = []
+    for league in all_leagues_data["data"]:
+        league_id = league.get("id")
+        name = league.get("name", "")
+        country = league.get("country", "")
+        if name and league_id:
+            formatted_name = f"{name} ({country})" if country else name
+            all_leagues.append((formatted_name, league_id))
+    
+    # Test each league to see if it's selected
+    selected_leagues = []
+    for league_name, league_id in all_leagues:
+        # Try to fetch teams for this league
+        teams_data = fetch_league_teams(league_id)
+        
+        # If we got teams, the league is selected
+        if isinstance(teams_data, list) and len(teams_data) > 0:
+            selected_leagues.append(league_name)
+            logger.info(f"League '{league_name}' is selected in your account")
+    
+    # Cache the results
+    if selected_leagues:
+        save_to_cache(selected_leagues, cache_key, cache_duration=24*60*60)  # Cache for 24 hours
+        logger.info(f"Identified {len(selected_leagues)} selected leagues")
+    
+    return selected_leagues
+
+
 def fetch_league_teams(league_id):
     """
     Buscar times de uma liga específica.
