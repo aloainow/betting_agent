@@ -435,7 +435,7 @@ def api_request(endpoint, params=None, use_cache=True, cache_duration=CACHE_DURA
         logger.error(traceback.format_exc())
         return None
 
-# Lista de ligas selecionadas pelo usuário
+# Lista de ligas selecionadas pelo usuário - ADICIONE ISTO AO SEU ARQUIVO EXISTENTE
 USER_SELECTED_LEAGUES = [
     # Ligas da América do Sul
     "Primera División (Argentina)",
@@ -477,13 +477,6 @@ USER_SELECTED_LEAGUES = [
     "EFL League One (England)"
 ]
 
-# Mapeamento de nomes alternativos para nomes padrão da API
-LEAGUE_NAME_MAPPING = {
-    "Brasileirão": "Serie A (Brazil)",
-    "Primeira Liga": "Liga NOS (Portugal)",
-    # Adicione outros mapeamentos conforme necessário
-}
-
 def get_user_selected_leagues_direct():
     """
     Retorna diretamente as ligas selecionadas pelo usuário,
@@ -492,7 +485,7 @@ def get_user_selected_leagues_direct():
     Returns:
         list: Lista de nomes de ligas selecionadas pelo usuário
     """
-    # Use conjunto para evitar duplicatas devido aos nomes alternativos
+    # Remove duplicatas e ordena
     unique_leagues = set(USER_SELECTED_LEAGUES)
     return sorted(list(unique_leagues))
 
