@@ -19,8 +19,8 @@ os.makedirs(TEAMS_CACHE_DIR, exist_ok=True)
 # Funções auxiliares para seleção de ligas (ADICIONADAS NO INÍCIO)
 def get_league_selection():
     """
-    Função separada para obter a lista de ligas e mostrar o seletor,
-    removendo ligas duplicadas e usando um nome amigável.
+    Função melhorada para obter a lista de ligas e mostrar o seletor,
+    eliminando duplicações com diferentes formatações.
     
     Returns:
         str: A liga selecionada ou None se houver erro
@@ -30,106 +30,56 @@ def get_league_selection():
         from utils.footystats_api import get_user_selected_leagues_direct
         
         # Obter ligas pré-definidas
-        raw_leagues = get_user_selected_leagues_direct()
+        all_leagues = get_user_selected_leagues_direct()
         
-        # Mapeamento para nomes canônicos para eliminar duplicatas
-        canonical_mapping = {
-            "Brasileirão": "Serie A (Brazil)",
-            "Brasileirão (Brazil)": "Serie A (Brazil)",
-            "Serie A (Brazil)": "Serie A (Brazil)",
-            "Brazil Serie A": "Serie A (Brazil)",
-            
-            "Liga NOS": "Liga NOS (Portugal)",
-            "Liga NOS (Portugal)": "Liga NOS (Portugal)",
-            "Primeira Liga": "Liga NOS (Portugal)",
-            "Primeira Liga (Portugal)": "Liga NOS (Portugal)",
-            "Portugal Liga NOS": "Liga NOS (Portugal)",
-            
-            "Bundesliga": "Bundesliga (Germany)",
-            "Bundesliga (Germany)": "Bundesliga (Germany)",
-            "Germany Bundesliga": "Bundesliga (Germany)",
-            
-            "Premier League": "Premier League (England)",
-            "Premier League (England)": "Premier League (England)",
-            "England Premier League": "Premier League (England)",
-            
-            "La Liga": "La Liga (Spain)",
-            "La Liga (Spain)": "La Liga (Spain)",
-            "Spain La Liga": "La Liga (Spain)",
-            
-            "Serie A": "Serie A (Italy)",
-            "Serie A (Italy)": "Serie A (Italy)",
-            "Italy Serie A": "Serie A (Italy)",
-            
-            "Ligue 1": "Ligue 1 (France)",
-            "Ligue 1 (France)": "Ligue 1 (France)",
-            "France Ligue 1": "Ligue 1 (France)"
-        }
-        
-        # Nomes amigáveis para exibição
-        display_names = {
-            "Serie A (Brazil)": "Brasileirão 🇧🇷",
-            "Liga NOS (Portugal)": "Liga Portugal 🇵🇹",
-            "Bundesliga (Germany)": "Bundesliga 🇩🇪",
-            "Premier League (England)": "Premier League 🇬🇧",
-            "La Liga (Spain)": "La Liga 🇪🇸",
-            "Serie A (Italy)": "Serie A 🇮🇹",
-            "Ligue 1 (France)": "Ligue 1 🇫🇷",
-            "Champions League (Europe)": "Champions League 🏆",
-            "Europa League (Europe)": "Europa League 🏆"
-        }
-        
-        # Conjunto para rastrear ligas já adicionadas e evitar duplicatas
-        seen_canonical = set()
-        cleaned_leagues = []
-        league_to_display = {}
-        
-        # Processar cada liga
-        for league in raw_leagues:
-            # Obter o nome canônico
-            canonical = canonical_mapping.get(league, league)
-            
-            # Verificar se já temos esta liga (pelo nome canônico)
-            if canonical not in seen_canonical:
-                seen_canonical.add(canonical)
-                
-                # Usar nome de exibição amigável se disponível
-                display_name = display_names.get(canonical, league)
-                cleaned_leagues.append(display_name)
-                
-                # Manter mapeamento para referência interna
-                league_to_display[display_name] = league
-        
-        # Salvar mapeamento em session_state para referência
-        st.session_state.league_to_display = league_to_display
-        
-        # Ordenar alfabeticamente
-        cleaned_leagues.sort()
-        
-        if not cleaned_leagues:
+        if not all_leagues:
             st.error("Nenhuma liga disponível na lista pré-definida.")
             return None
         
+        # Simplificar nomes e eliminar duplicatas baseadas no mesmo conteúdo 
+        canonical_leagues = {}  # Mapeamento de nomes simplificados para nomes originais
+        
+        # Detectar e combinar ligas duplicadas
+        for league in all_leagues:
+            # Criar uma versão simplificada do nome da liga para comparação
+            simple_name = league.lower()
+            
+            # Remover partes comuns que variam entre as duplicatas
+            simple_name = simple_name.replace("(brazil)", "").replace("(germany)", "")
+            simple_name = simple_name.replace("(england)", "").replace("(france)", "")
+            simple_name = simple_name.replace("(italy)", "").replace("(spain)", "")
+            simple_name = simple_name.replace("(portugal)", "").replace("(europe)", "")
+            simple_name = simple_name.strip()
+            
+            # Se já temos esta liga (verificando pelo nome simplificado)
+            if simple_name in canonical_leagues:
+                # Manter o nome mais curto como preferido
+                if len(league) < len(canonical_leagues[simple_name]):
+                    canonical_leagues[simple_name] = league
+            else:
+                canonical_leagues[simple_name] = league
+        
+        # Obter lista final de ligas sem duplicatas
+        unique_leagues = list(canonical_leagues.values())
+        
+        # Ordenar alfabeticamente
+        unique_leagues.sort()
+        
         # Inicializar seleção se necessário
-        if 'selected_league_display' not in st.session_state or st.session_state.selected_league_display not in cleaned_leagues:
-            st.session_state.selected_league_display = cleaned_leagues[0]
-            # Também inicializar a liga real
-            st.session_state.selected_league = league_to_display[cleaned_leagues[0]]
+        if 'selected_league' not in st.session_state or st.session_state.selected_league not in unique_leagues:
+            st.session_state.selected_league = unique_leagues[0] if unique_leagues else None
         
         # Seletor de liga
-        selected_display = st.sidebar.selectbox(
+        selected_league = st.sidebar.selectbox(
             "Escolha o campeonato:",
-            options=cleaned_leagues,
-            index=cleaned_leagues.index(st.session_state.selected_league_display) if st.session_state.selected_league_display in cleaned_leagues else 0,
-            key="league_selector_display"
+            options=unique_leagues,
+            index=unique_leagues.index(st.session_state.selected_league) if st.session_state.selected_league in unique_leagues else 0,
+            key="league_selector"
         )
         
         # Verificar se a liga mudou
-        if selected_display != st.session_state.selected_league_display:
-            # Obter o nome real da liga para uso interno
-            selected_league = league_to_display[selected_display]
-            
-            st.session_state.selected_league_display = selected_display
+        if selected_league != st.session_state.selected_league:
+            st.sidebar.info(f"Mudando de {st.session_state.selected_league} para {selected_league}")
             st.session_state.selected_league = selected_league
             
             # Limpar seleções de time anteriores
@@ -141,8 +91,7 @@ def get_league_selection():
             # Recarregar a página
             st.experimental_rerun()
         
-        # Retornar o nome real da liga para uso interno
-        return st.session_state.selected_league
+        return selected_league
     
     except Exception as e:
         logger.error(f"Erro ao selecionar liga: {str(e)}")
@@ -150,7 +99,6 @@ def get_league_selection():
         logger.error(traceback.format_exc())
         st.error(f"Erro ao carregar ligas: {str(e)}")
         return None
-
 def load_league_teams_direct(selected_league):
     """
     Carregar times de uma liga usando a API FootyStats com ID específico da temporada.
