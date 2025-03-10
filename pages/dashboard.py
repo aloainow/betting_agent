@@ -73,51 +73,60 @@ def get_league_selection():
 
 def load_league_teams_direct(selected_league):
     """
-    Carregar times de uma liga usando a API FootyStats,
-    focando especificamente na temporada atual.
+    Função otimizada para carregar times da liga usando os season IDs exatos.
     
     Args:
-        selected_league (str): Nome da liga
+        selected_league (str): Nome da liga selecionada
         
     Returns:
         list: Lista de nomes dos times ou lista vazia se falhar
     """
     import traceback
+    import streamlit as st
+    from utils.direct_api import get_teams_direct
     
     status = st.empty()
     status.info(f"Carregando times para {selected_league}...")
     
     try:
-        # Importar nossa nova função especializada em buscar por temporada atual
-        from utils.teams_api import get_teams_for_current_season
-        
-        # Usar a nova função que filtra por temporada atual
-        teams = get_teams_for_current_season(selected_league, force_refresh=False)
+        # Buscar times usando a função especializada com IDs exatos
+        teams = get_teams_direct(selected_league, force_refresh=False)
         
         if teams and len(teams) > 0:
             # Sucesso!
             status.success(f"✅ {len(teams)} times carregados para {selected_league}")
-            return teams
+            return sorted(teams)  # Ordenar times alfabeticamente
         else:
             # API não retornou times
-            status.warning(f"Nenhum time encontrado para {selected_league} na temporada atual")
+            status.warning(f"Nenhum time encontrado para {selected_league}")
             
             # Mostrar diagnóstico
             with st.expander("Diagnóstico da API FootyStats", expanded=True):
-                st.error(f"Não foi possível carregar times para {selected_league} na temporada atual.")
+                st.error(f"Não foi possível carregar times para {selected_league}.")
                 st.info("Tente limpar o cache e atualizar a página.")
                 
                 # Botão para limpar cache e forçar atualização
-                if st.button("Limpar Cache e Buscar Temporada Atual", key="clear_cache_btn"):
+                if st.button("Limpar Cache e Tentar Novamente", key="clear_cache_btn"):
                     try:
-                        # Importar nossa nova função novamente para uso forçado
-                        teams = get_teams_for_current_season(selected_league, force_refresh=True)
+                        # Forçar atualização ignorando o cache
+                        teams = get_teams_direct(selected_league, force_refresh=True)
                         if teams and len(teams) > 0:
                             st.success(f"✅ {len(teams)} times encontrados após forçar atualização!")
                             status.success(f"✅ {len(teams)} times carregados para {selected_league}")
-                            return teams
+                            return sorted(teams)  # Ordenar times alfabeticamente
                         else:
                             st.error("Não foi possível encontrar times mesmo após forçar atualização.")
+                            
+                            # Mostrar informações de ajuda
+                            from utils.league_ids import get_season_id
+                            season_id = get_season_id(selected_league)
+                            if season_id:
+                                st.info(f"Liga: {selected_league}")
+                                st.info(f"Season ID: {season_id}")
+                                
+                                # Mostrar URL para ajudar no diagnóstico
+                                api_url = f"https://api.football-data-api.com/league-teams?key=***&season_id={season_id}&include=stats"
+                                st.code(f"URL da API: {api_url}")
                     except Exception as e:
                         st.error(f"Erro ao forçar atualização: {str(e)}")
     except Exception as e:
