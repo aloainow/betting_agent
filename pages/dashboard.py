@@ -19,8 +19,8 @@ os.makedirs(TEAMS_CACHE_DIR, exist_ok=True)
 # Funções auxiliares para seleção de ligas (ADICIONADAS NO INÍCIO)
 def get_league_selection():
     """
-    Função separada para obter a lista de ligas e mostrar o seletor.
-    Evita problemas de indentação e de sintaxe.
+    Função separada para obter a lista de ligas e mostrar o seletor,
+    removendo ligas duplicadas e usando um nome amigável.
     
     Returns:
         str: A liga selecionada ou None se houver erro
@@ -30,27 +30,106 @@ def get_league_selection():
         from utils.footystats_api import get_user_selected_leagues_direct
         
         # Obter ligas pré-definidas
-        available_leagues = get_user_selected_leagues_direct()
+        raw_leagues = get_user_selected_leagues_direct()
         
-        if not available_leagues:
+        # Mapeamento para nomes canônicos para eliminar duplicatas
+        canonical_mapping = {
+            "Brasileirão": "Serie A (Brazil)",
+            "Brasileirão (Brazil)": "Serie A (Brazil)",
+            "Serie A (Brazil)": "Serie A (Brazil)",
+            "Brazil Serie A": "Serie A (Brazil)",
+            
+            "Liga NOS": "Liga NOS (Portugal)",
+            "Liga NOS (Portugal)": "Liga NOS (Portugal)",
+            "Primeira Liga": "Liga NOS (Portugal)",
+            "Primeira Liga (Portugal)": "Liga NOS (Portugal)",
+            "Portugal Liga NOS": "Liga NOS (Portugal)",
+            
+            "Bundesliga": "Bundesliga (Germany)",
+            "Bundesliga (Germany)": "Bundesliga (Germany)",
+            "Germany Bundesliga": "Bundesliga (Germany)",
+            
+            "Premier League": "Premier League (England)",
+            "Premier League (England)": "Premier League (England)",
+            "England Premier League": "Premier League (England)",
+            
+            "La Liga": "La Liga (Spain)",
+            "La Liga (Spain)": "La Liga (Spain)",
+            "Spain La Liga": "La Liga (Spain)",
+            
+            "Serie A": "Serie A (Italy)",
+            "Serie A (Italy)": "Serie A (Italy)",
+            "Italy Serie A": "Serie A (Italy)",
+            
+            "Ligue 1": "Ligue 1 (France)",
+            "Ligue 1 (France)": "Ligue 1 (France)",
+            "France Ligue 1": "Ligue 1 (France)"
+        }
+        
+        # Nomes amigáveis para exibição
+        display_names = {
+            "Serie A (Brazil)": "Brasileirão 🇧🇷",
+            "Liga NOS (Portugal)": "Liga Portugal 🇵🇹",
+            "Bundesliga (Germany)": "Bundesliga 🇩🇪",
+            "Premier League (England)": "Premier League 🇬🇧",
+            "La Liga (Spain)": "La Liga 🇪🇸",
+            "Serie A (Italy)": "Serie A 🇮🇹",
+            "Ligue 1 (France)": "Ligue 1 🇫🇷",
+            "Champions League (Europe)": "Champions League 🏆",
+            "Europa League (Europe)": "Europa League 🏆"
+        }
+        
+        # Conjunto para rastrear ligas já adicionadas e evitar duplicatas
+        seen_canonical = set()
+        cleaned_leagues = []
+        league_to_display = {}
+        
+        # Processar cada liga
+        for league in raw_leagues:
+            # Obter o nome canônico
+            canonical = canonical_mapping.get(league, league)
+            
+            # Verificar se já temos esta liga (pelo nome canônico)
+            if canonical not in seen_canonical:
+                seen_canonical.add(canonical)
+                
+                # Usar nome de exibição amigável se disponível
+                display_name = display_names.get(canonical, league)
+                cleaned_leagues.append(display_name)
+                
+                # Manter mapeamento para referência interna
+                league_to_display[display_name] = league
+        
+        # Salvar mapeamento em session_state para referência
+        st.session_state.league_to_display = league_to_display
+        
+        # Ordenar alfabeticamente
+        cleaned_leagues.sort()
+        
+        if not cleaned_leagues:
             st.error("Nenhuma liga disponível na lista pré-definida.")
             return None
         
         # Inicializar seleção se necessário
-        if 'selected_league' not in st.session_state or st.session_state.selected_league not in available_leagues:
-            st.session_state.selected_league = available_leagues[0]
+        if 'selected_league_display' not in st.session_state or st.session_state.selected_league_display not in cleaned_leagues:
+            st.session_state.selected_league_display = cleaned_leagues[0]
+            # Também inicializar a liga real
+            st.session_state.selected_league = league_to_display[cleaned_leagues[0]]
         
         # Seletor de liga
-        selected_league = st.sidebar.selectbox(
+        selected_display = st.sidebar.selectbox(
             "Escolha o campeonato:",
-            options=available_leagues,
-            index=available_leagues.index(st.session_state.selected_league) if st.session_state.selected_league in available_leagues else 0,
-            key="league_selector"
+            options=cleaned_leagues,
+            index=cleaned_leagues.index(st.session_state.selected_league_display) if st.session_state.selected_league_display in cleaned_leagues else 0,
+            key="league_selector_display"
         )
         
         # Verificar se a liga mudou
-        if selected_league != st.session_state.selected_league:
-            st.sidebar.info(f"Mudando de {st.session_state.selected_league} para {selected_league}")
+        if selected_display != st.session_state.selected_league_display:
+            # Obter o nome real da liga para uso interno
+            selected_league = league_to_display[selected_display]
+            
+            st.session_state.selected_league_display = selected_display
             st.session_state.selected_league = selected_league
             
             # Limpar seleções de time anteriores
@@ -62,7 +141,8 @@ def get_league_selection():
             # Recarregar a página
             st.experimental_rerun()
         
-        return selected_league
+        # Retornar o nome real da liga para uso interno
+        return st.session_state.selected_league
     
     except Exception as e:
         logger.error(f"Erro ao selecionar liga: {str(e)}")
@@ -70,43 +150,6 @@ def get_league_selection():
         logger.error(traceback.format_exc())
         st.error(f"Erro ao carregar ligas: {str(e)}")
         return None
-
-# Mapeamento direto das ligas para seus IDs corretos
-LEAGUE_SEASON_IDS = {
-    "Primera División (Argentina)": 14125,
-    "Serie A (Brazil)": 14231,
-    "Brasileirão": 14231,
-    "Serie B (Brazil)": 14305,
-    "Copa do Brasil": 14210,
-    "Primera División (Uruguay)": 14128,
-    "Copa Libertadores": 13974,
-    "Copa Sudamericana": 13965,
-    "Premier League": 12325,
-    "Premier League (England)": 12325,
-    "La Liga": 12316,
-    "La Liga (Spain)": 12316,
-    "Segunda División": 12467,
-    "Bundesliga": 12529,
-    "Bundesliga (Germany)": 12529,
-    "2. Bundesliga": 12528,
-    "Serie A (Italy)": 12530,
-    "Serie B (Italy)": 12621,
-    "Ligue 1": 12337,
-    "Ligue 1 (France)": 12337,
-    "Ligue 2": 12338,
-    "Bundesliga (Austria)": 12472,
-    "Pro League": 12137,
-    "Eredivisie": 12322,
-    "Eredivisie (Netherlands)": 12322,
-    "Liga NOS": 12931,
-    "Primeira Liga": 12931,
-    "Champions League": 12321,
-    "Champions League (Europe)": 12321,
-    "Europa League": 12327,
-    "Liga MX": 12136,
-    "FA Cup": 13698,
-    "EFL League One": 12446
-}
 
 def load_league_teams_direct(selected_league):
     """
@@ -805,86 +848,37 @@ def show_main_dashboard():
         # ------------------------------------------------------------
         
         # 1. Mostrar estatísticas de uso e saudação
-        show_usage_stats()
-        
-        # Adicionar botão de diagnóstico da API
-        if st.sidebar.button("🔬 Diagnóstico API", type="primary", use_container_width=True):
-            with st.spinner("Realizando diagnóstico completo..."):
-                try:
-                    # Capturar a saída da função
-                    import io
-                    import sys
-                    from contextlib import redirect_stdout
-                    
-                    # Importar a função de diagnóstico
-                    from utils.footystats_api import diagnose_api_in_detail
-                    
-                    # Capturar stdout para o diagnóstico
-                    f = io.StringIO()
-                    with redirect_stdout(f):
-                        successful_combos = diagnose_api_in_detail()
-                    
-                    # Recuperar a saída
-                    output = f.getvalue()
-                    
-                    # Mostrar resultado em um expansor
-                    with st.expander("Resultado do Diagnóstico", expanded=True):
-                        st.code(output, language="text")
-                        
-                        # Se encontrou configurações que funcionam
-                        if successful_combos:
-                            st.success("✅ Encontrado pelo menos uma configuração que funciona!")
+                show_usage_stats()
+
+                # 2. Escolha da liga (usando função auxiliar)
+                selected_league = get_league_selection()
+                if not selected_league:
+                    st.error("Não foi possível selecionar uma liga. Por favor, verifique a configuração.")
+                    return
+                
+                # Adicionar nota sobre o carregamento automático
+                st.sidebar.info("Os times são carregados automaticamente ao selecionar uma liga.")
+                
+                # Não adicionar os botões a seguir:
+                # - Botão "Diagnóstico API"
+                # - Botão "Atualizar Times" 
+                # - Botão "Limpar Todo o Cache"
+                # - Botão "Listar Ligas Disponíveis"
+                
+                # Separador para a barra lateral
+                st.sidebar.markdown("---")
+                
+                # Botão de pacotes e logout
+                if st.sidebar.button("🚀 Ver Pacotes de Créditos", key="sidebar_packages_button", use_container_width=True):
+                    st.session_state.page = "packages"
+                    st.experimental_rerun()
+                
+                if st.sidebar.button("Logout", key="sidebar_logout_btn", use_container_width=True):
+                    st.session_state.authenticated = False
+                    st.session_state.email = None
+                    st.session_state.page = "landing"
+                    st.experimental_rerun()
                             
-                            # Contar sucessos por combinação
-                            param_counts = {}
-                            for combo in successful_combos:
-                                params = combo["params"]
-                                if params not in param_counts:
-                                    param_counts[params] = 0
-                                param_counts[params] += 1
-                            
-                            # Encontrar a melhor combinação
-                            best_params = max(param_counts.items(), key=lambda x: x[1])
-                            st.info(f"Recomendação: Use os parâmetros **{best_params[0]}**")
-                            
-                            # Adicionar botão para aplicar configuração
-                            if st.button("Aplicar Configuração Recomendada & Limpar Cache"):
-                                # Limpar cache
-                                from utils.footystats_api import clear_all_cache
-                                num_cleared = clear_all_cache()
-                                st.success(f"Cache limpo: {num_cleared} arquivos")
-                                st.info("Recarregando página em 3 segundos...")
-                                import time
-                                time.sleep(3)
-                                st.experimental_rerun()
-                        else:
-                            st.error("❌ Nenhuma configuração funcionou!")
-                            st.info("Verifique sua conta FootyStats e API key.")
-                        
-                        # Adicionar botão para visualizar API key
-                        if st.checkbox("Mostrar API key"):
-                            from utils.footystats_api import API_KEY
-                            st.code(f"API Key atual: {API_KEY}")
-                            st.warning("Mantenha sua API key segura e não a compartilhe!")
-                    
-                except Exception as e:
-                    st.error(f"Erro ao executar diagnóstico: {str(e)}")
-                    import traceback
-                    st.code(traceback.format_exc())
-        
-        # 2. Escolha da liga (usando função auxiliar)
-        selected_league = get_league_selection()
-        if not selected_league:
-            st.error("Não foi possível selecionar uma liga. Por favor, verifique a configuração.")
-            return
-        
-        # Botão de atualização
-        show_league_update_button(selected_league)
-        
-        # Botão para listar ligas disponíveis
-        if st.sidebar.button("📋 Listar Ligas Disponíveis", use_container_width=True):
-            st.sidebar.info("Buscando ligas disponíveis na sua conta...")
-            
             try:
                 # Fazer requisição direta à API
                 import requests
