@@ -67,6 +67,143 @@ def save_to_cache(data, endpoint, params=None):
         logger.error(f"Erro ao salvar cache: {str(e)}")
         return False
 
+def diagnose_api_in_detail():
+    """
+    Função de diagnóstico detalhado que testa várias combinações de parâmetros
+    para identificar qual funciona com a API do FootyStats.
+    """
+    import requests
+    import json
+    
+    print("=== DIAGNÓSTICO DETALHADO DA API FOOTYSTATS ===")
+    print(f"API Key (últimos 8 caracteres): ...{API_KEY[-8:]}")
+    print(f"Base URL: {BASE_URL}")
+    
+    # 1. Teste básico - verificar se a API está acessível
+    print("\n1. TESTANDO ACESSO BÁSICO À API")
+    try:
+        response = requests.get(f"{BASE_URL}/league-list", params={"key": API_KEY})
+        print(f"Status: {response.status_code}")
+        
+        if response.status_code == 200:
+            print("✅ API acessível")
+            data = response.json()
+            if "data" in data and isinstance(data["data"], list):
+                print(f"✅ Encontradas {len(data['data'])} ligas no total")
+            else:
+                print("❌ Formato de resposta inválido")
+        else:
+            print(f"❌ API retornou erro: {response.status_code}")
+    except Exception as e:
+        print(f"❌ Erro ao acessar API: {str(e)}")
+    
+    # 2. Testar parâmetros diferentes com ligas conhecidas
+    print("\n2. TESTANDO PARÂMETROS DIFERENTES COM LIGAS CONHECIDAS")
+    
+    # Ligas conhecidas para teste
+    test_leagues = {
+        "La Liga": 1869,
+        "Premier League": 1625,
+        "Serie A": 1870,
+        "Bundesliga": 1871
+    }
+    
+    # Parâmetros para testar
+    param_combinations = [
+        {"season_id": None, "include": "stats"},
+        {"season_id": None},
+        {"league_id": None, "include": "stats"},
+        {"league_id": None}
+    ]
+    
+    successful_combinations = []
+    
+    for league_name, league_id in test_leagues.items():
+        print(f"\nTestando com {league_name} (ID: {league_id}):")
+        
+        for params_template in param_combinations:
+            # Copiar o template e preencher o ID
+            params = params_template.copy()
+            
+            # Substituir None pelo ID real
+            for key in params:
+                if params[key] is None:
+                    params[key] = league_id
+            
+            # Adicionar chave API
+            params["key"] = API_KEY
+            
+            # Construir descrição dos parâmetros (sem a API key)
+            param_desc = ", ".join([f"{k}={v}" for k, v in params.items() if k != "key"])
+            print(f"  Testando: {param_desc}")
+            
+            try:
+                response = requests.get(f"{BASE_URL}/league-teams", params=params, timeout=15)
+                print(f"  Status: {response.status_code}")
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    if "data" in data and isinstance(data["data"], list):
+                        teams = data["data"]
+                        if teams:
+                            print(f"  ✅ Sucesso: {len(teams)} times encontrados")
+                            
+                            # Mostrar alguns times
+                            team_sample = [team["name"] for team in teams[:3] if "name" in team]
+                            if team_sample:
+                                print(f"  Exemplos: {', '.join(team_sample)}")
+                            
+                            # Registrar combinação bem-sucedida
+                            successful_combinations.append({
+                                "league": league_name,
+                                "params": param_desc,
+                                "teams_count": len(teams)
+                            })
+                        else:
+                            print("  ⚠️ Resposta vazia (nenhum time)")
+                    else:
+                        error_msg = data.get("message", "Formato inválido") if isinstance(data, dict) else "Resposta não é um objeto"
+                        print(f"  ❌ Erro: {error_msg}")
+                else:
+                    try:
+                        error_data = response.json()
+                        error_msg = error_data.get("message", f"Código HTTP {response.status_code}")
+                    except:
+                        error_msg = f"Código HTTP {response.status_code}"
+                    print(f"  ❌ Erro: {error_msg}")
+            except Exception as e:
+                print(f"  ❌ Erro de requisição: {str(e)}")
+    
+    # 3. Resumo e recomendações
+    print("\n3. RESUMO E RECOMENDAÇÕES")
+    
+    if successful_combinations:
+        print(f"\n✅ {len(successful_combinations)} combinações bem-sucedidas:")
+        
+        # Contar sucessos por combinação de parâmetros
+        param_success = {}
+        for combo in successful_combinations:
+            params = combo["params"]
+            if params not in param_success:
+                param_success[params] = 0
+            param_success[params] += 1
+        
+        # Mostrar contagens
+        for params, count in sorted(param_success.items(), key=lambda x: x[1], reverse=True):
+            print(f"  - {params}: funcionou em {count} ligas")
+        
+        # Encontrar a melhor combinação
+        best_params = max(param_success.items(), key=lambda x: x[1])
+        print(f"\n✨ RECOMENDAÇÃO: Use os parâmetros {best_params[0]} (funcionou em {best_params[1]} ligas)")
+    else:
+        print("\n❌ Nenhuma combinação funcionou!")
+        print("\nRecomendações:")
+        print("1. Verifique se sua API key está correta")
+        print("2. Verifique se você tem uma assinatura ativa no FootyStats")
+        print("3. Verifique se você selecionou ligas específicas no seu dashboard FootyStats")
+    
+    return successful_combinations
+
 def get_from_cache(endpoint, params=None, max_age=CACHE_DURATION):
     """Obter dados do cache se existirem e forem recentes"""
     try:
