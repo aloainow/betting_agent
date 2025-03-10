@@ -596,45 +596,121 @@ def fetch_league_teams(league_id):
     return []
 def find_league_id_by_name(league_name):
     """
-    Encontrar o ID de uma liga a partir do nome
+    Enhanced version that finds the league ID even with naming variations
     
     Args:
-        league_name (str): Nome da liga (com ou sem país)
+        league_name (str): Name of the league (with or without country)
         
     Returns:
-        int: ID da liga ou None se não encontrado
+        int: League ID or None if not found
     """
-    # Obter mapeamento atualizado de ligas
+    # Get league mapping
     league_mapping = get_league_id_mapping()
     
-    # Caso 1: Nome exato
+    # Case 1: Exact match
     if league_name in league_mapping:
-        logger.info(f"ID encontrado para '{league_name}': {league_mapping[league_name]}")
+        logger.info(f"Exact match found for '{league_name}': {league_mapping[league_name]}")
         return league_mapping[league_name]
     
-    # Caso 2: Correspondência parcial
-    for name, league_id in league_mapping.items():
-        if league_name.lower() in name.lower() or name.lower() in league_name.lower():
-            logger.info(f"ID encontrado para '{league_name}' via correspondência parcial com '{name}': {league_id}")
-            return league_id
+    # Case 2: Get available leagues from test_api_connection
+    api_test = test_api_connection()
+    if api_test["success"] and "available_leagues" in api_test and api_test["available_leagues"]:
+        # For each available league in user account
+        for available_league in api_test["available_leagues"]:
+            # Remove country prefix if it exists (e.g., "Spain La Liga" -> "La Liga")
+            available_name = available_league
+            available_country = ""
+            if "(" in available_league:
+                available_parts = available_league.split("(")
+                available_name = available_parts[0].strip()
+                available_country = "(" + available_parts[1] if len(available_parts) > 1 else ""
+            
+            # Same for input league name
+            input_name = league_name
+            input_country = ""
+            if "(" in league_name:
+                input_parts = league_name.split("(")
+                input_name = input_parts[0].strip()
+                input_country = "(" + input_parts[1] if len(input_parts) > 1 else ""
+            
+            # Try to match base names
+            if (input_name.lower() in available_name.lower() or 
+                available_name.lower() in input_name.lower()):
+                
+                # Countries match or don't exist in one of them
+                if not input_country or not available_country or input_country.lower() == available_country.lower():
+                    logger.info(f"Found matching league: '{available_league}' for '{league_name}'")
+                    
+                    # Get ID from mapping
+                    for map_name, map_id in league_mapping.items():
+                        if available_league.lower() == map_name.lower():
+                            logger.info(f"Found ID {map_id} for '{available_league}'")
+                            return map_id
+                    
+                    # If not found in mapping, try using league name directly for lookup
+                    league_list_data = api_request("league-list", {"key": API_KEY})
+                    if league_list_data and "data" in league_list_data:
+                        for league in league_list_data["data"]:
+                            league_api_name = league.get("name", "")
+                            league_api_country = league.get("country", "")
+                            full_api_name = f"{league_api_name} ({league_api_country})"
+                            
+                            if (full_api_name.lower() == available_league.lower() or
+                                league_api_name.lower() == available_name.lower()):
+                                league_id = league.get("id")
+                                if league_id:
+                                    logger.info(f"Found ID {league_id} for '{available_league}' via API lookup")
+                                    return league_id
     
-    # Caso 3: Buscar na lista de ligas disponíveis
-    try:
-        api_test = test_api_connection()
-        if api_test["success"] and api_test["available_leagues"]:
-            for league in api_test["available_leagues"]:
-                if league_name.lower() in league.lower() or league.lower() in league_name.lower():
-                    # Tentar encontrar o ID para esta liga
-                    for name, league_id in league_mapping.items():
-                        if league.lower() in name.lower() or name.lower() in league.lower():
-                            logger.info(f"ID encontrado para '{league_name}' via liga similar '{league}': {league_id}")
-                            return league_id
-    except Exception as e:
-        logger.error(f"Erro ao buscar liga similar: {str(e)}")
+    # Case 3: Check for similar names in league mapping
+    for map_name, map_id in league_mapping.items():
+        # Strip country parts
+        map_base = map_name.split("(")[0].strip().lower()
+        input_base = league_name.split("(")[0].strip().lower()
+        
+        # Check for similarity
+        if map_base in input_base or input_base in map_base:
+            similarity = len(set(map_base.split()) & set(input_base.split())) / max(len(map_base.split()), len(input_base.split()))
+            if similarity > 0.5:  # At least 50% word overlap
+                logger.info(f"Found similar league: '{map_name}' for '{league_name}' (similarity: {similarity:.2f})")
+                return map_id
     
-    # Não encontrado
-    logger.error(f"ID não encontrado para liga: '{league_name}'")
+    logger.error(f"No league ID found for '{league_name}'")
     return None
+
+def normalize_league_name(league_name):
+    """
+    Normalize league name to match FootyStats API expectations
+    
+    Args:
+        league_name (str): League name to normalize
+        
+    Returns:
+        str: Normalized league name
+    """
+    # Remove country prefix if it exists (e.g., "Spain La Liga" -> "La Liga")
+    if "(" in league_name:
+        parts = league_name.split("(")
+        name_part = parts[0].strip()
+        country_part = "(" + parts[1] if len(parts) > 1 else ""
+        
+        # Common name corrections
+        name_corrections = {
+            "Spain La Liga": "La Liga",
+            "England Premier League": "Premier League",
+            "Germany Bundesliga": "Bundesliga",
+            "Italy Serie A": "Serie A",
+            "France Ligue 1": "Ligue 1",
+            "Portugal Primeira Liga": "Primeira Liga"
+        }
+        
+        # Apply corrections
+        for original, corrected in name_corrections.items():
+            if name_part.lower() == original.lower():
+                return f"{corrected} {country_part}"
+    
+    return league_name
+
 
 def get_team_names_by_league(league_name, force_refresh=False):
     """
