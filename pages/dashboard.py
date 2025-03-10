@@ -848,105 +848,18 @@ def show_main_dashboard():
         # ------------------------------------------------------------
         
         # 1. Mostrar estatísticas de uso e saudação
-                show_usage_stats()
-
-                # 2. Escolha da liga (usando função auxiliar)
-                selected_league = get_league_selection()
-                if not selected_league:
-                    st.error("Não foi possível selecionar uma liga. Por favor, verifique a configuração.")
-                    return
-                
-                # Adicionar nota sobre o carregamento automático
-                st.sidebar.info("Os times são carregados automaticamente ao selecionar uma liga.")
-                
-                # Não adicionar os botões a seguir:
-                # - Botão "Diagnóstico API"
-                # - Botão "Atualizar Times" 
-                # - Botão "Limpar Todo o Cache"
-                # - Botão "Listar Ligas Disponíveis"
-                
-                # Separador para a barra lateral
-                st.sidebar.markdown("---")
-                
-                # Botão de pacotes e logout
-                if st.sidebar.button("🚀 Ver Pacotes de Créditos", key="sidebar_packages_button", use_container_width=True):
-                    st.session_state.page = "packages"
-                    st.experimental_rerun()
-                
-                if st.sidebar.button("Logout", key="sidebar_logout_btn", use_container_width=True):
-                    st.session_state.authenticated = False
-                    st.session_state.email = None
-                    st.session_state.page = "landing"
-                    st.experimental_rerun()
-                            
-            try:
-                # Fazer requisição direta à API
-                import requests
-                from utils.footystats_api import API_KEY, BASE_URL
-                
-                response = requests.get(f"{BASE_URL}/league-list", params={"key": API_KEY}, timeout=15)
-                
-                if response.status_code == 200:
-                    try:
-                        data = response.json()
-                        
-                        if "data" in data and isinstance(data["data"], list):
-                            leagues = data["data"]
-                            
-                            st.sidebar.success(f"✅ Encontradas {len(leagues)} ligas na sua conta!")
-                            
-                            # Mostrar as primeiras 10 ligas
-                            with st.sidebar.expander("Ligas disponíveis (10 primeiras)"):
-                                for i, league in enumerate(leagues[:10]):
-                                    name = league.get("name", "Desconhecido")
-                                    country = league.get("country", "Desconhecido")
-                                    league_id = league.get("id", "Desconhecido")
-                                    st.write(f"{i+1}. **{name}** ({country}) - ID: {league_id}")
-                            
-                            # Verificar se ligas específicas estão selecionadas
-                            popular_leagues = ["Premier League", "La Liga", "Bundesliga", "Serie A", "Ligue 1"]
-                            selected_popular = []
-                            
-                            for league in leagues:
-                                name = league.get("name", "")
-                                if any(popular in name for popular in popular_leagues):
-                                    selected_popular.append(f"{name} ({league.get('country', '')})")
-                            
-                            if selected_popular:
-                                st.sidebar.success(f"Ligas populares encontradas: {', '.join(selected_popular)}")
-                            else:
-                                st.sidebar.warning("Nenhuma liga popular encontrada em sua conta")
-                                st.sidebar.info("Selecione ligas em seu dashboard FootyStats")
-                        else:
-                            st.sidebar.error("Formato de resposta inesperado")
-                            st.sidebar.code(str(data)[:500])
-                    except ValueError:
-                        st.sidebar.error("Resposta não é um JSON válido")
-                        st.sidebar.code(response.text[:500])
-                else:
-                    st.sidebar.error(f"Erro HTTP {response.status_code}")
-                    try:
-                        error_data = response.json()
-                        if "message" in error_data:
-                            st.sidebar.error(f"Mensagem: {error_data['message']}")
-                    except:
-                        st.sidebar.code(response.text[:500])
-            except Exception as e:
-                st.sidebar.error(f"Erro ao listar ligas: {str(e)}")
+        show_usage_stats()
         
-        # Botão para limpar todo o cache
-        if st.sidebar.button("🧹 Limpar Todo o Cache", use_container_width=True):
-            try:
-                from utils.footystats_api import clear_all_cache
-                num_cleared = clear_all_cache()
-                st.sidebar.success(f"Cache limpo: {num_cleared} arquivos removidos")
-                st.sidebar.info("Recarregando página...")
-                time.sleep(2)
-                st.experimental_rerun()
-            except Exception as e:
-                st.sidebar.error(f"Erro ao limpar cache: {str(e)}")
+        # 2. Escolha da liga (usando função auxiliar)
+        selected_league = get_league_selection()
+        if not selected_league:
+            st.error("Não foi possível selecionar uma liga. Por favor, verifique a configuração.")
+            return
         
-        # Resto do código para a barra lateral
+        # Adicionar nota sobre o carregamento automático
+        st.sidebar.info("Os times são carregados automaticamente ao selecionar uma liga.")
+        
+        # Separador para a barra lateral
         st.sidebar.markdown("---")
         
         # Botão de pacotes e logout
@@ -984,13 +897,7 @@ def show_main_dashboard():
             # Verificação adicional para garantir que temos times
             if not teams or len(teams) == 0:
                 st.warning("Não foi possível carregar os times para este campeonato.")
-                st.info("Por favor, use o botão 'Atualizar Times' na barra lateral e tente novamente.")
-                
-                # Botão de atualização de emergência
-                if st.button("🆘 Tentar Novamente", type="primary"):
-                    # Forçar nova tentativa
-                    st.experimental_rerun()
-                    
+                st.info("Por favor, recarregue a página e tente novamente.")
                 return
             
             # Usando o seletor nativo do Streamlit
