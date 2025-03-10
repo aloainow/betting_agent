@@ -435,38 +435,66 @@ def api_request(endpoint, params=None, use_cache=True, cache_duration=CACHE_DURA
         logger.error(traceback.format_exc())
         return None
 
-def get_user_selected_leagues(force_refresh=False):
-    """
-    Get leagues that are actually selected in the user's subscription
-    using a more efficient approach that avoids excessive API calls.
+# Lista de ligas selecionadas pelo usuário
+USER_SELECTED_LEAGUES = [
+    # Ligas da América do Sul
+    "Primera División (Argentina)",
+    "Serie A (Brazil)",
+    "Brasileirão (Brazil)",  # Nome alternativo para Serie A
+    "Serie B (Brazil)",
+    "Copa do Brasil (Brazil)",
+    "Primera División (Uruguay)",
+    "Copa Libertadores (South America)",
+    "Copa Sudamericana (South America)",
     
-    Args:
-        force_refresh (bool): If True, ignores the cache
-        
+    # Ligas Europeias - Top 5
+    "Premier League (England)", 
+    "La Liga (Spain)",
+    "Segunda División (Spain)",
+    "Bundesliga (Germany)",
+    "2. Bundesliga (Germany)",
+    "Serie A (Italy)",
+    "Serie B (Italy)",
+    "Ligue 1 (France)",
+    "Ligue 2 (France)",
+    
+    # Outras Ligas Europeias
+    "Bundesliga (Austria)",
+    "Pro League (Belgium)",
+    "Eredivisie (Netherlands)",
+    "Liga NOS (Portugal)",
+    "Primeira Liga (Portugal)",  # Nome alternativo para Liga NOS
+    
+    # Competições Europeias
+    "Champions League (Europe)",
+    "Europa League (Europe)",
+    
+    # Outras Ligas
+    "Liga MX (Mexico)",
+    
+    # Outras competições inglesas
+    "FA Cup (England)",
+    "EFL League One (England)"
+]
+
+# Mapeamento de nomes alternativos para nomes padrão da API
+LEAGUE_NAME_MAPPING = {
+    "Brasileirão": "Serie A (Brazil)",
+    "Primeira Liga": "Liga NOS (Portugal)",
+    # Adicione outros mapeamentos conforme necessário
+}
+
+def get_user_selected_leagues_direct():
+    """
+    Retorna diretamente as ligas selecionadas pelo usuário,
+    sem precisar testar via API.
+    
     Returns:
-        list: List of league names that are accessible
+        list: Lista de nomes de ligas selecionadas pelo usuário
     """
-    # Check cache first
-    cache_key = "user_selected_leagues"
-    if not force_refresh:
-        cached_data = get_from_cache(cache_key)
-        if cached_data:
-            logger.info(f"Using cached selected leagues: {len(cached_data)} leagues")
-            return cached_data
-    
-    # Use test_api_connection which already has this information
-    api_test = test_api_connection()
-    
-    if api_test["success"] and "available_leagues" in api_test and api_test["available_leagues"]:
-        leagues = api_test["available_leagues"]
-        logger.info(f"Found {len(leagues)} leagues available to user")
-        
-        # Save to cache for future use
-        save_to_cache(leagues, cache_key)
-        return leagues
-    
-    logger.error("Failed to get user-selected leagues")
-    return []
+    # Use conjunto para evitar duplicatas devido aos nomes alternativos
+    unique_leagues = set(USER_SELECTED_LEAGUES)
+    return sorted(list(unique_leagues))
 
 def retrieve_available_leagues(force_refresh=False):
     """
@@ -665,6 +693,21 @@ def fetch_league_teams(league_id):
             
     logger.warning(f"Nenhum time encontrado para liga ID {league_id}")
     return []
+def load_dashboard_leagues():
+    """
+    Carrega as ligas para o dropdown do dashboard,
+    usando diretamente a lista de ligas selecionadas.
+    
+    Returns:
+        list: Lista de nomes de ligas para o dropdown
+    """
+    leagues = get_user_selected_leagues_direct()
+    
+    # Ordenar alfabeticamente
+    leagues.sort()
+    
+    return leagues
+
 def find_league_id_by_name(league_name):
     """
     Enhanced version that finds the league ID even with naming variations
@@ -749,37 +792,26 @@ def find_league_id_by_name(league_name):
     logger.error(f"No league ID found for '{league_name}'")
     return None
 
-def normalize_league_name(league_name):
+def normalize_league_name_for_api(league_name):
     """
-    Normalize league name to match FootyStats API expectations
+    Normaliza o nome da liga para corresponder ao formato esperado pela API.
     
     Args:
-        league_name (str): League name to normalize
+        league_name (str): Nome da liga do dropdown
         
     Returns:
-        str: Normalized league name
+        str: Nome da liga no formato da API
     """
-    # Remove country prefix if it exists (e.g., "Spain La Liga" -> "La Liga")
-    if "(" in league_name:
-        parts = league_name.split("(")
-        name_part = parts[0].strip()
-        country_part = "(" + parts[1] if len(parts) > 1 else ""
+    # Verificar se há um mapeamento direto
+    if league_name in LEAGUE_NAME_MAPPING:
+        return LEAGUE_NAME_MAPPING[league_name]
         
-        # Common name corrections
-        name_corrections = {
-            "Spain La Liga": "La Liga",
-            "England Premier League": "Premier League",
-            "Germany Bundesliga": "Bundesliga",
-            "Italy Serie A": "Serie A",
-            "France Ligue 1": "Ligue 1",
-            "Portugal Primeira Liga": "Primeira Liga"
-        }
+    # Verificar alguns casos especiais
+    if "Brasileirão" in league_name:
+        return "Serie A (Brazil)"
+    if "Primeira Liga" in league_name or "Liga NOS" in league_name:
+        return "Primeira Liga (Portugal)"
         
-        # Apply corrections
-        for original, corrected in name_corrections.items():
-            if name_part.lower() == original.lower():
-                return f"{corrected} {country_part}"
-    
     return league_name
 
 
