@@ -52,6 +52,13 @@ def get_league_selection():
         if selected_league != st.session_state.selected_league:
             st.sidebar.info(f"Mudando de {st.session_state.selected_league} para {selected_league}")
             st.session_state.selected_league = selected_league
+            
+            # Limpar seleções de time anteriores
+            if 'home_team_selector' in st.session_state:
+                del st.session_state.home_team_selector
+            if 'away_team_selector' in st.session_state:
+                del st.session_state.away_team_selector
+                
             # Recarregar a página
             st.experimental_rerun()
         
@@ -64,6 +71,67 @@ def get_league_selection():
         st.error(f"Erro ao carregar ligas: {str(e)}")
         return None
 
+def load_league_teams_direct(selected_league):
+    """
+    Carregar times de uma liga usando a API FootyStats,
+    focando especificamente na temporada atual.
+    
+    Args:
+        selected_league (str): Nome da liga
+        
+    Returns:
+        list: Lista de nomes dos times ou lista vazia se falhar
+    """
+    import traceback
+    
+    status = st.empty()
+    status.info(f"Carregando times para {selected_league}...")
+    
+    try:
+        # Importar nossa nova função especializada em buscar por temporada atual
+        from utils.teams_api import get_teams_for_current_season
+        
+        # Usar a nova função que filtra por temporada atual
+        teams = get_teams_for_current_season(selected_league, force_refresh=False)
+        
+        if teams and len(teams) > 0:
+            # Sucesso!
+            status.success(f"✅ {len(teams)} times carregados para {selected_league}")
+            return teams
+        else:
+            # API não retornou times
+            status.warning(f"Nenhum time encontrado para {selected_league} na temporada atual")
+            
+            # Mostrar diagnóstico
+            with st.expander("Diagnóstico da API FootyStats", expanded=True):
+                st.error(f"Não foi possível carregar times para {selected_league} na temporada atual.")
+                st.info("Tente limpar o cache e atualizar a página.")
+                
+                # Botão para limpar cache e forçar atualização
+                if st.button("Limpar Cache e Buscar Temporada Atual", key="clear_cache_btn"):
+                    try:
+                        # Importar nossa nova função novamente para uso forçado
+                        teams = get_teams_for_current_season(selected_league, force_refresh=True)
+                        if teams and len(teams) > 0:
+                            st.success(f"✅ {len(teams)} times encontrados após forçar atualização!")
+                            status.success(f"✅ {len(teams)} times carregados para {selected_league}")
+                            return teams
+                        else:
+                            st.error("Não foi possível encontrar times mesmo após forçar atualização.")
+                    except Exception as e:
+                        st.error(f"Erro ao forçar atualização: {str(e)}")
+    except Exception as e:
+        status.error(f"Erro ao carregar times: {str(e)}")
+        logger.error(f"Erro ao carregar times: {str(e)}")
+        logger.error(traceback.format_exc())
+        
+        # Mostrar diagnóstico detalhado em caso de erro
+        with st.expander("Detalhes do Erro", expanded=True):
+            st.error(f"Erro ao acessar a API FootyStats: {str(e)}")
+            st.code(traceback.format_exc())
+    
+    # Retornar lista vazia se falhou
+    return []
 def show_league_update_button(selected_league):
     """
     Mostra o botão de atualização para a liga selecionada.
@@ -83,64 +151,6 @@ def show_league_update_button(selected_league):
         except Exception as refresh_error:
             st.sidebar.error(f"Erro ao atualizar: {str(refresh_error)}")
 
-def load_league_teams_direct(selected_league):
-    """
-    Carregar times de uma liga usando a API FootyStats.
-    Sem fallbacks.
-    
-    Args:
-        selected_league (str): Nome da liga
-        
-    Returns:
-        list: Lista de nomes dos times ou lista vazia se falhar
-    """
-    import traceback
-    
-    status = st.empty()
-    status.info(f"Carregando times para {selected_league}...")
-    
-    try:
-        # Buscar times da API
-        from utils.footystats_api import get_team_names_by_league
-        
-        # Usar o nome exato da liga
-        teams = get_team_names_by_league(selected_league, force_refresh=False)
-        
-        if teams and len(teams) > 0:
-            # Sucesso!
-            status.success(f"✅ {len(teams)} times carregados para {selected_league}")
-            return teams
-        else:
-            # API não retornou times
-            status.warning(f"Nenhum time encontrado via API para {selected_league}")
-            
-            # Mostrar diagnóstico
-            with st.expander("Diagnóstico da API FootyStats", expanded=True):
-                st.error(f"Não foi possível carregar times para {selected_league}.")
-                st.info("Tente limpar o cache e atualizar a página.")
-                
-                # Botão para limpar cache
-                if st.button("Limpar Cache e Tentar Novamente", key="clear_cache_btn"):
-                    try:
-                        from utils.footystats_api import clear_league_cache
-                        num_cleared = clear_league_cache(selected_league)
-                        st.success(f"Cache limpo: {num_cleared} arquivos removidos. Recarregando...")
-                        time.sleep(1)
-                        st.experimental_rerun()
-                    except Exception as e:
-                        st.error(f"Erro ao limpar cache: {str(e)}")
-    except Exception as e:
-        status.error(f"Erro ao carregar times: {str(e)}")
-        logger.error(f"Erro ao carregar times: {str(e)}")
-        logger.error(traceback.format_exc())
-        
-        # Mostrar diagnóstico detalhado em caso de erro
-        with st.expander("Detalhes do Erro", expanded=True):
-            st.error(f"Erro ao acessar a API FootyStats: {str(e)}")
-            st.code(traceback.format_exc())
-    
-    # Retornar lista vazia se falhou
-    return []
 
 def clear_cache(league_name=None):
     """
