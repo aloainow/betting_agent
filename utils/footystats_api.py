@@ -1,5 +1,4 @@
 # utils/footystats_api.py - Implementação corrigida para ligas FootyStats
-
 import os
 import json
 import time
