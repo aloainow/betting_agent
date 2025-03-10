@@ -828,7 +828,7 @@ def find_league_id_by_name(league_name):
 
 def get_team_names_by_league(league_name, force_refresh=False):
     """
-    Obter nomes dos times de uma liga
+    Função melhorada para obter nomes dos times com melhor tratamento de erros
     
     Args:
         league_name (str): Nome da liga
@@ -839,55 +839,72 @@ def get_team_names_by_league(league_name, force_refresh=False):
     """
     logger.info(f"Buscando times para liga: {league_name}")
     
+    # Normalizar o nome da liga
+    normalized_name = normalize_league_name_for_api(league_name)
+    logger.info(f"Nome normalizado: {normalized_name}")
+    
     # Verificar cache, a menos que force_refresh seja True
-    cache_key = f"teams_{league_name}"
+    cache_key = f"teams_{normalized_name.replace(' ', '_').replace('(', '').replace(')', '')}"
     if not force_refresh:
         cached_names = get_from_cache(cache_key)
         if cached_names:
-            logger.info(f"Usando times em cache para '{league_name}': {len(cached_names)} times")
+            logger.info(f"Usando times em cache para '{normalized_name}': {len(cached_names)} times")
             return cached_names
     
     # Buscar ID da liga com o mapeamento atualizado
-    league_id = find_league_id_by_name(league_name)
+    league_id = find_league_id_by_name(normalized_name)
     
     if not league_id:
-        # Verificar se existe uma liga similar no teste da API
-        try:
-            api_test = test_api_connection()
-            if api_test["success"] and api_test["available_leagues"]:
-                similar_leagues = []
-                for league in api_test["available_leagues"]:
-                    # Comparar os nomes das ligas ignorando case
-                    league_base_name = league_name.split(" (")[0].lower() if " (" in league_name else league_name.lower()
-                    api_league_base_name = league.split(" (")[0].lower() if " (" in league else league.lower()
-                    
-                    # Verificar se há sobreposição entre os nomes
-                    if league_base_name in api_league_base_name or api_league_base_name in league_base_name:
-                        similar_leagues.append(league)
-                        # Tentar usar o primeiro similar que encontrar
-                        new_id = find_league_id_by_name(league)
-                        if new_id:
-                            logger.info(f"Usando ID de liga similar '{league}': {new_id}")
-                            league_id = new_id
-                            break
+        logger.error(f"Não foi possível encontrar ID para a liga: {normalized_name}")
+        
+        # Fallback para ligas comuns
+        common_mappings = {
+            "Premier League (England)": 1625,
+            "La Liga (Spain)": 1869,
+            "Serie A (Italy)": 1870,
+            "Bundesliga (Germany)": 1871,
+            "Ligue 1 (France)": 1872,
+            "Champions League (Europe)": 1873,
+            "Serie A (Brazil)": 1999,  # ID fictício, verifique o correto
+        }
+        
+        # Verificar se a liga normalizada está no mapeamento comum
+        if normalized_name in common_mappings:
+            league_id = common_mappings[normalized_name]
+            logger.info(f"Usando ID de fallback para {normalized_name}: {league_id}")
+    
+    if not league_id:
+        # Último recurso: tentar uma busca por string na API
+        logger.info(f"Tentando busca direta por nome: {normalized_name}")
+        leagues_data = api_request("league-list", {"key": API_KEY}, use_cache=False)
+        
+        if leagues_data and "data" in leagues_data:
+            for league in leagues_data["data"]:
+                name = league.get("name", "")
+                country = league.get("country", "")
+                full_name = f"{name} ({country})"
                 
-                if similar_leagues:
-                    logger.info(f"Ligas similares encontradas: {similar_leagues}")
-        except Exception as e:
-            logger.error(f"Erro ao buscar ligas similares: {str(e)}")
+                # Comparar ignorando maiúsculas/minúsculas
+                if (normalized_name.lower() == full_name.lower() or 
+                    normalized_name.lower() == name.lower()):
+                    league_id = league.get("id")
+                    if league_id:
+                        logger.info(f"ID encontrado via busca por nome: {league_id}")
+                        break
     
     if not league_id:
-        logger.error(f"Não foi possível encontrar ID para a liga: {league_name}")
+        logger.error(f"Todas as tentativas de encontrar ID para '{normalized_name}' falharam")
         return []
     
     # Buscar times da API
     logger.info(f"Buscando times para liga ID {league_id}")
-    teams_data = fetch_league_teams(league_id)
+    params = {"key": API_KEY, "league_id": league_id}
+    teams_data = api_request("league-teams", params, use_cache=not force_refresh)
     
-    if teams_data and len(teams_data) > 0:
+    if teams_data and "data" in teams_data and isinstance(teams_data["data"], list):
         # Extrair apenas os nomes dos times
         team_names = []
-        for team in teams_data:
+        for team in teams_data["data"]:
             name = team.get("name")
             if name:
                 team_names.append(name)
@@ -895,13 +912,87 @@ def get_team_names_by_league(league_name, force_refresh=False):
         if team_names:
             # Salvar nomes no cache
             save_to_cache(team_names, cache_key)
-            logger.info(f"Times obtidos para '{league_name}': {len(team_names)} times")
+            logger.info(f"Times obtidos para '{normalized_name}': {len(team_names)} times")
             return team_names
+        else:
+            logger.warning(f"Nenhum nome de time encontrado nos dados para liga {normalized_name}")
+    else:
+        # Verificar se há mensagem de erro específica
+        error_msg = teams_data.get("message", "Erro desconhecido") if isinstance(teams_data, dict) else "Resposta inválida"
+        logger.error(f"Erro ao buscar times: {error_msg}")
     
     # Se chegamos aqui, não encontramos times
-    logger.warning(f"Nenhum time encontrado para liga '{league_name}' (ID: {league_id})")
+    logger.warning(f"Nenhum time encontrado para liga '{normalized_name}' (ID: {league_id})")
     return []
 
+def diagnose_api_connection():
+    """
+    Teste detalhado da conexão com a API para diagnóstico
+    
+    Returns:
+        dict: Resultado do diagnóstico
+    """
+    results = {
+        "success": False,
+        "api_key_valid": False,
+        "can_list_leagues": False,
+        "leagues_found": 0,
+        "errors": [],
+        "sample_leagues": []
+    }
+    
+    try:
+        # Teste 1: Verificar se a API key é válida
+        response = requests.get(
+            f"{BASE_URL}/league-list", 
+            params={"key": API_KEY},
+            timeout=10
+        )
+        
+        results["status_code"] = response.status_code
+        
+        if response.status_code == 200:
+            results["api_key_valid"] = True
+            
+            # Teste 2: Verificar se conseguimos listar ligas
+            try:
+                data = response.json()
+                if "data" in data and isinstance(data["data"], list):
+                    results["can_list_leagues"] = True
+                    results["leagues_found"] = len(data["data"])
+                    
+                    # Pegar amostra de ligas para referência
+                    sample = []
+                    for league in data["data"][:5]:  # Primeiras 5 ligas
+                        if "name" in league and "country" in league:
+                            sample.append(f"{league['name']} ({league['country']})")
+                    
+                    results["sample_leagues"] = sample
+                    
+                    # Se encontramos ligas, teste foi bem-sucedido
+                    if results["leagues_found"] > 0:
+                        results["success"] = True
+                else:
+                    results["errors"].append("API retornou formato inesperado")
+            except ValueError:
+                results["errors"].append("API retornou JSON inválido")
+        else:
+            results["errors"].append(f"API retornou código de erro: {response.status_code}")
+            
+            # Tentar extrair mensagem de erro
+            try:
+                error_data = response.json()
+                if "message" in error_data:
+                    results["errors"].append(f"Mensagem de erro: {error_data['message']}")
+            except:
+                results["errors"].append(f"Corpo da resposta: {response.text[:100]}...")
+        
+    except requests.exceptions.RequestException as e:
+        results["errors"].append(f"Erro de conexão: {str(e)}")
+    except Exception as e:
+        results["errors"].append(f"Erro inesperado: {str(e)}")
+    
+    return results
 
 def get_available_leagues(force_refresh=False):
     """
