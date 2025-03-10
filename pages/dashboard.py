@@ -218,36 +218,37 @@ def clear_cache(league_name=None):
 
 def get_available_leagues():
     """
-    Obter ligas disponíveis da API FootyStats usando APENAS as ligas
-    realmente selecionadas na conta do usuário.
+    Obter apenas as ligas que estão realmente disponíveis na conta do usuário.
     
     Returns:
-        list: Lista de nomes de ligas selecionadas ou lista vazia se falhar
+        list: Lista de nomes de ligas disponíveis ou lista vazia se falhar
     """
     try:
-        # Importar a nova função que retorna apenas ligas selecionadas
-        from utils.footystats_api import get_selected_leagues
+        # Import the new function
+        from utils.footystats_api import get_user_selected_leagues
         
-        # Obter ligas selecionadas na conta
-        league_names = get_selected_leagues()
+        # Get only leagues selected in user's account
+        available_leagues = get_user_selected_leagues()
         
-        if league_names:
-            # Ordenar alfabeticamente
-            league_names.sort()
-            
-            logger.info(f"Ligas selecionadas obtidas da API: {len(league_names)}")
-            return league_names
+        if available_leagues:
+            # Sort alphabetically
+            available_leagues.sort()
+            logger.info(f"Available leagues obtained: {len(available_leagues)}")
+            return available_leagues
         else:
-            logger.error("API não retornou ligas selecionadas válidas")
-            # Fallback para evitar que a interface quebre completamente
+            # Fallback: check if API is working at all
+            from utils.footystats_api import test_api_connection
             api_test = test_api_connection()
-            if api_test["success"] and "available_leagues" in api_test:
-                sample_leagues = api_test["available_leagues"][:5]  # Use apenas as primeiras 5 como exemplo
-                if sample_leagues:
-                    logger.info(f"Usando amostra de ligas do teste de API: {len(sample_leagues)}")
-                    return sample_leagues
+            
+            if api_test["success"]:
+                logger.warning("API working but no leagues available - subscription issue")
+                st.warning("Sua API FootyStats está funcionando, mas nenhuma liga foi selecionada. Por favor, selecione ligas no painel do FootyStats.")
+            else:
+                logger.error(f"API connection failed: {api_test.get('error', 'Unknown error')}")
+                st.error(f"Falha na conexão com a API: {api_test.get('error', 'Erro desconhecido')}")
             
             return []
+            
     except Exception as api_error:
         logger.error(f"Erro ao obter ligas da API: {str(api_error)}")
         import traceback
