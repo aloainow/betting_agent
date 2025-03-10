@@ -218,39 +218,41 @@ def clear_cache(league_name=None):
 
 def get_available_leagues():
     """
-    Obter ligas disponíveis da API FootyStats usando os nomes exatos retornados pela API.
-    Sem fallback - retorna lista vazia se a API falhar.
+    Obter ligas disponíveis da API FootyStats usando APENAS as ligas
+    realmente selecionadas na conta do usuário.
     
     Returns:
-        list: Lista de nomes de ligas exatamente como retornados pela API ou lista vazia se falhar
+        list: Lista de nomes de ligas selecionadas ou lista vazia se falhar
     """
     try:
-        # Tentar obter ligas diretamente da API
-        from utils.footystats_api import test_api_connection
+        # Importar a nova função que retorna apenas ligas selecionadas
+        from utils.footystats_api import get_selected_leagues
         
-        # Obter o teste de conexão que já inclui as ligas disponíveis
-        api_test = test_api_connection()
+        # Obter ligas selecionadas na conta
+        league_names = get_selected_leagues()
         
-        if api_test["success"] and api_test["available_leagues"]:
-            # Usar os nomes exatos das ligas como retornados pela API
-            league_names = api_test["available_leagues"]
-            
+        if league_names:
             # Ordenar alfabeticamente
             league_names.sort()
             
-            logger.info(f"Ligas disponíveis obtidas da API: {len(league_names)}")
+            logger.info(f"Ligas selecionadas obtidas da API: {len(league_names)}")
             return league_names
         else:
-            logger.error("API não retornou ligas válidas")
-            if "error" in api_test and api_test["error"]:
-                logger.error(f"Erro da API: {api_test['error']}")
+            logger.error("API não retornou ligas selecionadas válidas")
+            # Fallback para evitar que a interface quebre completamente
+            api_test = test_api_connection()
+            if api_test["success"] and "available_leagues" in api_test:
+                sample_leagues = api_test["available_leagues"][:5]  # Use apenas as primeiras 5 como exemplo
+                if sample_leagues:
+                    logger.info(f"Usando amostra de ligas do teste de API: {len(sample_leagues)}")
+                    return sample_leagues
+            
             return []
     except Exception as api_error:
         logger.error(f"Erro ao obter ligas da API: {str(api_error)}")
         import traceback
         logger.error(traceback.format_exc())
-        return []  # Retorna lista vazia em vez de usar fallback
-# Updated diagnose_api_issues function for dashboard.py
+        return []
 
 def diagnose_api_issues(selected_league):
     """
