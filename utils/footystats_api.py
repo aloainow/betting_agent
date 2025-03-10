@@ -962,7 +962,9 @@ def find_league_id_by_name(league_name):
 
 def get_team_names_by_league(league_name, force_refresh=False):
     """
-    Obter nomes dos times de uma liga usando o endpoint correto do FootyStats
+    Obter nomes dos times de uma liga usando o fluxo correto do FootyStats:
+    1. Buscar lista de ligas para encontrar o season_id correto
+    2. Usar o season_id para buscar os times
     
     Args:
         league_name (str): Nome da liga
@@ -981,84 +983,100 @@ def get_team_names_by_league(league_name, force_refresh=False):
             logger.info(f"Usando times em cache para '{league_name}': {len(cached_names)} times")
             return cached_names
     
-    # Obter ID da liga/temporada
-    league_id = find_league_id_by_name(league_name)
-    
-    if not league_id:
-        logger.error(f"Não foi possível encontrar ID para a liga: {league_name}")
-        return []
-    
-    # Parâmetros exatos conforme a documentação do FootyStats
-    # Note que usamos season_id em vez de league_id conforme a documentação
-    params = {
-        "key": API_KEY,
-        "season_id": league_id,  # Mudou de league_id para season_id
-        "include": "stats"  # Adicionando o parâmetro include=stats conforme a documentação
-    }
-    
-    # Fazer a requisição diretamente
-    url = f"{BASE_URL}/league-teams"
-    
+    # Passo 1: Buscar a lista de ligas para encontrar o season_id
     try:
-        logger.info(f"Fazendo requisição para {url} com season_id={league_id} (conforme documentação)")
-        response = requests.get(url, params=params, timeout=15)
+        logger.info("Buscando lista de ligas para encontrar season_id...")
+        league_list_response = requests.get(
+            f"{BASE_URL}/league-list", 
+            params={"key": API_KEY},
+            timeout=15
+        )
         
-        # Log da resposta
-        logger.info(f"Status da resposta: {response.status_code}")
+        if league_list_response.status_code != 200:
+            logger.error(f"Erro ao buscar lista de ligas: {league_list_response.status_code}")
+            return []
         
-        if response.status_code == 200:
-            try:
-                data = response.json()
+        league_data = league_list_response.json()
+        
+        if "data" not in league_data or not isinstance(league_data["data"], list):
+            logger.error("Formato de resposta inválido na lista de ligas")
+            return []
+        
+        # Procurar a liga por nome
+        season_id = None
+        for league in league_data["data"]:
+            league_full_name = f"{league.get('name', '')} ({league.get('country', '')})"
+            
+            # Comparar nomes ignorando case
+            if league_name.lower() == league_full_name.lower() or league_name.lower() == league.get('name', '').lower():
+                season_id = league.get('id')
+                logger.info(f"Liga encontrada! Nome: {league_full_name}, season_id: {season_id}")
+                break
+        
+        # Se não encontrou correspondência exata, tentar correspondência parcial
+        if not season_id:
+            logger.info("Tentando correspondência parcial...")
+            for league in league_data["data"]:
+                league_api_name = league.get('name', '').lower()
+                league_name_lower = league_name.lower()
                 
-                # Log do conteúdo para debug
-                logger.info(f"Tipo de resposta: {type(data)}")
-                if isinstance(data, dict):
-                    logger.info(f"Chaves na resposta: {list(data.keys())}")
-                
-                # Verificar se temos dados válidos
-                if "data" in data and isinstance(data["data"], list):
-                    teams_data = data["data"]
-                    logger.info(f"Encontrados {len(teams_data)} times no JSON")
-                    
-                    # Extrair apenas os nomes dos times
-                    team_names = []
-                    for team in teams_data:
-                        if isinstance(team, dict) and "name" in team:
-                            team_names.append(team["name"])
-                    
-                    if team_names:
-                        logger.info(f"Nomes de times extraídos: {len(team_names)}")
-                        logger.info(f"Primeiros 5 times: {team_names[:5]}")
-                        
-                        # Salvar no cache
-                        save_to_cache(team_names, cache_key)
-                        return team_names
-                    else:
-                        logger.warning("Nenhum nome de time extraído dos dados")
+                # Remover partes entre parênteses para comparação
+                if '(' in league_name_lower:
+                    league_name_base = league_name_lower.split('(')[0].strip()
                 else:
-                    logger.warning(f"Formato de resposta inesperado. Chaves: {list(data.keys()) if isinstance(data, dict) else 'Não é um dicionário'}")
-                    
-                    # Verificar se há mensagem de erro na resposta
-                    if isinstance(data, dict) and "message" in data:
-                        logger.error(f"Mensagem de erro da API: {data['message']}")
-            except ValueError as json_error:
-                logger.error(f"Erro ao processar JSON: {str(json_error)}")
-                logger.error(f"Primeiros 500 caracteres da resposta: {response.text[:500]}")
-        else:
-            logger.error(f"Código de status HTTP inesperado: {response.status_code}")
-            try:
-                error_data = response.json()
-                if "message" in error_data:
-                    logger.error(f"Mensagem de erro: {error_data['message']}")
-            except:
-                logger.error(f"Corpo da resposta: {response.text[:500]}")
-    
-    except requests.exceptions.RequestException as req_error:
-        logger.error(f"Erro na requisição HTTP: {str(req_error)}")
+                    league_name_base = league_name_lower
+                
+                if league_name_base in league_api_name or league_api_name in league_name_base:
+                    season_id = league.get('id')
+                    league_full_name = f"{league.get('name', '')} ({league.get('country', '')})"
+                    logger.info(f"Correspondência parcial! Nome: {league_full_name}, season_id: {season_id}")
+                    break
+        
+        if not season_id:
+            logger.error(f"Não foi possível encontrar season_id para: {league_name}")
+            return []
+        
+        # Passo 2: Buscar os times usando o season_id encontrado
+        logger.info(f"Buscando times com season_id: {season_id}")
+        params = {
+            "key": API_KEY,
+            "season_id": season_id,
+            "include": "stats"
+        }
+        
+        teams_response = requests.get(f"{BASE_URL}/league-teams", params=params, timeout=15)
+        
+        if teams_response.status_code != 200:
+            logger.error(f"Erro ao buscar times: {teams_response.status_code}")
+            return []
+        
+        teams_data = teams_response.json()
+        
+        if "data" not in teams_data or not isinstance(teams_data["data"], list):
+            logger.error("Formato de resposta inválido na lista de times")
+            return []
+        
+        # Extrair nomes dos times
+        team_names = []
+        for team in teams_data["data"]:
+            if isinstance(team, dict) and "name" in team:
+                team_names.append(team["name"])
+        
+        if not team_names:
+            logger.warning("Nenhum time encontrado para a liga")
+            return []
+        
+        # Salvar no cache
+        save_to_cache(team_names, cache_key)
+        logger.info(f"Encontrados {len(team_names)} times para {league_name}")
+        
+        return team_names
+        
     except Exception as e:
-        logger.error(f"Erro inesperado: {str(e)}")
+        logger.error(f"Erro ao buscar times: {str(e)}")
         import traceback
         logger.error(traceback.format_exc())
+        return []
     
     # Se chegamos aqui, algo deu errado
     return []
