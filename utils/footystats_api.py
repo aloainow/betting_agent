@@ -435,7 +435,9 @@ def api_request(endpoint, params=None, use_cache=True, cache_duration=CACHE_DURA
         logger.error(traceback.format_exc())
         return None
 
-# Lista de ligas selecionadas pelo usuário - ADICIONE ISTO AO SEU ARQUIVO EXISTENTE
+# Adicione este código ao seu arquivo utils/footystats_api.py:
+
+# Lista de ligas selecionadas pelo usuário
 USER_SELECTED_LEAGUES = [
     # Ligas da América do Sul
     "Primera División (Argentina)",
@@ -477,6 +479,22 @@ USER_SELECTED_LEAGUES = [
     "EFL League One (England)"
 ]
 
+# Mapeamento de nomes alternativos para nomes padrão da API
+LEAGUE_NAME_MAPPING = {
+    "Brasileirão": "Serie A (Brazil)",
+    "Primeira Liga": "Liga NOS (Portugal)",
+    "Premier League": "Premier League (England)",
+    "La Liga": "La Liga (Spain)",
+    "Bundesliga": "Bundesliga (Germany)",
+    "Serie A": "Serie A (Italy)",
+    "Ligue 1": "Ligue 1 (France)",
+    "Champions League": "Champions League (Europe)",
+    "Europa League": "Europa League (Europe)",
+    "Eredivisie": "Eredivisie (Netherlands)",
+    "Liga MX": "Liga MX (Mexico)"
+}
+
+# Se você já tem essa função, não precisa adicionar novamente
 def get_user_selected_leagues_direct():
     """
     Retorna diretamente as ligas selecionadas pelo usuário,
@@ -488,6 +506,29 @@ def get_user_selected_leagues_direct():
     # Remove duplicatas e ordena
     unique_leagues = set(USER_SELECTED_LEAGUES)
     return sorted(list(unique_leagues))
+
+# Se você já tem essa função, não precisa adicionar novamente
+def normalize_league_name_for_api(league_name):
+    """
+    Normaliza o nome da liga para corresponder ao formato esperado pela API.
+    
+    Args:
+        league_name (str): Nome da liga do dropdown
+        
+    Returns:
+        str: Nome da liga no formato da API
+    """
+    # Verificar se há um mapeamento direto
+    if league_name in LEAGUE_NAME_MAPPING:
+        return LEAGUE_NAME_MAPPING[league_name]
+        
+    # Verificar alguns casos especiais
+    if "Brasileirão" in league_name:
+        return "Serie A (Brazil)"
+    if "Primeira Liga" in league_name or "Liga NOS" in league_name:
+        return "Primeira Liga (Portugal)"
+        
+    return league_name
 
 def retrieve_available_leagues(force_refresh=False):
     """
@@ -784,29 +825,6 @@ def find_league_id_by_name(league_name):
     
     logger.error(f"No league ID found for '{league_name}'")
     return None
-
-def normalize_league_name_for_api(league_name):
-    """
-    Normaliza o nome da liga para corresponder ao formato esperado pela API.
-    
-    Args:
-        league_name (str): Nome da liga do dropdown
-        
-    Returns:
-        str: Nome da liga no formato da API
-    """
-    # Verificar se há um mapeamento direto
-    if league_name in LEAGUE_NAME_MAPPING:
-        return LEAGUE_NAME_MAPPING[league_name]
-        
-    # Verificar alguns casos especiais
-    if "Brasileirão" in league_name:
-        return "Serie A (Brazil)"
-    if "Primeira Liga" in league_name or "Liga NOS" in league_name:
-        return "Primeira Liga (Portugal)"
-        
-    return league_name
-
 
 def get_team_names_by_league(league_name, force_refresh=False):
     """
