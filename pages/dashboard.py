@@ -104,20 +104,20 @@ def load_league_teams_direct(selected_league):
                     except Exception as e:
                         st.error(f"Erro ao limpar cache: {str(e)}")
         
-        # Não encontrou times
-        return []
-            
-    except Exception as e:
-        status.error(f"Erro ao carregar times: {str(e)}")
-        logger.error(f"Erro ao carregar times: {str(e)}")
-        logger.error(traceback.format_exc())
-        
-        # Mostrar detalhes do erro
-        with st.expander("Detalhes do Erro", expanded=True):
-            st.error(f"Erro ao acessar a API FootyStats: {str(e)}")
-            st.code(traceback.format_exc())
-        
-        return []
+                    # Não encontrou times
+                    return []
+                        
+                except Exception as e:
+                    status.error(f"Erro ao carregar times: {str(e)}")
+                    logger.error(f"Erro ao carregar times: {str(e)}")
+                    logger.error(traceback.format_exc())
+                    
+                    # Mostrar detalhes do erro
+                    with st.expander("Detalhes do Erro", expanded=True):
+                        st.error(f"Erro ao acessar a API FootyStats: {str(e)}")
+                        st.code(traceback.format_exc())
+                    
+                    return []
 def clear_cache(league_name=None):
     """
     Limpa o cache de times e dados da liga especificada ou de todas as ligas
