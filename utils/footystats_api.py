@@ -154,14 +154,14 @@ def get_league_id_mapping(force_refresh=False):
 
 def test_api_connection():
     """
-    Testa a conexão com a API e diagnóstica problemas.
-    Não usa chave de exemplo para testes.
+    Enhanced test to directly check your API key and available leagues.
+    Returns ONLY leagues that are actually in your subscription.
     
     Returns:
-        dict: Resultado do teste com informações detalhadas
+        dict: Test result with detailed information
     """
     try:
-        logger.info("Testando conexão com a API FootyStats...")
+        logger.info("Testing FootyStats API connection...")
         result = {
             "success": False,
             "details": [],
@@ -169,68 +169,139 @@ def test_api_connection():
             "error": None
         }
         
-        # Tentar obter ligas disponíveis com sua chave real
-        logger.info("Verificando ligas disponíveis para sua chave")
+        # First test: Check if the API key is valid
+        logger.info("Testing API key validation...")
+        
         try:
-            params = {"key": API_KEY}
-            response = requests.get(f"{BASE_URL}/league-list", params=params, timeout=10)
+            # Make a basic request to check API access
+            response = requests.get(
+                f"{BASE_URL}/league-list", 
+                params={"key": API_KEY},
+                timeout=10
+            )
             
             if response.status_code == 200:
+                result["details"].append("✓ API key is valid")
+                
+                # Parse the league list
                 try:
                     data = response.json()
-                    if data and "data" in data and len(data["data"]) > 0:
-                        leagues = data["data"]
-                        result["success"] = True
-                        result["details"].append(f"✓ Sua conta tem acesso a {len(leagues)} ligas")
-                        
-                        # Armazenar nomes das ligas disponíveis
-                        available_leagues = []
-                        for league in leagues:
-                            name = league.get("name", "")
-                            country = league.get("country", "")
-                            if name:
-                                formatted_name = f"{name} ({country})" if country else name
-                                available_leagues.append(formatted_name)
+                    all_leagues = data.get("data", [])
+                    result["details"].append(f"✓ API returned information about {len(all_leagues)} total leagues")
+                    
+                    # Now, for each league, test if you have ACTUAL access by trying to get teams
+                    logger.info("Testing which leagues you have actual access to...")
+                    
+                    # To avoid making too many API calls, we'll test the first few leagues,
+                    # then use a more efficient approach for the rest
+                    available_leagues = []
+                    
+                    # Method 1: Test specific common leagues that people often subscribe to
+                    common_leagues = [
+                        "Premier League", "La Liga", "Bundesliga", "Serie A", "Ligue 1",
+                        "Champions League", "Brasileirão", "MLS", "Primeira Liga", "Eredivisie"
+                    ]
+                    
+                    # For each common league, find its ID and test access
+                    for league_name in common_leagues:
+                        for league in all_leagues:
+                            if league_name.lower() in league.get("name", "").lower():
+                                league_id = league.get("id")
+                                if league_id:
+                                    # Test if you can access this league's teams
+                                    team_response = requests.get(
+                                        f"{BASE_URL}/league-teams",
+                                        params={"key": API_KEY, "league_id": league_id},
+                                        timeout=10
+                                    )
+                                    
+                                    if team_response.status_code == 200:
+                                        try:
+                                            team_data = team_response.json()
+                                            if "data" in team_data and len(team_data["data"]) > 0:
+                                                # This league is accessible!
+                                                country = league.get("country", "")
+                                                full_name = f"{league.get('name')} ({country})" if country else league.get('name', "")
+                                                available_leagues.append(full_name)
+                                                logger.info(f"Found accessible league: {full_name}")
+                                        except:
+                                            pass
+                    
+                    # Method 2: For the remaining leagues, use the response message to determine access
+                    if len(available_leagues) < 5:  # If we found very few leagues, try harder
+                        logger.info("Found few leagues, testing more comprehensively...")
+                        for league in all_leagues:
+                            league_id = league.get("id")
+                            if league_id:
+                                country = league.get("country", "")
+                                full_name = f"{league.get('name')} ({country})" if country else league.get('name', "")
                                 
-                        result["available_leagues"] = available_leagues
-                        if available_leagues:
-                            result["details"].append(f"✓ Ligas disponíveis: {', '.join(available_leagues[:5])}{'...' if len(available_leagues) > 5 else ''}")
-                        
-                        # Verificar se Brasileirão está na lista
-                        has_brasileirao = any("brasileir" in league.lower() or 
-                                             ("serie a" in league.lower() and "brazil" in league.lower()) 
-                                             for league in available_leagues)
-                        if has_brasileirao:
-                            result["details"].append("✓ Brasileirão está disponível na sua conta")
-                        else:
-                            result["details"].append("✗ Brasileirão NÃO está disponível na sua conta")
-                            
-                    else:
-                        result["details"].append("✗ Nenhuma liga disponível para sua conta")
-                        result["error"] = "Sua conta não tem acesso a nenhuma liga. Verifique sua assinatura."
-                except json.JSONDecodeError:
-                    result["details"].append("✗ API retornou resposta inválida ao verificar ligas")
+                                # Skip leagues we already tested
+                                if full_name in available_leagues:
+                                    continue
+                                
+                                # Test if you can access this league's teams
+                                team_response = requests.get(
+                                    f"{BASE_URL}/league-teams", 
+                                    params={"key": API_KEY, "league_id": league_id},
+                                    timeout=10
+                                )
+                                
+                                if team_response.status_code == 200:
+                                    try:
+                                        team_data = team_response.json()
+                                        if "data" in team_data and len(team_data["data"]) > 0:
+                                            # This league is accessible!
+                                            available_leagues.append(full_name)
+                                            logger.info(f"Found accessible league: {full_name}")
+                                            
+                                            # Limit how many leagues we test to avoid overloading the API
+                                            if len(available_leagues) >= 30:
+                                                logger.info("Found enough leagues, stopping search...")
+                                                break
+                                    except:
+                                        pass
+                    
+                    # Update result
+                    result["available_leagues"] = available_leagues
+                    result["success"] = len(available_leagues) > 0
+                    result["details"].append(f"✓ Found {len(available_leagues)} leagues in your subscription")
+                    
+                    if len(available_leagues) == 0:
+                        result["error"] = "No leagues found in your subscription. Please select leagues in your FootyStats account."
+                        result["details"].append("✗ No leagues are selected in your FootyStats account")
+                    
+                except Exception as e:
+                    result["details"].append(f"✗ Error parsing API response: {str(e)}")
+                    result["error"] = f"API returned invalid data: {str(e)}"
             else:
-                result["details"].append(f"✗ API retornou código {response.status_code} ao verificar ligas")
+                result["details"].append(f"✗ API returned error code {response.status_code}")
                 if response.status_code == 401:
-                    result["error"] = "Chave de API inválida ou expirada"
+                    result["error"] = "Invalid API key"
                 else:
-                    result["error"] = f"Erro ao acessar API: código {response.status_code}"
-        except Exception as e:
-            result["details"].append(f"✗ Erro ao verificar ligas: {str(e)}")
-            result["error"] = f"Erro de conexão: {str(e)}"
+                    result["error"] = f"API error: {response.status_code}"
+                    try:
+                        error_json = response.json()
+                        if "message" in error_json:
+                            result["error"] = error_json["message"]
+                    except:
+                        pass
+                    
+        except requests.exceptions.RequestException as e:
+            result["details"].append(f"✗ Connection error: {str(e)}")
+            result["error"] = f"Connection error: {str(e)}"
         
+        logger.info(f"API test complete: success={result['success']}, leagues={len(result['available_leagues'])}")
         return result
         
     except Exception as e:
-        logger.error(f"✗ Erro ao testar conexão com API: {str(e)}")
+        logger.error(f"Critical error in API test: {str(e)}")
         return {
             "success": False,
-            "details": [f"✗ Erro global no teste: {str(e)}"],
+            "details": [f"✗ Critical error: {str(e)}"],
             "available_leagues": [],
             "error": str(e)
         }
-
 def clear_all_cache():
     """Limpar todo o cache da API"""
     try:
