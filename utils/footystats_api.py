@@ -692,28 +692,29 @@ def fetch_league_teams(league_id):
     Sem fallbacks ou dados de exemplo.
     
     Args:
-        league_id (int): ID da liga
+        league_id (int): ID da liga/temporada
         
     Returns:
         list: Lista de times ou lista vazia em caso de erro
     """
-    # Parâmetros conforme documentação
+    # Parâmetros conforme documentação atualizada
     params = {
         "key": API_KEY,
-        "league_id": league_id
+        "season_id": league_id,  # Mudado de league_id para season_id
+        "include": "stats"  # Adicionado conforme documentação
     }
     
     # Endpoint correto conforme documentação
     endpoint = "league-teams"
     
-    logger.info(f"Buscando times para liga ID {league_id}")
+    logger.info(f"Buscando times para temporada/liga ID {league_id}")
     
     # Fazer a requisição
     data = api_request(endpoint, params)
     
     if data and isinstance(data, dict) and "data" in data:
         teams = data["data"]
-        logger.info(f"Encontrados {len(teams)} times para liga ID {league_id}")
+        logger.info(f"Encontrados {len(teams)} times para temporada/liga ID {league_id}")
         return teams
     
     # Se não encontramos times, verificar o erro
@@ -721,11 +722,7 @@ def fetch_league_teams(league_id):
         error_msg = data.get("message", "")
         logger.warning(f"Erro ao buscar times: {error_msg}")
         
-        # Verificar por mensagem específica de liga não selecionada
-        if "League is not chosen by the user" in error_msg:
-            logger.error(f"A liga (ID {league_id}) não está selecionada na sua conta FootyStats")
-            
-    logger.warning(f"Nenhum time encontrado para liga ID {league_id}")
+    logger.warning(f"Nenhum time encontrado para temporada/liga ID {league_id}")
     return []
 def load_dashboard_leagues():
     """
@@ -828,7 +825,7 @@ def find_league_id_by_name(league_name):
 
 def get_team_names_by_league(league_name, force_refresh=False):
     """
-    Função melhorada para obter nomes dos times com melhor tratamento de erros
+    Obter nomes dos times de uma liga usando o endpoint correto do FootyStats
     
     Args:
         league_name (str): Nome da liga
@@ -839,92 +836,95 @@ def get_team_names_by_league(league_name, force_refresh=False):
     """
     logger.info(f"Buscando times para liga: {league_name}")
     
-    # Normalizar o nome da liga
-    normalized_name = normalize_league_name_for_api(league_name)
-    logger.info(f"Nome normalizado: {normalized_name}")
-    
     # Verificar cache, a menos que force_refresh seja True
-    cache_key = f"teams_{normalized_name.replace(' ', '_').replace('(', '').replace(')', '')}"
+    cache_key = f"teams_{league_name.replace(' ', '_').replace('(', '').replace(')', '')}"
     if not force_refresh:
         cached_names = get_from_cache(cache_key)
         if cached_names:
-            logger.info(f"Usando times em cache para '{normalized_name}': {len(cached_names)} times")
+            logger.info(f"Usando times em cache para '{league_name}': {len(cached_names)} times")
             return cached_names
     
-    # Buscar ID da liga com o mapeamento atualizado
-    league_id = find_league_id_by_name(normalized_name)
+    # Obter ID da liga/temporada
+    league_id = find_league_id_by_name(league_name)
     
     if not league_id:
-        logger.error(f"Não foi possível encontrar ID para a liga: {normalized_name}")
-        
-        # Fallback para ligas comuns
-        common_mappings = {
-            "Premier League (England)": 1625,
-            "La Liga (Spain)": 1869,
-            "Serie A (Italy)": 1870,
-            "Bundesliga (Germany)": 1871,
-            "Ligue 1 (France)": 1872,
-            "Champions League (Europe)": 1873,
-            "Serie A (Brazil)": 1999,  # ID fictício, verifique o correto
-        }
-        
-        # Verificar se a liga normalizada está no mapeamento comum
-        if normalized_name in common_mappings:
-            league_id = common_mappings[normalized_name]
-            logger.info(f"Usando ID de fallback para {normalized_name}: {league_id}")
-    
-    if not league_id:
-        # Último recurso: tentar uma busca por string na API
-        logger.info(f"Tentando busca direta por nome: {normalized_name}")
-        leagues_data = api_request("league-list", {"key": API_KEY}, use_cache=False)
-        
-        if leagues_data and "data" in leagues_data:
-            for league in leagues_data["data"]:
-                name = league.get("name", "")
-                country = league.get("country", "")
-                full_name = f"{name} ({country})"
-                
-                # Comparar ignorando maiúsculas/minúsculas
-                if (normalized_name.lower() == full_name.lower() or 
-                    normalized_name.lower() == name.lower()):
-                    league_id = league.get("id")
-                    if league_id:
-                        logger.info(f"ID encontrado via busca por nome: {league_id}")
-                        break
-    
-    if not league_id:
-        logger.error(f"Todas as tentativas de encontrar ID para '{normalized_name}' falharam")
+        logger.error(f"Não foi possível encontrar ID para a liga: {league_name}")
         return []
     
-    # Buscar times da API
-    logger.info(f"Buscando times para liga ID {league_id}")
-    params = {"key": API_KEY, "league_id": league_id}
-    teams_data = api_request("league-teams", params, use_cache=not force_refresh)
+    # Parâmetros exatos conforme a documentação do FootyStats
+    # Note que usamos season_id em vez de league_id conforme a documentação
+    params = {
+        "key": API_KEY,
+        "season_id": league_id,  # Mudou de league_id para season_id
+        "include": "stats"  # Adicionando o parâmetro include=stats conforme a documentação
+    }
     
-    if teams_data and "data" in teams_data and isinstance(teams_data["data"], list):
-        # Extrair apenas os nomes dos times
-        team_names = []
-        for team in teams_data["data"]:
-            name = team.get("name")
-            if name:
-                team_names.append(name)
+    # Fazer a requisição diretamente
+    url = f"{BASE_URL}/league-teams"
+    
+    try:
+        logger.info(f"Fazendo requisição para {url} com season_id={league_id} (conforme documentação)")
+        response = requests.get(url, params=params, timeout=15)
         
-        if team_names:
-            # Salvar nomes no cache
-            save_to_cache(team_names, cache_key)
-            logger.info(f"Times obtidos para '{normalized_name}': {len(team_names)} times")
-            return team_names
+        # Log da resposta
+        logger.info(f"Status da resposta: {response.status_code}")
+        
+        if response.status_code == 200:
+            try:
+                data = response.json()
+                
+                # Log do conteúdo para debug
+                logger.info(f"Tipo de resposta: {type(data)}")
+                if isinstance(data, dict):
+                    logger.info(f"Chaves na resposta: {list(data.keys())}")
+                
+                # Verificar se temos dados válidos
+                if "data" in data and isinstance(data["data"], list):
+                    teams_data = data["data"]
+                    logger.info(f"Encontrados {len(teams_data)} times no JSON")
+                    
+                    # Extrair apenas os nomes dos times
+                    team_names = []
+                    for team in teams_data:
+                        if isinstance(team, dict) and "name" in team:
+                            team_names.append(team["name"])
+                    
+                    if team_names:
+                        logger.info(f"Nomes de times extraídos: {len(team_names)}")
+                        logger.info(f"Primeiros 5 times: {team_names[:5]}")
+                        
+                        # Salvar no cache
+                        save_to_cache(team_names, cache_key)
+                        return team_names
+                    else:
+                        logger.warning("Nenhum nome de time extraído dos dados")
+                else:
+                    logger.warning(f"Formato de resposta inesperado. Chaves: {list(data.keys()) if isinstance(data, dict) else 'Não é um dicionário'}")
+                    
+                    # Verificar se há mensagem de erro na resposta
+                    if isinstance(data, dict) and "message" in data:
+                        logger.error(f"Mensagem de erro da API: {data['message']}")
+            except ValueError as json_error:
+                logger.error(f"Erro ao processar JSON: {str(json_error)}")
+                logger.error(f"Primeiros 500 caracteres da resposta: {response.text[:500]}")
         else:
-            logger.warning(f"Nenhum nome de time encontrado nos dados para liga {normalized_name}")
-    else:
-        # Verificar se há mensagem de erro específica
-        error_msg = teams_data.get("message", "Erro desconhecido") if isinstance(teams_data, dict) else "Resposta inválida"
-        logger.error(f"Erro ao buscar times: {error_msg}")
+            logger.error(f"Código de status HTTP inesperado: {response.status_code}")
+            try:
+                error_data = response.json()
+                if "message" in error_data:
+                    logger.error(f"Mensagem de erro: {error_data['message']}")
+            except:
+                logger.error(f"Corpo da resposta: {response.text[:500]}")
     
-    # Se chegamos aqui, não encontramos times
-    logger.warning(f"Nenhum time encontrado para liga '{normalized_name}' (ID: {league_id})")
+    except requests.exceptions.RequestException as req_error:
+        logger.error(f"Erro na requisição HTTP: {str(req_error)}")
+    except Exception as e:
+        logger.error(f"Erro inesperado: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+    
+    # Se chegamos aqui, algo deu errado
     return []
-
 def diagnose_api_connection():
     """
     Teste detalhado da conexão com a API para diagnóstico
