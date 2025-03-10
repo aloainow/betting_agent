@@ -365,6 +365,39 @@ def api_request(endpoint, params=None, use_cache=True, cache_duration=CACHE_DURA
         logger.error(traceback.format_exc())
         return None
 
+def get_user_selected_leagues(force_refresh=False):
+    """
+    Get leagues that are actually selected in the user's subscription
+    using a more efficient approach that avoids excessive API calls.
+    
+    Args:
+        force_refresh (bool): If True, ignores the cache
+        
+    Returns:
+        list: List of league names that are accessible
+    """
+    # Check cache first
+    cache_key = "user_selected_leagues"
+    if not force_refresh:
+        cached_data = get_from_cache(cache_key)
+        if cached_data:
+            logger.info(f"Using cached selected leagues: {len(cached_data)} leagues")
+            return cached_data
+    
+    # Use test_api_connection which already has this information
+    api_test = test_api_connection()
+    
+    if api_test["success"] and "available_leagues" in api_test and api_test["available_leagues"]:
+        leagues = api_test["available_leagues"]
+        logger.info(f"Found {len(leagues)} leagues available to user")
+        
+        # Save to cache for future use
+        save_to_cache(leagues, cache_key)
+        return leagues
+    
+    logger.error("Failed to get user-selected leagues")
+    return []
+
 def retrieve_available_leagues(force_refresh=False):
     """
     Buscar todas as ligas disponíveis para o usuário na API
