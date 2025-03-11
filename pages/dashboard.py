@@ -7,7 +7,7 @@ import os
 import time
 from utils.core import show_valuehunter_logo, go_to_login, update_purchase_button, DATA_DIR
 from utils.data import parse_team_stats, get_odds_data, format_prompt
-from utils.ai import analyze_with_gpt
+from utils.ai import analyze_with_gpt, format_enhanced_prompt
 
 # Configuração de logging
 logger = logging.getLogger("valueHunter.dashboard")
@@ -99,8 +99,6 @@ def get_league_selection():
         logger.error(traceback.format_exc())
         st.error(f"Erro ao carregar ligas: {str(e)}")
         return None
-# Mapeamento direto das ligas para seus IDs corretos
-# Adicione este bloco no início da função load_league_teams_direct ou antes dela no arquivo dashboard.py
 
 # Mapeamento direto das ligas para seus IDs corretos
 LEAGUE_SEASON_IDS = {
@@ -304,6 +302,7 @@ def load_league_teams_direct(selected_league):
             st.code(error_traceback)
         
         return []
+
 def show_league_update_button(selected_league):
     """
     Mostra o botão de atualização para a liga selecionada.
@@ -322,7 +321,6 @@ def show_league_update_button(selected_league):
             st.experimental_rerun()
         except Exception as refresh_error:
             st.sidebar.error(f"Erro ao atualizar: {str(refresh_error)}")
-
 
 def clear_cache(league_name=None):
     """
@@ -405,14 +403,13 @@ def clear_cache(league_name=None):
 
 def diagnose_api_issues(selected_league):
     """
-    Diagnóstico detalhado de problemas na API para uma liga específica.
-    Sem qualquer uso de exemplos ou fallbacks.
+    Diagnostica problemas de acesso a uma liga específica
     
     Args:
         selected_league (str): Nome da liga
         
     Returns:
-        str: Mensagem de diagnóstico formatada em Markdown
+        dict: Resultado do diagnóstico
     """
     try:
         from utils.footystats_api import find_league_id_by_name, test_api_connection, clear_league_cache
@@ -420,7 +417,7 @@ def diagnose_api_issues(selected_league):
         # Teste de conexão com a API
         api_test = test_api_connection()
         
-        # Verificar se a liga existe na lista de ligas disponíveis
+        # Verificar se a liga está no mapeamento
         league_exists = False
         similar_leagues = []
         league_id = find_league_id_by_name(selected_league)
@@ -514,6 +511,7 @@ def diagnose_api_issues(selected_league):
         - Tente reiniciar o aplicativo
         """
 
+# FUNÇÃO ATUALIZADA - PRINCIPAL MELHORIA
 def fetch_stats_data(selected_league, home_team=None, away_team=None):
     """
     Busca estatísticas das equipes com abordagem sequencial completa
@@ -837,9 +835,16 @@ def show_main_dashboard():
             display: none !important;
         }
         
-        /* Seletores mais específicos para navegação */
+        /* Seletores para itens de navegação, não para a barra inteira */
         ul.st-emotion-cache-pbk8do,
         div.st-emotion-cache-16idsys {
+            display: none !important;
+        }
+        
+        /* Adicionais seletores para navegação */
+        [data-testid="collapsedControl"],
+        #MainMenu,
+        footer {
             display: none !important;
         }
         
@@ -908,7 +913,26 @@ def show_main_dashboard():
             if not teams or len(teams) == 0:
                 st.warning("Não foi possível carregar os times para este campeonato.")
                 st.info("Por favor, recarregue a página e tente novamente.")
+                
+                # Botão para limpar cache
+                if st.button("🔄 Limpar Cache e Tentar Novamente", key="clear_cache_btn"):
+                    from utils.footystats_api import clear_league_cache
+                    num_cleared = clear_league_cache(selected_league)
+                    st.success(f"Cleared {num_cleared} cache files for {selected_league}")
+                    st.experimental_rerun()
+                
                 return
+            
+            # Mostrar lista de times disponíveis
+            with st.expander("Times Disponíveis Nesta Liga", expanded=False):
+                st.write("Estes são os times disponíveis para análise:")
+                
+                # Criar layout de colunas para os times
+                cols = st.columns(3)
+                for i, team in enumerate(sorted(teams)):
+                    cols[i % 3].write(f"- {team}")
+                    
+                st.info("Use os nomes exatos acima para selecionar os times.")
             
             # Usando o seletor nativo do Streamlit
             col1, col2 = st.columns(2)
@@ -979,6 +1003,10 @@ def show_main_dashboard():
                 # Botão em largura total para melhor design
                 analyze_button = st.button("Analisar Partida", type="primary", use_container_width=True)
                 
+                # Modo de depuração para desenvolvedores
+                if st.checkbox("Modo de depuração", value=False, key="debug_mode"):
+                    st.info("Modo de depuração ativado. Execute a análise para ver informações detalhadas.")
+                
                 if analyze_button:
                     if not any(selected_markets.values()):
                         st.error("Por favor, selecione pelo menos um mercado para análise.")
@@ -1002,7 +1030,12 @@ def show_main_dashboard():
                     if team_stats_df is None:
                         status.error("Falha ao carregar estatísticas. Tente novamente.")
                         return
-                        
+                    
+                    # Modo de depuração - mostrar dados brutos
+                    if st.session_state.debug_mode:
+                        with st.expander("Dados brutos coletados da API", expanded=False):
+                            st.json(stats_data)
+                    
                     # Executar análise com tratamento de erro para cada etapa
                     try:
                         # Etapa 1: Verificar dados
@@ -1010,22 +1043,41 @@ def show_main_dashboard():
                         if team_stats_df is None:
                             status.error("Falha ao carregar dados")
                             return
+                        
+                        # Etapa 2: Adaptar os dados para o formato esperado pelo prompt
+                        from utils.prompt_adapter import adapt_api_data_for_prompt
+                        
+                        # Adaptar dados da API para o formato do prompt
+                        adapted_data = adapt_api_data_for_prompt(stats_data)
+                        if not adapted_data:
+                            status.error("Falha ao adaptar dados para análise")
+                            return
+                        
+                        # Modo de depuração - mostrar dados adaptados
+                        if st.session_state.debug_mode:
+                            with st.expander("Dados adaptados para o prompt", expanded=False):
+                                st.json(adapted_data)
                             
-                        # Etapa 2: Formatar prompt
+                        # Etapa 3: Formatar prompt usando os dados adaptados
                         status.info("Preparando análise...")
-                        prompt = format_prompt(team_stats_df, home_team, away_team, odds_data, selected_markets)
+                        prompt = format_enhanced_prompt(adapted_data, home_team, away_team, odds_data, selected_markets)
                         if not prompt:
                             status.error("Falha ao preparar análise")
                             return
+                        
+                        # Modo de depuração - mostrar prompt
+                        if st.session_state.debug_mode:
+                            with st.expander("Preview do prompt", expanded=False):
+                                st.text(prompt)
                             
-                        # Etapa 3: Análise GPT
+                        # Etapa 4: Análise GPT
                         status.info("Realizando análise com IA...")
                         analysis = analyze_with_gpt(prompt)
                         if not analysis:
                             status.error("Falha na análise com IA")
                             return
                         
-                       # Etapa 4: Mostrar resultado
+                       # Etapa 5: Mostrar resultado
                         if analysis:
                             # Limpar status
                             status.empty()
