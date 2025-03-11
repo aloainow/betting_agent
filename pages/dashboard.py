@@ -531,7 +531,7 @@ def fetch_stats_data(selected_league, home_team=None, away_team=None):
                 # Abordagem integrada usando a nova API client
                 try:
                     from utils.enhanced_api_client import get_complete_match_analysis, convert_to_dataframe_format
-                    from utils.league_ids import get_season_id  # Para obter o season_id correto
+                    from utils.leagues_ids import get_season_id  # Para obter o season_id correto
                     from utils.footystats_api import LEAGUE_SEASONS, CURRENT_SEASON
                     
                     # Obter season_id para a liga selecionada
