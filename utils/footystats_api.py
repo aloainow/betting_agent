@@ -1299,254 +1299,314 @@ def calculate_name_similarity(name1, name2):
         
     return len(common_words) / len(all_words)
 
-def get_fixture_statistics(home_team, away_team, selected_league):
+def get_fixture_statistics(home_team, away_team, selected_league, use_cache=True):
     """
-    Busca estatísticas para dois times em uma liga com foco na obtenção correta dos team_ids
+    Enhanced function to get comprehensive statistics for a fixture between two teams
+    with improved error handling and team name matching.
     
     Args:
-        home_team (str): Nome do time da casa
-        away_team (str): Nome do time visitante
-        selected_league (str): Nome da liga
+        home_team (str): Home team name
+        away_team (str): Away team name
+        selected_league (str): League name
+        use_cache (bool): Whether to use cached data
         
     Returns:
-        dict: Estatísticas para ambos os times ou None em caso de erro
+        dict: Comprehensive fixture statistics or None if error
     """
-    logger.info(f"Buscando estatísticas para {home_team} vs {away_team} na liga {selected_league}")
-    
     try:
-        # Passo 1: Encontrar o ID da liga
-        league_id = find_league_id_by_name(selected_league)
-        if not league_id:
-            logger.error(f"Não foi possível encontrar ID para liga: {selected_league}")
+        logger.info(f"Getting fixture statistics for {home_team} vs {away_team} in {selected_league}")
+        
+        # Step 1: Find the league/season ID with improved error handling
+        from utils.footystats_api import find_league_id_by_name
+        season_id = find_league_id_by_name(selected_league)
+        
+        # If not found, try to use the LEAGUE_SEASON_IDS mapping directly
+        if not season_id:
+            from utils.footystats_api import LEAGUE_SEASON_IDS
+            if selected_league in LEAGUE_SEASON_IDS:
+                season_id = LEAGUE_SEASON_IDS[selected_league]
+                logger.info(f"Found season ID {season_id} from direct mapping for {selected_league}")
+            else:
+                # Try partial matching for league names
+                selected_league_lower = selected_league.lower()
+                for league_name, league_id in LEAGUE_SEASON_IDS.items():
+                    if (league_name.lower() in selected_league_lower or 
+                        selected_league_lower in league_name.lower()):
+                        season_id = league_id
+                        logger.info(f"Found season ID {season_id} via partial match for {selected_league}")
+                        break
+                        
+        if not season_id:
+            logger.error(f"League ID not found for {selected_league}")
             return None
+        
+        logger.info(f"Using season ID {season_id} for {selected_league}")
+        
+        # Clear team cache if needed
+        if not use_cache:
+            from utils.footystats_api import clear_league_cache
+            clear_league_cache(selected_league)
+            logger.info(f"Cleared cache for {selected_league}")
             
-        logger.info(f"Liga {selected_league} encontrada com ID: {league_id}")
-        
-        # Passo 2: Buscar diretamente da API os times da liga e seus IDs
-        api_url = f"{BASE_URL}/league-teams"
-        params = {
-            "key": API_KEY,
-            "season_id": league_id,
-            "include": "stats"
-        }
-        
-        logger.info(f"Buscando times da liga {selected_league} (ID: {league_id})")
-        
-        response = requests.get(api_url, params=params, timeout=15)
-        if response.status_code != 200:
-            logger.error(f"Erro ao buscar times: status {response.status_code}")
-            return None
-        
-        # Passo 3: Processar resposta da API
-        data = response.json()
-        if "data" not in data or not isinstance(data["data"], list):
-            logger.error("Formato de resposta inválido")
-            return None
-        
-        teams = data["data"]
-        logger.info(f"API retornou {len(teams)} times para a liga {selected_league}")
-        
-        # Para diagnóstico, registrar os primeiros times encontrados
-        team_samples = [f"{team.get('name')} (ID: {team.get('id')})" for team in teams[:5] if "name" in team]
-        logger.info(f"Exemplos de times encontrados: {', '.join(team_samples)}")
-        
-        # Passo 4: Procurar os times específicos, com correspondência flexível de nomes
-        home_team_data = None
-        away_team_data = None
-        
-        # Lista para armazenar possíveis correspondências
-        potential_home_matches = []
-        potential_away_matches = []
-        
-        # Converter nomes de times para comparação
-        home_team_lower = home_team.lower().strip()
-        away_team_lower = away_team.lower().strip()
-        
-        # Procurar times - começar com correspondência exata, depois tentar parcial
-        for team in teams:
-            if "name" not in team or "id" not in team:
-                continue
+        # Step 2: Get teams with retry mechanism and more flexible name matching
+        max_retries = 2
+        for attempt in range(max_retries):
+            try:
+                # Get all teams in the league with appropriate parameters
+                api_url = f"https://api.football-data-api.com/league-teams"
+                params = {
+                    "key": "b1742f67bda1c097be51c61409f1797a334d1889c291fedd5bcc0b3e070aa6c1",
+                    "season_id": season_id,
+                    "include": "stats"
+                }
                 
-            team_name = team["name"]
-            team_name_lower = team_name.lower().strip()
-            
-            # CORRESPONDÊNCIA PARA TIME DA CASA
-            similarity_home = calculate_name_similarity(home_team_lower, team_name_lower)
-            if similarity_home > 0:
-                potential_home_matches.append((team, similarity_home))
+                response = requests.get(api_url, params=params, timeout=15)
                 
-                # Se for correspondência exata, atribuir imediatamente
-                if similarity_home == 1.0:
-                    home_team_data = team
-            
-            # CORRESPONDÊNCIA PARA TIME VISITANTE
-            similarity_away = calculate_name_similarity(away_team_lower, team_name_lower)
-            if similarity_away > 0:
-                potential_away_matches.append((team, similarity_away))
+                if response.status_code != 200:
+                    logger.error(f"API error: {response.status_code} - {response.text[:200]}")
+                    if attempt == max_retries - 1:
+                        return None
+                    time.sleep(1)
+                    continue
+                    
+                teams_data = response.json()
                 
-                # Se for correspondência exata, atribuir imediatamente
-                if similarity_away == 1.0:
-                    away_team_data = team
-        
-        # Se não encontramos correspondência exata, usar a melhor correspondência parcial
-        if not home_team_data and potential_home_matches:
-            # Ordenar por similaridade, maior primeiro
-            potential_home_matches.sort(key=lambda x: x[1], reverse=True)
-            best_match, similarity = potential_home_matches[0]
+                if "data" not in teams_data or not isinstance(teams_data["data"], list):
+                    logger.error(f"Invalid response format: {teams_data.keys()}")
+                    if attempt == max_retries - 1:
+                        return None
+                    time.sleep(1)
+                    continue
+                    
+                teams = teams_data["data"]
+                if not teams:
+                    logger.error(f"No teams returned for league {selected_league}")
+                    if attempt == max_retries - 1:
+                        return None
+                    time.sleep(1)
+                    continue
+                    
+                logger.info(f"Found {len(teams)} teams for league {selected_league}")
+                
+                # Step 3: Find team IDs with better team name matching
+                def calculate_name_similarity(name1, name2):
+                    """Calculate similarity between two team names"""
+                    name1 = name1.lower().strip()
+                    name2 = name2.lower().strip()
+                    
+                    # Exact match
+                    if name1 == name2:
+                        return 1.0
+                    
+                    # One contains the other
+                    if name1 in name2 or name2 in name1:
+                        shorter = min(len(name1), len(name2))
+                        longer = max(len(name1), len(name2))
+                        return shorter / longer
+                    
+                    # Word overlap similarity
+                    words1 = set(name1.split())
+                    words2 = set(name2.split())
+                    
+                    if not words1 or not words2:
+                        return 0
+                    
+                    common = words1.intersection(words2)
+                    union = words1.union(words2)
+                    return len(common) / len(union)
+                
+                # Find home team
+                home_team_matches = []
+                for team in teams:
+                    team_name = team.get("name", "")
+                    similarity = calculate_name_similarity(home_team, team_name)
+                    if similarity > 0.5:  # At least 50% similar
+                        home_team_matches.append((team, similarity))
+                
+                # Find away team
+                away_team_matches = []
+                for team in teams:
+                    team_name = team.get("name", "")
+                    similarity = calculate_name_similarity(away_team, team_name)
+                    if similarity > 0.5:  # At least 50% similar
+                        away_team_matches.append((team, similarity))
+                
+                # Sort by similarity (highest first)
+                home_team_matches.sort(key=lambda x: x[1], reverse=True)
+                away_team_matches.sort(key=lambda x: x[1], reverse=True)
+                
+                # Check if we found matches
+                if not home_team_matches:
+                    logger.error(f"No match found for home team: {home_team}")
+                    if attempt == max_retries - 1:
+                        # Show available teams for debugging
+                        sample_teams = [team.get("name", "") for team in teams[:10]]
+                        logger.info(f"Available teams include: {', '.join(sample_teams)}")
+                        return None
+                    time.sleep(1)
+                    continue
+                
+                if not away_team_matches:
+                    logger.error(f"No match found for away team: {away_team}")
+                    if attempt == max_retries - 1:
+                        # Show available teams for debugging
+                        sample_teams = [team.get("name", "") for team in teams[:10]]
+                        logger.info(f"Available teams include: {', '.join(sample_teams)}")
+                        return None
+                    time.sleep(1)
+                    continue
+                
+                # Get the best matches
+                home_team_data, home_similarity = home_team_matches[0]
+                away_team_data, away_similarity = away_team_matches[0]
+                
+                logger.info(f"Home team match: {home_team} -> {home_team_data.get('name')} (similarity: {home_similarity:.2f})")
+                logger.info(f"Away team match: {away_team} -> {away_team_data.get('name')} (similarity: {away_similarity:.2f})")
+                
+                # Step 4: Extract statistics
+                home_team_stats = extract_team_stats(home_team_data)
+                away_team_stats = extract_team_stats(away_team_data)
+                
+                # Step 5: Compile fixture statistics
+                fixture_stats = {
+                    "league": {
+                        "id": season_id,
+                        "name": selected_league
+                    },
+                    "teams": {
+                        "home": {
+                            "id": home_team_data.get("id"),
+                            "name": home_team_data.get("name")
+                        },
+                        "away": {
+                            "id": away_team_data.get("id"),
+                            "name": away_team_data.get("name")
+                        }
+                    },
+                    "basic_stats": {
+                        "home_team": {"name": home_team_data.get("name"), "stats": home_team_stats},
+                        "away_team": {"name": away_team_data.get("name"), "stats": away_team_stats},
+                        "referee": "Não informado"
+                    },
+                    "advanced_stats": {
+                        "home": extract_advanced_stats(home_team_data),
+                        "away": extract_advanced_stats(away_team_data)
+                    },
+                    "team_form": {
+                        "home": extract_team_form(home_team_data),
+                        "away": extract_team_form(away_team_data)
+                    },
+                    "head_to_head": {}
+                }
+                
+                logger.info(f"Successfully compiled fixture statistics for {home_team} vs {away_team}")
+                return fixture_stats
+                
+            except Exception as retry_error:
+                logger.error(f"Error during attempt {attempt+1}: {str(retry_error)}")
+                if attempt == max_retries - 1:
+                    raise
+                time.sleep(1)
+                
+        return None
             
-            if similarity >= 0.5:  # Se a similaridade for pelo menos 50%
-                home_team_data = best_match
-                logger.info(f"Usando correspondência parcial para {home_team}: '{best_match['name']}' (similaridade: {similarity:.2f})")
-        
-        if not away_team_data and potential_away_matches:
-            # Ordenar por similaridade, maior primeiro
-            potential_away_matches.sort(key=lambda x: x[1], reverse=True)
-            best_match, similarity = potential_away_matches[0]
-            
-            if similarity >= 0.5:  # Se a similaridade for pelo menos 50%
-                away_team_data = best_match
-                logger.info(f"Usando correspondência parcial para {away_team}: '{best_match['name']}' (similaridade: {similarity:.2f})")
-        
-        # Verificar se encontramos os dois times
-        if not home_team_data:
-            logger.error(f"Time {home_team} não encontrado na liga {selected_league}")
-            # Listar possíveis correspondências para diagnóstico
-            if potential_home_matches:
-                potential_matches = [f"{t['name']} (similaridade: {s:.2f})" for t, s in sorted(potential_home_matches, key=lambda x: x[1], reverse=True)[:5]]
-                logger.info(f"Possíveis correspondências para {home_team}: {', '.join(potential_matches)}")
-            return None
-        
-        if not away_team_data:
-            logger.error(f"Time {away_team} não encontrado na liga {selected_league}")
-            # Listar possíveis correspondências para diagnóstico
-            if potential_away_matches:
-                potential_matches = [f"{t['name']} (similaridade: {s:.2f})" for t, s in sorted(potential_away_matches, key=lambda x: x[1], reverse=True)[:5]]
-                logger.info(f"Possíveis correspondências para {away_team}: {', '.join(potential_matches)}")
-            return None
-        
-        # Agora temos os team_ids corretos!
-        home_team_id = home_team_data["id"]
-        away_team_id = away_team_data["id"]
-        
-        logger.info(f"Times encontrados: {home_team_data['name']} (ID: {home_team_id}) vs {away_team_data['name']} (ID: {away_team_id})")
-        
-        # Passo 5: Compilar estatísticas dos times
-        fixture_stats = {
-            "league": {
-                "id": league_id,
-                "name": selected_league,
-                "season": LEAGUE_SEASONS.get(selected_league, CURRENT_SEASON)
-            },
-            "home_team": home_team_data,
-            "away_team": away_team_data,
-            "basic_stats": {
-                "home_team": {"name": home_team_data["name"], "stats": extract_basic_stats(home_team_data)},
-                "away_team": {"name": away_team_data["name"], "stats": extract_basic_stats(away_team_data)},
-                "referee": "Não informado"  # Valor padrão
-            },
-            "advanced_stats": {
-                "home": extract_advanced_stats(home_team_data),
-                "away": extract_advanced_stats(away_team_data)
-            },
-            "team_form": {
-                "home": extract_team_form(home_team_data),
-                "away": extract_team_form(away_team_data)
-            },
-            "head_to_head": get_head_to_head_stats(home_team_data["name"], away_team_data["name"], selected_league)
-        }
-        
-        logger.info(f"Estatísticas compiladas com sucesso para {home_team} vs {away_team}")
-        return fixture_stats
-        
     except Exception as e:
-        logger.error(f"Erro ao buscar estatísticas: {str(e)}")
+        logger.error(f"Error getting fixture statistics: {str(e)}")
         import traceback
         logger.error(traceback.format_exc())
         return None
 
-def extract_basic_stats(team_data):
-    """Extract basic stats from team data with improved structure handling"""
+def extract_team_stats(team_data):
+    """Extract statistics from team data with improved robustness"""
     stats = {}
     
-    # Check if team_data is valid
     if not team_data or not isinstance(team_data, dict):
         return stats
     
-    # Handle different API structures
+    # Extract basic stats
+    basic_stats = [
+        "matches_played", "wins", "draws", "losses", 
+        "goals_scored", "goals_conceded", "clean_sheets",
+        "xg", "xga", "possession", "shots", "shots_on_target"
+    ]
     
-    # Case 1: Stats directly in team_data
-    for key in ['matches_played', 'wins', 'draws', 'losses', 'goals_scored', 'goals_conceded', 
-                'clean_sheets', 'xg', 'xga', 'possession', 'shots', 'shots_on_target']:
+    # Direct extraction from team_data
+    for key in basic_stats:
         if key in team_data:
             stats[key] = team_data[key]
     
-    # Case 2: Stats in nested 'stats' object
+    # Extract from nested "stats" object if available
     if "stats" in team_data and isinstance(team_data["stats"], dict):
         for key, value in team_data["stats"].items():
             stats[key] = value
     
-    # Case 3: Stats in other structures like 'overall_stats'
-    for nested_key in ['overall_stats', 'home_stats', 'away_stats']:
-        if nested_key in team_data and isinstance(team_data[nested_key], dict):
-            for key, value in team_data[nested_key].items():
-                # Only add if not already present
-                if key not in stats:
-                    stats[key] = value
+    # Handle different API formats with fallbacks
+    if "overall" in team_data and isinstance(team_data["overall"], dict):
+        for key, value in team_data["overall"].items():
+            if key not in stats:
+                stats[key] = value
+    
+    # Calculate derived statistics if enough data is available
+    if "wins" in stats and "matches_played" in stats and stats["matches_played"] > 0:
+        stats["win_percentage"] = (stats["wins"] / stats["matches_played"]) * 100
+        
+    if "draws" in stats and "matches_played" in stats and stats["matches_played"] > 0:
+        stats["draw_percentage"] = (stats["draws"] / stats["matches_played"]) * 100
+    
+    if "goals_scored" in stats and "matches_played" in stats and stats["matches_played"] > 0:
+        stats["goals_per_game"] = stats["goals_scored"] / stats["matches_played"]
     
     return stats
 
 def extract_advanced_stats(team_data):
-    """Extract advanced stats from team data"""
+    """Extract advanced statistics from team data"""
     stats = {}
     
-    # Check if team_data is valid
     if not team_data or not isinstance(team_data, dict):
         return stats
     
-    # Advanced stats keys to look for
+    # Look for advanced stats
     advanced_keys = [
         "ppda", "deep_completions", "shot_quality", "xg_per_shot",
-        "build_up_disruption", "attacking_third_passes", "defensive_actions"
+        "build_up_disruption", "passes_per_defensive_action"
     ]
     
     for key in advanced_keys:
         if key in team_data:
             stats[key] = team_data[key]
     
-    # Get advanced stats if in nested object
-    if "advanced_stats" in team_data and isinstance(team_data["advanced_stats"], dict):
-        stats.update(team_data["advanced_stats"])
+    # Check for nested structures
+    for nested_key in ["advanced_stats", "detailed_stats"]:
+        if nested_key in team_data and isinstance(team_data[nested_key], dict):
+            for key, value in team_data[nested_key].items():
+                stats[key] = value
     
     return stats
 
 def extract_team_form(team_data):
-    """Extract recent form from team data"""
+    """Extract recent form data"""
     form = []
     
-    # Check if team_data is valid
     if not team_data or not isinstance(team_data, dict):
-        return form
+        return [{"result": "?"} for _ in range(5)]  # Return 5 placeholders
     
-    # Get form data if available
+    # Check for form data
     if "form" in team_data and isinstance(team_data["form"], list):
-        return team_data["form"]
+        return team_data["form"][:5]  # Return at most 5 results
     
-    # Create simple form data if not available
-    if "recent_results" in team_data:
-        results = team_data["recent_results"]
-        
-        # Handle string format like "WWDLD"
-        if isinstance(results, str):
-            for char in results[:5]:  # Take only the last 5
+    # Handle string format like "WDLWD"
+    if "recent_form" in team_data:
+        recent = team_data["recent_form"]
+        if isinstance(recent, str):
+            for char in recent[:5]:
                 if char in ["W", "D", "L"]:
                     form.append({"result": char})
     
-    # If we have less than 5 results, pad with placeholders
+    # Fill with placeholders if needed
     while len(form) < 5:
         form.append({"result": "?"})
     
     return form
-
 def get_head_to_head_stats(home_team, away_team, league_name):
     """Get head-to-head statistics between two teams"""
     # This would normally come from an API call, but we'll create a placeholder
