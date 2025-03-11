@@ -4,7 +4,7 @@ import json
 import time
 import logging
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # Configuração de logging
 logger = logging.getLogger("valueHunter.footystats_api")
@@ -222,8 +222,6 @@ def get_from_cache(endpoint, params=None, max_age=CACHE_DURATION):
         logger.error(f"Erro ao ler cache: {str(e)}")
         return None
 
-# Adicione esta função ao arquivo utils/footystats_api.py
-
 def get_league_id_mapping(force_refresh=False):
     """
     Obtém um mapeamento completo de nomes de ligas para seus IDs
@@ -439,6 +437,7 @@ def test_api_connection():
             "available_leagues": [],
             "error": str(e)
         }
+
 def clear_all_cache():
     """Limpar todo o cache da API"""
     try:
@@ -572,8 +571,6 @@ def api_request(endpoint, params=None, use_cache=True, cache_duration=CACHE_DURA
         logger.error(traceback.format_exc())
         return None
 
-# Adicione este código ao seu arquivo utils/footystats_api.py:
-
 # Lista de ligas selecionadas pelo usuário
 USER_SELECTED_LEAGUES = [
     # Ligas da América do Sul
@@ -631,7 +628,6 @@ LEAGUE_NAME_MAPPING = {
     "Liga MX": "Liga MX (Mexico)"
 }
 
-# Se você já tem essa função, não precisa adicionar novamente
 def get_user_selected_leagues_direct():
     """
     Retorna diretamente as ligas selecionadas pelo usuário,
@@ -644,7 +640,6 @@ def get_user_selected_leagues_direct():
     unique_leagues = set(USER_SELECTED_LEAGUES)
     return sorted(list(unique_leagues))
 
-# Se você já tem essa função, não precisa adicionar novamente
 def normalize_league_name_for_api(league_name):
     """
     Normaliza o nome da liga para corresponder ao formato esperado pela API.
@@ -822,7 +817,6 @@ def get_selected_leagues(force_refresh=False):
     
     return selected_leagues
 
-
 def fetch_league_teams(league_id):
     """
     Buscar times de uma liga específica.
@@ -861,6 +855,7 @@ def fetch_league_teams(league_id):
         
     logger.warning(f"Nenhum time encontrado para temporada/liga ID {league_id}")
     return []
+
 def load_dashboard_leagues():
     """
     Carrega as ligas para o dropdown do dashboard,
@@ -1080,6 +1075,7 @@ def get_team_names_by_league(league_name, force_refresh=False):
     
     # Se chegamos aqui, algo deu errado
     return []
+
 def diagnose_api_connection():
     """
     Teste detalhado da conexão com a API para diagnóstico
@@ -1263,24 +1259,62 @@ try:
 except Exception as e:
     logger.warning(f"Erro ao inicializar ligas: {str(e)}")
 
-# Adicionando as funções que estavam faltando
+# Funções para correção de Team IDs e Match IDs
+
+def calculate_name_similarity(name1, name2):
+    """
+    Calcula a similaridade entre dois nomes de times
+    
+    Args:
+        name1 (str): Primeiro nome
+        name2 (str): Segundo nome
+        
+    Returns:
+        float: Valor de similaridade entre 0 e 1
+    """
+    # Caso 1: Correspondência exata
+    if name1 == name2:
+        return 1.0
+    
+    # Caso 2: Um contém o outro completamente
+    if name1 in name2 or name2 in name1:
+        shorter = min(len(name1), len(name2))
+        longer = max(len(name1), len(name2))
+        return shorter / longer  # Uma medida da "contenção"
+    
+    # Caso 3: Similaridade baseada em palavras comuns
+    words1 = set(name1.split())
+    words2 = set(name2.split())
+    
+    # Se não há palavras, retornar 0
+    if not words1 or not words2:
+        return 0
+    
+    # Calcular a similaridade Jaccard: tamanho da interseção / tamanho da união
+    common_words = words1.intersection(words2)
+    all_words = words1.union(words2)
+    
+    if not all_words:
+        return 0
+        
+    return len(common_words) / len(all_words)
 
 def get_fixture_statistics(home_team, away_team, selected_league):
     """
-    Fetch statistics for a match between two teams in a league
+    Busca estatísticas para dois times em uma liga com foco na obtenção correta dos team_ids
     
     Args:
-        home_team (str): Name of the home team
-        away_team (str): Name of the away team
-        selected_league (str): Name of the league
+        home_team (str): Nome do time da casa
+        away_team (str): Nome do time visitante
+        selected_league (str): Nome da liga
         
     Returns:
-        dict: Statistics for both teams or None on error
+        dict: Estatísticas para ambos os times ou None em caso de erro
     """
     logger.info(f"Buscando estatísticas para {home_team} vs {away_team} na liga {selected_league}")
     
     try:
-        # Step 1: Find the league ID
+        # Passo 1: Encontrar o ID da liga
         league_id = find_league_id_by_name(selected_league)
         if not league_id:
             logger.error(f"Não foi possível encontrar ID para liga: {selected_league}")
@@ -1288,36 +1322,115 @@ def get_fixture_statistics(home_team, away_team, selected_league):
             
         logger.info(f"Liga {selected_league} encontrada com ID: {league_id}")
         
-        # Step 2: Get team stats for the league
-        teams_data = fetch_league_teams(league_id)
-        if not teams_data:
-            logger.error(f"Não foi possível buscar times para liga ID {league_id}")
-            return None
-            
-        logger.info(f"Encontrados {len(teams_data)} times na liga ID {league_id}")
+        # Passo 2: Buscar diretamente da API os times da liga e seus IDs
+        api_url = f"{BASE_URL}/league-teams"
+        params = {
+            "key": API_KEY,
+            "season_id": league_id,
+            "include": "stats"
+        }
         
-        # Step 3: Find the specific teams
+        logger.info(f"Buscando times da liga {selected_league} (ID: {league_id})")
+        
+        response = requests.get(api_url, params=params, timeout=15)
+        if response.status_code != 200:
+            logger.error(f"Erro ao buscar times: status {response.status_code}")
+            return None
+        
+        # Passo 3: Processar resposta da API
+        data = response.json()
+        if "data" not in data or not isinstance(data["data"], list):
+            logger.error("Formato de resposta inválido")
+            return None
+        
+        teams = data["data"]
+        logger.info(f"API retornou {len(teams)} times para a liga {selected_league}")
+        
+        # Para diagnóstico, registrar os primeiros times encontrados
+        team_samples = [f"{team.get('name')} (ID: {team.get('id')})" for team in teams[:5] if "name" in team]
+        logger.info(f"Exemplos de times encontrados: {', '.join(team_samples)}")
+        
+        # Passo 4: Procurar os times específicos, com correspondência flexível de nomes
         home_team_data = None
         away_team_data = None
         
-        for team in teams_data:
-            if "name" in team:
-                if team["name"] == home_team:
-                    home_team_data = team
-                elif team["name"] == away_team:
-                    away_team_data = team
+        # Lista para armazenar possíveis correspondências
+        potential_home_matches = []
+        potential_away_matches = []
+        
+        # Converter nomes de times para comparação
+        home_team_lower = home_team.lower().strip()
+        away_team_lower = away_team.lower().strip()
+        
+        # Procurar times - começar com correspondência exata, depois tentar parcial
+        for team in teams:
+            if "name" not in team or "id" not in team:
+                continue
                 
+            team_name = team["name"]
+            team_name_lower = team_name.lower().strip()
+            
+            # CORRESPONDÊNCIA PARA TIME DA CASA
+            similarity_home = calculate_name_similarity(home_team_lower, team_name_lower)
+            if similarity_home > 0:
+                potential_home_matches.append((team, similarity_home))
+                
+                # Se for correspondência exata, atribuir imediatamente
+                if similarity_home == 1.0:
+                    home_team_data = team
+            
+            # CORRESPONDÊNCIA PARA TIME VISITANTE
+            similarity_away = calculate_name_similarity(away_team_lower, team_name_lower)
+            if similarity_away > 0:
+                potential_away_matches.append((team, similarity_away))
+                
+                # Se for correspondência exata, atribuir imediatamente
+                if similarity_away == 1.0:
+                    away_team_data = team
+        
+        # Se não encontramos correspondência exata, usar a melhor correspondência parcial
+        if not home_team_data and potential_home_matches:
+            # Ordenar por similaridade, maior primeiro
+            potential_home_matches.sort(key=lambda x: x[1], reverse=True)
+            best_match, similarity = potential_home_matches[0]
+            
+            if similarity >= 0.5:  # Se a similaridade for pelo menos 50%
+                home_team_data = best_match
+                logger.info(f"Usando correspondência parcial para {home_team}: '{best_match['name']}' (similaridade: {similarity:.2f})")
+        
+        if not away_team_data and potential_away_matches:
+            # Ordenar por similaridade, maior primeiro
+            potential_away_matches.sort(key=lambda x: x[1], reverse=True)
+            best_match, similarity = potential_away_matches[0]
+            
+            if similarity >= 0.5:  # Se a similaridade for pelo menos 50%
+                away_team_data = best_match
+                logger.info(f"Usando correspondência parcial para {away_team}: '{best_match['name']}' (similaridade: {similarity:.2f})")
+        
+        # Verificar se encontramos os dois times
         if not home_team_data:
             logger.error(f"Time {home_team} não encontrado na liga {selected_league}")
+            # Listar possíveis correspondências para diagnóstico
+            if potential_home_matches:
+                potential_matches = [f"{t['name']} (similaridade: {s:.2f})" for t, s in sorted(potential_home_matches, key=lambda x: x[1], reverse=True)[:5]]
+                logger.info(f"Possíveis correspondências para {home_team}: {', '.join(potential_matches)}")
             return None
-            
+        
         if not away_team_data:
             logger.error(f"Time {away_team} não encontrado na liga {selected_league}")
+            # Listar possíveis correspondências para diagnóstico
+            if potential_away_matches:
+                potential_matches = [f"{t['name']} (similaridade: {s:.2f})" for t, s in sorted(potential_away_matches, key=lambda x: x[1], reverse=True)[:5]]
+                logger.info(f"Possíveis correspondências para {away_team}: {', '.join(potential_matches)}")
             return None
-            
-        logger.info(f"Times {home_team} e {away_team} encontrados na liga")
         
-        # Step 4: Create fixture statistics object
+        # Agora temos os team_ids corretos!
+        home_team_id = home_team_data["id"]
+        away_team_id = away_team_data["id"]
+        
+        logger.info(f"Times encontrados: {home_team_data['name']} (ID: {home_team_id}) vs {away_team_data['name']} (ID: {away_team_id})")
+        
+        # Passo 5: Compilar estatísticas dos times
         fixture_stats = {
             "league": {
                 "id": league_id,
@@ -1327,9 +1440,9 @@ def get_fixture_statistics(home_team, away_team, selected_league):
             "home_team": home_team_data,
             "away_team": away_team_data,
             "basic_stats": {
-                "home_team": {"name": home_team, "stats": extract_basic_stats(home_team_data)},
-                "away_team": {"name": away_team, "stats": extract_basic_stats(away_team_data)},
-                "referee": "Não informado"  # Default value
+                "home_team": {"name": home_team_data["name"], "stats": extract_basic_stats(home_team_data)},
+                "away_team": {"name": away_team_data["name"], "stats": extract_basic_stats(away_team_data)},
+                "referee": "Não informado"  # Valor padrão
             },
             "advanced_stats": {
                 "home": extract_advanced_stats(home_team_data),
@@ -1339,7 +1452,7 @@ def get_fixture_statistics(home_team, away_team, selected_league):
                 "home": extract_team_form(home_team_data),
                 "away": extract_team_form(away_team_data)
             },
-            "head_to_head": get_head_to_head_stats(home_team, away_team, selected_league)
+            "head_to_head": get_head_to_head_stats(home_team_data["name"], away_team_data["name"], selected_league)
         }
         
         logger.info(f"Estatísticas compiladas com sucesso para {home_team} vs {away_team}")
@@ -1351,100 +1464,34 @@ def get_fixture_statistics(home_team, away_team, selected_league):
         logger.error(traceback.format_exc())
         return None
 
-def convert_api_stats_to_df_format(fixture_stats):
-    """
-    Convert fixture statistics from API to DataFrame format
-    
-    Args:
-        fixture_stats (dict): Statistics from get_fixture_statistics()
-        
-    Returns:
-        pandas.DataFrame: DataFrame with team statistics
-    """
-    import pandas as pd
-    
-    try:
-        # Check if fixture_stats is valid
-        if not fixture_stats or not isinstance(fixture_stats, dict):
-            logger.error("Dados de estatísticas inválidos")
-            return None
-            
-        # Extract basic information
-        home_team_data = fixture_stats.get("home_team", {})
-        away_team_data = fixture_stats.get("away_team", {})
-        
-        if not home_team_data or not away_team_data:
-            logger.error("Dados de times inválidos")
-            return None
-            
-        home_team = home_team_data.get("name", "Home")
-        away_team = away_team_data.get("name", "Away")
-        
-        # Create DataFrame with team names
-        df = pd.DataFrame({"Squad": [home_team, away_team]})
-        
-        # Common stats to extract
-        stats_mapping = {
-            "MP": "matches_played",
-            "W": "wins", 
-            "D": "draws",
-            "L": "losses",
-            "Gls": "goals_scored",
-            "GA": "goals_conceded",
-            "xG": "xg",
-            "xGA": "xga",
-            "Poss": "possession",
-            "Sh": "shots",
-            "SoT": "shots_on_target",
-            "CrdY": "yellow_cards",
-            "CrdR": "red_cards",
-            "CK": "corners",
-            "Fls": "fouls"
-        }
-        
-        # Extract stats for both teams
-        for df_col, api_key in stats_mapping.items():
-            # Extract values, defaulting to 0 if not found
-            home_val = extract_stat_value(home_team_data, api_key)
-            away_val = extract_stat_value(away_team_data, api_key)
-            
-            # Add to DataFrame
-            df[df_col] = [home_val, away_val]
-        
-        logger.info(f"DataFrame criado com sucesso: {df.shape}")
-        return df
-        
-    except Exception as e:
-        logger.error(f"Erro ao converter estatísticas para DataFrame: {str(e)}")
-        import traceback
-        logger.error(traceback.format_exc())
-        return None
-
-# Helper functions needed by the above functions
-
 def extract_basic_stats(team_data):
-    """Extract basic stats from team data"""
+    """Extract basic stats from team data with improved structure handling"""
     stats = {}
     
     # Check if team_data is valid
     if not team_data or not isinstance(team_data, dict):
         return stats
     
-    # Extract stats from various possible locations
+    # Handle different API structures
+    
+    # Case 1: Stats directly in team_data
+    for key in ['matches_played', 'wins', 'draws', 'losses', 'goals_scored', 'goals_conceded', 
+                'clean_sheets', 'xg', 'xga', 'possession', 'shots', 'shots_on_target']:
+        if key in team_data:
+            stats[key] = team_data[key]
+    
+    # Case 2: Stats in nested 'stats' object
     if "stats" in team_data and isinstance(team_data["stats"], dict):
-        stats.update(team_data["stats"])
+        for key, value in team_data["stats"].items():
+            stats[key] = value
     
-    # Common stats to look for directly
-    direct_stats = [
-        "matches_played", "wins", "draws", "losses", 
-        "goals_scored", "goals_conceded", "clean_sheets",
-        "xg", "xga", "possession", "shots", "shots_on_target",
-        "yellow_cards", "red_cards", "corners", "fouls"
-    ]
-    
-    for stat in direct_stats:
-        if stat in team_data:
-            stats[stat] = team_data[stat]
+    # Case 3: Stats in other structures like 'overall_stats'
+    for nested_key in ['overall_stats', 'home_stats', 'away_stats']:
+        if nested_key in team_data and isinstance(team_data[nested_key], dict):
+            for key, value in team_data[nested_key].items():
+                # Only add if not already present
+                if key not in stats:
+                    stats[key] = value
     
     return stats
 
@@ -1530,3 +1577,480 @@ def extract_stat_value(team_data, stat_key, default=0):
     
     # Return default value if not found
     return default
+
+def convert_api_stats_to_df_format(fixture_stats):
+    """
+    Convert fixture statistics from API to DataFrame format
+    
+    Args:
+        fixture_stats (dict): Statistics from get_fixture_statistics()
+        
+    Returns:
+        pandas.DataFrame: DataFrame with team statistics
+    """
+    import pandas as pd
+    
+    try:
+        # Check if fixture_stats is valid
+        if not fixture_stats or not isinstance(fixture_stats, dict):
+            logger.error("Dados de estatísticas inválidos")
+            return None
+            
+        # Extract basic information
+        home_team_data = fixture_stats.get("home_team", {})
+        away_team_data = fixture_stats.get("away_team", {})
+        
+        if not home_team_data or not away_team_data:
+            logger.error("Dados de times inválidos")
+            return None
+            
+        home_team = home_team_data.get("name", "Home")
+        away_team = away_team_data.get("name", "Away")
+        
+        # Create DataFrame with team names
+        df = pd.DataFrame({"Squad": [home_team, away_team]})
+        
+        # Common stats to extract
+        stats_mapping = {
+            "MP": "matches_played",
+            "W": "wins", 
+            "D": "draws",
+            "L": "losses",
+            "Gls": "goals_scored",
+            "GA": "goals_conceded",
+            "xG": "xg",
+            "xGA": "xga",
+            "Poss": "possession",
+            "Sh": "shots",
+            "SoT": "shots_on_target",
+            "CrdY": "yellow_cards",
+            "CrdR": "red_cards",
+            "CK": "corners",
+            "Fls": "fouls"
+        }
+        
+        # Extract stats for both teams
+        for df_col, api_key in stats_mapping.items():
+            # Extract values, defaulting to 0 if not found
+            home_val = extract_stat_value(home_team_data, api_key)
+            away_val = extract_stat_value(away_team_data, api_key)
+            
+            # Add to DataFrame
+            df[df_col] = [home_val, away_val]
+        
+        logger.info(f"DataFrame criado com sucesso: {df.shape}")
+        return df
+        
+    except Exception as e:
+        logger.error(f"Erro ao converter estatísticas para DataFrame: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return None
+
+# Funções para buscar utilizando Match IDs
+
+def get_team_detailed_stats(team_id):
+    """
+    Obtém estatísticas detalhadas de um time específico
+    
+    Args:
+        team_id (int): ID do time
+        
+    Returns:
+        dict: Estatísticas detalhadas do time ou None em caso de erro
+    """
+    logger.info(f"Buscando estatísticas detalhadas para time ID {team_id}")
+    
+    try:
+        api_url = f"{BASE_URL}/team"
+        params = {
+            "key": API_KEY,
+            "team_id": team_id,
+            "include": "stats"
+        }
+        
+        response = requests.get(api_url, params=params, timeout=15)
+        if response.status_code != 200:
+            logger.error(f"Erro ao buscar estatísticas: status {response.status_code}")
+            return None
+        
+        data = response.json()
+        if "data" not in data:
+            logger.error("Formato de resposta inválido")
+            return None
+            
+        logger.info(f"Estatísticas detalhadas obtidas com sucesso para time ID {team_id}")
+        return data["data"]
+    
+    except Exception as e:
+        logger.error(f"Erro ao buscar estatísticas detalhadas: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return None
+
+def get_team_last_matches(team_id, num_matches=5):
+    """
+    Obtém dados das últimas X partidas de um time
+    
+    Args:
+        team_id (int): ID do time
+        num_matches (int): Número de partidas (5, 6 ou 10)
+        
+    Returns:
+        dict: Dados das últimas partidas ou None em caso de erro
+    """
+    logger.info(f"Buscando últimas {num_matches} partidas para time ID {team_id}")
+    
+    # Validar num_matches (API só suporta 5, 6 ou 10)
+    if num_matches not in [5, 6, 10]:
+        num_matches = 5
+    
+    try:
+        api_url = f"{BASE_URL}/lastx"
+        params = {
+            "key": API_KEY,
+            "team_id": team_id,
+            "num": num_matches
+        }
+        
+        response = requests.get(api_url, params=params, timeout=15)
+        if response.status_code != 200:
+            logger.error(f"Erro ao buscar últimas partidas: status {response.status_code}")
+            return None
+        
+        data = response.json()
+        if "data" not in data:
+            logger.error("Formato de resposta inválido")
+            return None
+            
+        logger.info(f"Últimas {num_matches} partidas obtidas com sucesso para time ID {team_id}")
+        return data["data"]
+    
+    except Exception as e:
+        logger.error(f"Erro ao buscar últimas partidas: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return None
+
+def get_match_id_for_teams(home_team_id, away_team_id, league_id):
+    """
+    Tenta encontrar um match_id para partida entre dois times em uma liga
+    
+    Args:
+        home_team_id (int): ID do time da casa
+        away_team_id (int): ID do time visitante
+        league_id (int): ID da liga
+        
+    Returns:
+        int: match_id se encontrado, ou None em caso contrário
+    """
+    logger.info(f"Buscando match_id para times {home_team_id} vs {away_team_id} na liga {league_id}")
+    
+    try:
+        api_url = f"{BASE_URL}/league-matches"
+        params = {
+            "key": API_KEY,
+            "season_id": league_id
+        }
+        
+        response = requests.get(api_url, params=params, timeout=15)
+        if response.status_code != 200:
+            logger.error(f"Erro ao buscar partidas: status {response.status_code}")
+            return None
+        
+        data = response.json()
+        if "data" not in data or not isinstance(data["data"], list):
+            logger.error("Formato de resposta inválido")
+            return None
+        
+        matches = data["data"]
+        logger.info(f"Encontradas {len(matches)} partidas na liga {league_id}")
+        
+        # Procurar partida com estes times - usando os campos corretos
+        for match in matches:
+            if "homeID" in match and "awayID" in match:
+                if match["homeID"] == home_team_id and match["awayID"] == away_team_id:
+                    logger.info(f"Match ID encontrado: {match.get('id')}")
+                    return match.get('id')
+        
+        logger.warning(f"Nenhum match_id encontrado para times {home_team_id} vs {away_team_id}")
+        return None
+    
+    except Exception as e:
+        logger.error(f"Erro ao buscar match_id: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return None
+
+def get_all_matches_for_team(team_id, league_id):
+    """
+    Obtém todas as partidas de um time em uma liga/temporada
+    
+    Args:
+        team_id (int): ID do time
+        league_id (int): ID da liga
+        
+    Returns:
+        list: Lista de partidas do time ou lista vazia em caso de erro
+    """
+    logger.info(f"Buscando todas as partidas do time {team_id} na liga {league_id}")
+    
+    try:
+        api_url = f"{BASE_URL}/league-matches"
+        params = {
+            "key": API_KEY,
+            "season_id": league_id
+        }
+        
+        response = requests.get(api_url, params=params, timeout=15)
+        if response.status_code != 200:
+            logger.error(f"Erro ao buscar partidas: status {response.status_code}")
+            return []
+        
+        data = response.json()
+        if "data" not in data or not isinstance(data["data"], list):
+            logger.error("Formato de resposta inválido")
+            return []
+        
+        matches = data["data"]
+        logger.info(f"Processando {len(matches)} partidas na liga {league_id}")
+        
+        # Filtrar partidas em que o time participou (como mandante ou visitante)
+        team_matches = []
+        for match in matches:
+            if "homeID" in match and "awayID" in match:
+                if match["homeID"] == team_id or match["awayID"] == team_id:
+                    team_matches.append(match)
+        
+        logger.info(f"Encontradas {len(team_matches)} partidas para o time {team_id}")
+        return team_matches
+    
+    except Exception as e:
+        logger.error(f"Erro ao buscar partidas do time: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return []
+
+def get_match_details(match_id):
+    """
+    Obtém detalhes completos de uma partida usando o match_id
+    
+    Args:
+        match_id (int): ID da partida
+        
+    Returns:
+        dict: Detalhes da partida ou None em caso de erro
+    """
+    logger.info(f"Buscando detalhes para partida ID {match_id}")
+    
+    try:
+        api_url = f"{BASE_URL}/match"
+        params = {
+            "key": API_KEY,
+            "match_id": match_id
+        }
+        
+        # Verificar cache
+        cache_key = f"match_{match_id}"
+        cached_data = get_from_cache(cache_key)
+        if cached_data:
+            logger.info(f"Usando dados em cache para partida ID {match_id}")
+            return cached_data
+        
+        # Se não há cache, buscar da API
+        response = requests.get(api_url, params=params, timeout=15)
+        if response.status_code != 200:
+            logger.error(f"Erro ao buscar detalhes da partida: status {response.status_code}")
+            return None
+        
+        data = response.json()
+        if "data" not in data:
+            logger.error("Formato de resposta inválido")
+            return None
+            
+        # Salvar no cache
+        save_to_cache(data["data"], cache_key)
+        
+        logger.info(f"Detalhes obtidos com sucesso para partida ID {match_id}")
+        return data["data"]
+    
+    except Exception as e:
+        logger.error(f"Erro ao buscar detalhes da partida: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return None
+
+def get_upcoming_matches(league_id):
+    """
+    Obtém partidas futuras de uma liga/temporada
+    
+    Args:
+        league_id (int): ID da liga
+        
+    Returns:
+        list: Lista de partidas futuras ou lista vazia em caso de erro
+    """
+    logger.info(f"Buscando partidas futuras na liga {league_id}")
+    
+    try:
+        api_url = f"{BASE_URL}/league-matches"
+        params = {
+            "key": API_KEY,
+            "season_id": league_id
+        }
+        
+        response = requests.get(api_url, params=params, timeout=15)
+        if response.status_code != 200:
+            logger.error(f"Erro ao buscar partidas: status {response.status_code}")
+            return []
+        
+        data = response.json()
+        if "data" not in data or not isinstance(data["data"], list):
+            logger.error("Formato de resposta inválido")
+            return []
+        
+        matches = data["data"]
+        
+        # Filtrar partidas futuras (status não é "complete")
+        upcoming_matches = []
+        for match in matches:
+            if "status" in match and match["status"] != "complete":
+                upcoming_matches.append(match)
+        
+        logger.info(f"Encontradas {len(upcoming_matches)} partidas futuras na liga {league_id}")
+        return upcoming_matches
+    
+    except Exception as e:
+        logger.error(f"Erro ao buscar partidas futuras: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return []
+
+def get_round_matches(league_id, round_id):
+    """
+    Obtém todas as partidas de uma rodada específica
+    
+    Args:
+        league_id (int): ID da liga
+        round_id (int): ID da rodada
+        
+    Returns:
+        list: Lista de partidas da rodada ou lista vazia em caso de erro
+    """
+    logger.info(f"Buscando partidas da rodada {round_id} na liga {league_id}")
+    
+    try:
+        api_url = f"{BASE_URL}/league-matches"
+        params = {
+            "key": API_KEY,
+            "season_id": league_id
+        }
+        
+        response = requests.get(api_url, params=params, timeout=15)
+        if response.status_code != 200:
+            logger.error(f"Erro ao buscar partidas: status {response.status_code}")
+            return []
+        
+        data = response.json()
+        if "data" not in data or not isinstance(data["data"], list):
+            logger.error("Formato de resposta inválido")
+            return []
+        
+        matches = data["data"]
+        
+        # Filtrar partidas da rodada específica
+        round_matches = []
+        for match in matches:
+            if "roundID" in match and match["roundID"] == round_id:
+                round_matches.append(match)
+        
+        logger.info(f"Encontradas {len(round_matches)} partidas na rodada {round_id}")
+        return round_matches
+    
+    except Exception as e:
+        logger.error(f"Erro ao buscar partidas da rodada: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return []
+
+# Função avançada que combina várias fontes de dados
+def get_complete_match_analysis(home_team, away_team, selected_league):
+    """
+    Realiza uma análise completa de uma partida usando todas as APIs disponíveis
+    
+    Args:
+        home_team (str): Nome do time da casa
+        away_team (str): Nome do time visitante
+        selected_league (str): Nome da liga
+        
+    Returns:
+        dict: Análise completa com estatísticas, histórico e predicções
+    """
+    logger.info(f"Iniciando análise completa de {home_team} vs {away_team} na liga {selected_league}")
+    
+    try:
+        # Passo 1: Obter informações básicas e team_ids
+        fixture_stats = get_fixture_statistics(home_team, away_team, selected_league)
+        if not fixture_stats:
+            logger.error("Falha ao obter estatísticas básicas")
+            return None
+            
+        home_team_id = fixture_stats["home_team"]["id"]
+        away_team_id = fixture_stats["away_team"]["id"]
+        league_id = fixture_stats["league"]["id"]
+        
+        # Passo 2: Buscar o match_id
+        match_id = get_match_id_for_teams(home_team_id, away_team_id, league_id)
+        
+        # Passo 3: Buscar detalhes do jogo se houver match_id
+        match_details = None
+        if match_id:
+            match_details = get_match_details(match_id)
+        
+        # Passo 4: Buscar todos os jogos recentes de ambos os times
+        home_matches = get_all_matches_for_team(home_team_id, league_id)
+        away_matches = get_all_matches_for_team(away_team_id, league_id)
+        
+        # Passo 5: Buscar estatísticas detalhadas de cada time
+        home_detailed = get_team_detailed_stats(home_team_id)
+        away_detailed = get_team_detailed_stats(away_team_id)
+        
+        # Passo 6: Compilar toda a informação
+        complete_analysis = {
+            "match": {
+                "id": match_id,
+                "teams": {
+                    "home": {
+                        "id": home_team_id,
+                        "name": fixture_stats["home_team"]["name"],
+                        "detailed_stats": home_detailed,
+                        "all_matches": home_matches
+                    },
+                    "away": {
+                        "id": away_team_id,
+                        "name": fixture_stats["away_team"]["name"],
+                        "detailed_stats": away_detailed,
+                        "all_matches": away_matches
+                    }
+                },
+                "details": match_details,
+                "basic_stats": fixture_stats
+            },
+            "league": {
+                "id": league_id,
+                "name": selected_league
+            },
+            "meta": {
+                "analysis_time": datetime.now().isoformat(),
+                "api_version": "v1.0"
+            }
+        }
+        
+        logger.info(f"Análise completa concluída com sucesso para {home_team} vs {away_team}")
+        return complete_analysis
+        
+    except Exception as e:
+        logger.error(f"Erro durante análise completa: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return None
