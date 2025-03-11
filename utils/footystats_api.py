@@ -1262,3 +1262,271 @@ try:
     retrieve_available_leagues()
 except Exception as e:
     logger.warning(f"Erro ao inicializar ligas: {str(e)}")
+
+# Adicionando as funções que estavam faltando
+
+def get_fixture_statistics(home_team, away_team, selected_league):
+    """
+    Fetch statistics for a match between two teams in a league
+    
+    Args:
+        home_team (str): Name of the home team
+        away_team (str): Name of the away team
+        selected_league (str): Name of the league
+        
+    Returns:
+        dict: Statistics for both teams or None on error
+    """
+    logger.info(f"Buscando estatísticas para {home_team} vs {away_team} na liga {selected_league}")
+    
+    try:
+        # Step 1: Find the league ID
+        league_id = find_league_id_by_name(selected_league)
+        if not league_id:
+            logger.error(f"Não foi possível encontrar ID para liga: {selected_league}")
+            return None
+            
+        logger.info(f"Liga {selected_league} encontrada com ID: {league_id}")
+        
+        # Step 2: Get team stats for the league
+        teams_data = fetch_league_teams(league_id)
+        if not teams_data:
+            logger.error(f"Não foi possível buscar times para liga ID {league_id}")
+            return None
+            
+        logger.info(f"Encontrados {len(teams_data)} times na liga ID {league_id}")
+        
+        # Step 3: Find the specific teams
+        home_team_data = None
+        away_team_data = None
+        
+        for team in teams_data:
+            if "name" in team:
+                if team["name"] == home_team:
+                    home_team_data = team
+                elif team["name"] == away_team:
+                    away_team_data = team
+                
+        if not home_team_data:
+            logger.error(f"Time {home_team} não encontrado na liga {selected_league}")
+            return None
+            
+        if not away_team_data:
+            logger.error(f"Time {away_team} não encontrado na liga {selected_league}")
+            return None
+            
+        logger.info(f"Times {home_team} e {away_team} encontrados na liga")
+        
+        # Step 4: Create fixture statistics object
+        fixture_stats = {
+            "league": {
+                "id": league_id,
+                "name": selected_league,
+                "season": LEAGUE_SEASONS.get(selected_league, CURRENT_SEASON)
+            },
+            "home_team": home_team_data,
+            "away_team": away_team_data,
+            "basic_stats": {
+                "home_team": {"name": home_team, "stats": extract_basic_stats(home_team_data)},
+                "away_team": {"name": away_team, "stats": extract_basic_stats(away_team_data)},
+                "referee": "Não informado"  # Default value
+            },
+            "advanced_stats": {
+                "home": extract_advanced_stats(home_team_data),
+                "away": extract_advanced_stats(away_team_data)
+            },
+            "team_form": {
+                "home": extract_team_form(home_team_data),
+                "away": extract_team_form(away_team_data)
+            },
+            "head_to_head": get_head_to_head_stats(home_team, away_team, selected_league)
+        }
+        
+        logger.info(f"Estatísticas compiladas com sucesso para {home_team} vs {away_team}")
+        return fixture_stats
+        
+    except Exception as e:
+        logger.error(f"Erro ao buscar estatísticas: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return None
+
+def convert_api_stats_to_df_format(fixture_stats):
+    """
+    Convert fixture statistics from API to DataFrame format
+    
+    Args:
+        fixture_stats (dict): Statistics from get_fixture_statistics()
+        
+    Returns:
+        pandas.DataFrame: DataFrame with team statistics
+    """
+    import pandas as pd
+    
+    try:
+        # Check if fixture_stats is valid
+        if not fixture_stats or not isinstance(fixture_stats, dict):
+            logger.error("Dados de estatísticas inválidos")
+            return None
+            
+        # Extract basic information
+        home_team_data = fixture_stats.get("home_team", {})
+        away_team_data = fixture_stats.get("away_team", {})
+        
+        if not home_team_data or not away_team_data:
+            logger.error("Dados de times inválidos")
+            return None
+            
+        home_team = home_team_data.get("name", "Home")
+        away_team = away_team_data.get("name", "Away")
+        
+        # Create DataFrame with team names
+        df = pd.DataFrame({"Squad": [home_team, away_team]})
+        
+        # Common stats to extract
+        stats_mapping = {
+            "MP": "matches_played",
+            "W": "wins", 
+            "D": "draws",
+            "L": "losses",
+            "Gls": "goals_scored",
+            "GA": "goals_conceded",
+            "xG": "xg",
+            "xGA": "xga",
+            "Poss": "possession",
+            "Sh": "shots",
+            "SoT": "shots_on_target",
+            "CrdY": "yellow_cards",
+            "CrdR": "red_cards",
+            "CK": "corners",
+            "Fls": "fouls"
+        }
+        
+        # Extract stats for both teams
+        for df_col, api_key in stats_mapping.items():
+            # Extract values, defaulting to 0 if not found
+            home_val = extract_stat_value(home_team_data, api_key)
+            away_val = extract_stat_value(away_team_data, api_key)
+            
+            # Add to DataFrame
+            df[df_col] = [home_val, away_val]
+        
+        logger.info(f"DataFrame criado com sucesso: {df.shape}")
+        return df
+        
+    except Exception as e:
+        logger.error(f"Erro ao converter estatísticas para DataFrame: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return None
+
+# Helper functions needed by the above functions
+
+def extract_basic_stats(team_data):
+    """Extract basic stats from team data"""
+    stats = {}
+    
+    # Check if team_data is valid
+    if not team_data or not isinstance(team_data, dict):
+        return stats
+    
+    # Extract stats from various possible locations
+    if "stats" in team_data and isinstance(team_data["stats"], dict):
+        stats.update(team_data["stats"])
+    
+    # Common stats to look for directly
+    direct_stats = [
+        "matches_played", "wins", "draws", "losses", 
+        "goals_scored", "goals_conceded", "clean_sheets",
+        "xg", "xga", "possession", "shots", "shots_on_target",
+        "yellow_cards", "red_cards", "corners", "fouls"
+    ]
+    
+    for stat in direct_stats:
+        if stat in team_data:
+            stats[stat] = team_data[stat]
+    
+    return stats
+
+def extract_advanced_stats(team_data):
+    """Extract advanced stats from team data"""
+    stats = {}
+    
+    # Check if team_data is valid
+    if not team_data or not isinstance(team_data, dict):
+        return stats
+    
+    # Advanced stats keys to look for
+    advanced_keys = [
+        "ppda", "deep_completions", "shot_quality", "xg_per_shot",
+        "build_up_disruption", "attacking_third_passes", "defensive_actions"
+    ]
+    
+    for key in advanced_keys:
+        if key in team_data:
+            stats[key] = team_data[key]
+    
+    # Get advanced stats if in nested object
+    if "advanced_stats" in team_data and isinstance(team_data["advanced_stats"], dict):
+        stats.update(team_data["advanced_stats"])
+    
+    return stats
+
+def extract_team_form(team_data):
+    """Extract recent form from team data"""
+    form = []
+    
+    # Check if team_data is valid
+    if not team_data or not isinstance(team_data, dict):
+        return form
+    
+    # Get form data if available
+    if "form" in team_data and isinstance(team_data["form"], list):
+        return team_data["form"]
+    
+    # Create simple form data if not available
+    if "recent_results" in team_data:
+        results = team_data["recent_results"]
+        
+        # Handle string format like "WWDLD"
+        if isinstance(results, str):
+            for char in results[:5]:  # Take only the last 5
+                if char in ["W", "D", "L"]:
+                    form.append({"result": char})
+    
+    # If we have less than 5 results, pad with placeholders
+    while len(form) < 5:
+        form.append({"result": "?"})
+    
+    return form
+
+def get_head_to_head_stats(home_team, away_team, league_name):
+    """Get head-to-head statistics between two teams"""
+    # This would normally come from an API call, but we'll create a placeholder
+    h2h = {
+        "total_matches": 0,
+        "home_wins": 0,
+        "away_wins": 0,
+        "draws": 0,
+        "average_goals": 0,
+        "over_2_5_percentage": 0,
+        "btts_percentage": 0,
+        "average_corners": 0,
+        "average_cards": 0
+    }
+    
+    return h2h
+
+def extract_stat_value(team_data, stat_key, default=0):
+    """Extract a statistic value from team data with proper fallbacks"""
+    # Check for stats dictionary
+    if "stats" in team_data and isinstance(team_data["stats"], dict):
+        if stat_key in team_data["stats"]:
+            return team_data["stats"][stat_key]
+    
+    # Check for direct key in team_data
+    if stat_key in team_data:
+        return team_data[stat_key]
+    
+    # Return default value if not found
+    return default
