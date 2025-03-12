@@ -1062,16 +1062,15 @@ def show_main_dashboard():
                                 st.info(f"Tamanho original dos dados: {raw_size:,} bytes")
                                 st.info(f"Tamanho otimizado: {optimized_size:,} bytes")
                                 st.success(f"Redução: {reduction:.1f}% dos dados (melhora o desempenho da IA)")
-                                
-                                # Show sample of optimized data structure
-                             with st.expander("Amostra da estrutura otimizada", expanded=False):
+                            
+                            # Show sample of optimized data structure
+                            with st.expander("Amostra da estrutura otimizada", expanded=False):
                                 st.json({
-                                    "match": optimized_data["match"],  # Corrigido: "match" em vez de "match_info"
-                                    "home": {k: v for k, v in list(optimized_data["home"].items())[:10]},  # Corrigido: "home" em vez de "home_team"
-                                    "away": {k: v for k, v in list(optimized_data["away"].items())[:10]},  # Corrigido: "away" em vez de "away_team"
+                                    "match": optimized_data["match"],
+                                    "home": {k: v for k, v in list(optimized_data["home"].items())[:10]},
+                                    "away": {k: v for k, v in list(optimized_data["away"].items())[:10]},
                                     "h2h": optimized_data["h2h"]
                                 })
-                        
                         # Etapa 3: Formatar prompt usando os dados otimizados
                         status.info("Preparando análise...")
                         from utils.ai import format_highly_optimized_prompt
