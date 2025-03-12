@@ -1047,10 +1047,9 @@ def show_main_dashboard():
                             return
                         
                         # Etapa 2: Transformar os dados para o formato otimizado
-                        from utils.prompt_adapter import transform_to_optimized_data
-                        
-                        # Transformar dados para formato otimizado
-                        optimized_data = transform_to_optimized_data(stats_data, home_team, away_team, selected_markets)
+                        from utils.prompt_adapter import transform_to_highly_optimized_data
+                        # Transformar dados para formato altamente otimizado (redução de 80-90%)
+                        optimized_data = transform_to_highly_optimized_data(stats_data, home_team, away_team, selected_markets)
                         
                         # Modo de depuração - mostrar informações sobre dados
                         if st.session_state.debug_mode:
