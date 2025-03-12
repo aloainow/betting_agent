@@ -1074,8 +1074,8 @@ def show_main_dashboard():
                         
                         # Etapa 3: Formatar prompt usando os dados otimizados
                         status.info("Preparando análise...")
-                        from utils.ai import format_optimized_prompt
-                        prompt = format_optimized_prompt(optimized_data, home_team, away_team, odds_data, selected_markets)
+                        from utils.ai import format_highly_optimized_prompt
+                        prompt = format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_data, selected_markets)
                         
                         if not prompt:
                             status.error("Falha ao preparar análise")
