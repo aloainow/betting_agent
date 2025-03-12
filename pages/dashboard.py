@@ -1065,13 +1065,13 @@ def show_main_dashboard():
                                 st.success(f"Redução: {reduction:.1f}% dos dados (melhora o desempenho da IA)")
                                 
                                 # Show sample of optimized data structure
-                                with st.expander("Amostra da estrutura otimizada", expanded=False):
+                            with st.expander("Amostra da estrutura otimizada", expanded=False):
                                     st.json({
                                         "match_info": optimized_data["match_info"],
                                         "home_team": {k: v for k, v in list(optimized_data["home_team"].items())[:10]},
                                         "away_team": {k: v for k, v in list(optimized_data["away_team"].items())[:10]},
                                         "h2h": optimized_data["h2h"]
-                                    })
+                                })
                         
                         # Etapa 3: Formatar prompt usando os dados otimizados
                         status.info("Preparando análise...")
