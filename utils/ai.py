@@ -2,6 +2,7 @@
 import os
 import logging
 import streamlit as st
+import json
 
 # Configuração de logging
 logger = logging.getLogger("valueHunter.ai")
@@ -77,7 +78,7 @@ def analyze_with_gpt(prompt):
                 messages=[
                     {
                         "role": "system",
-                        "content": "Você é um Agente Analista de Probabilidades Esportivas especializado."
+                        "content": "Você é um Agente Analista de Probabilidades Esportivas especializado. Trabalhe com quaisquer dados estatísticos disponíveis, mesmo que sejam limitados. Na ausência de dados completos, forneça análise com base nas odds implícitas e nos poucos dados disponíveis, sendo transparente sobre as limitações, mas ainda oferecendo recomendações práticas."
                     },
                     {"role": "user", "content": prompt}
                 ],
@@ -155,13 +156,43 @@ def calculate_real_prob(home_xg, away_xg, home_games, away_games):
         # Retornar valores de fallback razoáveis
         return {'home': 45.0, 'draw': 25.0, 'away': 30.0}
 
-# Substitua a função format_prompt em utils/ai.py
+# Função para verificar a qualidade dos dados estatísticos
+def check_data_quality(stats_dict):
+    """Verifica se há dados estatísticos significativos"""
+    if not stats_dict:
+        return False
+        
+    # Contar valores não-zero
+    non_zero_values = 0
+    total_values = 0
+    
+    for key, value in stats_dict.items():
+        if isinstance(value, (int, float)) and key not in ['id']:
+            total_values += 1
+            if value != 0:
+                non_zero_values += 1
+    
+    # Se temos pelo menos alguns valores não-zero, considerar ok
+    if total_values > 0:
+        quality = non_zero_values / total_values
+        logger.info(f"Qualidade dos dados: {quality:.2f} ({non_zero_values}/{total_values} valores não-zero)")
+        return quality > 0.1  # Pelo menos 10% dos valores são não-zero
+    
+    return False
 
 def format_enhanced_prompt(complete_analysis, home_team, away_team, odds_data, selected_markets):
     """
     Função aprimorada para formatar prompt de análise multi-mercados
-    aproveitando os dados avançados da FootyStats
+    aproveitando os dados avançados da FootyStats, com melhor handling de dados limitados
     """
+    # Verificar qualidade dos dados
+    has_home_data = check_data_quality(complete_analysis["basic_stats"]["home_team"]["stats"])
+    has_away_data = check_data_quality(complete_analysis["basic_stats"]["away_team"]["stats"])
+    data_quality = "baixa" if not (has_home_data and has_away_data) else "média"
+    
+    # Log para diagnóstico
+    logger.info(f"Qualidade de dados: {data_quality} (home: {has_home_data}, away: {has_away_data})")
+    
     # Extrair dados do objeto de análise completa
     basic_stats = complete_analysis["basic_stats"]
     home_stats = basic_stats["home_team"]["stats"] 
@@ -181,8 +212,8 @@ def format_enhanced_prompt(complete_analysis, home_team, away_team, odds_data, s
 * {away_team}: {away_stats.get('wins', 0)}V {away_stats.get('draws', 0)}E {away_stats.get('losses', 0)}D | {away_stats.get('goals_scored', 0)} gols marcados, {away_stats.get('goals_conceded', 0)} sofridos
 
 ## Métricas Expected Goals (xG)
-* {home_team}: {home_stats.get('xG', 0)} xG a favor, {home_stats.get('xGA', 0)} xG contra | Saldo: {home_stats.get('xG', 0) - home_stats.get('xGA', 0):.2f}
-* {away_team}: {away_stats.get('xG', 0)} xG a favor, {away_stats.get('xGA', 0)} xG contra | Saldo: {away_stats.get('xG', 0) - away_stats.get('xGA', 0):.2f}
+* {home_team}: {home_stats.get('xG', 0)} xG a favor, {home_stats.get('xGA', 0)} xG contra | Saldo: {float(home_stats.get('xG', 0)) - float(home_stats.get('xGA', 0)):.2f}
+* {away_team}: {away_stats.get('xG', 0)} xG a favor, {away_stats.get('xGA', 0)} xG contra | Saldo: {float(away_stats.get('xG', 0)) - float(away_stats.get('xGA', 0)):.2f}
 
 ## Forma Recente (últimos 5 jogos)
 * {home_team}: {' '.join(result.get('result', '?') for result in home_form[:5])}
@@ -224,10 +255,10 @@ def format_enhanced_prompt(complete_analysis, home_team, away_team, odds_data, s
 # ESTATÍSTICAS PARA MERCADOS DE GOLS
 
 ## Médias de Gols
-* {home_team} média de gols marcados: {home_stats.get('goals_scored', 0) / max(home_stats.get('matches_played', 1), 1):.2f} por jogo
-* {away_team} média de gols marcados: {away_stats.get('goals_scored', 0) / max(away_stats.get('matches_played', 1), 1):.2f} por jogo
-* {home_team} média de gols sofridos: {home_stats.get('goals_conceded', 0) / max(home_stats.get('matches_played', 1), 1):.2f} por jogo
-* {away_team} média de gols sofridos: {away_stats.get('goals_conceded', 0) / max(away_stats.get('matches_played', 1), 1):.2f} por jogo
+* {home_team} média de gols marcados: {float(home_stats.get('goals_scored', 0)) / max(float(home_stats.get('matches_played', 1)), 1):.2f} por jogo
+* {away_team} média de gols marcados: {float(away_stats.get('goals_scored', 0)) / max(float(away_stats.get('matches_played', 1)), 1):.2f} por jogo
+* {home_team} média de gols sofridos: {float(home_stats.get('goals_conceded', 0)) / max(float(home_stats.get('matches_played', 1)), 1):.2f} por jogo
+* {away_team} média de gols sofridos: {float(away_stats.get('goals_conceded', 0)) / max(float(away_stats.get('matches_played', 1)), 1):.2f} por jogo
 
 ## Clean Sheets e BTTS
 * {home_team} clean sheets: {home_stats.get('clean_sheets', 0)} ({home_stats.get('clean_sheet_percentage', 0)}%)
@@ -248,10 +279,10 @@ def format_enhanced_prompt(complete_analysis, home_team, away_team, odds_data, s
 # ESTATÍSTICAS PARA MERCADOS DE ESCANTEIOS
 
 ## Médias de Escanteios
-* {home_team} média de escanteios a favor: {home_stats.get('corners_for', 0) / max(home_stats.get('matches_played', 1), 1):.2f} por jogo
-* {away_team} média de escanteios a favor: {away_stats.get('corners_for', 0) / max(away_stats.get('matches_played', 1), 1):.2f} por jogo
-* {home_team} média de escanteios contra: {home_stats.get('corners_against', 0) / max(home_stats.get('matches_played', 1), 1):.2f} por jogo
-* {away_team} média de escanteios contra: {away_stats.get('corners_against', 0) / max(away_stats.get('matches_played', 1), 1):.2f} por jogo
+* {home_team} média de escanteios a favor: {float(home_stats.get('corners_for', 0)) / max(float(home_stats.get('matches_played', 1)), 1):.2f} por jogo
+* {away_team} média de escanteios a favor: {float(away_stats.get('corners_for', 0)) / max(float(away_stats.get('matches_played', 1)), 1):.2f} por jogo
+* {home_team} média de escanteios contra: {float(home_stats.get('corners_against', 0)) / max(float(home_stats.get('matches_played', 1)), 1):.2f} por jogo
+* {away_team} média de escanteios contra: {float(away_stats.get('corners_against', 0)) / max(float(away_stats.get('matches_played', 1)), 1):.2f} por jogo
 
 ## Tendências de Escanteios
 * Jogos do {home_team} com Over 9.5 escanteios: {home_stats.get('over_9_5_corners_percentage', 0)}%
@@ -266,10 +297,10 @@ def format_enhanced_prompt(complete_analysis, home_team, away_team, odds_data, s
 # ESTATÍSTICAS PARA MERCADOS DE CARTÕES
 
 ## Médias de Cartões
-* {home_team} média de cartões recebidos: {home_stats.get('cards_total', 0) / max(home_stats.get('matches_played', 1), 1):.2f} por jogo
-* {away_team} média de cartões recebidos: {away_stats.get('cards_total', 0) / max(away_stats.get('matches_played', 1), 1):.2f} por jogo
-* {home_team} média de cartões provocados: {home_stats.get('cards_against', 0) / max(home_stats.get('matches_played', 1), 1):.2f} por jogo
-* {away_team} média de cartões provocados: {away_stats.get('cards_against', 0) / max(away_stats.get('matches_played', 1), 1):.2f} por jogo
+* {home_team} média de cartões recebidos: {float(home_stats.get('cards_total', 0)) / max(float(home_stats.get('matches_played', 1)), 1):.2f} por jogo
+* {away_team} média de cartões recebidos: {float(away_stats.get('cards_total', 0)) / max(float(away_stats.get('matches_played', 1)), 1):.2f} por jogo
+* {home_team} média de cartões provocados: {float(home_stats.get('cards_against', 0)) / max(float(home_stats.get('matches_played', 1)), 1):.2f} por jogo
+* {away_team} média de cartões provocados: {float(away_stats.get('cards_against', 0)) / max(float(away_stats.get('matches_played', 1)), 1):.2f} por jogo
 
 ## Tendências de Cartões
 * Jogos do {home_team} com Over 3.5 cartões: {home_stats.get('over_3_5_cards_percentage', 0)}%
@@ -284,17 +315,21 @@ def format_enhanced_prompt(complete_analysis, home_team, away_team, odds_data, s
 {odds_data}
 """
 
-    # 7. INSTRUÇÕES PARA O MODELO
+    # 7. INSTRUÇÕES PARA O MODELO - MODIFICADA PARA LIDAR COM DADOS ESCASSOS
     instructions = f"""
 # INSTRUÇÕES PARA ANÁLISE
 
-Usando os dados estatísticos acima, analise as probabilidades reais para cada mercado selecionado e compare com as odds implícitas. Identifique oportunidades onde existe uma discrepância favorável (edge).
+## QUALIDADE DOS DADOS: {data_quality.upper()}
 
-1. Para cada mercado, calcule as probabilidades reais baseadas nos dados estatísticos e avançados
-2. Compare com as probabilidades implícitas nas odds fornecidas
-3. Identifique edges (diferenças) de 3% ou mais entre probabilidade real e implícita
-4. Para cada mercado, explique o racional por trás da sua análise
-5. Forneça um nível de confiança para cada recomendação (Baixo, Médio, Alto)
+Analise os dados estatísticos disponíveis, mesmo que sejam limitados. Seu objetivo é extrair insights e valor mesmo de conjuntos de dados incompletos.
+
+1. Trabalhe com quaisquer dados estatísticos disponíveis, por mínimos que sejam
+2. Use as odds implícitas como ponto de partida quando os dados estatísticos forem escassos
+3. Se os dados forem insuficientes para calcular probabilidades reais com precisão para algum mercado, explique isso claramente, mas ainda forneça análise baseada nas odds implícitas
+4. Mesmo com dados limitados, tente identificar tendências ou oportunidades nos mercados disponíveis
+5. Seja transparente sobre o nível de confiança, ajustando-o de acordo com a quantidade e qualidade dos dados disponíveis
+
+IMPORTANTE: Você DEVE fornecer uma análise mesmo que os dados estatísticos sejam limitados ou quase todos zeros. Use as odds implícitas e qualquer outro dado disponível para oferecer orientação útil ao usuário.
 
 Formato da resposta:
 # Análise da Partida
@@ -304,13 +339,13 @@ Formato da resposta:
 [Resumo das odds de cada mercado]
 
 # Probabilidades Calculadas (REAL vs IMPLÍCITA):
-[Para cada mercado, mostrando probabilidades]
+[Para cada mercado, mostrando probabilidades - mesmo se apenas as implícitas estiverem disponíveis devido à falta de dados]
 
-# Oportunidades Identificadas (Edges >3%):
-[Mercados com valor identificado]
+# Oportunidades Identificadas:
+[Mercados com potencial valor ou explicação da limitação na identificação de edges]
 
 # Nível de Confiança Geral: [Baixo/Médio/Alto]
-[Justificativa para o nível de confiança]
+[Justificativa para o nível de confiança, considerando a qualidade dos dados disponíveis]
 """
 
     # Compilar o prompt final
