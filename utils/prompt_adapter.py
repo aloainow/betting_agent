@@ -3,8 +3,6 @@ import logging
 # Configuração de logging
 logger = logging.getLogger("valueHunter.prompt_adapter")
 
-# Add this to utils/prompt_adapter.py
-
 def transform_to_optimized_data(api_data, home_team_name, away_team_name, selected_markets=None):
     """
     Transform API data into a more optimized, flattened structure
@@ -324,6 +322,255 @@ def transform_to_optimized_data(api_data, home_team_name, away_team_name, select
         return optimized_data  # Return the default structure
 
 
+def transform_to_highly_optimized_data(api_data, home_team_name, away_team_name, selected_markets=None):
+    """
+    Transform API data into a much more optimized, minimal structure focused only on
+    essential stats needed for analysis.
+    
+    Args:
+        api_data (dict): Original API data from FootyStats
+        home_team_name (str): Name of home team
+        away_team_name (str): Name of away team
+        selected_markets (dict, optional): Dictionary of selected markets to filter data
+        
+    Returns:
+        dict: Highly optimized data structure with minimal footprint
+    """
+    import logging
+    logger = logging.getLogger("valueHunter.prompt_adapter")
+    
+    try:
+        # Initialize a minimal structure
+        optimized_data = {
+            "match": {
+                "home": home_team_name,
+                "away": away_team_name,
+                "league": "",
+                "league_id": None
+            },
+            "home": {},  # Will contain only essential home team stats
+            "away": {},  # Will contain only essential away team stats
+            "h2h": {}    # Will contain only essential h2h stats
+        }
+        
+        # Check if we have valid API data
+        if not api_data or not isinstance(api_data, dict):
+            logger.error("Invalid API data provided")
+            return optimized_data
+        
+        # Fill in league info
+        if "basic_stats" in api_data and "league_id" in api_data["basic_stats"]:
+            optimized_data["match"]["league_id"] = api_data["basic_stats"]["league_id"]
+            
+        # Determine which stats to include based on selected markets
+        essential_stats = set(["played", "wins", "draws", "losses"])  # Always include these
+        
+        # Add market-specific essential stats
+        if selected_markets:
+            if selected_markets.get("money_line") or selected_markets.get("chance_dupla"):
+                essential_stats.update([
+                    "home_wins", "away_wins", "xg", "xga", "possession", 
+                    "home_goals", "away_goals"
+                ])
+                
+            if selected_markets.get("over_under") or selected_markets.get("ambos_marcam"):
+                essential_stats.update([
+                    "goals", "goals_conceded", "clean_sheets_pct", 
+                    "btts_pct", "over_2_5_pct"
+                ])
+                
+            if selected_markets.get("escanteios"):
+                essential_stats.update([
+                    "corners_pg", "corners_for", "corners_against", 
+                    "over_9_5_corners_pct"
+                ])
+                
+            if selected_markets.get("cartoes"):
+                essential_stats.update([
+                    "cards_pg", "yellow_cards", "red_cards", 
+                    "over_3_5_cards_pct"
+                ])
+        
+        # Extract home team essential stats
+        home_stats = extract_minimal_team_stats(api_data, "home", essential_stats)
+        if home_stats:
+            optimized_data["home"] = home_stats
+            
+        # Extract away team essential stats
+        away_stats = extract_minimal_team_stats(api_data, "away", essential_stats)
+        if away_stats:
+            optimized_data["away"] = away_stats
+            
+        # Extract minimal h2h data
+        optimized_data["h2h"] = extract_minimal_h2h(api_data, selected_markets)
+        
+        # Add form data as simple strings, not arrays
+        optimized_data["home"]["form"] = extract_form_string(api_data, "home")
+        optimized_data["away"]["form"] = extract_form_string(api_data, "away")
+        
+        logger.info(f"Created highly optimized data structure for {home_team_name} vs {away_team_name}")
+        return optimized_data
+        
+    except Exception as e:
+        logger.error(f"Error creating highly optimized data: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return {"match": {"home": home_team_name, "away": away_team_name}}
+
+
+def extract_minimal_team_stats(api_data, team_type, essential_stats):
+    """
+    Extract only the essential stats for a team, with minimal data footprint
+    
+    Args:
+        api_data (dict): The full API data
+        team_type (str): "home" or "away"
+        essential_stats (set): Set of essential stat names to include
+        
+    Returns:
+        dict: Minimal stats dictionary with rounded values
+    """
+    stats = {}
+    
+    # Get the right structure based on team type
+    if "basic_stats" not in api_data:
+        return stats
+        
+    team_key = f"{team_type}_team"
+    if team_key not in api_data["basic_stats"]:
+        return stats
+        
+    team_data = api_data["basic_stats"][team_key]
+    
+    # Extract stats based on different possible structures
+    raw_stats = {}
+    if "stats" in team_data:
+        if isinstance(team_data["stats"], dict):
+            if "stats" in team_data["stats"] and isinstance(team_data["stats"]["stats"], dict):
+                raw_stats = team_data["stats"]["stats"]
+            else:
+                raw_stats = team_data["stats"]
+    
+    # Only include essential stats with rounded values
+    for stat_name in essential_stats:
+        # Use appropriate property path based on stat name
+        if stat_name == "played":
+            stats["played"] = round_stat(get_nested_value(raw_stats, ["matches_played", "seasonMatchesPlayed_overall", "MP"]))
+        elif stat_name == "wins":
+            stats["wins"] = round_stat(get_nested_value(raw_stats, ["wins", "seasonWinsNum_overall", "W"]))
+        elif stat_name == "draws":
+            stats["draws"] = round_stat(get_nested_value(raw_stats, ["draws", "seasonDrawsNum_overall", "D"]))
+        elif stat_name == "losses":
+            stats["losses"] = round_stat(get_nested_value(raw_stats, ["losses", "seasonLossesNum_overall", "L"]))
+        elif stat_name == "goals":
+            stats["goals"] = round_stat(get_nested_value(raw_stats, ["goals_scored", "seasonGoals_overall", "Gls"]))
+        elif stat_name == "goals_conceded":
+            stats["goals_conceded"] = round_stat(get_nested_value(raw_stats, ["goals_conceded", "seasonConceded_overall", "GA"]))
+        elif stat_name == "xg":
+            stats["xg"] = round_stat(get_nested_value(raw_stats, ["xG", "xg", "xg_for_overall"]), 2)
+        elif stat_name == "xga":
+            stats["xga"] = round_stat(get_nested_value(raw_stats, ["xGA", "xga", "xg_against_avg_overall"]), 2)
+        elif stat_name == "possession":
+            stats["poss"] = round_stat(get_nested_value(raw_stats, ["possession", "possessionAVG_overall", "Poss"]))
+        elif stat_name == "clean_sheets_pct":
+            stats["cs_pct"] = round_stat(get_nested_value(raw_stats, ["clean_sheet_percentage", "seasonCSPercentage_overall"]))
+        elif stat_name == "btts_pct":
+            stats["btts_pct"] = round_stat(get_nested_value(raw_stats, ["btts_percentage", "seasonBTTSPercentage_overall"]))
+        elif stat_name == "over_2_5_pct":
+            stats["o2.5_pct"] = round_stat(get_nested_value(raw_stats, ["over_2_5_percentage", "seasonOver25Percentage_overall"]))
+        elif stat_name == "cards_pg":
+            cards_total = get_nested_value(raw_stats, ["cards_total", "seasonCrdYNum_overall", "CrdY"], 0) + \
+                           get_nested_value(raw_stats, ["seasonCrdRNum_overall", "CrdR"], 0)
+            played = max(1, stats.get("played", 1))  # Avoid division by zero
+            stats["cards_pg"] = round_stat(cards_total / played, 1)
+        elif stat_name == "corners_pg":
+            corners_total = get_nested_value(raw_stats, ["corners_for", "seasonCornersFor_overall", "CK"], 0) + \
+                            get_nested_value(raw_stats, ["corners_against", "seasonCornersAgainst_overall"], 0)
+            played = max(1, stats.get("played", 1))  # Avoid division by zero
+            stats["corners_pg"] = round_stat(corners_total / played, 1)
+        
+    # Add ppda from advanced stats if it's essential
+    if "ppda" in essential_stats and "advanced_stats" in api_data and team_type in api_data["advanced_stats"]:
+        stats["ppda"] = round_stat(get_nested_value(api_data["advanced_stats"][team_type], 
+                                                   ["ppda", "passes_per_defensive_action"]), 1)
+        
+    return stats
+
+
+def extract_minimal_h2h(api_data, selected_markets):
+    """
+    Extract only essential head-to-head stats based on selected markets
+    
+    Args:
+        api_data (dict): The full API data
+        selected_markets (dict): Dictionary of selected markets
+        
+    Returns:
+        dict: Minimal h2h stats
+    """
+    h2h = {}
+    
+    if "head_to_head" not in api_data:
+        return h2h
+        
+    h2h_data = api_data["head_to_head"]
+    
+    # Always include basic h2h stats
+    h2h["matches"] = round_stat(get_nested_value(h2h_data, ["total_matches"]))
+    h2h["home_w"] = round_stat(get_nested_value(h2h_data, ["home_wins"]))
+    h2h["away_w"] = round_stat(get_nested_value(h2h_data, ["away_wins"]))
+    h2h["draws"] = round_stat(get_nested_value(h2h_data, ["draws"]))
+    
+    # Include market-specific h2h stats
+    if selected_markets:
+        if selected_markets.get("over_under"):
+            h2h["o2.5_pct"] = round_stat(get_nested_value(h2h_data, ["over_2_5_percentage"]))
+            
+        if selected_markets.get("ambos_marcam"):
+            h2h["btts_pct"] = round_stat(get_nested_value(h2h_data, ["btts_percentage"]))
+            
+        if selected_markets.get("escanteios"):
+            h2h["avg_corners"] = round_stat(get_nested_value(h2h_data, ["average_corners"]), 1)
+            
+        if selected_markets.get("cartoes"):
+            h2h["avg_cards"] = round_stat(get_nested_value(h2h_data, ["average_cards"]), 1)
+    
+    return h2h
+
+
+def extract_form_string(api_data, team_type):
+    """
+    Extract recent form as a simple string like "WWDLD" instead of an array
+    
+    Args:
+        api_data (dict): The full API data
+        team_type (str): "home" or "away"
+        
+    Returns:
+        str: Form string like "WWDLD"
+    """
+    form = ""
+    
+    if "team_form" not in api_data or team_type not in api_data["team_form"]:
+        return "?????"
+        
+    team_form = api_data["team_form"][team_type]
+    
+    if isinstance(team_form, list) and len(team_form) > 0:
+        # Extract up to 5 recent results
+        for i in range(min(5, len(team_form))):
+            if isinstance(team_form[i], dict) and "result" in team_form[i]:
+                form += team_form[i]["result"]
+            else:
+                form += "?"
+    
+    # Ensure we return exactly 5 characters
+    while len(form) < 5:
+        form += "?"
+        
+    return form
+
+
 def get_value(data_dict, possible_keys, default=0):
     """
     Helper function to get a value from a dictionary using multiple possible keys
@@ -353,6 +600,60 @@ def get_value(data_dict, possible_keys, default=0):
                 pass
     
     return default
+
+
+def get_nested_value(data_dict, possible_keys, default=0):
+    """
+    Get a value from a nested dictionary using multiple possible keys
+    
+    Args:
+        data_dict (dict): Dictionary to search
+        possible_keys (list): List of possible keys to try
+        default: Default value if not found
+        
+    Returns:
+        Value from dictionary or default
+    """
+    if not data_dict or not isinstance(data_dict, dict):
+        return default
+    
+    for key in possible_keys:
+        if key in data_dict:
+            # Handle 'N/A' and other non-numeric values
+            value = data_dict[key]
+            if value == 'N/A' or value is None:
+                return default
+            
+            # Try to convert to float
+            try:
+                return float(value)
+            except (ValueError, TypeError):
+                pass
+    
+    return default
+
+
+def round_stat(value, precision=0):
+    """
+    Round a statistical value to reduce data size
+    
+    Args:
+        value: The value to round
+        precision (int): Decimal precision
+        
+    Returns:
+        int or float: Rounded value
+    """
+    if value is None:
+        return 0
+        
+    try:
+        if precision == 0:
+            return int(round(float(value), 0))
+        else:
+            return round(float(value), precision)
+    except (ValueError, TypeError):
+        return 0
 
 
 def filter_optimized_data(optimized_data, selected_markets):
@@ -444,6 +745,7 @@ def filter_optimized_data(optimized_data, selected_markets):
                         filtered_data["h2h"][field] = optimized_data["h2h"][field]
     
     return filtered_data
+
 
 def adapt_api_data_for_prompt(complete_analysis):
     """
@@ -551,6 +853,7 @@ def adapt_api_data_for_prompt(complete_analysis):
         logger.error(traceback.format_exc())
         return None
 
+
 def extract_stats(stats_obj):
     """
     Extrai estatísticas relevantes de um objeto de estatísticas
@@ -596,6 +899,7 @@ def extract_stats(stats_obj):
                 break
     
     return stats
+
 
 def adapt_last_matches(matches_data):
     """
