@@ -64,6 +64,194 @@ def get_openai_client():
         logger.error(f"Erro não tratado em get_openai_client: {str(e)}")
         return None
 
+# Add to utils/ai.py
+
+def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_data, selected_markets):
+    """
+    Format prompt for GPT using the highly optimized data structure
+    
+    Args:
+        optimized_data (dict): Data in the highly optimized format
+        home_team (str): Home team name
+        away_team (str): Away team name
+        odds_data (str): Formatted odds data
+        selected_markets (dict): Dictionary of selected markets
+        
+    Returns:
+        str: Formatted prompt
+    """
+    logger.info(f"Formatting highly optimized prompt for {home_team} vs {away_team}")
+    
+    try:
+        # 1. FUNDAMENTAL STATISTICS (relevant for all markets)
+        home = optimized_data.get("home", {})
+        away = optimized_data.get("away", {})
+        h2h = optimized_data.get("h2h", {})
+        
+        fundamental_stats = f"""
+                    # ESTATÍSTICAS FUNDAMENTAIS ({home_team} vs {away_team})
+                    
+                    ## Desempenho Geral na Temporada
+                    * {home_team}: {home.get('wins', 0)}V {home.get('draws', 0)}E {home.get('losses', 0)}D | {home.get('goals', 0)} gols marcados, {home.get('goals_conceded', 0)} sofridos
+                    * {away_team}: {away.get('wins', 0)}V {away.get('draws', 0)}E {away.get('losses', 0)}D | {away.get('goals', 0)} gols marcados, {away.get('goals_conceded', 0)} sofridos
+                    
+                    ## Métricas Expected Goals (xG)
+                    * {home_team}: {home.get('xg', 0)} xG a favor, {home.get('xga', 0)} xG contra
+                    * {away_team}: {away.get('xg', 0)} xG a favor, {away.get('xga', 0)} xG contra
+
+                    ## Forma Recente (últimos 5 jogos)
+                    * {home_team}: {home.get('form', '?????')}
+                    * {away_team}: {away.get('form', '?????')}
+                    
+                    ## Head-to-Head
+                    * Jogos totais: {h2h.get('matches', 0)}
+                    * Vitórias {home_team}: {h2h.get('home_w', 0)}
+                    * Vitórias {away_team}: {h2h.get('away_w', 0)}
+                    * Empates: {h2h.get('draws', 0)}
+                    """
+                    
+                            # 2. STATS FOR RESULT MARKETS (1X2, Double Chance)
+                            result_stats = ""
+                            if any(selected_markets.get(m) for m in ["money_line", "chance_dupla"]):
+                                result_stats = f"""
+                    # ESTATÍSTICAS PARA MERCADOS DE RESULTADO
+                    
+                    ## Posse de Bola
+                    * {home_team}: {home.get('poss', 0)}%
+                    * {away_team}: {away.get('poss', 0)}%
+                    
+                    ## Métricas Avançadas
+                    * PPDA (Passes por Ação Defensiva): {home_team} {home.get('ppda', 'N/A')} vs {away_team} {away.get('ppda', 'N/A')} (menor = pressão mais intensa)
+                    """
+                    
+                            # 3. STATS FOR GOALS MARKETS (Over/Under, Both Teams To Score)
+                            goals_stats = ""
+                            if any(selected_markets.get(m) for m in ["over_under", "ambos_marcam"]):
+                                # Calculate goals per game
+                                home_pg = home.get('goals', 0) / max(home.get('played', 1), 1)
+                                away_pg = away.get('goals', 0) / max(away.get('played', 1), 1)
+                                home_gc_pg = home.get('goals_conceded', 0) / max(home.get('played', 1), 1)
+                                away_gc_pg = away.get('goals_conceded', 0) / max(away.get('played', 1), 1)
+                                
+                                goals_stats = f"""
+                    # ESTATÍSTICAS PARA MERCADOS DE GOLS
+                    
+                    ## Médias de Gols
+                    * {home_team} média de gols marcados: {home_pg:.2f} por jogo
+                    * {away_team} média de gols marcados: {away_pg:.2f} por jogo
+                    * {home_team} média de gols sofridos: {home_gc_pg:.2f} por jogo
+                    * {away_team} média de gols sofridos: {away_gc_pg:.2f} por jogo
+                    
+                    ## Clean Sheets e BTTS
+                    * {home_team} clean sheets %: {home.get('cs_pct', 0)}%
+                    * {away_team} clean sheets %: {away.get('cs_pct', 0)}%
+                    * {home_team} jogos com Ambos Marcam: {home.get('btts_pct', 0)}%
+                    * {away_team} jogos com Ambos Marcam: {away.get('btts_pct', 0)}%
+                    
+                    ## Distribuição de Gols por Jogo
+                    * Jogos do {home_team} com Over 2.5: {home.get('o2.5_pct', 0)}%
+                    * Jogos do {away_team} com Over 2.5: {away.get('o2.5_pct', 0)}%
+                    * Jogos H2H com Over 2.5: {h2h.get('o2.5_pct', 0)}%
+                    """
+                    
+                            # 4. STATS FOR CORNERS MARKETS
+                            corners_stats = ""
+                            if selected_markets.get("escanteios"):
+                                corners_stats = f"""
+                    # ESTATÍSTICAS PARA MERCADOS DE ESCANTEIOS
+                    
+                    ## Médias de Escanteios
+                    * {home_team} média de escanteios por jogo: {home.get('corners_pg', 0)}
+                    * {away_team} média de escanteios por jogo: {away.get('corners_pg', 0)}
+                    * Total médio de escanteios em confrontos H2H: {h2h.get('avg_corners', 'N/A')}
+                    
+                    ## Tendências de Escanteios
+                    * Jogos do {home_team} com Over 9.5 escanteios: {home.get('o9.5_corners_pct', 0)}%
+                    * Jogos do {away_team} com Over 9.5 escanteios: {away.get('o9.5_corners_pct', 0)}%
+                    """
+                    
+                            # 5. STATS FOR CARDS MARKETS
+                            cards_stats = ""
+                            if selected_markets.get("cartoes"):
+                                cards_stats = f"""
+                    # ESTATÍSTICAS PARA MERCADOS DE CARTÕES
+                    
+                    ## Médias de Cartões
+                    * {home_team} média de cartões por jogo: {home.get('cards_pg', 0)}
+                    * {away_team} média de cartões por jogo: {away.get('cards_pg', 0)}
+                    * Média de cartões em jogos H2H: {h2h.get('avg_cards', 'N/A')}
+                    
+                    ## Tendências de Cartões
+                    * Jogos do {home_team} com Over 3.5 cartões: {home.get('o3.5_cards_pct', 0)}%
+                    * Jogos do {away_team} com Over 3.5 cartões: {away.get('o3.5_cards_pct', 0)}%
+                    """
+                    
+                            # 6. AVAILABLE MARKETS AND ODDS
+                            markets_info = f"""
+                    # MERCADOS DISPONÍVEIS E ODDS
+                    {odds_data}
+                    """
+                    
+                            # 7. INSTRUCTIONS FOR THE MODEL
+                            instructions = f"""
+                    # INSTRUÇÕES PARA ANÁLISE
+                    
+                    Analise os dados estatísticos fornecidos para identificar valor nas odds.
+                    
+                    1. Para cada mercado selecionado, calcule as probabilidades reais com base nas estatísticas
+                    2. Compare as probabilidades reais com as probabilidades implícitas nas odds
+                    3. Identifique oportunidades de valor (edges) onde há discrepâncias favoráveis
+                    4. Para cada mercado, dê sua recomendação clara e objetiva
+                    
+                    Formato da resposta:
+                    # Análise da Partida
+                    ## {home_team} x {away_team}
+                    
+                    # Análise de Mercados Disponíveis:
+                    [Resumo das odds de cada mercado]
+                    
+                    # Probabilidades Calculadas (REAL vs IMPLÍCITA):
+                    [Para cada mercado, mostrando probabilidades calculadas vs. implícitas]
+                    
+                    # Oportunidades Identificadas:
+                    [Mercados onde você identificou valor, com o percentual de edge]
+                    
+                    # Nível de Confiança Geral: [Baixo/Médio/Alto]
+                    [Justificativa para o nível de confiança]
+                    """
+                    
+                            # Compile the final prompt
+                            sections = [
+                                fundamental_stats,
+                                result_stats,
+                                goals_stats,
+                                corners_stats,
+                                cards_stats,
+                                markets_info,
+                                instructions
+                            ]
+                            
+                            full_prompt = "\n".join([s for s in sections if s])
+                            logger.info(f"Prompt prepared successfully for {home_team} vs {away_team}")
+                            
+                            return full_prompt
+                            
+                        except Exception as e:
+                            logger.error(f"Error formatting highly optimized prompt: {str(e)}")
+                            import traceback
+                            logger.error(traceback.format_exc())
+                            
+                            # Return a simplified prompt as fallback
+                            return f"""
+                    # ESTATÍSTICAS BÁSICAS
+                    {home_team} vs {away_team}
+                    
+                    {odds_data}
+                    
+                    # INSTRUÇÕES
+                    Analise as odds e identifique oportunidades de valor.
+                    """
+
 def analyze_with_gpt(prompt):
     try:
         client = get_openai_client()
