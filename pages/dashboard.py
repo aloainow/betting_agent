@@ -1009,7 +1009,7 @@ def show_main_dashboard():
                 
                 # Find the analyze button handler in pages/dashboard.py and replace it with this code
 
-            if analyze_button:
+                if analyze_button:
                 if not any(selected_markets.values()):
                     st.error("Por favor, selecione pelo menos um mercado para análise.")
                     return
