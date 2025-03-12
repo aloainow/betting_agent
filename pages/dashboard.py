@@ -1007,165 +1007,182 @@ def show_main_dashboard():
                 if st.checkbox("Modo de depuração", value=False, key="debug_mode"):
                     st.info("Modo de depuração ativado. Execute a análise para ver informações detalhadas.")
                 
-                if analyze_button:
-                    if not any(selected_markets.values()):
-                        st.error("Por favor, selecione pelo menos um mercado para análise.")
-                        return
-                        
-                    if not odds_data:
-                        st.error("Por favor, configure as odds para os mercados selecionados.")
-                        return
+                # Find the analyze button handler in pages/dashboard.py and replace it with this code
+
+            if analyze_button:
+                if not any(selected_markets.values()):
+                    st.error("Por favor, selecione pelo menos um mercado para análise.")
+                    return
                     
-                    # Verificar limites de análise
-                    if not check_analysis_limits(selected_markets):
-                        return
-                        
-                    # Criar um placeholder para o status
-                    status = st.empty()
+                if not odds_data:
+                    st.error("Por favor, configure as odds para os mercados selecionados.")
+                    return
+                
+                # Verificar limites de análise
+                if not check_analysis_limits(selected_markets):
+                    return
                     
-                    # Buscar estatísticas sempre em tempo real (sem cache)
-                    status.info("Buscando estatísticas atualizadas...")
-                    team_stats_df, stats_data = fetch_stats_data(selected_league, home_team, away_team)
-                    
+                # Criar um placeholder para o status
+                status = st.empty()
+                
+                # Buscar estatísticas sempre em tempo real (sem cache)
+                status.info("Buscando estatísticas atualizadas...")
+                team_stats_df, stats_data = fetch_stats_data(selected_league, home_team, away_team, selected_markets)
+                
+                if team_stats_df is None:
+                    status.error("Falha ao carregar estatísticas. Tente novamente.")
+                    return
+                
+                # Modo de depuração - mostrar dados brutos
+                if st.session_state.debug_mode:
+                    with st.expander("Dados brutos coletados da API", expanded=False):
+                        st.json(stats_data)
+                
+                # Executar análise com tratamento de erro para cada etapa
+                try:
+                    # Etapa 1: Verificar dados
+                    status.info("Preparando dados para análise...")
                     if team_stats_df is None:
-                        status.error("Falha ao carregar estatísticas. Tente novamente.")
+                        status.error("Falha ao carregar dados")
                         return
                     
-                    # Modo de depuração - mostrar dados brutos
-                    if st.session_state.debug_mode:
-                        with st.expander("Dados brutos coletados da API", expanded=False):
-                            st.json(stats_data)
+                    # Etapa 2: Transformar os dados para o formato otimizado
+                    from utils.prompt_adapter import transform_to_optimized_data
                     
-                    # Executar análise com tratamento de erro para cada etapa
-                    try:
-                        # Etapa 1: Verificar dados
-                        status.info("Preparando dados para análise...")
-                        if team_stats_df is None:
-                            status.error("Falha ao carregar dados")
-                            return
+                    # Transformar dados para formato otimizado
+                    optimized_data = transform_to_optimized_data(stats_data, home_team, away_team, selected_markets)
+                    
+                    # Modo de depuração - mostrar informações sobre dados
+                    if st.session_state.debug_mode:
+                        import sys
+                        import json
+                        raw_size = sys.getsizeof(json.dumps(stats_data))
+                        optimized_size = sys.getsizeof(json.dumps(optimized_data))
+                        reduction = (1 - optimized_size/raw_size) * 100
+                        with st.expander("Informações sobre otimização de dados", expanded=True):
+                            st.info(f"Tamanho original dos dados: {raw_size:,} bytes")
+                            st.info(f"Tamanho otimizado: {optimized_size:,} bytes")
+                            st.success(f"Redução: {reduction:.1f}% dos dados (melhora o desempenho da IA)")
+                            
+                            # Show sample of optimized data structure
+                            with st.expander("Amostra da estrutura otimizada", expanded=False):
+                                st.json({
+                                    "match_info": optimized_data["match_info"],
+                                    "home_team": {k: v for k, v in list(optimized_data["home_team"].items())[:10]},
+                                    "away_team": {k: v for k, v in list(optimized_data["away_team"].items())[:10]},
+                                    "h2h": optimized_data["h2h"]
+                                })
+                    
+                    # Etapa 3: Formatar prompt usando os dados otimizados
+                    status.info("Preparando análise...")
+                    from utils.ai import format_optimized_prompt
+                    prompt = format_optimized_prompt(optimized_data, home_team, away_team, odds_data, selected_markets)
+                    
+                    if not prompt:
+                        status.error("Falha ao preparar análise")
+                        return
+                    
+                    # Modo de depuração - mostrar prompt
+                    if st.session_state.debug_mode:
+                        with st.expander("Preview do prompt", expanded=False):
+                            st.text(prompt)
                         
-                        # Etapa 2: Adaptar os dados para o formato esperado pelo prompt
-                        from utils.prompt_adapter import adapt_api_data_for_prompt
+                    # Etapa 4: Análise GPT
+                    status.info("Realizando análise com IA...")
+                    analysis = analyze_with_gpt(prompt)
+                    if not analysis:
+                        status.error("Falha na análise com IA")
+                        return
+                    
+                    # Etapa 5: Mostrar resultado
+                    if analysis:
+                        # Limpar status
+                        status.empty()
                         
-                        # Adaptar dados da API para o formato do prompt
-                        adapted_data = adapt_api_data_for_prompt(stats_data)
-                        if not adapted_data:
-                            status.error("Falha ao adaptar dados para análise")
-                            return
+                        # Limpar possíveis tags HTML da resposta
+                        if isinstance(analysis, str):
+                            # Verificar se a análise começa com a tag de div
+                            if "<div class=\"analysis-result\">" in analysis:
+                                analysis = analysis.replace("<div class=\"analysis-result\">", "")
+                                if "</div>" in analysis:
+                                    analysis = analysis.replace("</div>", "")
                         
-                        # Modo de depuração - mostrar dados adaptados
-                        if st.session_state.debug_mode:
-                            with st.expander("Dados adaptados para o prompt", expanded=False):
-                                st.json(adapted_data)
-                            
-                        # Etapa 3: Formatar prompt usando os dados adaptados
-                        status.info("Preparando análise...")
-                        prompt = format_enhanced_prompt(adapted_data, home_team, away_team, odds_data, selected_markets)
-                        if not prompt:
-                            status.error("Falha ao preparar análise")
-                            return
+                        # Exibir a análise em uma div com largura total
+                        st.markdown(f'''
+                        <style>
+                        .analysis-result {{
+                            width: 100% !important;
+                            max-width: 100% !important;
+                            padding: 2rem !important;
+                            background-color: #575760;
+                            border-radius: 8px;
+                            border: 1px solid #6b6b74;
+                            margin: 1rem 0;
+                        }}
                         
-                        # Modo de depuração - mostrar prompt
-                        if st.session_state.debug_mode:
-                            with st.expander("Preview do prompt", expanded=False):
-                                st.text(prompt)
-                            
-                        # Etapa 4: Análise GPT
-                        status.info("Realizando análise com IA...")
-                        analysis = analyze_with_gpt(prompt)
-                        if not analysis:
-                            status.error("Falha na análise com IA")
-                            return
+                        /* Estilos para deixar o cabeçalho mais bonito */
+                        .analysis-result h1, 
+                        .analysis-result h2,
+                        .analysis-result h3 {{
+                            color: #fd7014;
+                            margin-top: 1.5rem;
+                            margin-bottom: 1rem;
+                        }}
                         
-                       # Etapa 5: Mostrar resultado
-                        if analysis:
-                            # Limpar status
-                            status.empty()
+                        /* Estilos para parágrafos */
+                        .analysis-result p {{
+                            margin-bottom: 1rem;
+                            line-height: 1.5;
+                        }}
+                        
+                        /* Estilos para listas */
+                        .analysis-result ul, 
+                        .analysis-result ol {{
+                            margin-left: 1.5rem;
+                            margin-bottom: 1rem;
+                        }}
+                        
+                        /* Oportunidades destacadas */
+                        .analysis-result strong {{
+                            color: #fd7014;
+                        }}
+                        </style>
+                        <div class="analysis-result">{analysis}</div>
+                        ''', unsafe_allow_html=True)
+                        
+                        # Registrar uso após análise bem-sucedida
+                        num_markets = sum(1 for v in selected_markets.values() if v)
+                        
+                        # Registro de uso com dados detalhados
+                        analysis_data = {
+                            "league": selected_league,
+                            "home_team": home_team,
+                            "away_team": away_team,
+                            "markets_used": [k for k, v in selected_markets.items() if v]
+                        }
+                        success = st.session_state.user_manager.record_usage(
+                            st.session_state.email, 
+                            num_markets,
+                            analysis_data
+                        )
+                        
+                        if success:
+                            # Forçar atualização do cache de estatísticas
+                            if hasattr(st.session_state, 'user_stats_cache'):
+                                del st.session_state.user_stats_cache  # Remover cache para forçar reload
                             
-                            # Limpar possíveis tags HTML da resposta
-                            if isinstance(analysis, str):
-                                # Verificar se a análise começa com a tag de div
-                                if "<div class=\"analysis-result\">" in analysis:
-                                    analysis = analysis.replace("<div class=\"analysis-result\">", "")
-                                    if "</div>" in analysis:
-                                        analysis = analysis.replace("</div>", "")
-                            
-                            # Exibir a análise em uma div com largura total
-                            st.markdown(f'''
-                            <style>
-                            .analysis-result {{
-                                width: 100% !important;
-                                max-width: 100% !important;
-                                padding: 2rem !important;
-                                background-color: #575760;
-                                border-radius: 8px;
-                                border: 1px solid #6b6b74;
-                                margin: 1rem 0;
-                            }}
-                            
-                            /* Estilos para deixar o cabeçalho mais bonito */
-                            .analysis-result h1, 
-                            .analysis-result h2,
-                            .analysis-result h3 {{
-                                color: #fd7014;
-                                margin-top: 1.5rem;
-                                margin-bottom: 1rem;
-                            }}
-                            
-                            /* Estilos para parágrafos */
-                            .analysis-result p {{
-                                margin-bottom: 1rem;
-                                line-height: 1.5;
-                            }}
-                            
-                            /* Estilos para listas */
-                            .analysis-result ul, 
-                            .analysis-result ol {{
-                                margin-left: 1.5rem;
-                                margin-bottom: 1rem;
-                            }}
-                            
-                            /* Oportunidades destacadas */
-                            .analysis-result strong {{
-                                color: #fd7014;
-                            }}
-                            </style>
-                            <div class="analysis-result">{analysis}</div>
-                            ''', unsafe_allow_html=True)
-                            
-                            # Registrar uso após análise bem-sucedida
-                            num_markets = sum(1 for v in selected_markets.values() if v)
-                            
-                            # Registro de uso com dados detalhados
-                            analysis_data = {
-                                "league": selected_league,
-                                "home_team": home_team,
-                                "away_team": away_team,
-                                "markets_used": [k for k, v in selected_markets.items() if v]
-                            }
-                            success = st.session_state.user_manager.record_usage(
-                                st.session_state.email, 
-                                num_markets,
-                                analysis_data
-                            )
-                            
-                            if success:
-                                # Forçar atualização do cache de estatísticas
-                                if hasattr(st.session_state, 'user_stats_cache'):
-                                    del st.session_state.user_stats_cache  # Remover cache para forçar reload
+                            # Mostrar mensagem de sucesso com créditos restantes
+                            updated_stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
+                            credits_after = updated_stats['credits_remaining']
+                            st.success(f"{num_markets} créditos foram consumidos. Agora você tem {credits_after} créditos.")
+                        else:
+                            st.error("Não foi possível registrar o uso dos créditos. Por favor, tente novamente.")
                                 
-                                # Mostrar mensagem de sucesso com créditos restantes
-                                updated_stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
-                                credits_after = updated_stats['credits_remaining']
-                                st.success(f"{num_markets} créditos foram consumidos. Agora você tem {credits_after} créditos.")
-                            else:
-                                st.error("Não foi possível registrar o uso dos créditos. Por favor, tente novamente.")
-                                    
-                    except Exception as analysis_error:
-                        logger.error(f"Erro durante a análise: {str(analysis_error)}")
-                        status.error(f"Erro durante a análise: {str(analysis_error)}")
-                        traceback.print_exc()
-                        
+                except Exception as analysis_error:
+                    logger.error(f"Erro durante a análise: {str(analysis_error)}")
+                    status.error(f"Erro durante a análise: {str(analysis_error)}")
+                    import traceback
+                    logger.error(traceback.format_exc())                        
             except Exception as button_error:
                 logger.error(f"Erro no botão de análise: {str(button_error)}")
                 st.error(f"Erro no botão de análise: {str(button_error)}")
