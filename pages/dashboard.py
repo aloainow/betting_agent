@@ -1064,7 +1064,7 @@ def show_main_dashboard():
                                 st.success(f"Redução: {reduction:.1f}% dos dados (melhora o desempenho da IA)")
                                 
                                 # Show sample of optimized data structure
-                           with st.expander("Amostra da estrutura otimizada", expanded=False):
+                             with st.expander("Amostra da estrutura otimizada", expanded=False):
                                 st.json({
                                     "match": optimized_data["match"],  # Corrigido: "match" em vez de "match_info"
                                     "home": {k: v for k, v in list(optimized_data["home"].items())[:10]},  # Corrigido: "home" em vez de "home_team"
