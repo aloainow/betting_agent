@@ -22,7 +22,7 @@ def transform_to_optimized_data(api_data, home_team_name, away_team_name, select
     try:
         # Initialize the optimized structure
         optimized_data = {
-            "match_info": {
+            "match": {
                 "home_team": home_team_name,
                 "away_team": away_team_name,
                 "league": "",
