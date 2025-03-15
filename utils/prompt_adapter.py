@@ -206,6 +206,259 @@ def transform_to_exact_format(api_data, home_team_name, away_team_name, selected
         # Retorna a estrutura padrão em caso de erro
         return formatted_data
 
+# Adicione isso ao arquivo utils/prompt_adapter.py
+
+def extract_advanced_team_data(api_data, home_team_name, away_team_name):
+    """
+    Função robusta para extrair dados de times com suporte a múltiplos formatos da API FootyStats
+    
+    Args:
+        api_data (dict): Dados originais da API
+        home_team_name (str): Nome do time da casa
+        away_team_name (str): Nome do time visitante
+        
+    Returns:
+        dict: Dados formatados na estrutura exata requerida
+    """
+    import logging
+    logger = logging.getLogger("valueHunter.prompt_adapter")
+    
+    # Estrutura vazia padronizada
+    formatted_data = {
+        "match_info": {
+            "home_team": home_team_name,
+            "away_team": away_team_name,
+            "league": "",
+            "league_id": None
+        },
+        "home_team": {}, 
+        "away_team": {}, 
+        "h2h": {}
+    }
+    
+    # Inicializar estruturas vazias com zeros
+    for team_key in ["home_team", "away_team"]:
+        formatted_data[team_key] = {
+            # Stats básicos
+            "played": 0, "wins": 0, "draws": 0, "losses": 0,
+            "goals_scored": 0, "goals_conceded": 0, "clean_sheets_pct": 0,
+            "btts_pct": 0, "over_2_5_pct": 0,
+            # Específicos casa/fora
+            "home_played": 0, "home_wins": 0, "home_draws": 0, "home_losses": 0,
+            "home_goals_scored": 0, "home_goals_conceded": 0,
+            "away_played": 0, "away_wins": 0, "away_draws": 0, "away_losses": 0,
+            "away_goals_scored": 0, "away_goals_conceded": 0,
+            # Stats avançados
+            "xg": 0, "xga": 0, "ppda": 0, "possession": 0,
+            # Stats de cartões
+            "cards_total": 0, "cards_per_game": 0, "yellow_cards": 0, "red_cards": 0,
+            "over_3_5_cards_pct": 0, "home_cards_per_game": 0, "away_cards_per_game": 0,
+            # Stats de escanteios
+            "corners_total": 0, "corners_per_game": 0, "corners_for": 0, "corners_against": 0,
+            "over_9_5_corners_pct": 0, "home_corners_per_game": 0, "away_corners_per_game": 0,
+            # Forma simplificada
+            "form": "", "recent_matches": []
+        }
+    
+    formatted_data["h2h"] = {
+        "total_matches": 0, "home_wins": 0, "away_wins": 0, "draws": 0,
+        "over_2_5_pct": 0, "btts_pct": 0, "avg_cards": 0, "avg_corners": 0,
+        "recent_matches": []
+    }
+    
+    if not api_data or not isinstance(api_data, dict):
+        logger.error("Dados da API vazios ou inválidos")
+        return formatted_data
+    
+    # Log da estrutura da API para depuração
+    logger.info(f"API data keys: {list(api_data.keys())}")
+    
+    # Explorar diferentes caminhos para encontrar os dados
+    try:
+        # 1. ID da Liga
+        if "basic_stats" in api_data and "league_id" in api_data["basic_stats"]:
+            formatted_data["match_info"]["league_id"] = api_data["basic_stats"]["league_id"]
+            logger.info(f"League ID encontrado: {formatted_data['match_info']['league_id']}")
+        
+        # 2. Procurar dados diretos do time (PATH 1)
+        for team_type, team_name in [("home", home_team_name), ("away", away_team_name)]:
+            team_key = f"{team_type}_team"
+            
+            # Caminho 1: basic_stats -> team_key -> stats
+            if "basic_stats" in api_data and team_key in api_data["basic_stats"]:
+                team_data = api_data["basic_stats"][team_key]
+                
+                if isinstance(team_data, dict):
+                    logger.info(f"Encontrados dados para {team_name} via basic_stats->team_key")
+                    
+                    # Extrair estatísticas aninhadas
+                    if "stats" in team_data:
+                        raw_stats = None
+                        
+                        if isinstance(team_data["stats"], dict):
+                            if "stats" in team_data["stats"]:
+                                raw_stats = team_data["stats"]["stats"]
+                            else:
+                                raw_stats = team_data["stats"]
+                        
+                        # Se encontramos estatísticas, extrair dados específicos
+                        if raw_stats and isinstance(raw_stats, dict):
+                            logger.info(f"Encontradas estatísticas aninhadas para {team_name}")
+                            
+                            # Mapeamentos de chaves (múltiplas possibilidades)
+                            key_mappings = {
+                                "played": ["matches_played", "seasonMatchesPlayed_overall", "MP"],
+                                "wins": ["wins", "seasonWinsNum_overall", "W"],
+                                "draws": ["draws", "seasonDrawsNum_overall", "D"],
+                                "losses": ["losses", "seasonLossesNum_overall", "L"],
+                                "goals_scored": ["goals_scored", "seasonGoals_overall", "Gls", "goals"],
+                                "goals_conceded": ["goals_conceded", "seasonConceded_overall", "GA"],
+                                "xg": ["xG", "xg", "xg_for_overall", "expected_goals"],
+                                "xga": ["xGA", "xga", "xg_against_overall", "xg_against_avg_overall"],
+                                "possession": ["possession", "possessionAVG_overall", "Poss"],
+                                "clean_sheets_pct": ["clean_sheet_percentage", "seasonCSPercentage_overall"],
+                                "btts_pct": ["btts_percentage", "seasonBTTSPercentage_overall", "seasonBTTS_overall"],
+                                "over_2_5_pct": ["over_2_5_percentage", "seasonOver25Percentage_overall"],
+                                "cards_total": ["cards_total", "seasonCrdYNum_overall", "CrdY"],
+                                "yellow_cards": ["yellow_cards", "seasonCrdYNum_overall", "CrdY"],
+                                "red_cards": ["red_cards", "seasonCrdRNum_overall", "CrdR"],
+                                "corners_for": ["corners_for", "seasonCornersFor_overall", "CK"],
+                                "corners_against": ["corners_against", "seasonCornersAgainst_overall"]
+                            }
+                            
+                            # Adicionar chaves específicas para home/away
+                            if team_type == "home":
+                                home_keys = {
+                                    "home_played": ["home_matches_played", "seasonMatchesPlayed_home"],
+                                    "home_wins": ["home_wins", "seasonWinsNum_home"],
+                                    "home_draws": ["home_draws", "seasonDrawsNum_home"],
+                                    "home_losses": ["home_losses", "seasonLossesNum_home"],
+                                    "home_goals_scored": ["home_goals_scored", "seasonGoals_home"],
+                                    "home_goals_conceded": ["home_goals_conceded", "seasonConceded_home"]
+                                }
+                                key_mappings.update(home_keys)
+                            else:
+                                away_keys = {
+                                    "away_played": ["away_matches_played", "seasonMatchesPlayed_away"],
+                                    "away_wins": ["away_wins", "seasonWinsNum_away"],
+                                    "away_draws": ["away_draws", "seasonDrawsNum_away"],
+                                    "away_losses": ["away_losses", "seasonLossesNum_away"],
+                                    "away_goals_scored": ["away_goals_scored", "seasonGoals_away"],
+                                    "away_goals_conceded": ["away_goals_conceded", "seasonConceded_away"]
+                                }
+                                key_mappings.update(away_keys)
+                            
+                            # Extrair cada campo
+                            for target_field, source_fields in key_mappings.items():
+                                for field in source_fields:
+                                    if field in raw_stats:
+                                        value = raw_stats[field]
+                                        if value is not None and value != 'N/A':
+                                            try:
+                                                # Converter para número e armazenar
+                                                formatted_data[team_key][target_field] = float(value)
+                                                break  # Encontrou um valor, passar para o próximo campo
+                                            except (ValueError, TypeError):
+                                                pass
+                    else:
+                        logger.warning(f"Não encontrou stats aninhadas para {team_name}")
+            
+            # 3. Tentar extrair dados avançados
+            if "advanced_stats" in api_data and team_type in api_data["advanced_stats"]:
+                adv_stats = api_data["advanced_stats"][team_type]
+                if "ppda" in adv_stats:
+                    try:
+                        formatted_data[team_key]["ppda"] = float(adv_stats["ppda"])
+                        logger.info(f"PPDA encontrado para {team_name}: {adv_stats['ppda']}")
+                    except (ValueError, TypeError):
+                        pass
+            
+            # 4. Extrair dados de forma recente
+            if "team_form" in api_data and team_type in api_data["team_form"]:
+                form_data = api_data["team_form"][team_type]
+                if isinstance(form_data, list) and form_data:
+                    form_string = ""
+                    for i in range(min(5, len(form_data))):
+                        if isinstance(form_data[i], dict) and "result" in form_data[i]:
+                            form_string += form_data[i]["result"]
+                    
+                    if form_string:
+                        formatted_data[team_key]["form"] = form_string
+                        formatted_data[team_key]["recent_matches"] = form_data[:5]
+                        logger.info(f"Forma recente encontrada para {team_name}: {form_string}")
+        
+        # 5. Extrair dados de H2H
+        h2h_data = None
+        
+        # Verificar diferentes locais para dados H2H
+        if "head_to_head" in api_data:
+            h2h_data = api_data["head_to_head"]
+            logger.info("Dados H2H encontrados em head_to_head")
+        elif "match_details" in api_data and api_data["match_details"]:
+            if "h2h" in api_data["match_details"]:
+                h2h_data = api_data["match_details"]["h2h"]
+                logger.info("Dados H2H encontrados em match_details.h2h")
+        
+        if h2h_data and isinstance(h2h_data, dict):
+            # Mapear campos H2H
+            h2h_mappings = {
+                "total_matches": ["total_matches", "matches"],
+                "home_wins": ["home_wins"],
+                "away_wins": ["away_wins"],
+                "draws": ["draws"],
+                "over_2_5_pct": ["over_2_5_percentage"],
+                "btts_pct": ["btts_percentage"],
+                "avg_cards": ["average_cards"],
+                "avg_corners": ["average_corners"]
+            }
+            
+            # Extrair valores
+            for target_field, source_fields in h2h_mappings.items():
+                for field in source_fields:
+                    if field in h2h_data:
+                        value = h2h_data[field]
+                        if value is not None and value != 'N/A':
+                            try:
+                                formatted_data["h2h"][target_field] = float(value)
+                                break
+                            except (ValueError, TypeError):
+                                pass
+            
+            # Extrair partidas recentes H2H
+            if "matches" in h2h_data and isinstance(h2h_data["matches"], list):
+                formatted_data["h2h"]["recent_matches"] = h2h_data["matches"][:5]
+        
+        # 6. Calcular estatísticas derivadas
+        for team_key in ["home_team", "away_team"]:
+            team_stats = formatted_data[team_key]
+            
+            # Calcular estatísticas por jogo se tivermos jogos
+            if team_stats["played"] > 0:
+                # Cartões por jogo
+                if team_stats["cards_total"] > 0:
+                    team_stats["cards_per_game"] = round(team_stats["cards_total"] / team_stats["played"], 2)
+                
+                # Escanteios totais e por jogo
+                if team_stats["corners_for"] > 0 or team_stats["corners_against"] > 0:
+                    team_stats["corners_total"] = team_stats["corners_for"] + team_stats["corners_against"]
+                    team_stats["corners_per_game"] = round(team_stats["corners_total"] / team_stats["played"], 2)
+        
+        # Log do status dos dados
+        home_stats_count = sum(1 for v in formatted_data["home_team"].values() if isinstance(v, (int, float)) and v > 0)
+        away_stats_count = sum(1 for v in formatted_data["away_team"].values() if isinstance(v, (int, float)) and v > 0)
+        h2h_stats_count = sum(1 for v in formatted_data["h2h"].values() if isinstance(v, (int, float)) and v > 0)
+        
+        logger.info(f"Extração concluída: {home_stats_count} valores para casa, {away_stats_count} para visitante, {h2h_stats_count} para H2H")
+        
+        return formatted_data
+        
+    except Exception as e:
+        import traceback
+        logger.error(f"Erro durante extração de dados: {str(e)}")
+        logger.error(traceback.format_exc())
+        return formatted_data
+
+
 def extract_team_data(api_data, formatted_data, team_type):
     """
     Extrai dados de um time específico.
