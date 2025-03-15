@@ -1105,6 +1105,10 @@ def show_main_dashboard():
                                     if "</div>" in analysis:
                                         analysis = analysis.replace("</div>", "")
                             
+                            # NOVO: Formatar a resposta para garantir que tenha todas as seções
+                            from utils.ai import format_analysis_response
+                            formatted_analysis = format_analysis_response(analysis, home_team, away_team)
+                            
                             # Exibir a análise em uma div com largura total
                             st.markdown(f'''
                             <style>
@@ -1145,7 +1149,7 @@ def show_main_dashboard():
                                 color: #fd7014;
                             }}
                             </style>
-                            <div class="analysis-result">{analysis}</div>
+                            <div class="analysis-result">{formatted_analysis}</div>
                             ''', unsafe_allow_html=True)
                             
                             # Registrar uso após análise bem-sucedida
