@@ -308,88 +308,63 @@ def analyze_with_gpt(prompt):
 
 # Função auxiliar para calcular probabilidades reais
 def calculate_real_prob(home_xg, away_xg, home_games, away_games):
-    """
-    Calculates real probabilities with robust handling for invalid or missing values
-    
-    Args:
-        home_xg (float/str): Home team expected goals
-        away_xg (float/str): Away team expected goals
-        home_games (float/str): Home team games played
-        away_games (float/str): Away team games played
-        
-    Returns:
-        dict: Calculated probabilities or reasonable defaults
-    """
+    """Calcula probabilidades reais com handling melhorado para valores inválidos"""
     try:
-        # Handle non-numeric values with robust fallbacks
+        # Tratar valores não numéricos
         try:
-            home_xg = float(home_xg) if home_xg != 'N/A' and home_xg is not None else 0
-            away_xg = float(away_xg) if away_xg != 'N/A' and away_xg is not None else 0
-            home_games = float(home_games) if home_games != 'N/A' and home_games is not None else 1
-            away_games = float(away_games) if away_games != 'N/A' and away_games is not None else 1
+            home_xg = float(home_xg) if home_xg != 'N/A' else 0
+            away_xg = float(away_xg) if away_xg != 'N/A' else 0
+            home_games = float(home_games) if home_games != 'N/A' else 1
+            away_games = float(away_games) if away_games != 'N/A' else 1
         except (ValueError, TypeError):
-            logger.warning("Invalid values for probability calculation, using fallbacks")
-            # If conversion fails, use reasonable fallback values
-            home_xg = 1.5 * max(1, float(home_games) if isinstance(home_games, (int, float)) else 10)
-            away_xg = 1.2 * max(1, float(away_games) if isinstance(away_games, (int, float)) else 10)
-            home_games = 10
-            away_games = 10
+            # Fallback para caso não consiga converter
+            logger.warning("Falha ao converter valores para cálculo de probabilidade")
+            return None
             
-        # If we have zero values for xG, use reasonable defaults
-        if home_xg <= 0:
-            home_xg = 1.5 * home_games  # Average 1.5 xG per game for home team
-        if away_xg <= 0:
-            away_xg = 1.2 * away_games  # Average 1.2 xG per game for away team
-            
-        # Calculate xG per game
-        home_xg_per_game = home_xg / home_games if home_games > 0 else 1.5
-        away_xg_per_game = away_xg / away_games if away_games > 0 else 1.2
+        # Calcular xG por jogo
+        home_xg_per_game = home_xg / home_games if home_games > 0 else 0
+        away_xg_per_game = away_xg / away_games if away_games > 0 else 0
         
-        # Apply home advantage adjustment
+        # Se não temos xG válidos, não podemos calcular probabilidades
+        if home_xg_per_game == 0 and away_xg_per_game == 0:
+            return None
+            
+        # Ajuste baseado em home advantage
         home_advantage = 1.1
         adjusted_home_xg = home_xg_per_game * home_advantage
         
-        # Calculate probabilities
+        # Calcular probabilidades
         total_xg = adjusted_home_xg + away_xg_per_game
         if total_xg == 0:
-            # Use standard probabilities if xG is zero
-            return {'home': 45.0, 'draw': 25.0, 'away': 30.0}
+            return None
             
         home_prob = (adjusted_home_xg / total_xg) * 100
         away_prob = (away_xg_per_game / total_xg) * 100
         
-        # Ensure values are in a reasonable range
-        home_prob = min(max(home_prob, 20), 70)  # Cap between 20% and 70%
-        away_prob = min(max(away_prob, 15), 60)  # Cap between 15% and 60%
-        
-        # Adjust probs to sum to max 85% (leaving at least 15% for draw)
-        total_win_prob = home_prob + away_prob
-        if total_win_prob > 85:
-            factor = 85 / total_win_prob
+        # Ajustar probs para somar 100%
+        total_prob = home_prob + away_prob
+        if total_prob > 100:
+            factor = 100 / total_prob
             home_prob *= factor
             away_prob *= factor
         
-        # Calculate draw probability
         draw_prob = 100 - (home_prob + away_prob)
         
-        # Ensure draw probability is at least 15%
-        if draw_prob < 15:
-            draw_prob = 15
+        # Ajustar para valores realistas
+        if draw_prob < 5:
+            draw_prob = 5
             excess = (home_prob + away_prob + draw_prob) - 100
             home_prob -= excess * (home_prob / (home_prob + away_prob))
             away_prob -= excess * (away_prob / (home_prob + away_prob))
         
-        # Round values for cleaner output
         return {
-            'home': round(home_prob, 1),
-            'draw': round(draw_prob, 1),
-            'away': round(away_prob, 1)
+            'home': home_prob,
+            'draw': draw_prob,
+            'away': away_prob
         }
     except Exception as e:
-        logger.error(f"Error in calculate_real_prob: {str(e)}")
-        # Return reasonable default values
-        return {'home': 45.0, 'draw': 25.0, 'away': 30.0}
-        # Função para verificar a qualidade dos dados estatísticos
+        logger.error(f"Erro no cálculo de probabilidades: {str(e)}")
+        return None        # Função para verificar a qualidade dos dados estatísticos
 def check_data_quality(stats_dict):
     """Verifica se há dados estatísticos significativos"""
     if not stats_dict:
