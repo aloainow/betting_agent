@@ -1047,9 +1047,9 @@ def show_main_dashboard():
                             return
                         
                         # Etapa 2: Transformar os dados para o formato otimizado
-                        from utils.prompt_adapter import transform_to_highly_optimized_data
-                        # Transformar dados para formato altamente otimizado (redução de 80-90%)
-                        optimized_data = transform_to_highly_optimized_data(stats_data, home_team, away_team, selected_markets)
+                        from utils.prompt_adapter import transform_to_exact_format
+                        # Transformar dados para formato exato requerido pelo agente de IA
+                        optimized_data = transform_to_exact_format(stats_data, home_team, away_team, selected_markets)
                         
                         # Modo de depuração - mostrar informações sobre dados
                         if st.session_state.debug_mode:
@@ -1080,10 +1080,15 @@ def show_main_dashboard():
                             status.error("Falha ao preparar análise")
                             return
                         
-                        # Modo de depuração - mostrar prompt
+                        # Modo de depuração - mostrar amostra de dados
                         if st.session_state.debug_mode:
-                            with st.expander("Preview do prompt", expanded=False):
-                                st.text(prompt)
+                            with st.expander("Amostra da estrutura otimizada", expanded=False):
+                                st.json({
+                                    "match_info": optimized_data["match_info"],
+                                    "home_team": {k: v for k, v in list(optimized_data["home_team"].items())[:10]},
+                                    "away_team": {k: v for k, v in list(optimized_data["away_team"].items())[:10]},
+                                    "h2h": optimized_data["h2h"]
+                                })
                             
                         # Etapa 4: Análise GPT
                         status.info("Realizando análise com IA...")
