@@ -193,9 +193,9 @@ def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_da
 """
 
         # 7. INSTRUCTIONS FOR THE MODEL - UPDATED WITH STRICT FORMATTING REQUIREMENTS
-# Instruções para format_highly_optimized_prompt
-instructions = f"""
-# INSTRUÇÕES PARA ANÁLISE
+        #Instruções para format_highly_optimized_prompt
+        instructions = f"""
+        # INSTRUÇÕES PARA ANÁLISE
 
 Analise os dados estatísticos fornecidos para identificar valor nas odds.
 
