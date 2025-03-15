@@ -1066,9 +1066,9 @@ def show_main_dashboard():
                             # Show sample of optimized data structure
                             with st.expander("Amostra da estrutura otimizada", expanded=False):
                                 st.json({
-                                    "match": optimized_data["match"],
-                                    "home": {k: v for k, v in list(optimized_data["home"].items())[:10]},
-                                    "away": {k: v for k, v in list(optimized_data["away"].items())[:10]},
+                                    "match_info": optimized_data["match_info"],
+                                    "home_team": {k: v for k, v in list(optimized_data["home_team"].items())[:10]},
+                                    "away_team": {k: v for k, v in list(optimized_data["away_team"].items())[:10]},
                                     "h2h": optimized_data["h2h"]
                                 })
                         # Etapa 3: Formatar prompt usando os dados otimizados
