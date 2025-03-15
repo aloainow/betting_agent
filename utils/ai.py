@@ -193,12 +193,13 @@ def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_da
 """
 
         # 7. INSTRUCTIONS FOR THE MODEL - UPDATED WITH STRICT FORMATTING REQUIREMENTS
-        instructions = f"""
+# Instruções para format_highly_optimized_prompt
+instructions = f"""
 # INSTRUÇÕES PARA ANÁLISE
 
 Analise os dados estatísticos fornecidos para identificar valor nas odds.
 
-MUITO IMPORTANTE: Você DEVE responder EXATAMENTE no formato abaixo, com todas as seções, mesmo que tenha dados limitados:
+MUITO IMPORTANTE: Você DEVE responder EXATAMENTE no formato abaixo:
 
 # Análise da Partida
 ## {home_team} x {away_team}
@@ -207,26 +208,18 @@ MUITO IMPORTANTE: Você DEVE responder EXATAMENTE no formato abaixo, com todas a
 [Resumo detalhado de cada mercado disponível com suas odds e probabilidades implícitas]
 
 # Probabilidades Calculadas (REAL vs IMPLÍCITA):
-[Para cada mercado, você DEVE mostrar uma tabela ou lista comparando as probabilidades REAIS que você calculou vs as probabilidades IMPLÍCITAS nas odds]
-- Money Line: Casa X% vs Y% implícito, Empate X% vs Y% implícito, Fora X% vs Y% implícito
-[Inclua todos os outros mercados selecionados com o mesmo formato]
+[Para cada mercado onde há dados estatísticos suficientes, compare as probabilidades REAIS calculadas com as probabilidades IMPLÍCITAS nas odds]
+- Se não houver dados estatísticos suficientes para calcular probabilidades reais para um mercado específico, indique claramente
 
 # Oportunidades Identificadas:
 [Liste cada mercado onde você encontrou valor/edge, mostrando a porcentagem de vantagem]
-- Se não houver oportunidades claras, explique por quê
+- Se não houver oportunidades claras ou dados suficientes, explique por quê
 
 # Nível de Confiança Geral: [Baixo/Médio/Alto]
-[Justificativa para o nível de confiança]
+[Justificativa para o nível de confiança baseada apenas nos dados reais disponíveis]
 
-OBSERVAÇÃO: Se os dados estatísticos forem limitados, você AINDA DEVE fazer seu melhor para calcular probabilidades reais usando:
-1. Quaisquer estatísticas parciais disponíveis
-2. Médias da liga para dados ausentes
-3. Lógica de vantagem casa/fora
-4. Conhecimento geral sobre futebol e mercados de apostas
-
-NUNCA responda apenas dizendo que "não há dados suficientes" - você DEVE fornecer uma análise estruturada com todas as seções acima.
+IMPORTANTE: Use APENAS os dados estatísticos reais fornecidos. NÃO faça suposições ou estimativas quando os dados não estiverem disponíveis. Se não houver dados suficientes para calcular probabilidades reais para um determinado mercado, indique claramente essa limitação.
 """
-
         # Compile the final prompt
         sections = [
             fundamental_stats,
@@ -392,73 +385,66 @@ def check_data_quality(stats_dict):
 
 def format_analysis_response(analysis_text, home_team, away_team):
     """
-    Ensures the analysis response is properly formatted with all required sections.
+    Garante que a resposta da análise seja formatada corretamente com todas as seções necessárias,
+    sem adicionar dados artificiais.
     
     Args:
-        analysis_text (str): The raw analysis response from the AI
-        home_team (str): Home team name
-        away_team (str): Away team name
+        analysis_text (str): Resposta bruta da análise da IA
+        home_team (str): Nome do time da casa
+        away_team (str): Nome do time visitante
         
     Returns:
-        str: Properly formatted analysis
+        str: Análise formatada corretamente
     """
-    # Check if the analysis already has proper section headers
+    # Verificar se a análise já tem os cabeçalhos de seção adequados
     if "# Análise da Partida" in analysis_text and "# Probabilidades Calculadas" in analysis_text:
         return analysis_text
         
-    # If not properly formatted, restructure it
+    # Se não estiver formatada corretamente, reestruturar
     formatted_sections = []
     
-    # Add title section
+    # Adicionar seção de título
     formatted_sections.append(f"# Análise da Partida\n## {home_team} x {away_team}\n")
     
-    # Look for markets section or create it
+    # Procurar seção de mercados ou criá-la
     if "# Análise de Mercados Disponíveis:" in analysis_text:
-        # Find the section and its content
+        # Encontrar a seção e seu conteúdo
         market_section = analysis_text.split("# Análise de Mercados Disponíveis:")[1]
         if "#" in market_section:
             market_section = market_section.split("#")[0]
         formatted_sections.append(f"# Análise de Mercados Disponíveis:\n{market_section.strip()}\n")
     else:
-        # Extract potential market info
-        market_info = "Informações sobre odds não encontradas claramente no texto."
-        formatted_sections.append(f"# Análise de Mercados Disponíveis:\n{market_info}\n")
+        formatted_sections.append("# Análise de Mercados Disponíveis:\nNão foi possível estruturar uma análise detalhada dos mercados a partir do texto.\n")
     
-    # Look for probabilities section or create it
+    # Procurar seção de probabilidades ou criá-la
     if "# Probabilidades Calculadas" in analysis_text:
         prob_section = analysis_text.split("# Probabilidades Calculadas")[1]
         if "#" in prob_section:
             prob_section = prob_section.split("#")[0]
         formatted_sections.append(f"# Probabilidades Calculadas (REAL vs IMPLÍCITA):\n{prob_section.strip()}\n")
     else:
-        # Create a basic probabilities section based on the text
-        prob_info = "Baseado na análise, estimativas de probabilidades foram calculadas usando os dados disponíveis."
-        formatted_sections.append(f"# Probabilidades Calculadas (REAL vs IMPLÍCITA):\n{prob_info}\n")
+        formatted_sections.append("# Probabilidades Calculadas (REAL vs IMPLÍCITA):\nNão há dados estatísticos suficientes para calcular probabilidades reais.\n")
     
-    # Look for opportunities section or create it
+    # Procurar seção de oportunidades ou criá-la
     if "# Oportunidades Identificadas" in analysis_text:
         opp_section = analysis_text.split("# Oportunidades Identificadas")[1]
         if "#" in opp_section:
             opp_section = opp_section.split("#")[0]
         formatted_sections.append(f"# Oportunidades Identificadas:\n{opp_section.strip()}\n")
     else:
-        # Extract potential opportunities from text
-        opportunities = "Baseado na análise, possíveis oportunidades foram identificadas."
-        formatted_sections.append(f"# Oportunidades Identificadas:\n{opportunities}\n")
+        formatted_sections.append("# Oportunidades Identificadas:\nNão há dados suficientes para identificar oportunidades claras.\n")
     
-    # Look for confidence level section or create it
+    # Procurar seção de nível de confiança ou criá-la
     if "# Nível de Confiança" in analysis_text:
         conf_section = analysis_text.split("# Nível de Confiança")[1]
         if "#" in conf_section:
             conf_section = conf_section.split("#")[0]
         formatted_sections.append(f"# Nível de Confiança Geral: {conf_section.strip()}\n")
     else:
-        # Default to low confidence if not specified
-        formatted_sections.append("# Nível de Confiança Geral: Baixo\nA análise foi baseada em dados limitados, portanto o nível de confiança é baixo.\n")
+        formatted_sections.append("# Nível de Confiança Geral: Baixo\nDevido à limitação de dados estatísticos disponíveis, o nível de confiança é baixo.\n")
     
-    # Combine all sections
+    # Combinar todas as seções
     return "\n".join(formatted_sections)
-
 def format_enhanced_prompt(complete_analysis, home_team, away_team, odds_data, selected_markets):
     """
     Função aprimorada para formatar prompt de análise multi-mercados
@@ -600,9 +586,9 @@ def format_enhanced_prompt(complete_analysis, home_team, away_team, odds_data, s
 
 ## QUALIDADE DOS DADOS: {data_quality.upper()}
 
-Analise os dados estatísticos disponíveis, mesmo que sejam limitados. Seu objetivo é extrair insights e valor mesmo de conjuntos de dados incompletos.
+Analise os dados estatísticos disponíveis. Seu objetivo é extrair insights e valor apenas a partir dos dados reais fornecidos.
 
-MUITO IMPORTANTE: Você DEVE responder EXATAMENTE no formato abaixo, com todas as seções, mesmo que tenha dados limitados:
+MUITO IMPORTANTE: Você DEVE responder EXATAMENTE no formato abaixo:
 
 # Análise da Partida
 ## {home_team} x {away_team}
@@ -611,24 +597,17 @@ MUITO IMPORTANTE: Você DEVE responder EXATAMENTE no formato abaixo, com todas a
 [Resumo detalhado de cada mercado disponível com suas odds e probabilidades implícitas]
 
 # Probabilidades Calculadas (REAL vs IMPLÍCITA):
-[Para cada mercado, você DEVE mostrar uma tabela ou lista comparando as probabilidades REAIS que você calculou vs as probabilidades IMPLÍCITAS nas odds]
-- Money Line: Casa X% vs Y% implícito, Empate X% vs Y% implícito, Fora X% vs Y% implícito
-[Inclua todos os outros mercados selecionados com o mesmo formato]
+[Para cada mercado onde há dados estatísticos suficientes, compare as probabilidades REAIS calculadas com as probabilidades IMPLÍCITAS nas odds]
+- Se não houver dados estatísticos suficientes para calcular probabilidades reais para um mercado específico, indique claramente
 
 # Oportunidades Identificadas:
 [Liste cada mercado onde você encontrou valor/edge, mostrando a porcentagem de vantagem]
-- Se não houver oportunidades claras, explique por quê
+- Se não houver oportunidades claras ou dados suficientes, explique por quê
 
 # Nível de Confiança Geral: [Baixo/Médio/Alto]
-[Justificativa para o nível de confiança]
+[Justificativa para o nível de confiança baseada apenas nos dados reais disponíveis]
 
-OBSERVAÇÃO: Se os dados estatísticos forem limitados, você AINDA DEVE fazer seu melhor para calcular probabilidades reais usando:
-1. Quaisquer estatísticas parciais disponíveis
-2. Médias da liga para dados ausentes
-3. Lógica de vantagem casa/fora
-4. Conhecimento geral sobre futebol e mercados de apostas
-
-NUNCA responda apenas dizendo que "não há dados suficientes" - você DEVE fornecer uma análise estruturada com todas as seções acima.
+IMPORTANTE: Use APENAS os dados estatísticos reais fornecidos. NÃO faça suposições ou estimativas quando os dados não estiverem disponíveis. Se não houver dados suficientes para calcular probabilidades reais para um determinado mercado, indique claramente essa limitação.
 """
 
     # Compilar o prompt final
