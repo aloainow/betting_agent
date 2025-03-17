@@ -640,14 +640,14 @@ def extract_form_data(api_data, formatted_data):
 
 def ensure_recent_matches(formatted_data, home_team_name, away_team_name):
     """
-    Ensure both teams have recent matches data
+    Ensure both teams have recent matches data WITHOUT using fictional English teams
     
     Args:
         formatted_data (dict): Target data structure
         home_team_name (str): Name of home team
         away_team_name (str): Name of away team
     """
-    # Generate mock recent matches for home team if needed
+    # Generate minimal data structure for home team if needed
     if not formatted_data["home_team"]["recent_matches"]:
         form = formatted_data["home_team"]["form"]
         
@@ -656,23 +656,20 @@ def ensure_recent_matches(formatted_data, home_team_name, away_team_name):
             form = "?????"
             formatted_data["home_team"]["form"] = form
             
-        # Create mock recent matches based on form
+        # Create empty structure without fictional teams
         recent_matches = []
-        opponents = ["Liverpool", "Chelsea", "Arsenal", "Tottenham", "Man Utd"]
-        
         for i in range(min(5, len(form))):
             result = form[i] if i < len(form) else "?"
-            score = "1-0" if result == "W" else "0-1" if result == "L" else "0-0"
             recent_matches.append({
-                "opponent": opponents[i] if i < len(opponents) else "Opponent",
+                "opponent": "Sin datos",  # "No data" in Spanish, more appropriate for South American teams
                 "result": result,
-                "score": score,
+                "score": "0-0",
                 "date": f"2025-03-{10-i:02d}"
             })
             
         formatted_data["home_team"]["recent_matches"] = recent_matches
     
-    # Generate mock recent matches for away team if needed
+    # Generate minimal data structure for away team if needed
     if not formatted_data["away_team"]["recent_matches"]:
         form = formatted_data["away_team"]["form"]
         
@@ -681,41 +678,34 @@ def ensure_recent_matches(formatted_data, home_team_name, away_team_name):
             form = "?????"
             formatted_data["away_team"]["form"] = form
             
-        # Create mock recent matches based on form
+        # Create empty structure without fictional teams
         recent_matches = []
-        opponents = ["West Ham", "Leicester", "Everton", "Newcastle", "Wolves"]
-        
         for i in range(min(5, len(form))):
             result = form[i] if i < len(form) else "?"
-            score = "1-0" if result == "W" else "0-1" if result == "L" else "0-0"
             recent_matches.append({
-                "opponent": opponents[i] if i < len(opponents) else "Opponent",
+                "opponent": "Sin datos",  # "No data" in Spanish, more appropriate for South American teams
                 "result": result,
-                "score": score,
+                "score": "0-0",
                 "date": f"2025-03-{10-i:02d}"
             })
             
         formatted_data["away_team"]["recent_matches"] = recent_matches
     
-    # Generate mock H2H recent matches if needed
+    # Generate minimal H2H recent matches if needed
     if not formatted_data["h2h"]["recent_matches"]:
-        # Create mock H2H matches
+        # Create minimal structure for h2h matches
         total_matches = int(formatted_data["h2h"]["total_matches"])
         
         if total_matches > 0:
             recent_matches = []
             
             for i in range(min(5, total_matches)):
-                home = home_team_name if i % 2 == 0 else away_team_name
-                away = away_team_name if i % 2 == 0 else home_team_name
-                score = "1-0" if i % 3 == 0 else "0-1" if i % 3 == 1 else "1-1"
-                
                 recent_matches.append({
-                    "date": f"202{4-i}-{(i+1)*2:02d}-{(i+1)*5:02d}",
-                    "home_team": home,
-                    "away_team": away,
-                    "score": score,
-                    "competition": "Premier League"
+                    "date": f"Sin fecha",
+                    "home_team": home_team_name,
+                    "away_team": away_team_name,
+                    "score": "Sin datos",
+                    "competition": "Sin datos"
                 })
                 
             formatted_data["h2h"]["recent_matches"] = recent_matches
