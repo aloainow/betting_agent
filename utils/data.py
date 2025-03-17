@@ -1049,6 +1049,59 @@ def get_odds_data(selected_markets):
         logger.error(f"Erro ao obter dados de odds: {str(e)}")
         return None
 
+def validate_match_data(match_data):
+    """
+    Valida se os dados de uma partida estão completos o suficiente para análise.
+    
+    Args:
+        match_data (dict): Dados da partida a serem validados
+        
+    Returns:
+        tuple: (bool, str) - (dados válidos, mensagem de erro)
+    """
+    if not match_data or not isinstance(match_data, dict):
+        return False, "Dados de partida ausentes ou inválidos."
+    
+    # Verificar estrutura básica
+    if not all(key in match_data for key in ["match_info", "home_team", "away_team"]):
+        return False, "Estrutura de dados incompleta."
+    
+    # Verificar times
+    home_team = match_data.get("home_team", {})
+    away_team = match_data.get("away_team", {})
+    
+    # Verificar se dados básicos estão presentes
+    if not home_team or not away_team:
+        return False, "Dados de times ausentes."
+    
+    # Verificar se há dados estatísticos mínimos
+    min_stats = ["played", "wins", "draws", "losses", "goals_scored", "goals_conceded"]
+    
+    home_has_stats = all(stat in home_team for stat in min_stats)
+    away_has_stats = all(stat in away_team for stat in min_stats)
+    
+    if not home_has_stats or not away_has_stats:
+        return False, "Estatísticas básicas faltando para os times."
+    
+    # Verificar se os dados não são todos zeros
+    home_all_zeros = all(home_team.get(stat, 0) == 0 for stat in min_stats)
+    away_all_zeros = all(away_team.get(stat, 0) == 0 for stat in min_stats)
+    
+    if home_all_zeros and away_all_zeros:
+        return False, "Todos os dados estatísticos são zero."
+    
+    # Verificar dados de jogos recentes
+    if "recent_matches" in home_team:
+        # Se existe recent_matches mas só tem times da Premier League e os times atuais são de outra liga, provavelmente é fallback
+        home_opponents = [match.get("opponent", "") for match in home_team.get("recent_matches", [])]
+        premier_league_teams = ["Liverpool", "Chelsea", "Arsenal", "Tottenham", "Man Utd"]
+        
+        if home_opponents and all(opponent in premier_league_teams for opponent in home_opponents):
+            if match_data["match_info"].get("league") and "Premier League" not in match_data["match_info"].get("league"):
+                return False, "Dados de partidas recentes incompatíveis com a liga."
+    
+    return True, "Dados válidos."
+
 def format_prompt(stats_df, home_team, away_team, odds_data, selected_markets):
     """Formata o prompt para o GPT-4 com os dados coletados"""
     try:
