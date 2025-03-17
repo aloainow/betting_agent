@@ -206,8 +206,6 @@ def transform_to_exact_format(api_data, home_team_name, away_team_name, selected
         # Retorna a estrutura padrão em caso de erro
         return formatted_data
 
-# Adicione isso ao arquivo utils/prompt_adapter.py
-
 def extract_advanced_team_data(api_data, home_team_name, away_team_name):
     """
     Versão aprimorada para extrair dados do time com estrutura exata necessária
@@ -512,27 +510,28 @@ def extract_advanced_metrics(target, advanced_data):
                     pass
 
 def extract_h2h_data(api_data, formatted_data):
-    """Extração melhorada de dados H2H"""
-    # Buscar em múltiplos caminhos possíveis
+    """
+    Extract head-to-head data
+    
+    Args:
+        api_data (dict): Original API data
+        formatted_data (dict): Target data structure
+    """
     h2h_data = None
     
-    # Caminho 1: Direto no objeto principal
+    # Try different possible locations for H2H data
     if "head_to_head" in api_data:
         h2h_data = api_data["head_to_head"]
-    
-    # Caminho 2: Nos detalhes da partida
     elif "match_details" in api_data and api_data["match_details"]:
         if "h2h" in api_data["match_details"]:
             h2h_data = api_data["match_details"]["h2h"]
-    
-    # Caminho 3: No objeto h2h
     elif "h2h" in api_data:
         h2h_data = api_data["h2h"]
-        
+    
     if not h2h_data:
         return
         
-    # Mapeamento de campos H2H
+    # Define mappings for H2H fields
     mappings = {
         "total_matches": ["total_matches", "matches", "matches_total"],
         "home_wins": ["home_wins", "home_team_wins"],
@@ -544,7 +543,7 @@ def extract_h2h_data(api_data, formatted_data):
         "avg_corners": ["average_corners", "avg_corners", "corners_avg"]
     }
     
-    # Extrair usando mapeamentos
+    # Extract each field using mappings
     for target_field, source_fields in mappings.items():
         for field in source_fields:
             if field in h2h_data:
@@ -556,9 +555,9 @@ def extract_h2h_data(api_data, formatted_data):
                     except (ValueError, TypeError):
                         pass
     
-    # Extrair partidas recentes
+    # Extract recent matches
     if "matches" in h2h_data and isinstance(h2h_data["matches"], list):
-        formatted_data["h2h"]["recent_matches"] = h2h_data["matches"][:5]  # Apenas as 5 mais recentes
+        formatted_data["h2h"]["recent_matches"] = h2h_data["matches"][:5]
     elif "previous_matches" in h2h_data and isinstance(h2h_data["previous_matches"], list):
         formatted_data["h2h"]["recent_matches"] = h2h_data["previous_matches"][:5]
 
@@ -671,77 +670,6 @@ def calculate_derived_stats(team_stats):
     if team_stats["played"] > 0 and team_stats["corners_per_game"] == 0 and team_stats["corners_total"] > 0:
         team_stats["corners_per_game"] = round(team_stats["corners_total"] / team_stats["played"], 2)
 
-def extract_h2h_data(api_data, formatted_data):
-    """
-    Extract head-to-head data
-    
-    Args:
-        api_data (dict): Original API data
-        formatted_data (dict): Target data structure
-    """
-    h2h_data = None
-    
-    # Try different possible locations for H2H data
-    if "head_to_head" in api_data:
-        h2h_data = api_data["head_to_head"]
-    elif "match_details" in api_data and api_data["match_details"]:
-        if "h2h" in api_data["match_details"]:
-            h2h_data = api_data["match_details"]["h2h"]
-    
-    if not h2h_data:
-        return
-        
-    # Define mappings for H2H fields
-    mappings = {
-        "total_matches": ["total_matches", "matches"],
-        "home_wins": ["home_wins"],
-        "away_wins": ["away_wins"],
-        "draws": ["draws"],
-        "over_2_5_pct": ["over_2_5_percentage"],
-        "btts_pct": ["btts_percentage"],
-        "avg_cards": ["average_cards"],
-        "avg_corners": ["average_corners"]
-    }
-    
-    # Extract each field using mappings
-    for target_field, source_fields in mappings.items():
-        for field in source_fields:
-            if field in h2h_data:
-                value = h2h_data[field]
-                if value is not None and value != 'N/A':
-                    try:
-                        formatted_data["h2h"][target_field] = float(value)
-                        break
-                    except (ValueError, TypeError):
-                        pass
-    
-    # Extract recent matches
-    if "matches" in h2h_data and isinstance(h2h_data["matches"], list):
-        formatted_data["h2h"]["recent_matches"] = h2h_data["matches"][:5]
-
-
-def calculate_derived_stats(team_stats):
-    """
-    Calculate derived statistics from basic statistics
-    
-    Args:
-        team_stats (dict): Team statistics dictionary
-    """
-    # Calculate cards_total if not present
-    if team_stats["cards_total"] == 0:
-        team_stats["cards_total"] = team_stats["yellow_cards"] + team_stats["red_cards"]
-    
-    # Calculate cards_per_game if not present
-    if team_stats["played"] > 0 and team_stats["cards_per_game"] == 0:
-        team_stats["cards_per_game"] = round(team_stats["cards_total"] / team_stats["played"], 2)
-    
-    # Calculate corners_total if not present
-    if team_stats["corners_total"] == 0:
-        team_stats["corners_total"] = team_stats["corners_for"] + team_stats["corners_against"]
-    
-    # Calculate corners_per_game if not present
-    if team_stats["played"] > 0 and team_stats["corners_per_game"] == 0:
-        team_stats["corners_per_game"] = round(team_stats["corners_total"] / team_stats["played"], 2)
 def extract_expanded_team_stats(api_data, team_type, essential_stats):
     """
     Extract comprehensive team statistics with fallbacks for missing data.
@@ -860,116 +788,6 @@ def extract_expanded_team_stats(api_data, team_type, essential_stats):
                 stats["corners_per_game"] = round(stats["corners_total"] / stats["played"], 2)
     
     return stats
-def extract_form_data(api_data, formatted_data):
-    """
-    Extract form data for both teams
-    
-    Args:
-        api_data (dict): Original API data
-        formatted_data (dict): Target data structure
-    """
-    # Process home team form
-    if "team_form" in api_data and "home" in api_data["team_form"]:
-        form_data = api_data["team_form"]["home"]
-        
-        if isinstance(form_data, list) and form_data:
-            # Extract form string (e.g., "WDLWW")
-            form_string = ""
-            for i in range(min(5, len(form_data))):
-                if isinstance(form_data[i], dict) and "result" in form_data[i]:
-                    form_string += form_data[i]["result"]
-            
-            if form_string:
-                formatted_data["home_team"]["form"] = form_string
-                formatted_data["home_team"]["recent_matches"] = form_data[:5]
-    
-    # Process away team form
-    if "team_form" in api_data and "away" in api_data["team_form"]:
-        form_data = api_data["team_form"]["away"]
-        
-        if isinstance(form_data, list) and form_data:
-            # Extract form string (e.g., "WDLWW")
-            form_string = ""
-            for i in range(min(5, len(form_data))):
-                if isinstance(form_data[i], dict) and "result" in form_data[i]:
-                    form_string += form_data[i]["result"]
-            
-            if form_string:
-                formatted_data["away_team"]["form"] = form_string
-                formatted_data["away_team"]["recent_matches"] = form_data[:5]
-
-def ensure_recent_matches(formatted_data, home_team_name, away_team_name):
-    """
-    Ensure both teams have recent matches data WITHOUT using fictional English teams
-    
-    Args:
-        formatted_data (dict): Target data structure
-        home_team_name (str): Name of home team
-        away_team_name (str): Name of away team
-    """
-    # Generate minimal data structure for home team if needed
-    if not formatted_data["home_team"]["recent_matches"]:
-        form = formatted_data["home_team"]["form"]
-        
-        # If no form data, use "?????"
-        if not form:
-            form = "?????"
-            formatted_data["home_team"]["form"] = form
-            
-        # Create empty structure without fictional teams
-        recent_matches = []
-        for i in range(min(5, len(form))):
-            result = form[i] if i < len(form) else "?"
-            recent_matches.append({
-                "opponent": "Sin datos",  # "No data" in Spanish, more appropriate for South American teams
-                "result": result,
-                "score": "0-0",
-                "date": f"2025-03-{10-i:02d}"
-            })
-            
-        formatted_data["home_team"]["recent_matches"] = recent_matches
-    
-    # Generate minimal data structure for away team if needed
-    if not formatted_data["away_team"]["recent_matches"]:
-        form = formatted_data["away_team"]["form"]
-        
-        # If no form data, use "?????"
-        if not form:
-            form = "?????"
-            formatted_data["away_team"]["form"] = form
-            
-        # Create empty structure without fictional teams
-        recent_matches = []
-        for i in range(min(5, len(form))):
-            result = form[i] if i < len(form) else "?"
-            recent_matches.append({
-                "opponent": "Sin datos",  # "No data" in Spanish, more appropriate for South American teams
-                "result": result,
-                "score": "0-0",
-                "date": f"2025-03-{10-i:02d}"
-            })
-            
-        formatted_data["away_team"]["recent_matches"] = recent_matches
-    
-    # Generate minimal H2H recent matches if needed
-    if not formatted_data["h2h"]["recent_matches"]:
-        # Create minimal structure for h2h matches
-        total_matches = int(formatted_data["h2h"]["total_matches"])
-        
-        if total_matches > 0:
-            recent_matches = []
-            
-            for i in range(min(5, total_matches)):
-                recent_matches.append({
-                    "date": f"Sin fecha",
-                    "home_team": home_team_name,
-                    "away_team": away_team_name,
-                    "score": "Sin datos",
-                    "competition": "Sin datos"
-                })
-                
-            formatted_data["h2h"]["recent_matches"] = recent_matches
-
 
 def extract_expanded_h2h(api_data):
     """
@@ -1121,6 +939,192 @@ def ensure_critical_fields(optimized_data, home_team_name, away_team_name):
         
     if "form" not in optimized_data["away_team"]:
         optimized_data["away_team"]["form"] = ""
+
+def ensure_recent_matches(formatted_data, home_team_name, away_team_name):
+    """
+    Ensure both teams have recent matches data WITHOUT using fictional English teams
+    
+    Args:
+        formatted_data (dict): Target data structure
+        home_team_name (str): Name of home team
+        away_team_name (str): Name of away team
+    """
+    # Generate minimal data structure for home team if needed
+    if not formatted_data["home_team"]["recent_matches"]:
+        form = formatted_data["home_team"]["form"]
+        
+        # If no form data, use "?????"
+        if not form:
+            form = "?????"
+            formatted_data["home_team"]["form"] = form
+            
+        # Create empty structure without fictional teams
+        recent_matches = []
+        for i in range(min(5, len(form))):
+            result = form[i] if i < len(form) else "?"
+            recent_matches.append({
+                "opponent": "Sin datos",  # "No data" in Spanish, more appropriate for South American teams
+                "result": result,
+                "score": "0-0",
+                "date": f"2025-03-{10-i:02d}"
+            })
+            
+        formatted_data["home_team"]["recent_matches"] = recent_matches
+    
+    # Generate minimal data structure for away team if needed
+    if not formatted_data["away_team"]["recent_matches"]:
+        form = formatted_data["away_team"]["form"]
+        
+        # If no form data, use "?????"
+        if not form:
+            form = "?????"
+            formatted_data["away_team"]["form"] = form
+            
+        # Create empty structure without fictional teams
+        recent_matches = []
+        for i in range(min(5, len(form))):
+            result = form[i] if i < len(form) else "?"
+            recent_matches.append({
+                "opponent": "Sin datos",  # "No data" in Spanish, more appropriate for South American teams
+                "result": result,
+                "score": "0-0",
+                "date": f"2025-03-{10-i:02d}"
+            })
+            
+        formatted_data["away_team"]["recent_matches"] = recent_matches
+    
+    # Generate minimal H2H recent matches if needed
+    if not formatted_data["h2h"]["recent_matches"]:
+        # Create minimal structure for h2h matches
+        total_matches = int(formatted_data["h2h"]["total_matches"])
+        
+        if total_matches > 0:
+            recent_matches = []
+            
+            for i in range(min(5, total_matches)):
+                recent_matches.append({
+                    "date": f"Sin fecha",
+                    "home_team": home_team_name,
+                    "away_team": away_team_name,
+                    "score": "Sin datos",
+                    "competition": "Sin datos"
+                })
+                
+            formatted_data["h2h"]["recent_matches"] = recent_matches
+
+def extract_team_data(api_data, formatted_data, team_type):
+    """
+    Extract team data from API data and fill in the formatted data structure
+    
+    Args:
+        api_data (dict): Original API data
+        formatted_data (dict): Target data structure to fill
+        team_type (str): "home" or "away" team
+    """
+    team_key = f"{team_type}_team"
+    
+    if "basic_stats" in api_data and team_key in api_data["basic_stats"]:
+        team_data = api_data["basic_stats"][team_key]
+        
+        # Extract stats from different possible locations
+        stats_data = {}
+        
+        # Try stats directly on team
+        if "stats" in team_data and isinstance(team_data["stats"], dict):
+            stats_data = team_data["stats"]
+        # Try nested stats
+        elif "stats" in team_data and isinstance(team_data["stats"], dict) and "stats" in team_data["stats"]:
+            stats_data = team_data["stats"]["stats"]
+        
+        # Extract each stat field
+        extract_team_stats(formatted_data[team_key], stats_data, team_data, team_type)
+        
+        # Get advanced stats if available
+        if "advanced_stats" in api_data and team_type in api_data["advanced_stats"]:
+            extract_advanced_metrics(formatted_data[team_key], api_data["advanced_stats"][team_type])
+
+def get_value(data_dict, possible_keys, default=0):
+    """
+    Helper function to get a value from a dictionary using multiple possible keys
+    
+    Args:
+        data_dict (dict): Dictionary to extract from
+        possible_keys (list): List of possible keys to try
+        default: Default value if not found
+        
+    Returns:
+        Value from dictionary or default
+    """
+    if not data_dict or not isinstance(data_dict, dict):
+        return default
+    
+    for key in possible_keys:
+        if key in data_dict:
+            # Handle 'N/A' and other non-numeric values
+            value = data_dict[key]
+            if value == 'N/A' or value is None:
+                return default
+            
+            # Try to convert to float
+            try:
+                return float(value)
+            except (ValueError, TypeError):
+                pass
+    
+    return default
+
+def get_nested_value(data_dict, possible_keys, default=0):
+    """
+    Get a value from a nested dictionary using multiple possible keys
+    
+    Args:
+        data_dict (dict): Dictionary to search
+        possible_keys (list): List of possible keys to try
+        default: Default value if not found
+        
+    Returns:
+        Value from dictionary or default
+    """
+    if not data_dict or not isinstance(data_dict, dict):
+        return default
+    
+    for key in possible_keys:
+        if key in data_dict:
+            # Handle 'N/A' and other non-numeric values
+            value = data_dict[key]
+            if value == 'N/A' or value is None:
+                return default
+            
+            # Try to convert to float
+            try:
+                return float(value)
+            except (ValueError, TypeError):
+                pass
+    
+    return default
+
+def round_stat(value, precision=0):
+    """
+    Round a statistical value to reduce data size
+    
+    Args:
+        value: The value to round
+        precision (int): Decimal precision
+        
+    Returns:
+        int or float: Rounded value
+    """
+    if value is None:
+        return 0
+        
+    try:
+        if precision == 0:
+            return int(round(float(value), 0))
+        else:
+            return round(float(value), precision)
+    except (ValueError, TypeError):
+        return 0
+
 def transform_to_optimized_data(api_data, home_team_name, away_team_name, selected_markets=None):
     """
     Transform API data into a more optimized, flattened structure
@@ -1407,88 +1411,6 @@ def extract_all_stats(target_dict, data_dict, team_type):
     # Calculate per-game averages for corners if matches played
     if matches_played > 0:
         target_dict["corners_per_game"] = round(target_dict["corners_total"] / matches_played, 2)
-
-def get_value(data_dict, possible_keys, default=0):
-    """
-    Helper function to get a value from a dictionary using multiple possible keys
-    
-    Args:
-        data_dict (dict): Dictionary to extract from
-        possible_keys (list): List of possible keys to try
-        default: Default value if not found
-        
-    Returns:
-        Value from dictionary or default
-    """
-    if not data_dict or not isinstance(data_dict, dict):
-        return default
-    
-    for key in possible_keys:
-        if key in data_dict:
-            # Handle 'N/A' and other non-numeric values
-            value = data_dict[key]
-            if value == 'N/A' or value is None:
-                return default
-            
-            # Try to convert to float
-            try:
-                return float(value)
-            except (ValueError, TypeError):
-                pass
-    
-    return default
-
-def get_nested_value(data_dict, possible_keys, default=0):
-    """
-    Get a value from a nested dictionary using multiple possible keys
-    
-    Args:
-        data_dict (dict): Dictionary to search
-        possible_keys (list): List of possible keys to try
-        default: Default value if not found
-        
-    Returns:
-        Value from dictionary or default
-    """
-    if not data_dict or not isinstance(data_dict, dict):
-        return default
-    
-    for key in possible_keys:
-        if key in data_dict:
-            # Handle 'N/A' and other non-numeric values
-            value = data_dict[key]
-            if value == 'N/A' or value is None:
-                return default
-            
-            # Try to convert to float
-            try:
-                return float(value)
-            except (ValueError, TypeError):
-                pass
-    
-    return default
-
-def round_stat(value, precision=0):
-    """
-    Round a statistical value to reduce data size
-    
-    Args:
-        value: The value to round
-        precision (int): Decimal precision
-        
-    Returns:
-        int or float: Rounded value
-    """
-    if value is None:
-        return 0
-        
-    try:
-        if precision == 0:
-            return int(round(float(value), 0))
-        else:
-            return round(float(value), precision)
-    except (ValueError, TypeError):
-        return 0
 
 def adapt_api_data_for_prompt(complete_analysis):
     """
