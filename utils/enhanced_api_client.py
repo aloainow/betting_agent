@@ -257,32 +257,64 @@ def get_complete_match_analysis(home_team, away_team, season_id, force_refresh=F
     logger.info(f"Iniciando análise completa para {home_team} vs {away_team} na liga {season_id}")
     
     try:
+        # Verificar se temos os argumentos válidos
+        if not home_team or not away_team or not season_id:
+            logger.error("Argumentos inválidos para análise: time ou season_id ausente")
+            return None
+            
         # Passo 1: Obter todos os times da liga com estatísticas básicas
         teams = get_teams_for_league(season_id, force_refresh)
         if not teams:
             logger.error(f"Não foi possível obter times para a liga {season_id}")
             return None
         
-        # Encontrar os times específicos
+        # Encontrar os times específicos com melhor correspondência de nomes
         home_team_data = None
         away_team_data = None
         
+        # Correspondência exata primeiro
         for team in teams:
             if "name" in team and team["name"] == home_team:
                 home_team_data = team
             if "name" in team and team["name"] == away_team:
                 away_team_data = team
+                
+        # Se não encontrou correspondência exata, tente parcial
+        if not home_team_data:
+            for team in teams:
+                if "name" in team and (team["name"].lower() in home_team.lower() or home_team.lower() in team["name"].lower()):
+                    home_team_data = team
+                    logger.info(f"Correspondência parcial para time da casa: {team['name']}")
+                    break
+                    
+        if not away_team_data:
+            for team in teams:
+                if "name" in team and (team["name"].lower() in away_team.lower() or away_team.lower() in team["name"].lower()):
+                    away_team_data = team
+                    logger.info(f"Correspondência parcial para time visitante: {team['name']}")
+                    break
         
         if not home_team_data:
             logger.error(f"Time da casa '{home_team}' não encontrado na liga {season_id}")
+            # Log dos times disponíveis para diagnóstico
+            available_teams = [team.get("name", "Unknown") for team in teams if "name" in team]
+            logger.info(f"Times disponíveis: {available_teams}")
             return None
         
         if not away_team_data:
             logger.error(f"Time visitante '{away_team}' não encontrado na liga {season_id}")
+            # Log dos times disponíveis para diagnóstico
+            available_teams = [team.get("name", "Unknown") for team in teams if "name" in team]
+            logger.info(f"Times disponíveis: {available_teams}")
             return None
         
-        home_team_id = home_team_data["id"]
-        away_team_id = away_team_data["id"]
+        # Obter IDs dos times
+        home_team_id = home_team_data.get("id")
+        away_team_id = away_team_data.get("id")
+        
+        if not home_team_id or not away_team_id:
+            logger.error(f"IDs dos times não encontrados. Home: {home_team_id}, Away: {away_team_id}")
+            return None
         
         logger.info(f"Times encontrados: {home_team} (ID: {home_team_id}) vs {away_team} (ID: {away_team_id})")
         
@@ -290,27 +322,57 @@ def get_complete_match_analysis(home_team, away_team, season_id, force_refresh=F
         league_table = get_league_table(season_id, force_refresh)
         
         # Passo 3: Obter últimos jogos de ambos os times
-        home_last_matches = get_team_last_matches(home_team_id, 5, force_refresh)
-        away_last_matches = get_team_last_matches(away_team_id, 5, force_refresh)
+        # Aumentando o tempo limite e adicionando retentativas para esta operação crítica
+        home_last_matches = None
+        away_last_matches = None
+        
+        for attempt in range(3):  # 3 tentativas
+            try:
+                home_last_matches = get_team_last_matches(home_team_id, 5, force_refresh)
+                if home_last_matches:
+                    break
+            except Exception as e:
+                logger.warning(f"Tentativa {attempt+1} falhou para home_last_matches: {str(e)}")
+                time.sleep(1)  # Aguardar 1 segundo antes de tentar novamente
+        
+        for attempt in range(3):  # 3 tentativas
+            try:
+                away_last_matches = get_team_last_matches(away_team_id, 5, force_refresh)
+                if away_last_matches:
+                    break
+            except Exception as e:
+                logger.warning(f"Tentativa {attempt+1} falhou para away_last_matches: {str(e)}")
+                time.sleep(1)  # Aguardar 1 segundo antes de tentar novamente
+        
+        # Se não conseguiu obter os últimos jogos, criar estrutura vazia mas não usar fallback
+        if not home_last_matches:
+            logger.warning(f"Não foi possível obter os últimos jogos para {home_team}")
+            home_last_matches = []
+        
+        if not away_last_matches:
+            logger.warning(f"Não foi possível obter os últimos jogos para {away_team}")
+            away_last_matches = []
         
         # Passo 4: Encontrar match_id e obter detalhes do confronto direto
         match_id = find_match_id(home_team_id, away_team_id, season_id, force_refresh)
         match_details = None
         if match_id:
             match_details = get_match_details(match_id, force_refresh)
+        else:
+            logger.warning(f"Não foi encontrado ID de partida para {home_team} vs {away_team}")
         
         # Compilar todos os dados
         complete_analysis = {
             "basic_stats": {
                 "league_id": season_id,
-                "home_team": {"name": home_team, "stats": home_team_data},
-                "away_team": {"name": away_team, "stats": away_team_data},
+                "home_team": {"name": home_team, "id": home_team_id, "stats": home_team_data},
+                "away_team": {"name": away_team, "id": away_team_id, "stats": away_team_data},
                 "referee": match_details.get("referee", "Não informado") if match_details else "Não informado"
             },
             "league_table": league_table,
             "team_form": {
-                "home": home_last_matches,
-                "away": away_last_matches
+                "home": home_last_matches if isinstance(home_last_matches, list) else [],
+                "away": away_last_matches if isinstance(away_last_matches, list) else []
             },
             "head_to_head": match_details.get("h2h", {}) if match_details else {},
             "match_details": match_details,
@@ -320,6 +382,11 @@ def get_complete_match_analysis(home_team, away_team, season_id, force_refresh=F
             }
         }
         
+        # Verificar a qualidade dos dados extraídos - não retornar dados vazios
+        if not verify_data_quality(complete_analysis):
+            logger.warning("Dados incompletos ou de baixa qualidade. Possível falha na extração.")
+            # Não retornamos None para permitir que o sistema tente usar o que temos
+        
         logger.info(f"Análise completa concluída para {home_team} vs {away_team}")
         return complete_analysis
     
@@ -328,6 +395,48 @@ def get_complete_match_analysis(home_team, away_team, season_id, force_refresh=F
         import traceback
         logger.error(traceback.format_exc())
         return None
+
+def verify_data_quality(analysis_data):
+    """
+    Verifica se os dados extraídos têm qualidade mínima para análise
+    
+    Args:
+        analysis_data (dict): Dados completos da análise
+        
+    Returns:
+        bool: True se os dados têm qualidade suficiente, False caso contrário
+    """
+    if not analysis_data or not isinstance(analysis_data, dict):
+        return False
+        
+    # Verificar dados básicos dos times
+    if "basic_stats" not in analysis_data:
+        return False
+        
+    home_team = analysis_data["basic_stats"].get("home_team", {})
+    away_team = analysis_data["basic_stats"].get("away_team", {})
+    
+    # Verificar se há ao menos alguns dados estatísticos
+    if not home_team.get("stats") or not away_team.get("stats"):
+        return False
+        
+    # Verificar se há dados de forma para os times
+    home_form = analysis_data.get("team_form", {}).get("home")
+    away_form = analysis_data.get("team_form", {}).get("away")
+    
+    # Verificar pela presença de dados essenciais (não apenas pela presença das chaves)
+    has_essential_data = (
+        # Verifica se home_team.stats tem pelo menos alguns dados numéricos
+        any(isinstance(value, (int, float)) and value != 0 
+            for key, value in home_team.get("stats", {}).items() 
+            if key not in ['id', 'name']) and
+        # Verifica se away_team.stats tem pelo menos alguns dados numéricos
+        any(isinstance(value, (int, float)) and value != 0 
+            for key, value in away_team.get("stats", {}).items() 
+            if key not in ['id', 'name'])
+    )
+    
+    return has_essential_data
 
 def extract_advanced_stats(team_data):
     """
