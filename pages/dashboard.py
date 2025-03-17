@@ -1047,8 +1047,7 @@ def show_main_dashboard():
                             return
                         
                         # Etapa 2: Transformar os dados para o formato otimizado
-                        from utils.prompt_adapter import extract_advanced_team_data                        
-                        # Transformar dados para formato exato requerido pelo agente de IA
+                        # Use a função atualizada para extrair estrutura de dados exata
                         optimized_data = extract_advanced_team_data(stats_data, home_team, away_team)
                         
                         # Modo de depuração - mostrar informações sobre dados
@@ -1063,33 +1062,18 @@ def show_main_dashboard():
                                 st.info(f"Tamanho otimizado: {optimized_size:,} bytes")
                                 st.success(f"Redução: {reduction:.1f}% dos dados (melhora o desempenho da IA)")
                             
-                            # Show sample of optimized data structure
-                            with st.expander("Amostra da estrutura otimizada", expanded=False):
-                                st.json({
-                                    "match_info": optimized_data["match_info"],
-                                    "home_team": {k: v for k, v in list(optimized_data["home_team"].items())[:10]},
-                                    "away_team": {k: v for k, v in list(optimized_data["away_team"].items())[:10]},
-                                    "h2h": optimized_data["h2h"]
-                                })
+                            # Mostrar estrutura de dados otimizada para verificação
+                            with st.expander("Estrutura de dados otimizada", expanded=False):
+                                st.json(optimized_data)
+                        
                         # Etapa 3: Formatar prompt usando os dados otimizados
                         status.info("Preparando análise...")
-                        from utils.ai import format_highly_optimized_prompt
                         prompt = format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_data, selected_markets)
                         
                         if not prompt:
                             status.error("Falha ao preparar análise")
                             return
                         
-                        # Modo de depuração - mostrar amostra de dados
-                        if st.session_state.debug_mode:
-                            with st.expander("Amostra da estrutura otimizada", expanded=False):
-                                st.json({
-                                    "match_info": optimized_data["match_info"],
-                                    "home_team": {k: v for k, v in list(optimized_data["home_team"].items())[:10]},
-                                    "away_team": {k: v for k, v in list(optimized_data["away_team"].items())[:10]},
-                                    "h2h": optimized_data["h2h"]
-                                })
-                            
                         # Etapa 4: Análise GPT
                         status.info("Realizando análise com IA...")
                         analysis = analyze_with_gpt(prompt)
@@ -1189,7 +1173,7 @@ def show_main_dashboard():
                         logger.error(f"Erro durante a análise: {str(analysis_error)}")
                         status.error(f"Erro durante a análise: {str(analysis_error)}")
                         import traceback
-                        logger.error(traceback.format_exc())                        
+                        logger.error(traceback.format_exc())
             except Exception as button_error:
                 logger.error(f"Erro no botão de análise: {str(button_error)}")
                 st.error(f"Erro no botão de análise: {str(button_error)}")
