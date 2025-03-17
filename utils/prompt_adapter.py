@@ -351,10 +351,10 @@ def extract_advanced_team_data(api_data, home_team_name, away_team_name):
             extract_advanced_metrics(formatted_data["away_team"], api_data["advanced_stats"]["away"])
     
     # NOVO: Extração melhorada de H2H com múltiplos caminhos
-    extract_h2h_data_improved(api_data, formatted_data)
+    extract_h2h_data(api_data, formatted_data)
     
     # NOVO: Extração melhorada de dados de forma
-    extract_form_data_improved(api_data, formatted_data, home_team_name, away_team_name)
+    extract_form_data(api_data, formatted_data, home_team_name, away_team_name)
     
     # Calcular estatísticas derivadas
     calculate_derived_stats(formatted_data["home_team"])
