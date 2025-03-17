@@ -3,6 +3,7 @@ import os
 import logging
 import streamlit as st
 import json
+from utils.ai import format_highly_optimized_prompt
 
 # Configuração de logging
 logger = logging.getLogger("valueHunter.ai")
