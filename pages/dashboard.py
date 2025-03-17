@@ -8,6 +8,7 @@ import time
 from utils.core import show_valuehunter_logo, go_to_login, update_purchase_button, DATA_DIR
 from utils.data import parse_team_stats, get_odds_data, format_prompt
 from utils.ai import analyze_with_gpt, format_enhanced_prompt
+from utils.prompt_adapter import extract_advanced_team_data
 
 # Configuração de logging
 logger = logging.getLogger("valueHunter.dashboard")
