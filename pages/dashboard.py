@@ -515,7 +515,7 @@ def diagnose_api_issues(selected_league):
 # FUNÇÃO ATUALIZADA - PRINCIPAL MELHORIA
 def fetch_stats_data(selected_league, home_team=None, away_team=None):
     """
-    Busca estatísticas das equipes com abordagem sequencial completa
+    Busca estatísticas das equipes com melhor tratamento de erros e sem fallbacks automáticos
     
     Args:
         selected_league (str): Nome da liga
@@ -539,6 +539,7 @@ def fetch_stats_data(selected_league, home_team=None, away_team=None):
                     season_id = get_season_id(selected_league)
                     if not season_id:
                         st.error(f"Não foi possível encontrar ID para liga: {selected_league}")
+                        st.info("Verifique se a liga está corretamente selecionada na sua conta FootyStats.")
                         return None, None
                     
                     # Mostrar qual temporada estamos usando para feedback ao usuário
@@ -546,34 +547,43 @@ def fetch_stats_data(selected_league, home_team=None, away_team=None):
                     st.info(f"Buscando estatísticas da temporada {season} para {selected_league}")
                     
                     # Etapa principal - buscar análise completa
-                    complete_analysis = get_complete_match_analysis(home_team, away_team, season_id)
+                    # Adicionar opção para forçar refresh quando necessário
+                    complete_analysis = get_complete_match_analysis(home_team, away_team, season_id, force_refresh=False)
                     
-                    if complete_analysis:
-                        # Converter para o formato de DataFrame esperado pelo restante da aplicação
-                        team_stats_df = convert_to_dataframe_format(complete_analysis)
+                    if not complete_analysis:
+                        st.error(f"Não foi possível obter estatísticas para {home_team} vs {away_team}")
+                        st.info("Verifique se os times pertencem à liga selecionada e se você tem acesso a esta liga no FootyStats.")
                         
-                        if team_stats_df is not None:
-                            st.success(f"Estatísticas carregadas com sucesso para {home_team} vs {away_team}")
-                            return team_stats_df, complete_analysis
+                        # Executar diagnóstico de conexão com a API
+                        st.warning("Executando diagnóstico da API...")
+                        from utils.footystats_api import test_api_connection
+                        api_test = test_api_connection()
+                        
+                        if api_test["success"]:
+                            st.success("✅ Conexão com a API FootyStats está funcionando")
+                            st.info(f"Você tem acesso a {len(api_test['available_leagues'])} ligas")
+                            
+                            # Mostrar alguns exemplos de ligas disponíveis
+                            if api_test['available_leagues']:
+                                st.info(f"Exemplos de ligas disponíveis: {', '.join(api_test['available_leagues'][:3])}")
                         else:
-                            st.error("Erro ao processar estatísticas para formato DataFrame")
-                            return None, None
+                            st.error("❌ Problema na conexão com a API FootyStats")
+                            if api_test.get("error"):
+                                st.error(f"Erro: {api_test['error']}")
+                                
+                        return None, None
+                    
+                    # Verificar se os dados têm conteúdo mínimo antes de continuar
+                    from utils.prompt_adapter import extract_advanced_team_data
+                    
+                    # Converter para o formato de DataFrame esperado pelo restante da aplicação
+                    team_stats_df = convert_to_dataframe_format(complete_analysis)
+                    
+                    if team_stats_df is not None:
+                        st.success(f"Estatísticas carregadas com sucesso para {home_team} vs {away_team}")
+                        return team_stats_df, complete_analysis
                     else:
-                        st.error("Estatísticas não disponíveis para estes times")
-                        st.info("Isso pode ocorrer se os times não fizerem parte da mesma liga ou temporada.")
-                        
-                        # Mostrar informações adicionais para diagnóstico
-                        st.warning("Verificando times disponíveis nesta liga...")
-                        from utils.enhanced_api_client import get_teams_for_league
-                        teams = get_teams_for_league(season_id)
-                        
-                        if teams:
-                            team_names = [team.get("name", "Unknown") for team in teams[:10]]
-                            st.info(f"Times disponíveis incluem: {', '.join(team_names)}")
-                            st.info("Use os nomes exatos dos times acima para a análise.")
-                        else:
-                            st.warning(f"Não foi possível encontrar times para a liga {selected_league}")
-                        
+                        st.error("Erro ao processar estatísticas para formato DataFrame")
                         return None, None
                 
                 except Exception as api_error:
@@ -589,7 +599,6 @@ def fetch_stats_data(selected_league, home_team=None, away_team=None):
         logger.error(f"Erro ao buscar estatísticas: {str(e)}")
         st.error(f"Erro ao buscar estatísticas: {str(e)}")
         return None, None
-
 def get_cached_teams(league):
     """Carrega apenas os nomes dos times do cache persistente com verificação de temporada"""
     from utils.footystats_api import LEAGUE_SEASONS, CURRENT_SEASON
