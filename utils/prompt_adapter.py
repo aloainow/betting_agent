@@ -208,7 +208,7 @@ def transform_to_exact_format(api_data, home_team_name, away_team_name, selected
 
 # Adicione isso ao arquivo utils/prompt_adapter.py
 
-def improved_extract_advanced_team_data(api_data, home_team_name, away_team_name):
+def extract_advanced_team_data(api_data, home_team_name, away_team_name):
     """
     Versão aprimorada para extrair dados do time com estrutura exata necessária
     para análise ótima de IA. Lida com múltiplos formatos de API e garante que todos
@@ -363,7 +363,7 @@ def improved_extract_advanced_team_data(api_data, home_team_name, away_team_name
     logger.info(f"Extração de dados completa para {home_team_name} vs {away_team_name}")
     return formatted_data
 
-def extract_team_stats_improved(target, stats_data, team_raw_data, team_type):
+def extract_team_stats(target, stats_data, team_raw_data, team_type):
     """Extrai estatísticas com melhores mapeamentos e fallbacks"""
     
     # NOVO: Mapeamento expandido com mais nomes alternativos para cada campo
@@ -511,7 +511,7 @@ def extract_advanced_metrics(target, advanced_data):
                 except (ValueError, TypeError):
                     pass
 
-def extract_h2h_data_improved(api_data, formatted_data):
+def extract_h2h_data(api_data, formatted_data):
     """Extração melhorada de dados H2H"""
     # Buscar em múltiplos caminhos possíveis
     h2h_data = None
@@ -562,7 +562,7 @@ def extract_h2h_data_improved(api_data, formatted_data):
     elif "previous_matches" in h2h_data and isinstance(h2h_data["previous_matches"], list):
         formatted_data["h2h"]["recent_matches"] = h2h_data["previous_matches"][:5]
 
-def extract_form_data_improved(api_data, formatted_data, home_team_name, away_team_name):
+def extract_form_data(api_data, formatted_data, home_team_name, away_team_name):
     """Extração melhorada de dados de forma dos times"""
     
     # Time da casa
