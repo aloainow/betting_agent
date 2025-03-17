@@ -321,7 +321,7 @@ def extract_advanced_team_data(api_data, home_team_name, away_team_name):
                 break
                 
         # NOVO: Melhor extração com múltiplos nomes alternativos para campos importantes
-        extract_team_stats_improved(formatted_data["home_team"], home_stats, home_team, "home")
+        extract_team_stats(formatted_data["home_team"], home_stats, home_team, "home")
         
         # NOVO: Buscar também no advanced_stats
         if "advanced_stats" in api_data and "home" in api_data["advanced_stats"]:
@@ -345,7 +345,7 @@ def extract_advanced_team_data(api_data, home_team_name, away_team_name):
                 away_stats = away_team
                 break
                 
-        extract_team_stats_improved(formatted_data["away_team"], away_stats, away_team, "away")
+        extract_team_stats(formatted_data["away_team"], away_stats, away_team, "away")
         
         if "advanced_stats" in api_data and "away" in api_data["advanced_stats"]:
             extract_advanced_metrics(formatted_data["away_team"], api_data["advanced_stats"]["away"])
