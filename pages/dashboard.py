@@ -525,6 +525,12 @@ def fetch_stats_data(selected_league, home_team=None, away_team=None):
     Returns:
         tuple: (DataFrame com estatísticas, dados brutos) ou (None, None) em caso de erro
     """
+    import logging
+    import traceback
+    
+    # Configuração de logging
+    logger = logging.getLogger("valueHunter.dashboard")
+    
     try:
         with st.spinner("Buscando estatísticas atualizadas..."):
             # Verificar se temos times específicos para buscar
@@ -533,13 +539,13 @@ def fetch_stats_data(selected_league, home_team=None, away_team=None):
                 try:
                     from utils.enhanced_api_client import get_complete_match_analysis, convert_to_dataframe_format
                     from utils.prompt_adapter import extract_deep_team_data  # Usar extração mais agressiva
-                    from utils.footystats_api import LEAGUE_SEASON_IDS, LEAGUE_SEASONS, CURRENT_SEASON
+                    from utils.footystats_api import LEAGUE_IDS  # Correto: usar LEAGUE_IDS em vez de LEAGUE_SEASON_IDS
                     
                     # Obter season_id para a liga selecionada
-                    season_id = LEAGUE_SEASON_IDS.get(selected_league)
+                    season_id = LEAGUE_IDS.get(selected_league)
                     if not season_id:
                         # Buscar correspondência parcial
-                        for league_name, league_id in LEAGUE_SEASON_IDS.items():
+                        for league_name, league_id in LEAGUE_IDS.items():
                             if league_name.lower() in selected_league.lower() or selected_league.lower() in league_name.lower():
                                 season_id = league_id
                                 break
@@ -550,17 +556,14 @@ def fetch_stats_data(selected_league, home_team=None, away_team=None):
                         return None, None
                     
                     # Mostrar qual temporada estamos usando para feedback ao usuário
-                    season = LEAGUE_SEASONS.get(selected_league, CURRENT_SEASON)
-                    st.info(f"Buscando estatísticas da temporada {season} para {selected_league} (ID: {season_id})")
+                    st.info(f"Buscando estatísticas para {selected_league} (ID: {season_id})")
                     
                     # Log detalhado
-                    import logging
-                    logger = logging.getLogger("valueHunter.dashboard")
                     logger.info(f"Iniciando busca para {home_team} vs {away_team} na liga {selected_league} (ID: {season_id})")
                     
                     # Etapa principal - buscar análise completa
-                    # Usar force_refresh=True para garantir dados atualizados
-                    complete_analysis = get_complete_match_analysis(home_team, away_team, season_id, force_refresh=True)
+                    # Usar force_refresh=False para evitar sobrecarregar a API
+                    complete_analysis = get_complete_match_analysis(home_team, away_team, season_id, force_refresh=False)
                     
                     # Verificar se obtivemos dados completos
                     if not complete_analysis:
@@ -618,7 +621,6 @@ def fetch_stats_data(selected_league, home_team=None, away_team=None):
                 except Exception as api_error:
                     st.error(f"Erro ao obter estatísticas da API: {str(api_error)}")
                     # Detalhar o erro para depuração
-                    import traceback
                     logger.error(f"Erro na API de estatísticas: {str(api_error)}")
                     logger.error(traceback.format_exc())
                     
@@ -632,6 +634,7 @@ def fetch_stats_data(selected_league, home_team=None, away_team=None):
                 return None, None
     except Exception as e:
         logger.error(f"Erro ao buscar estatísticas: {str(e)}")
+        logger.error(traceback.format_exc())
         st.error(f"Erro ao buscar estatísticas: {str(e)}")
         return None, None
 def get_cached_teams(league):
