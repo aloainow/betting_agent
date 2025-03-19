@@ -85,14 +85,29 @@ def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_da
     logger.info(f"Formatting highly optimized prompt for {home_team} vs {away_team}")
     
     try:
-        # Verify we have valid data
+        # Verify we have valid data and extract what we can
         if not optimized_data or not isinstance(optimized_data, dict):
             logger.error("Missing or invalid optimized data structure")
-            # Proceed with empty structure but log the error
+            # Create minimal structure to avoid failure
             optimized_data = {
                 "match_info": {"home_team": home_team, "away_team": away_team, "league": "", "league_id": None},
-                "home_team": {}, "away_team": {}, "h2h": {}
+                "home_team": {
+                    "played": 0, "wins": 0, "draws": 0, "losses": 0,
+                    "goals_scored": 0, "goals_conceded": 0,
+                    "form": "?????"
+                },
+                "away_team": {
+                    "played": 0, "wins": 0, "draws": 0, "losses": 0,
+                    "goals_scored": 0, "goals_conceded": 0,
+                    "form": "?????"
+                },
+                "h2h": {}
             }
+        
+        # Log data being used
+        logger.info(f"Home team stats keys: {list(optimized_data.get('home_team', {}).keys())}")
+        logger.info(f"Away team stats keys: {list(optimized_data.get('away_team', {}).keys())}")
+        logger.info(f"H2H stats keys: {list(optimized_data.get('h2h', {}).keys())}")
         
         # 1. FUNDAMENTAL STATISTICS (relevant for all markets)
         home = optimized_data.get("home_team", {})
@@ -102,6 +117,17 @@ def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_da
         
         # Extract league name if available
         league_name = match_info.get("league", "")
+        
+        # Default values for critical statistics
+        home_played = home.get('played', 0)
+        away_played = away.get('played', 0)
+        
+        # Ensure we have minimum data for analysis
+        if home_played == 0 and ('wins' in home or 'draws' in home or 'losses' in home):
+            home_played = home.get('wins', 0) + home.get('draws', 0) + home.get('losses', 0)
+            
+        if away_played == 0 and ('wins' in away or 'draws' in away or 'losses' in away):
+            away_played = away.get('wins', 0) + away.get('draws', 0) + away.get('losses', 0)
         
         fundamental_stats = f"""
 # ESTATÍSTICAS FUNDAMENTAIS: {home_team} vs {away_team}
@@ -124,6 +150,7 @@ def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_da
 * Vitórias {home_team}: {h2h.get('home_wins', 0)}
 * Vitórias {away_team}: {h2h.get('away_wins', 0)}
 * Empates: {h2h.get('draws', 0)}
+* Média de gols: {h2h.get('avg_goals', 0)}
 """
 
         # 2. STATS FOR RESULT MARKETS (1X2, Double Chance)
@@ -136,6 +163,10 @@ def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_da
 * {home_team} como mandante: {home.get('home_wins', 0)}V {home.get('home_draws', 0)}E {home.get('home_losses', 0)}D | {home.get('home_goals_scored', 0)} gols marcados, {home.get('home_goals_conceded', 0)} sofridos
 * {away_team} como visitante: {away.get('away_wins', 0)}V {away.get('away_draws', 0)}E {away.get('away_losses', 0)}D | {away.get('away_goals_scored', 0)} gols marcados, {away.get('away_goals_conceded', 0)} sofridos
 
+### Percentuais de Resultados
+* {home_team}: Vitória {home.get('win_pct', round(home.get('wins', 0) / max(home_played, 1) * 100, 1))}% | Empate {home.get('draw_pct', round(home.get('draws', 0) / max(home_played, 1) * 100, 1))}% | Derrota {home.get('loss_pct', round(home.get('losses', 0) / max(home_played, 1) * 100, 1))}%
+* {away_team}: Vitória {away.get('win_pct', round(away.get('wins', 0) / max(away_played, 1) * 100, 1))}% | Empate {away.get('draw_pct', round(away.get('draws', 0) / max(away_played, 1) * 100, 1))}% | Derrota {away.get('loss_pct', round(away.get('losses', 0) / max(away_played, 1) * 100, 1))}%
+
 ### Métricas Avançadas
 * Posse de Bola: {home_team} {home.get('possession', 0)}% vs {away_team} {away.get('possession', 0)}%
 * PPDA (Passes por Ação Defensiva): {home_team} {home.get('ppda', 'N/A')} vs {away_team} {away.get('ppda', 'N/A')} (menor = pressão mais intensa)
@@ -144,14 +175,33 @@ def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_da
         # 3. STATS FOR GOALS MARKETS (Over/Under, Both Teams To Score)
         goals_stats = ""
         if any(selected_markets.get(m) for m in ["over_under", "ambos_marcam"]):
+            # Calculate goals per game averages if missing
+            home_goals_per_game = home.get('goals_per_game', 0)
+            if home_goals_per_game == 0 and home_played > 0:
+                home_goals_per_game = round(home.get('goals_scored', 0) / home_played, 2)
+                
+            away_goals_per_game = away.get('goals_per_game', 0)
+            if away_goals_per_game == 0 and away_played > 0:
+                away_goals_per_game = round(away.get('goals_scored', 0) / away_played, 2)
+                
+            home_conceded_per_game = home.get('conceded_per_game', 0)
+            if home_conceded_per_game == 0 and home_played > 0:
+                home_conceded_per_game = round(home.get('goals_conceded', 0) / home_played, 2)
+                
+            away_conceded_per_game = away.get('conceded_per_game', 0)
+            if away_conceded_per_game == 0 and away_played > 0:
+                away_conceded_per_game = round(away.get('goals_conceded', 0) / away_played, 2)
+            
             goals_stats = f"""
 # ESTATÍSTICAS PARA MERCADOS DE GOLS
 
 ### Médias de Gols
-* {home_team} média de gols marcados: {float(home.get('goals_scored', 0)) / max(float(home.get('played', 1)), 1):.2f} por jogo
-* {away_team} média de gols marcados: {float(away.get('goals_scored', 0)) / max(float(away.get('played', 1)), 1):.2f} por jogo
-* {home_team} média de gols sofridos: {float(home.get('goals_conceded', 0)) / max(float(home.get('played', 1)), 1):.2f} por jogo
-* {away_team} média de gols sofridos: {float(away.get('goals_conceded', 0)) / max(float(away.get('played', 1)), 1):.2f} por jogo
+* {home_team} média de gols marcados: {home_goals_per_game} por jogo
+* {away_team} média de gols marcados: {away_goals_per_game} por jogo
+* {home_team} média de gols sofridos: {home_conceded_per_game} por jogo
+* {away_team} média de gols sofridos: {away_conceded_per_game} por jogo
+* Média total de gols em jogos do {home_team}: {home_goals_per_game + home_conceded_per_game:.2f}
+* Média total de gols em jogos do {away_team}: {away_goals_per_game + away_conceded_per_game:.2f}
 
 ### Clean Sheets e Ambos Marcam
 * {home_team} clean sheets %: {home.get('clean_sheets_pct', 0)}%
@@ -168,12 +218,25 @@ def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_da
         # 4. STATS FOR CORNERS MARKETS
         corners_stats = ""
         if selected_markets.get("escanteios"):
+            # Calculate corners per game if missing
+            home_corners_per_game = home.get('corners_per_game', 0)
+            if home_corners_per_game == 0:
+                corners_total = home.get('corners_for', 0) + home.get('corners_against', 0)
+                if corners_total > 0 and home_played > 0:
+                    home_corners_per_game = round(corners_total / home_played, 2)
+                    
+            away_corners_per_game = away.get('corners_per_game', 0)
+            if away_corners_per_game == 0:
+                corners_total = away.get('corners_for', 0) + away.get('corners_against', 0)
+                if corners_total > 0 and away_played > 0:
+                    away_corners_per_game = round(corners_total / away_played, 2)
+            
             corners_stats = f"""
 # ESTATÍSTICAS PARA MERCADOS DE ESCANTEIOS
 
 ### Médias de Escanteios
-* {home_team} média de escanteios por jogo: {home.get('corners_per_game', 0)}
-* {away_team} média de escanteios por jogo: {away.get('corners_per_game', 0)}
+* {home_team} média de escanteios por jogo: {home_corners_per_game}
+* {away_team} média de escanteios por jogo: {away_corners_per_game}
 * {home_team} escanteios a favor: {home.get('corners_for', 0)}
 * {home_team} escanteios contra: {home.get('corners_against', 0)}
 * {away_team} escanteios a favor: {away.get('corners_for', 0)}
@@ -188,12 +251,25 @@ def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_da
         # 5. STATS FOR CARDS MARKETS
         cards_stats = ""
         if selected_markets.get("cartoes"):
+            # Calculate cards per game if missing
+            home_cards_per_game = home.get('cards_per_game', 0)
+            if home_cards_per_game == 0:
+                cards_total = home.get('yellow_cards', 0) + home.get('red_cards', 0)
+                if cards_total > 0 and home_played > 0:
+                    home_cards_per_game = round(cards_total / home_played, 2)
+                    
+            away_cards_per_game = away.get('cards_per_game', 0)
+            if away_cards_per_game == 0:
+                cards_total = away.get('yellow_cards', 0) + away.get('red_cards', 0)
+                if cards_total > 0 and away_played > 0:
+                    away_cards_per_game = round(cards_total / away_played, 2)
+            
             cards_stats = f"""
 # ESTATÍSTICAS PARA MERCADOS DE CARTÕES
 
 ### Médias de Cartões
-* {home_team} média de cartões por jogo: {home.get('cards_per_game', 0)}
-* {away_team} média de cartões por jogo: {away.get('cards_per_game', 0)}
+* {home_team} média de cartões por jogo: {home_cards_per_game}
+* {away_team} média de cartões por jogo: {away_cards_per_game}
 * {home_team} cartões amarelos: {home.get('yellow_cards', 0)}
 * {home_team} cartões vermelhos: {home.get('red_cards', 0)}
 * {away_team} cartões amarelos: {away.get('yellow_cards', 0)}
@@ -218,26 +294,30 @@ def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_da
 Analise os dados estatísticos fornecidos para identificar valor nas odds.
 Você é um especialista em probabilidades esportivas que deve calcular probabilidades REAIS com base nos dados.
 
-MUITO IMPORTANTE: Você DEVE responder EXATAMENTE no formato abaixo:
+IMPORTANTE: Este jogo tem dados limitados! Seja transparente sobre isso e evite análises que exijam estatísticas ausentes.
+
+VOCÊ DEVE responder EXATAMENTE no formato abaixo:
 
 # Análise da Partida
 ## {home_team} x {away_team}
 
 # Análise de Mercados Disponíveis:
-[Resumo detalhado de cada mercado disponível com suas odds e probabilidades implícitas]
+[Resumo de cada mercado com suas odds e probabilidades implícitas. Use apenas os dados disponíveis.]
 
 # Probabilidades Calculadas (REAL vs IMPLÍCITA):
 [Para cada mercado onde há dados estatísticos suficientes, compare as probabilidades REAIS calculadas com as probabilidades IMPLÍCITAS nas odds]
-- Se não houver dados estatísticos suficientes para calcular probabilidades reais para um mercado específico, indique claramente
+- Indique claramente quais mercados têm dados insuficientes para cálculos exatos
 
 # Oportunidades Identificadas:
 [Liste cada mercado onde você encontrou valor/edge, mostrando a porcentagem de vantagem]
-- Se não houver oportunidades claras ou dados suficientes, explique por quê
+- Indique se há limitações significativas devido à escassez de dados
+- Se não houver dados suficientes, evite forçar identificação de oportunidades
 
 # Nível de Confiança Geral: [Baixo/Médio/Alto]
 [Justificativa para o nível de confiança baseada apenas nos dados reais disponíveis]
 
-IMPORTANTE: Use APENAS os dados estatísticos reais fornecidos. NÃO faça suposições ou estimativas quando os dados não estiverem disponíveis. Se não houver dados suficientes para calcular probabilidades reais para um determinado mercado, indique claramente essa limitação.
+ATENÇÃO: Use APENAS os dados estatísticos fornecidos. Evite suposições quando os dados não estiverem disponíveis.
+Se os dados forem muito limitados, reconheça isso e forneça uma análise adequada às circunstâncias.
 """
         # Compile the final prompt
         sections = [
@@ -269,6 +349,7 @@ IMPORTANTE: Use APENAS os dados estatísticos reais fornecidos. NÃO faça supos
 
 # INSTRUÇÕES
 Você DEVE analisar as odds e identificar oportunidades de valor, mesmo com dados limitados.
+Reconheça explicitamente a limitação de dados em cada seção da análise.
 Responda com EXATAMENTE este formato, com todas as seções:
 
 # Análise da Partida
@@ -278,13 +359,13 @@ Responda com EXATAMENTE este formato, com todas as seções:
 [Resumo detalhado das odds]
 
 # Probabilidades Calculadas (REAL vs IMPLÍCITA):
-[Comparação lado a lado de probabilidades reais e implícitas]
+[Comparação lado a lado de probabilidades reais e implícitas - reconheça que os dados são limitados]
 
 # Oportunidades Identificadas:
-[Lista de oportunidades com edge percentual]
+[Lista de oportunidades com edge percentual - ou explicação da impossibilidade devido à limitação de dados]
 
-# Nível de Confiança Geral: [Baixo/Médio/Alto]
-[Justificativa]
+# Nível de Confiança Geral: [Baixo]
+[Justificativa mencionando os dados limitados disponíveis]
 """
 
 def analyze_with_gpt(prompt):
