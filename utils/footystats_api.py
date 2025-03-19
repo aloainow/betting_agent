@@ -27,7 +27,57 @@ def get_current_season():
 CURRENT_SEASON = get_current_season()
 
 # Mapeamento de IDs das principais ligas COM PAÍSES - será preenchido dinamicamente
-LEAGUE_IDS = {}
+LEAGUE_IDS = {# Em utils/footystats_api.py - Substituir o LEAGUE_IDS vazio por um dicionário completo
+
+# Mapeamento completo e estático de ligas para IDs
+LEAGUE_IDS = {
+    # Ligas sul-americanas
+    "Primera División (Argentina)": 14125,
+    "Serie A (Brazil)": 14231,
+    "Brasileirão": 14231,
+    "Serie B (Brazil)": 14305,
+    "Copa do Brasil": 14210,
+    "Primera División (Uruguay)": 14128,
+    "Copa Libertadores": 13974,
+    "Copa Sudamericana": 13965,
+    
+    # Ligas europeias principais
+    "Premier League": 12325,
+    "Premier League (England)": 12325,
+    "La Liga": 12316,
+    "La Liga (Spain)": 12316,
+    "Segunda División": 12467,
+    "Bundesliga": 12529,
+    "Bundesliga (Germany)": 12529,
+    "2. Bundesliga": 12528,
+    "Serie A (Italy)": 12530,
+    "Serie B (Italy)": 12621,
+    "Ligue 1": 12337,
+    "Ligue 1 (France)": 12337,
+    "Ligue 2": 12338,
+    
+    # Outras ligas europeias
+    "Bundesliga (Austria)": 12472,
+    "Pro League": 12137,
+    "Eredivisie": 12322,
+    "Eredivisie (Netherlands)": 12322,
+    "Liga NOS": 12931,
+    "Primeira Liga": 12931,
+    "Champions League": 12321,
+    "Champions League (Europe)": 12321,
+    "Europa League": 12327,
+    
+    # Liga mexicana
+    "Liga MX": 12136,
+    
+    # Ligas inglesas secundárias
+    "FA Cup": 13698,
+    "FA Cup (England)": 13698,
+    "EFL League One": 12446,
+    "EFL League One (England)": 12446
+    
+    # Adicione mais ligas conforme necessário
+}
 
 # Mapeamento de temporadas - inicializado como vazio, será preenchido com dados da API
 LEAGUE_SEASONS = {}
