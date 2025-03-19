@@ -1056,9 +1056,9 @@ def show_main_dashboard():
                             status.error("Falha ao carregar dados")
                             return
                         
-                        # Etapa 2: Transformar os dados para o formato otimizado
-                        # Use a função atualizada para extrair estrutura de dados exata
-                        optimized_data = extract_advanced_team_data(stats_data, home_team, away_team)
+                        # Etapa 2: Transformar os dados para o formato otimizada
+                        from utils.prompt_adapter import transform_api_data
+                        optimized_data = transform_api_data(stats_data, home_team, away_team, selected_markets)
                         
                         # Modo de depuração - mostrar informações sobre dados
                         if st.session_state.debug_mode:
