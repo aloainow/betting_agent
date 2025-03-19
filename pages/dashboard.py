@@ -544,12 +544,25 @@ def fetch_stats_data(selected_league, home_team=None, away_team=None):
                     # Obter season_id para a liga selecionada
                     season_id = LEAGUE_IDS.get(selected_league)
                     if not season_id:
-                        # Buscar correspondência parcial
+                        # Buscar correspondência parcial com método aprimorado
+                        
+                        # 1. Primeiro tentar removendo sufixos entre parênteses
+                        selected_base = selected_league.split(" (")[0].lower()
                         for league_name, league_id in LEAGUE_IDS.items():
-                            if league_name.lower() in selected_league.lower() or selected_league.lower() in league_name.lower():
+                            league_base = league_name.split(" (")[0].lower()
+                            if selected_base == league_base:
                                 season_id = league_id
+                                logger.info(f"Correspondência de base encontrada: '{league_name}' para '{selected_league}'")
                                 break
-                    
+                        
+                        # 2. Se ainda não encontrou, tentar o método antigo como fallback
+                        if not season_id:
+                            for league_name, league_id in LEAGUE_IDS.items():
+                                if league_name.lower() in selected_league.lower() or selected_league.lower() in league_name.lower():
+                                    season_id = league_id
+                                    logger.info(f"Correspondência parcial encontrada: '{league_name}' para '{selected_league}'")
+                                    break
+                                        
                     if not season_id:
                         st.error(f"Não foi possível encontrar ID para liga: {selected_league}")
                         st.info("Verifique se a liga está corretamente selecionada na sua conta FootyStats.")
