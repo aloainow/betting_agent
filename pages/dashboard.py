@@ -539,35 +539,62 @@ def fetch_stats_data(selected_league, home_team=None, away_team=None):
                 try:
                     from utils.enhanced_api_client import get_complete_match_analysis, convert_to_dataframe_format
                     from utils.prompt_adapter import extract_deep_team_data  # Usar extração mais agressiva
-                    from utils.footystats_api import LEAGUE_IDS  # Correto: usar LEAGUE_IDS em vez de LEAGUE_SEASON_IDS
+                    from utils.footystats_api import LEAGUE_IDS  # Correto: usar LEAGUE_IDS
                     
-                    # Obter season_id para a liga selecionada
+                    # INÍCIO DA MODIFICAÇÃO - Busca melhorada de season_id
                     season_id = None
                     
-                    # Verificação específica para o caso problemático
-                    if selected_league == "EFL League One (England)":
-                        season_id = 12446  # ID conhecido para EFL League One
-                        logger.info(f"Usando ID fixo para {selected_league}: {season_id}")
-                    else:
-                        # Lógica normal para outras ligas
-                        season_id = LEAGUE_IDS.get(selected_league)
-                        if not season_id:
-                            # Buscar correspondência parcial
-                            for league_name, league_id in LEAGUE_IDS.items():
-                                if league_name.lower() in selected_league.lower() or selected_league.lower() in league_name.lower():
-                                    season_id = league_id
-                                    break
-                                        
+                    # 1. Verificação exata - buscar correspondência direta
+                    if selected_league in LEAGUE_IDS:
+                        season_id = LEAGUE_IDS[selected_league]
+                        logger.info(f"Correspondência exata encontrada para {selected_league}: ID {season_id}")
+                    
+                    # 2. Se não encontrou, verificar sem sufixos entre parênteses
+                    if not season_id:
+                        selected_base = selected_league.split(" (")[0].lower()
+                        for league_name, league_id in LEAGUE_IDS.items():
+                            league_base = league_name.split(" (")[0].lower()
+                            if selected_base == league_base:
+                                season_id = league_id
+                                logger.info(f"Correspondência base encontrada: '{league_name}' para '{selected_league}' com ID {season_id}")
+                                break
+                    
+                    # 3. Se ainda não encontrou, verificar correspondência parcial (como antes)
+                    if not season_id:
+                        for league_name, league_id in LEAGUE_IDS.items():
+                            if league_name.lower() in selected_league.lower() or selected_league.lower() in league_name.lower():
+                                season_id = league_id
+                                logger.info(f"Correspondência parcial: '{league_name}' para '{selected_league}' com ID {season_id}")
+                                break
+                    
+                    # 4. Casos específicos para ligas problemáticas
+                    if not season_id:
+                        # Mapear ligas problemáticas conhecidas
+                        problematic_leagues = {
+                            "EFL League One (England)": 12446,
+                            "EFL League One": 12446,
+                            "FA Cup (England)": 13698,
+                            "FA Cup": 13698
+                            # Adicione outras ligas problemáticas aqui conforme necessário
+                        }
+                        
+                        if selected_league in problematic_leagues:
+                            season_id = problematic_leagues[selected_league]
+                            logger.info(f"Liga problemática conhecida: '{selected_league}' com ID fixo {season_id}")
+                            
+                    # FIM DA MODIFICAÇÃO
+                    
                     if not season_id:
                         st.error(f"Não foi possível encontrar ID para liga: {selected_league}")
                         st.info("Verifique se a liga está corretamente selecionada na sua conta FootyStats.")
-                        return None, None                    
+                        return None, None
+                    
                     # Mostrar qual temporada estamos usando para feedback ao usuário
                     st.info(f"Buscando estatísticas para {selected_league} (ID: {season_id})")
                     
                     # Log detalhado
                     logger.info(f"Iniciando busca para {home_team} vs {away_team} na liga {selected_league} (ID: {season_id})")
-                    
+                        
                     # Etapa principal - buscar análise completa
                     # Usar force_refresh=False para evitar sobrecarregar a API
                     complete_analysis = get_complete_match_analysis(home_team, away_team, season_id, force_refresh=False)
