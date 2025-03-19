@@ -334,6 +334,33 @@ def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_da
         draw_prob = round(draw_prob, 1)
         away_win_prob = round(away_win_prob, 1)
         
+        # Calculate team consistency (dispersion)
+        home_results = [
+            home.get('win_pct', 0) / 100,
+            home.get('draw_pct', 0) / 100,
+            home.get('loss_pct', 0) / 100
+        ]
+        
+        away_results = [
+            away.get('win_pct', 0) / 100,
+            away.get('draw_pct', 0) / 100,
+            away.get('loss_pct', 0) / 100
+        ]
+        
+        # Calculate standard deviation for dispersion
+        import numpy as np
+        try:
+            home_dispersion = np.std(home_results) * 3
+            away_dispersion = np.std(away_results) * 3
+            
+            # Convert to consistency (inverse of dispersion)
+            home_consistency = (1 - min(1, home_dispersion)) * 100
+            away_consistency = (1 - min(1, away_dispersion)) * 100
+        except:
+            # Fallback if numpy isn't available
+            home_consistency = 50
+            away_consistency = 50
+        
         # 6. PROBABILITY SECTION
         probability_section = f"""
 # PROBABILIDADES CALCULADAS (MÉTODO DE DISPERSÃO E PONDERAÇÃO)
@@ -352,6 +379,8 @@ As probabilidades foram calculadas usando nossa metodologia de dispersão e pond
 * Total: {home_win_prob + draw_prob + away_win_prob}%
 
 ### Índices de Confiança
+* Consistência {home_team}: {home_consistency:.1f}%
+* Consistência {away_team}: {away_consistency:.1f}%
 * Forma recente {home_team} (pontos): {home_form_points*15:.1f}/15
 * Forma recente {away_team} (pontos): {away_form_points*15:.1f}/15
 """
@@ -362,8 +391,8 @@ As probabilidades foram calculadas usando nossa metodologia de dispersão e pond
 {odds_data}
 """
 
-        # 8. INSTRUCTIONS - Modificar esta parte
-instructions = f"""
+        # 8. INSTRUCTIONS - MODIFICATIONS HERE
+        instructions = f"""
 # INSTRUÇÕES PARA ANÁLISE
 
 Analise os dados estatísticos fornecidos para identificar valor nas odds.
@@ -450,7 +479,7 @@ Responda com EXATAMENTE este formato:
 [Lista de oportunidades com edge percentual]
 
 # Nível de Confiança Geral: [Baixo/Médio/Alto]
-[Justificativa sem mencionar falta de dados PPDA]
+[Explique o que significa 'consistência' e 'forma (X.X/15)' ao justificar o nível de confiança]
 """
 def analyze_with_gpt(prompt):
     try:
