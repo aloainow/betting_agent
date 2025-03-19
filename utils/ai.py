@@ -82,6 +82,12 @@ def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_da
     Returns:
         str: Formatted prompt
     """
+    # Importações necessárias
+    import logging
+    import traceback
+    
+    logger = logging.getLogger("valueHunter.ai")
+    
     logger.info(f"Formatting highly optimized prompt for {home_team} vs {away_team}")
     
     try:
@@ -337,7 +343,6 @@ Se os dados forem muito limitados, reconheça isso e forneça uma análise adequ
         
     except Exception as e:
         logger.error(f"Error formatting highly optimized prompt: {str(e)}")
-        import traceback
         logger.error(traceback.format_exc())
         
         # Return a simplified prompt as fallback
@@ -367,7 +372,6 @@ Responda com EXATAMENTE este formato, com todas as seções:
 # Nível de Confiança Geral: [Baixo]
 [Justificativa mencionando os dados limitados disponíveis]
 """
-
 def analyze_with_gpt(prompt):
     try:
         client = get_openai_client()
