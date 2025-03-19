@@ -26,9 +26,6 @@ def get_current_season():
 # Temporada atual por padrão
 CURRENT_SEASON = get_current_season()
 
-# Mapeamento de IDs das principais ligas COM PAÍSES - será preenchido dinamicamente
-LEAGUE_IDS = {# Em utils/footystats_api.py - Substituir o LEAGUE_IDS vazio por um dicionário completo
-
 # Mapeamento completo e estático de ligas para IDs
 LEAGUE_IDS = {
     # Ligas sul-americanas
