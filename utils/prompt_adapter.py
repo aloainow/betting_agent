@@ -2240,8 +2240,428 @@ def extract_team_data_from_urls(match_data):
     Returns:
         dict: Dicionário com dados extraídos {'home': {...}, 'away': {...}}
     """
-    # Esta função é um placeholder para extrair dados de URLs
-    # Você precisaria implementar a lógica para buscar dados adicionais das URLs
-    # Isso provavelmente envolve fazer chamadas adicionais para a API
     
     return {'home': {}, 'away': {}}
+def extract_deep_team_data(api_data, home_team_name, away_team_name, log_details=True):
+    """
+    Função extremamente agressiva que busca dados dos times em QUALQUER lugar na estrutura,
+    independente do formato ou nível de aninhamento.
+    
+    Args:
+        api_data (dict): Dados brutos da API
+        home_team_name (str): Nome do time da casa
+        away_team_name (str): Nome do time visitante
+        log_details (bool): Se deve registrar detalhes de depuração
+        
+    Returns:
+        dict: Dados estruturados dos times e confronto
+    """
+    import logging
+    import json
+    
+    logger = logging.getLogger("valueHunter.data_extractor")
+    
+    # Inicializa a estrutura de resultado
+    result = {
+        "match_info": {
+            "home_team": home_team_name,
+            "away_team": away_team_name,
+            "league": "",
+            "league_id": None
+        },
+        "home_team": {},
+        "away_team": {},
+        "h2h": {}
+    }
+    
+    # Função para logar estrutura de forma mais clara
+    def log_structure(data, prefix=""):
+        if isinstance(data, dict):
+            for key, value in data.items():
+                if isinstance(value, (dict, list)):
+                    logger.info(f"{prefix}{key}: {type(value).__name__} com {len(value)} itens")
+                else:
+                    logger.info(f"{prefix}{key}: {type(value).__name__}")
+        elif isinstance(data, list) and len(data) > 0:
+            logger.info(f"{prefix}Lista com {len(data)} itens, primeiro é {type(data[0]).__name__}")
+    
+    # Registrar estrutura para depuração
+    if log_details:
+        logger.info(f"Estrutura de alto nível dos dados da API:")
+        log_structure(api_data)
+        
+        # Regitrar o tamanho dos dados para referência
+        try:
+            data_size = len(json.dumps(api_data))
+            logger.info(f"Tamanho total dos dados: {data_size} caracteres")
+        except:
+            pass
+    
+    # FASE 1: Procura por dados básicos/meta
+    if isinstance(api_data, dict):
+        # Procurar league_id em vários lugares possíveis
+        if "basic_stats" in api_data and isinstance(api_data["basic_stats"], dict):
+            if "league_id" in api_data["basic_stats"]:
+                result["match_info"]["league_id"] = api_data["basic_stats"]["league_id"]
+            
+            # Tentar extrair nome da liga
+            if "league_name" in api_data["basic_stats"]:
+                result["match_info"]["league"] = api_data["basic_stats"]["league_name"]
+        
+        # Procurar em data diretamente
+        if "data" in api_data:
+            data_obj = api_data["data"]
+            if isinstance(data_obj, dict):
+                # Pode ser match details
+                if "league" in data_obj:
+                    result["match_info"]["league"] = data_obj["league"]
+                if "competition_id" in data_obj:
+                    result["match_info"]["league_id"] = data_obj["competition_id"]
+    
+    # FASE 2: Busca profunda por times
+    
+    # Dicionário para armazenar dados encontrados para cada time
+    home_found = {}
+    away_found = {}
+    
+    # Função para buscar recursivamente em toda a estrutura
+    def deep_search(obj, path=""):
+        if isinstance(obj, dict):
+            # Verificar se este objeto pode ser o time da casa ou visitante
+            if "name" in obj and isinstance(obj["name"], str):
+                team_name = obj["name"]
+                
+                # Verificar se é um dos times que estamos procurando
+                is_home = False
+                is_away = False
+                
+                # Comparação exata
+                if team_name == home_team_name:
+                    is_home = True
+                elif team_name == away_team_name:
+                    is_away = True
+                    
+                # Comparação parcial (necessário para alguns endpoints)
+                if not (is_home or is_away):
+                    if home_team_name in team_name or team_name in home_team_name:
+                        is_home = True
+                    elif away_team_name in team_name or team_name in away_team_name:
+                        is_away = True
+                
+                # Se encontramos um time, extrair suas estatísticas
+                if is_home or is_away:
+                    target_dict = home_found if is_home else away_found
+                    current_path = f"{path}.{team_name}"
+                    
+                    logger.info(f"Encontrado {'time da casa' if is_home else 'time visitante'} em {current_path}")
+                    
+                    # Verificar se tem stats diretamente
+                    if "stats" in obj and isinstance(obj["stats"], dict):
+                        stats_obj = obj["stats"]
+                        extract_stats_recursive(stats_obj, target_dict, current_path + ".stats")
+                        
+                        # Verificar se tem additional_info
+                        if "additional_info" in stats_obj and isinstance(stats_obj["additional_info"], dict):
+                            extract_stats_recursive(stats_obj["additional_info"], target_dict, current_path + ".stats.additional_info")
+                    
+                    # Verificar se stats estão diretamente no objeto do time
+                    for stat_key in ["seasonMatchesPlayed_overall", "wins", "seasonWinsNum_overall", 
+                                    "seasonGoals_overall", "seasonConceded_overall"]:
+                        if stat_key in obj:
+                            # Encontramos estatísticas diretas
+                            extract_stats_recursive(obj, target_dict, current_path)
+                            break
+            
+            # Continuar a busca em todos os campos
+            for key, value in obj.items():
+                deep_search(value, f"{path}.{key}" if path else key)
+        
+        elif isinstance(obj, list):
+            # Buscar em cada item da lista
+            for i, item in enumerate(obj):
+                deep_search(item, f"{path}[{i}]")
+    
+    # Função para extrair estatísticas específicas dos dicionários que encontramos
+    def extract_stats_recursive(source, target, path=""):
+        if not isinstance(source, dict):
+            return
+        
+        # Mapeamento de campos estatísticos comuns que procuramos
+        field_mappings = {
+            "played": ["matches_played", "seasonMatchesPlayed_overall", "MP", "PJ", "Games"],
+            "wins": ["wins", "seasonWinsNum_overall", "W", "Wins"],
+            "draws": ["draws", "seasonDrawsNum_overall", "D", "Draws"],
+            "losses": ["losses", "seasonLossesNum_overall", "L", "Losses"],
+            "goals_scored": ["goals_scored", "seasonScoredNum_overall", "seasonGoals_overall", "Gls", "goals", "GF"],
+            "goals_conceded": ["goals_conceded", "seasonConcededNum_overall", "seasonConceded_overall", "GA"],
+            "clean_sheets_pct": ["clean_sheet_percentage", "seasonCSPercentage_overall"],
+            "btts_pct": ["btts_percentage", "seasonBTTSPercentage_overall"],
+            "over_2_5_pct": ["over_2_5_percentage", "seasonOver25Percentage_overall"],
+            "xg": ["xG", "xg", "xg_for_overall", "expected_goals", "ExpG"],
+            "xga": ["xGA", "xga", "xg_against_overall", "xg_against_avg_overall"],
+            "possession": ["possession", "possessionAVG_overall", "Poss", "possession_avg"],
+            "home_played": ["home_matches", "matches_played_home", "seasonMatchesPlayed_home"],
+            "home_wins": ["home_wins", "seasonWinsNum_home"],
+            "home_draws": ["home_draws", "seasonDrawsNum_home"],
+            "home_losses": ["home_losses", "seasonLossesNum_home"],
+            "home_goals_scored": ["home_goals_scored", "seasonScoredNum_home", "seasonGoals_home"],
+            "home_goals_conceded": ["home_goals_conceded", "seasonConcededNum_home", "seasonConceded_home"],
+            "away_played": ["away_matches", "matches_played_away", "seasonMatchesPlayed_away"],
+            "away_wins": ["away_wins", "seasonWinsNum_away"],
+            "away_draws": ["away_draws", "seasonDrawsNum_away"],
+            "away_losses": ["away_losses", "seasonLossesNum_away"],
+            "away_goals_scored": ["away_goals_scored", "seasonScoredNum_away", "seasonGoals_away"],
+            "away_goals_conceded": ["away_goals_conceded", "seasonConcededNum_away", "seasonConceded_away"]
+        }
+            
+        # Processar cada campo que estamos procurando
+        for target_field, source_fields in field_mappings.items():
+            if target_field in target and target[target_field] != 0:
+                continue  # Já temos este campo, pular
+                
+            for field in source_fields:
+                if field in source:
+                    value = source[field]
+                    if value is not None and value != 'N/A':
+                        try:
+                            # Converter para float/int
+                            float_value = float(value)
+                            target[target_field] = float_value
+                            if log_details:
+                                logger.info(f"Encontrado {target_field}={float_value} em {path}.{field}")
+                            break  # Encontrou este campo, continuar para o próximo
+                        except (ValueError, TypeError):
+                            pass  # Ignorar valores que não podem ser convertidos
+        
+        # Buscar em todos os objetos aninhados também
+        for key, value in source.items():
+            if isinstance(value, dict):
+                # Também procurar em objetos aninhados
+                extract_stats_recursive(value, target, f"{path}.{key}")
+    
+    # FASE 3: Busca específica para H2H
+    h2h_data = None
+    
+    # Procurar dados H2H em vários lugares possíveis
+    if isinstance(api_data, dict):
+        # Caminho direto
+        if "head_to_head" in api_data:
+            h2h_data = api_data["head_to_head"]
+            if log_details:
+                logger.info("Dados H2H encontrados em api_data.head_to_head")
+        
+        # Caminho na estrutura match_details
+        elif "data" in api_data and isinstance(api_data["data"], dict):
+            data_obj = api_data["data"]
+            if "h2h" in data_obj:
+                h2h_data = data_obj["h2h"]
+                if log_details:
+                    logger.info("Dados H2H encontrados em api_data.data.h2h")
+        
+        # Procurar h2h diretamente
+        elif "h2h" in api_data:
+            h2h_data = api_data["h2h"]
+            if log_details:
+                logger.info("Dados H2H encontrados em api_data.h2h")
+    
+    # Extrair dados H2H se encontrados
+    if h2h_data and isinstance(h2h_data, dict):
+        # Procurar campos diretamente
+        h2h_fields = {
+            "total_matches": ["total_matches", "totalMatches", "matches"],
+            "home_wins": ["home_wins", "team_a_wins"],
+            "away_wins": ["away_wins", "team_b_wins"],
+            "draws": ["draws", "draw"],
+            "over_2_5_pct": ["over_2_5_percentage", "over25Percentage", "over_2_5_pct"],
+            "btts_pct": ["btts_percentage", "bttsPercentage", "btts_pct"],
+            "avg_cards": ["avg_cards", "average_cards"],
+            "avg_corners": ["avg_corners", "average_corners"],
+            "avg_goals": ["avg_goals", "average_goals"]
+        }
+        
+        for target_field, source_fields in h2h_fields.items():
+            for field in source_fields:
+                if field in h2h_data:
+                    value = h2h_data[field]
+                    if value is not None and value != 'N/A':
+                        try:
+                            result["h2h"][target_field] = float(value)
+                            break
+                        except (ValueError, TypeError):
+                            pass
+        
+        # Procurar em estruturas aninhadas
+        if "previous_matches_results" in h2h_data and isinstance(h2h_data["previous_matches_results"], dict):
+            prev_results = h2h_data["previous_matches_results"]
+            
+            if "totalMatches" in prev_results and result["h2h"].get("total_matches", 0) == 0:
+                result["h2h"]["total_matches"] = float(prev_results["totalMatches"])
+                
+            if "team_a_wins" in prev_results and result["h2h"].get("home_wins", 0) == 0:
+                result["h2h"]["home_wins"] = float(prev_results["team_a_wins"])
+                
+            if "team_b_wins" in prev_results and result["h2h"].get("away_wins", 0) == 0:
+                result["h2h"]["away_wins"] = float(prev_results["team_b_wins"])
+                
+            if "draw" in prev_results and result["h2h"].get("draws", 0) == 0:
+                result["h2h"]["draws"] = float(prev_results["draw"])
+        
+        # Procurar em betting_stats
+        if "betting_stats" in h2h_data and isinstance(h2h_data["betting_stats"], dict):
+            betting = h2h_data["betting_stats"]
+            
+            if "over25Percentage" in betting and result["h2h"].get("over_2_5_pct", 0) == 0:
+                result["h2h"]["over_2_5_pct"] = float(betting["over25Percentage"])
+                
+            if "bttsPercentage" in betting and result["h2h"].get("btts_pct", 0) == 0:
+                result["h2h"]["btts_pct"] = float(betting["bttsPercentage"])
+                
+            if "avg_goals" in betting and result["h2h"].get("avg_goals", 0) == 0:
+                result["h2h"]["avg_goals"] = float(betting["avg_goals"])
+    
+    # FASE 4: Busca recursiva em todos os dados
+    deep_search(api_data)
+    
+    # FASE 5: Verificar quantidade de dados encontrados
+    if log_details:
+        logger.info(f"Dados encontrados para time da casa: {len(home_found)} campos")
+        if home_found:
+            logger.info(f"Campos da casa: {', '.join(home_found.keys())}")
+            
+        logger.info(f"Dados encontrados para time visitante: {len(away_found)} campos")
+        if away_found:
+            logger.info(f"Campos do visitante: {', '.join(away_found.keys())}")
+            
+        logger.info(f"Dados H2H encontrados: {len(result['h2h'])} campos")
+        if result["h2h"]:
+            logger.info(f"Campos H2H: {', '.join(result['h2h'].keys())}")
+    
+    # Copiar dados encontrados para o resultado
+    if home_found:
+        result["home_team"] = home_found
+        
+    if away_found:
+        result["away_team"] = away_found
+    
+    # FASE 6: Se ainda não temos dados suficientes, procurar por campos genéricos em qualquer lugar
+    if len(home_found) < 3 or len(away_found) < 3:
+        # Último recurso: procurar qualquer campo que pareça ser estatística em qualquer lugar
+        if log_details:
+            logger.warning("Poucos dados encontrados, tentando busca profunda por campos estatísticos")
+            
+        def find_all_stats_fields(obj, prefix="", paths=None):
+            if paths is None:
+                paths = []
+                
+            if isinstance(obj, dict):
+                for key, value in obj.items():
+                    current_path = f"{prefix}.{key}" if prefix else key
+                    
+                    # Identificar campos que parecem ser estatísticos
+                    is_stat_field = False
+                    if key.lower().find("season") >= 0 or key.lower().find("match") >= 0:
+                        is_stat_field = True
+                    elif key.lower() in ["wins", "losses", "draws", "goals", "points", "xg", "xga"]:
+                        is_stat_field = True
+                        
+                    if is_stat_field and isinstance(value, (int, float, str)):
+                        try:
+                            numeric_value = float(value)
+                            paths.append((current_path, key, numeric_value))
+                        except (ValueError, TypeError):
+                            pass
+                    
+                    # Recursão em objetos aninhados
+                    if isinstance(value, (dict, list)):
+                        find_all_stats_fields(value, current_path, paths)
+            
+            elif isinstance(obj, list):
+                for i, item in enumerate(obj):
+                    current_path = f"{prefix}[{i}]"
+                    if isinstance(item, (dict, list)):
+                        find_all_stats_fields(item, current_path, paths)
+            
+            return paths
+        
+        # Procurar campos estatísticos em qualquer lugar
+        all_stats_fields = find_all_stats_fields(api_data)
+        
+        if log_details and all_stats_fields:
+            logger.info(f"Encontrados {len(all_stats_fields)} campos estatísticos em toda a estrutura")
+            
+        # Tentar atribuir campos encontrados a home/away based on some heuristics
+        home_indicators = ["home", "team_a", "club_a"]
+        away_indicators = ["away", "team_b", "club_b"]
+        
+        for path, key, value in all_stats_fields:
+            # Verificar se o caminho indica a qual time pertence
+            is_home = any(indicator in path.lower() for indicator in home_indicators)
+            is_away = any(indicator in path.lower() for indicator in away_indicators)
+            
+            # Tentar mapear o campo para nossas estatísticas conhecidas
+            target_field = None
+            
+            if "match" in key.lower() or "played" in key.lower():
+                target_field = "played"
+            elif "win" in key.lower():
+                target_field = "wins"
+            elif "draw" in key.lower():
+                target_field = "draws"
+            elif "loss" in key.lower() or "defeat" in key.lower():
+                target_field = "losses"
+            elif "goal" in key.lower() and "score" in key.lower():
+                target_field = "goals_scored"
+            elif "goal" in key.lower() and "concede" in key.lower():
+                target_field = "goals_conceded"
+            elif "xg" == key.lower() or "expected_goal" in key.lower():
+                target_field = "xg"
+            elif "xga" == key.lower() or "expected_goal_against" in key.lower():
+                target_field = "xga"
+            elif "posse" in key.lower():
+                target_field = "possession"
+            elif "btts" in key.lower() or "both_team" in key.lower():
+                target_field = "btts_pct"
+            elif "over25" in key.lower() or "over_2_5" in key.lower():
+                target_field = "over_2_5_pct"
+            
+            # Se conseguimos mapear o campo e determinar o time
+            if target_field:
+                if is_home and target_field not in result["home_team"]:
+                    result["home_team"][target_field] = value
+                    if log_details:
+                        logger.info(f"Atribuído {path} ({value}) como {target_field} para time da casa")
+                        
+                elif is_away and target_field not in result["away_team"]:
+                    result["away_team"][target_field] = value
+                    if log_details:
+                        logger.info(f"Atribuído {path} ({value}) como {target_field} para time visitante")
+    
+    # FASE 7: Se ainda não temos forma (form), tentar extrair
+    if "form" not in result["home_team"] or "form" not in result["away_team"]:
+        if "team_form" in api_data:
+            # Extração de forma padrão
+            if "home" in api_data["team_form"] and isinstance(api_data["team_form"]["home"], list):
+                form_list = api_data["team_form"]["home"]
+                if form_list:
+                    form_string = ""
+                    for match in form_list[:5]:
+                        if isinstance(match, dict) and "result" in match:
+                            form_string += match["result"]
+                        else:
+                            form_string += "?"
+                    
+                    result["home_team"]["form"] = form_string
+                    
+            if "away" in api_data["team_form"] and isinstance(api_data["team_form"]["away"], list):
+                form_list = api_data["team_form"]["away"]
+                if form_list:
+                    form_string = ""
+                    for match in form_list[:5]:
+                        if isinstance(match, dict) and "result" in match:
+                            form_string += match["result"]
+                        else:
+                            form_string += "?"
+                    
+                    result["away_team"]["form"] = form_string
+    
+    return result
