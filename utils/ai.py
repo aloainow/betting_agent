@@ -190,13 +190,13 @@ def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_da
 
 ### Médias de Gols
 * {home_team}:
-  - Média gols marcados: {home.get('goals_per_game', 0)} geral | {home.get('seasonScoredNum_home', 0) / max(1, home.get('home_played', 1)):.2f} em casa
-  - Média gols sofridos: {home.get('conceded_per_game', 0)} geral | {home.get('seasonConcededNum_home', 0) / max(1, home.get('home_played', 1)):.2f} em casa
+  - Média gols marcados: {home.get('goals_per_game', 0)} geral | {home.get('home_goals_scored', 0) / max(1, home.get('home_played', 1)):.2f} em casa
+  - Média gols sofridos: {home.get('conceded_per_game', 0)} geral | {home.get('home_goals_conceded', 0) / max(1, home.get('home_played', 1)):.2f} em casa
   - Total gols por jogo: {home.get('seasonGoalsTotal_overall', 0) / max(1, home.get('played', 1)):.2f} geral | {home.get('seasonGoalsTotal_home', 0) / max(1, home.get('home_played', 1)):.2f} em casa
 
 * {away_team}:
-  - Média gols marcados: {away.get('goals_per_game', 0)} geral | {away.get('seasonScoredNum_away', 0) / max(1, away.get('away_played', 1)):.2f} fora
-  - Média gols sofridos: {away.get('conceded_per_game', 0)} geral | {away.get('seasonConcededNum_away', 0) / max(1, away.get('away_played', 1)):.2f} fora
+  - Média gols marcados: {away.get('goals_per_game', 0)} geral | {away.get('away_goals_scored', 0) / max(1, away.get('away_played', 1)):.2f} fora
+  - Média gols sofridos: {away.get('conceded_per_game', 0)} geral | {away.get('away_goals_conceded', 0) / max(1, away.get('away_played', 1)):.2f} fora
   - Total gols por jogo: {away.get('seasonGoalsTotal_overall', 0) / max(1, away.get('played', 1)):.2f} geral | {away.get('seasonGoalsTotal_away', 0) / max(1, away.get('away_played', 1)):.2f} fora
 
 ### Clean Sheets e Ambos Marcam
@@ -206,6 +206,7 @@ def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_da
   - Clean sheets: {away.get('seasonCS_overall', 0)} geral ({away.get('clean_sheets_pct', 0)}%) | {away.get('seasonCS_away', 0)} fora
 * {home_team} jogos com Ambos Marcam: {home.get('btts_pct', 0)}%
 * {away_team} jogos com Ambos Marcam: {away.get('btts_pct', 0)}%
+* Jogos H2H com Ambos Marcam: {h2h.get('btts_pct', 0)}%
 
 ### Distribuição de Gols por Jogo
 * Jogos do {home_team} com Over 2.5: {home.get('over_2_5_pct', 0)}%
@@ -226,28 +227,44 @@ def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_da
         other_stats = ""
         if selected_markets.get("escanteios"):
             other_stats += f"""
+# ESTATÍSTICAS PARA MERCADOS DE ESCANTEIOS
+
 ### Dados de Escanteios
 * {home_team}:
   - Média de escanteios por jogo: {home.get('corners_per_game', 0)} geral | {home.get('home_corners_per_game', 0)} em casa
-  - Escanteios a favor: {home.get('cornersAVG_overall', 0)} geral | {home.get('cornersAVG_home', 0)} em casa
-  - Escanteios contra: {home.get('cornersAgainstAVG_overall', 0)} geral | {home.get('cornersAgainstAVG_home', 0)} em casa
+  - Escanteios a favor: {home.get('corners_for', 0)} total | {home.get('cornersAVG_overall', 0)} média geral | {home.get('cornersAVG_home', 0)} média em casa
+  - Escanteios contra: {home.get('corners_against', 0)} total | {home.get('cornersAgainstAVG_overall', 0)} média geral | {home.get('cornersAgainstAVG_home', 0)} média em casa
+  - Jogos com Over 9.5 escanteios: {home.get('over_9_5_corners_pct', 0)}%
 
 * {away_team}:
   - Média de escanteios por jogo: {away.get('corners_per_game', 0)} geral | {away.get('away_corners_per_game', 0)} fora
-  - Escanteios a favor: {away.get('cornersAVG_overall', 0)} geral | {away.get('cornersAVG_away', 0)} fora
-  - Escanteios contra: {away.get('cornersAgainstAVG_overall', 0)} geral | {away.get('cornersAgainstAVG_away', 0)} fora
+  - Escanteios a favor: {away.get('corners_for', 0)} total | {away.get('cornersAVG_overall', 0)} média geral | {away.get('cornersAVG_away', 0)} média fora
+  - Escanteios contra: {away.get('corners_against', 0)} total | {away.get('cornersAgainstAVG_overall', 0)} média geral | {away.get('cornersAgainstAVG_away', 0)} média fora
+  - Jogos com Over 9.5 escanteios: {away.get('over_9_5_corners_pct', 0)}%
+
+* Média de escanteios em confrontos diretos: {h2h.get('avg_corners', 0)}
 """
 
         if selected_markets.get("cartoes"):
             other_stats += f"""
+# ESTATÍSTICAS PARA MERCADOS DE CARTÕES
+
 ### Dados de Cartões
 * {home_team}:
   - Média de cartões por jogo: {home.get('cards_per_game', 0)} geral | {home.get('home_cards_per_game', 0)} em casa
   - Total de cartões: {home.get('cardsTotal_overall', 0)} geral | {home.get('cardsTotal_home', 0)} em casa
+  - Cartões amarelos: {home.get('yellow_cards', 0)}
+  - Cartões vermelhos: {home.get('red_cards', 0)}
+  - Jogos com Over 3.5 cartões: {home.get('over_3_5_cards_pct', 0)}%
 
 * {away_team}:
   - Média de cartões por jogo: {away.get('cards_per_game', 0)} geral | {away.get('away_cards_per_game', 0)} fora
   - Total de cartões: {away.get('cardsTotal_overall', 0)} geral | {away.get('cardsTotal_away', 0)} fora
+  - Cartões amarelos: {away.get('yellow_cards', 0)}
+  - Cartões vermelhos: {away.get('red_cards', 0)}
+  - Jogos com Over 3.5 cartões: {away.get('over_3_5_cards_pct', 0)}%
+
+* Média de cartões em confrontos diretos: {h2h.get('avg_cards', 0)}
 """
 
         # 5. PROBABILITY CALCULATION USING DISPERSAL AND WEIGHTING METHOD
@@ -275,6 +292,8 @@ def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_da
             return points / max(total_weight, 1)
         
         # Convert form to points (scale 0-1)
+        home_form = home.get('form', '?????')
+        away_form = away.get('form', '?????')
         home_form_points = form_to_points(home_form) / 15
         away_form_points = form_to_points(away_form) / 15
         
@@ -320,7 +339,7 @@ def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_da
             away_creation * 0.20           # Creation: 20%
         )
         
-        # Moneyline calculation
+        # 1. Moneyline calculation
         raw_home_win = home_total_score / (home_total_score + away_total_score) * 0.8
         raw_away_win = away_total_score / (home_total_score + away_total_score) * 0.8
         raw_draw = 1 - (raw_home_win + raw_away_win)
@@ -356,7 +375,6 @@ def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_da
         ]
         
         # Calculate standard deviation for dispersion
-        import numpy as np
         try:
             home_dispersion = np.std(home_results) * 3
             away_dispersion = np.std(away_results) * 3
@@ -368,6 +386,91 @@ def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_da
             # Fallback if numpy isn't available
             home_consistency = 50
             away_consistency = 50
+        
+        # 2. Over/Under 2.5 Goals
+        # Use a combination of team goal stats and xG
+        home_expected_goals = home.get('xg_for_avg_overall', 0) if home.get('xg_for_avg_overall', 0) > 0 else home.get('goals_per_game', 0)
+        away_expected_goals = away.get('xg_for_avg_overall', 0) if away.get('xg_for_avg_overall', 0) > 0 else away.get('goals_per_game', 0)
+        
+        # Consider defensive strength
+        home_expected_conceded = away_expected_goals * (home.get('conceded_per_game', 0) / 1.5) if home.get('conceded_per_game', 0) > 0 else away_expected_goals * 0.8
+        away_expected_conceded = home_expected_goals * (away.get('conceded_per_game', 0) / 1.5) if away.get('conceded_per_game', 0) > 0 else home_expected_goals * 0.8
+        
+        # Total expected goals
+        total_expected_goals = home_expected_conceded + away_expected_conceded
+        
+        # Poisson distribution can be approximated with a logistic function for this purpose
+        over_2_5_prob = 1 / (1 + math.exp(-1.5 * (total_expected_goals - 2.5))) * 100
+        under_2_5_prob = 100 - over_2_5_prob
+        
+        # 3. Both Teams To Score (BTTS)
+        # Use home and away scoring probability
+        home_scoring_prob = 1 - (1 / (1 + math.exp(home_expected_goals - 0.5)))
+        away_scoring_prob = 1 - (1 / (1 + math.exp(away_expected_goals - 0.5)))
+        
+        # BTTS probability is the product of both teams scoring
+        btts_yes_prob = home_scoring_prob * away_scoring_prob * 100
+        btts_no_prob = 100 - btts_yes_prob
+        
+        # 4. Escanteios
+        # Inicializar valores para evitar erros quando o mercado não está selecionado
+        over_9_5_corners_prob = 0
+        under_9_5_corners_prob = 0
+        total_corners_expected = 0
+        
+        if selected_markets.get("escanteios"):
+            # Calcular expectativa de escanteios
+            home_corners_avg = home.get("cornersAVG_overall", 0) or home.get("corners_per_game", 0) / 2
+            away_corners_avg = away.get("cornersAVG_overall", 0) or away.get("corners_per_game", 0) / 2
+            
+            home_corners_against_avg = home.get("cornersAgainstAVG_overall", 0) or home.get("corners_per_game", 0) / 2
+            away_corners_against_avg = away.get("cornersAgainstAVG_overall", 0) or away.get("corners_per_game", 0) / 2
+            
+            # Ajuste para jogo específico
+            home_corners_expected = (home_corners_avg + away_corners_against_avg) / 2
+            away_corners_expected = (away_corners_avg + home_corners_against_avg) / 2
+            
+            # Total esperado de escanteios
+            total_corners_expected = home_corners_expected + away_corners_expected
+            
+            # Calcular probabilidade para over/under 9.5 escanteios
+            # Usando uma função logística para mapear o número esperado para uma probabilidade
+            over_9_5_corners_prob = 1 / (1 + math.exp(-0.8 * (total_corners_expected - 9.5))) * 100
+            under_9_5_corners_prob = 100 - over_9_5_corners_prob
+        
+        # 5. Cartões
+        # Inicializar valores para evitar erros quando o mercado não está selecionado
+        over_3_5_cards_prob = 0
+        under_3_5_cards_prob = 0
+        total_cards_expected = 0
+        
+        if selected_markets.get("cartoes"):
+            # Calcular expectativa de cartões
+            home_cards_avg = home.get("cards_per_game", 0)
+            away_cards_avg = away.get("cards_per_game", 0)
+            
+            # Ajuste baseado em histórico de confrontos
+            h2h_cards_avg = h2h.get("avg_cards", 0)
+            
+            # Ajustar baseado em intensidade esperada (maior se os times são mais próximos)
+            intensity_factor = 1 + max(0, (1 - abs(home_total_score - away_total_score))) * 0.3
+            
+            # Total esperado de cartões
+            total_cards_expected = (home_cards_avg + away_cards_avg) * intensity_factor
+            
+            # Se temos dados H2H, dar algum peso para isso
+            if h2h_cards_avg > 0:
+                total_cards_expected = (total_cards_expected * 0.7) + (h2h_cards_avg * 0.3)
+            
+            # Calcular probabilidade para over/under 3.5 cartões
+            # Usando uma função logística para mapear o número esperado para uma probabilidade
+            over_3_5_cards_prob = 1 / (1 + math.exp(-1.2 * (total_cards_expected - 3.5))) * 100
+            under_3_5_cards_prob = 100 - over_3_5_cards_prob
+        
+        # 6. Chance Dupla (Double Chance)
+        home_draw_prob = home_win_prob + draw_prob
+        away_draw_prob = away_win_prob + draw_prob
+        home_away_prob = home_win_prob + away_win_prob
         
         # 6. PROBABILITY SECTION
         probability_section = f"""
@@ -386,6 +489,40 @@ As probabilidades foram calculadas usando nossa metodologia de dispersão e pond
 * {away_team}: {away_win_prob}%
 * Total: {home_win_prob + draw_prob + away_win_prob}%
 
+### Over/Under 2.5 Gols
+* Over 2.5: {over_2_5_prob:.1f}%
+* Under 2.5: {under_2_5_prob:.1f}%
+* Total esperado de gols: {total_expected_goals:.2f}
+
+### Ambos Marcam (BTTS)
+* Sim: {btts_yes_prob:.1f}%
+* Não: {btts_no_prob:.1f}%
+
+### Chance Dupla
+* {home_team} ou Empate: {home_draw_prob:.1f}%
+* {away_team} ou Empate: {away_draw_prob:.1f}%
+* {home_team} ou {away_team}: {home_away_prob:.1f}%
+"""
+
+        # Adicionar seção de cartões se selecionado
+        if selected_markets.get("cartoes"):
+            probability_section += f"""
+### Cartões (Over/Under 3.5)
+* Over 3.5: {over_3_5_cards_prob:.1f}%
+* Under 3.5: {under_3_5_cards_prob:.1f}%
+* Total esperado de cartões: {total_cards_expected:.1f}
+"""
+
+        # Adicionar seção de escanteios se selecionado
+        if selected_markets.get("escanteios"):
+            probability_section += f"""
+### Escanteios (Over/Under 9.5)
+* Over 9.5: {over_9_5_corners_prob:.1f}%
+* Under 9.5: {under_9_5_corners_prob:.1f}%
+* Total esperado de escanteios: {total_corners_expected:.1f}
+"""
+
+        probability_section += f"""
 ### Índices de Confiança
 * Consistência {home_team}: {home_consistency:.1f}%
 * Consistência {away_team}: {away_consistency:.1f}%
@@ -399,15 +536,15 @@ As probabilidades foram calculadas usando nossa metodologia de dispersão e pond
 {odds_data}
 """
 
-        # 8. INSTRUCTIONS - MODIFICATIONS HERE
+        # 8. INSTRUCTIONS
         instructions = f"""
 # INSTRUÇÕES PARA ANÁLISE
 
 Analise os dados estatísticos fornecidos para identificar valor nas odds.
 Você é um especialista em probabilidades esportivas que utiliza nosso método avançado de Dispersão e Ponderação.
 
-IMPORTANTE: As probabilidades REAIS já foram calculadas para você e somam exatamente 100%.
-NÃO mencione qualquer falta de dados sobre PPDA.
+IMPORTANTE: As probabilidades REAIS já foram calculadas para você para TODOS os mercados selecionados e somam exatamente 100% em cada mercado.
+Todas as probabilidades reais estão na seção "PROBABILIDADES CALCULADAS".
 
 VOCÊ DEVE responder EXATAMENTE no formato abaixo:
 
@@ -418,7 +555,7 @@ VOCÊ DEVE responder EXATAMENTE no formato abaixo:
 [Resumo detalhado de cada mercado com suas odds e probabilidades implícitas]
 
 # Probabilidades Calculadas (REAL vs IMPLÍCITA):
-[Compare as probabilidades REAIS calculadas com as probabilidades IMPLÍCITAS nas odds]
+[Compare as probabilidades REAIS calculadas com as probabilidades IMPLÍCITAS nas odds para TODOS os mercados selecionados]
 
 # Oportunidades Identificadas:
 [Liste cada mercado onde você encontrou valor/edge, mostrando a porcentagem de vantagem]
@@ -471,7 +608,6 @@ ATENÇÃO: Ao explicar o nível de confiança, sempre esclareça que:
 
 # INSTRUÇÕES
 Analise as odds e identifique oportunidades de valor.
-NÃO mencione falta de dados sobre PPDA.
 Responda com EXATAMENTE este formato:
 
 # Análise da Partida
