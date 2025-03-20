@@ -69,8 +69,7 @@ def get_openai_client():
 
 def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_data, selected_markets):
     """
-    Format prompt for GPT using the highly optimized data structure.
-    Focuses only on available data without mentioning missing PPDA stats.
+    Format prompt for GPT with improved layout and comprehensive home/away data.
     
     Args:
         optimized_data (dict): Data in the highly optimized format
@@ -85,32 +84,13 @@ def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_da
     import logging
     import traceback
     import math
-    import random
+    import numpy as np
     
     logger = logging.getLogger("valueHunter.ai")
     
     logger.info(f"Formatting highly optimized prompt for {home_team} vs {away_team}")
     
     try:
-        # Verify we have valid data
-        if not optimized_data or not isinstance(optimized_data, dict):
-            logger.error("Missing or invalid optimized data structure")
-            # Create minimal structure to avoid failure
-            optimized_data = {
-                "match_info": {"home_team": home_team, "away_team": away_team, "league": "", "league_id": None},
-                "home_team": {
-                    "played": 0, "wins": 0, "draws": 0, "losses": 0,
-                    "goals_scored": 0, "goals_conceded": 0,
-                    "form": "?????"
-                },
-                "away_team": {
-                    "played": 0, "wins": 0, "draws": 0, "losses": 0,
-                    "goals_scored": 0, "goals_conceded": 0,
-                    "form": "?????"
-                },
-                "h2h": {}
-            }
-        
         # Extract main data structures
         home = optimized_data.get("home_team", {})
         away = optimized_data.get("away_team", {})
@@ -129,54 +109,37 @@ def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_da
 * {home_team}: {home.get('wins', 0)}V {home.get('draws', 0)}E {home.get('losses', 0)}D | {home.get('goals_scored', 0)} gols marcados, {home.get('goals_conceded', 0)} sofridos
 * {away_team}: {away.get('wins', 0)}V {away.get('draws', 0)}E {away.get('losses', 0)}D | {away.get('goals_scored', 0)} gols marcados, {away.get('goals_conceded', 0)} sofridos
 
+### Posição na Tabela
+* {home_team}: {home.get('leaguePosition_overall', '?')}º geral | {home.get('leaguePosition_home', '?')}º em casa
+* {away_team}: {away.get('leaguePosition_overall', '?')}º geral | {away.get('leaguePosition_away', '?')}º fora
+
 ### Desempenho em Casa/Fora
 * {home_team} como mandante: {home.get('home_wins', 0)}V {home.get('home_draws', 0)}E {home.get('home_losses', 0)}D
+  - Gols marcados em casa: {home.get('home_goals_scored', 0)}
+  - Gols sofridos em casa: {home.get('home_goals_conceded', 0)}
+  - Pontos por jogo em casa: {home.get('seasonPPG_home', 0)}
+  - Forma em casa: {home.get('home_form', '?????')}
+
 * {away_team} como visitante: {away.get('away_wins', 0)}V {away.get('away_draws', 0)}E {away.get('away_losses', 0)}D
+  - Gols marcados fora: {away.get('away_goals_scored', 0)}
+  - Gols sofridos fora: {away.get('away_goals_conceded', 0)}
+  - Pontos por jogo fora: {away.get('seasonPPG_away', 0)}
+  - Forma fora: {away.get('away_form', '?????')}
 
 ### Forma Recente (últimos 5 jogos)
-"""
-        
-        # Verificar e corrigir dados de forma se ambos são iguais a "DDDDD"
-        home_form = home.get('form', '?????')
-        away_form = away.get('form', '?????')
-        
-        if home_form == away_form == "DDDDD":
-            # Gerar formas diferentes baseadas nos percentuais de vitória
-            new_home_form = ""
-            new_away_form = ""
-            
-            # Para o time da casa
-            for _ in range(5):
-                r = random.random() * 100
-                if r < home.get('win_pct', 40.5):
-                    new_home_form += "W"
-                elif r < home.get('win_pct', 40.5) + home.get('draw_pct', 18.9):
-                    new_home_form += "D"
-                else:
-                    new_home_form += "L"
-            
-            # Para o time visitante
-            for _ in range(5):
-                r = random.random() * 100
-                if r < away.get('win_pct', 18.9):
-                    new_away_form += "W"
-                elif r < away.get('win_pct', 18.9) + away.get('draw_pct', 21.6):
-                    new_away_form += "D"
-                else:
-                    new_away_form += "L"
-            
-            home_form = new_home_form
-            away_form = new_away_form
-            
-            logger.info(f"Formas corrigidas: {home_team}={home_form}, {away_team}={away_form}")
-        
-        fundamental_stats += f"""
-* {home_team}: {home_form}
-* {away_team}: {away_form}
+* {home_team}: {home.get('form', '?????')}
+* {away_team}: {away.get('form', '?????')}
 
 ### Métricas Expected Goals (xG)
-* {home_team}: {home.get('xg', 0)} xG a favor, {home.get('xga', 0)} xG contra
-* {away_team}: {away.get('xg', 0)} xG a favor, {away.get('xga', 0)} xG contra
+* {home_team}: 
+  - xG total: {home.get('xg', 0)} | xG em casa: {home.get('home_xg', 0)}
+  - xGA total: {home.get('xga', 0)} | xGA em casa: {home.get('home_xga', 0)}
+  - xG médio por jogo: {home.get('xg_for_avg_overall', 0)}
+
+* {away_team}: 
+  - xG total: {away.get('xg', 0)} | xG fora: {away.get('away_xg', 0)}
+  - xGA total: {away.get('xga', 0)} | xGA fora: {away.get('away_xga', 0)}
+  - xG médio por jogo: {away.get('xg_for_avg_overall', 0)}
 
 ### Confronto Direto (H2H)
 * Jogos totais: {h2h.get('total_matches', 0)}
@@ -193,11 +156,30 @@ def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_da
 # ESTATÍSTICAS PARA MERCADOS DE RESULTADO
 
 ### Percentuais de Resultados
-* {home_team}: Vitória {home.get('win_pct', 0)}% | Empate {home.get('draw_pct', 0)}% | Derrota {home.get('loss_pct', 0)}%
-* {away_team}: Vitória {away.get('win_pct', 0)}% | Empate {away.get('draw_pct', 0)}% | Derrota {away.get('loss_pct', 0)}%
+* {home_team}:
+  - Vitória: {home.get('win_pct', 0)}%
+  - Empate: {home.get('draw_pct', 0)}%
+  - Derrota: {home.get('loss_pct', 0)}%
 
-### Métricas Avançadas
-* Posse de Bola: {home_team} {home.get('possession', 0)}% vs {away_team} {away.get('possession', 0)}%
+* {away_team}:
+  - Vitória: {away.get('win_pct', 0)}%
+  - Empate: {away.get('draw_pct', 0)}%
+  - Derrota: {away.get('loss_pct', 0)}%
+
+### Pontos por Jogo
+* {home_team}:
+  - Geral: {home.get('seasonPPG_overall', 0)}
+  - Em casa: {home.get('seasonPPG_home', 0)}
+  - Recente: {home.get('seasonRecentPPG', 0)}
+
+* {away_team}:
+  - Geral: {away.get('seasonPPG_overall', 0)}
+  - Fora: {away.get('seasonPPG_away', 0)}
+  - Recente: {away.get('seasonRecentPPG', 0)}
+
+### Posse de Bola
+* {home_team}: {home.get('possession', 0)}% geral | {home.get('home_possession', 0)}% em casa
+* {away_team}: {away.get('possession', 0)}% geral | {away.get('away_possession', 0)}% fora
 """
 
         # 3. GOALS MARKETS STATS
@@ -207,16 +189,21 @@ def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_da
 # ESTATÍSTICAS PARA MERCADOS DE GOLS
 
 ### Médias de Gols
-* {home_team} média de gols marcados: {home.get('goals_per_game', 0)} por jogo
-* {away_team} média de gols marcados: {away.get('goals_per_game', 0)} por jogo
-* {home_team} média de gols sofridos: {home.get('conceded_per_game', 0)} por jogo
-* {away_team} média de gols sofridos: {away.get('conceded_per_game', 0)} por jogo
-* Média total de gols em jogos do {home_team}: {home.get('goals_per_game', 0) + home.get('conceded_per_game', 0):.2f}
-* Média total de gols em jogos do {away_team}: {away.get('goals_per_game', 0) + away.get('conceded_per_game', 0):.2f}
+* {home_team}:
+  - Média gols marcados: {home.get('goals_per_game', 0)} geral | {home.get('seasonScoredNum_home', 0) / max(1, home.get('home_played', 1)):.2f} em casa
+  - Média gols sofridos: {home.get('conceded_per_game', 0)} geral | {home.get('seasonConcededNum_home', 0) / max(1, home.get('home_played', 1)):.2f} em casa
+  - Total gols por jogo: {home.get('seasonGoalsTotal_overall', 0) / max(1, home.get('played', 1)):.2f} geral | {home.get('seasonGoalsTotal_home', 0) / max(1, home.get('home_played', 1)):.2f} em casa
+
+* {away_team}:
+  - Média gols marcados: {away.get('goals_per_game', 0)} geral | {away.get('seasonScoredNum_away', 0) / max(1, away.get('away_played', 1)):.2f} fora
+  - Média gols sofridos: {away.get('conceded_per_game', 0)} geral | {away.get('seasonConcededNum_away', 0) / max(1, away.get('away_played', 1)):.2f} fora
+  - Total gols por jogo: {away.get('seasonGoalsTotal_overall', 0) / max(1, away.get('played', 1)):.2f} geral | {away.get('seasonGoalsTotal_away', 0) / max(1, away.get('away_played', 1)):.2f} fora
 
 ### Clean Sheets e Ambos Marcam
-* {home_team} clean sheets %: {home.get('clean_sheets_pct', 0)}%
-* {away_team} clean sheets %: {away.get('clean_sheets_pct', 0)}%
+* {home_team}: 
+  - Clean sheets: {home.get('seasonCS_overall', 0)} geral ({home.get('clean_sheets_pct', 0)}%) | {home.get('seasonCS_home', 0)} em casa
+* {away_team}: 
+  - Clean sheets: {away.get('seasonCS_overall', 0)} geral ({away.get('clean_sheets_pct', 0)}%) | {away.get('seasonCS_away', 0)} fora
 * {home_team} jogos com Ambos Marcam: {home.get('btts_pct', 0)}%
 * {away_team} jogos com Ambos Marcam: {away.get('btts_pct', 0)}%
 
@@ -224,6 +211,15 @@ def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_da
 * Jogos do {home_team} com Over 2.5: {home.get('over_2_5_pct', 0)}%
 * Jogos do {away_team} com Over 2.5: {away.get('over_2_5_pct', 0)}%
 * Jogos H2H com Over 2.5: {h2h.get('over_2_5_pct', 0)}%
+
+### Estatísticas de Chutes
+* {home_team}:
+  - Chutes por jogo: {home.get('shotsAVG_overall', 0)} geral | {home.get('shotsAVG_home', 0)} em casa
+  - Chutes no alvo por jogo: {home.get('shotsOnTargetAVG_overall', 0)} geral | {home.get('shotsOnTargetAVG_home', 0)} em casa
+
+* {away_team}:
+  - Chutes por jogo: {away.get('shotsAVG_overall', 0)} geral | {away.get('shotsAVG_away', 0)} fora
+  - Chutes no alvo por jogo: {away.get('shotsOnTargetAVG_overall', 0)} geral | {away.get('shotsOnTargetAVG_away', 0)} fora
 """
 
         # 4. CARDS AND CORNERS if selected
@@ -231,15 +227,27 @@ def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_da
         if selected_markets.get("escanteios"):
             other_stats += f"""
 ### Dados de Escanteios
-* {home_team} média de escanteios por jogo: {home.get('corners_per_game', 0)}
-* {away_team} média de escanteios por jogo: {away.get('corners_per_game', 0)}
+* {home_team}:
+  - Média de escanteios por jogo: {home.get('corners_per_game', 0)} geral | {home.get('home_corners_per_game', 0)} em casa
+  - Escanteios a favor: {home.get('cornersAVG_overall', 0)} geral | {home.get('cornersAVG_home', 0)} em casa
+  - Escanteios contra: {home.get('cornersAgainstAVG_overall', 0)} geral | {home.get('cornersAgainstAVG_home', 0)} em casa
+
+* {away_team}:
+  - Média de escanteios por jogo: {away.get('corners_per_game', 0)} geral | {away.get('away_corners_per_game', 0)} fora
+  - Escanteios a favor: {away.get('cornersAVG_overall', 0)} geral | {away.get('cornersAVG_away', 0)} fora
+  - Escanteios contra: {away.get('cornersAgainstAVG_overall', 0)} geral | {away.get('cornersAgainstAVG_away', 0)} fora
 """
 
         if selected_markets.get("cartoes"):
             other_stats += f"""
 ### Dados de Cartões
-* {home_team} média de cartões por jogo: {home.get('cards_per_game', 0)}
-* {away_team} média de cartões por jogo: {away.get('cards_per_game', 0)}
+* {home_team}:
+  - Média de cartões por jogo: {home.get('cards_per_game', 0)} geral | {home.get('home_cards_per_game', 0)} em casa
+  - Total de cartões: {home.get('cardsTotal_overall', 0)} geral | {home.get('cardsTotal_home', 0)} em casa
+
+* {away_team}:
+  - Média de cartões por jogo: {away.get('cards_per_game', 0)} geral | {away.get('away_cards_per_game', 0)} fora
+  - Total de cartões: {away.get('cardsTotal_overall', 0)} geral | {away.get('cardsTotal_away', 0)} fora
 """
 
         # 5. PROBABILITY CALCULATION USING DISPERSAL AND WEIGHTING METHOD
