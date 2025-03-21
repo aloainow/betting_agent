@@ -2376,8 +2376,8 @@ def transform_api_data(api_data, home_team_name, away_team_name, selected_market
         if isinstance(api_data, dict):
             logger.info(f"Chaves principais nos dados da API: {list(api_data.keys())}")
         
-        # MÉTODO ESPECÍFICO PARA O FORMATO DO GIST
-        extract_direct_team_stats_from_root(api_data, formatted_data)
+        # MÉTODO ESPECÍFICO PARA O FORMATO DO GIST - LINHA CORRIGIDA
+        extract_direct_team_stats_from_root(api_data, formatted_data, home_team_name, away_team_name)
         
         # MÉTODO 1: Extrair dados básicos
         
@@ -2481,7 +2481,6 @@ def transform_api_data(api_data, home_team_name, away_team_name, selected_market
         logger.error(traceback.format_exc())
         # Retorna a estrutura padrão em caso de erro
         return formatted_data
-
 def extract_direct_team_stats(team_data, target_dict, team_type=""):
     """
     Extrai estatísticas diretamente da estrutura do time com suporte melhorado
@@ -2650,7 +2649,7 @@ def extract_direct_team_stats(team_data, target_dict, team_type=""):
                           (isinstance(v, str) and v not in ["", "?????"]))
     logger.info(f"Total de {non_zero_count} campos não-zero após extração direta")
     
-def extract_direct_team_stats_from_root(api_data, result):
+def extract_direct_team_stats_from_root(api_data, result, home_team_name, away_team_name):
     """
     Extrai estatísticas diretamente da estrutura raiz do JSON onde os teams
     estão no formato enviado pelo Gist.
@@ -2658,6 +2657,8 @@ def extract_direct_team_stats_from_root(api_data, result):
     Args:
         api_data (dict): Dados originais da API
         result (dict): Dicionário de resultado para preencher
+        home_team_name (str): Nome do time da casa
+        away_team_name (str): Nome do time visitante
     """
     import logging
     logger = logging.getLogger("valueHunter.prompt_adapter")
@@ -2665,11 +2666,11 @@ def extract_direct_team_stats_from_root(api_data, result):
     # EXTRAÇÃO ESPECÍFICA PARA O FORMATO DO GIST
     # Verifica se os times estão na raiz do JSON como no Gist
     if "home_team" in api_data and isinstance(api_data["home_team"], dict):
-        logger.info("Encontradas estatísticas do time da casa na raiz do JSON")
+        logger.info(f"Encontradas estatísticas do time da casa '{home_team_name}' na raiz do JSON")
         extract_direct_team_stats(api_data["home_team"], result["home_team"], "home")
         
     if "away_team" in api_data and isinstance(api_data["away_team"], dict):
-        logger.info("Encontradas estatísticas do time visitante na raiz do JSON")
+        logger.info(f"Encontradas estatísticas do time visitante '{away_team_name}' na raiz do JSON")
         extract_direct_team_stats(api_data["away_team"], result["away_team"], "away")
         
     # Verificar também dados de H2H
