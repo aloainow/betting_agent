@@ -515,7 +515,7 @@ def diagnose_api_issues(selected_league):
 # FUNÇÃO ATUALIZADA - PRINCIPAL MELHORIA
 def fetch_stats_data(selected_league, home_team=None, away_team=None):
     """
-    Busca estatísticas das equipes com melhor tratamento de erros e diagnóstico
+    Busca estatísticas das equipes com tratamento simplificado de erros
     
     Args:
         selected_league (str): Nome da liga
@@ -531,193 +531,128 @@ def fetch_stats_data(selected_league, home_team=None, away_team=None):
     # Configuração de logging
     logger = logging.getLogger("valueHunter.dashboard")
     
-    try:
-        with st.spinner("Buscando estatísticas atualizadas..."):
-            # Verificar se temos times específicos para buscar
-            if home_team and away_team:
-                # Abordagem integrada usando a nova API client
-                try:
-                    from utils.enhanced_api_client import get_complete_match_analysis, convert_to_dataframe_format
-                    from utils.prompt_adapter import extract_deep_team_data  # Usar extração mais agressiva
-                    from utils.footystats_api import LEAGUE_IDS  # Correto: usar LEAGUE_IDS em vez de LEAGUE_SEASON_IDS
-                    
-                    # Verificar especificamente o caso problemático
-                    if selected_league == "EFL League One (England)":
-                        season_id = 12446  # ID fixo conhecido para EFL League One
-                        logger.info(f"Usando ID fixo para {selected_league}: {season_id}")
-                    else:
-                        # Código original para outras ligas
-                        season_id = LEAGUE_IDS.get(selected_league)
-                        if not season_id:
-                            # Buscar correspondência parcial
-                            for league_name, league_id in LEAGUE_IDS.items():
-                                if league_name.lower() in selected_league.lower() or selected_league.lower() in league_name.lower():
-                                    season_id = league_id
-                                    break
-                    
-                    if not season_id:
-                        st.error(f"Não foi possível encontrar ID para liga: {selected_league}")
-                        st.info("Verifique se a liga está corretamente selecionada na sua conta FootyStats.")
-                        return None, None
-                    
-                    # Mostrar qual temporada estamos usando para feedback ao usuário
-                    st.info(f"Buscando estatísticas para {selected_league} (ID: {season_id})")
-                    
-                    # Log detalhado
-                    logger.info(f"Iniciando busca para {home_team} vs {away_team} na liga {selected_league} (ID: {season_id})")
-                    
-                    # Etapa principal - buscar análise completa
-                    # Usar force_refresh=False para evitar sobrecarregar a API
-                    complete_analysis = get_complete_match_analysis(home_team, away_team, season_id, force_refresh=False)
-                    
-                    # Verificar se obtivemos dados completos
-                    if not complete_analysis:
-                        st.error(f"Não foi possível obter estatísticas para {home_team} vs {away_team}")
-                        
-                        # Executar diagnóstico de conexão com a API
-                        st.warning("Executando diagnóstico da API...")
-                        from utils.footystats_api import test_api_connection, diagnose_league_access
-                        api_test = test_api_connection()
-                        
-                        # Mostrar status da API
-                        if api_test["success"]:
-                            st.success("✅ Conexão com a API FootyStats está funcionando")
-                            
-                            # Diagnóstico específico para a liga
-                            league_diag = diagnose_league_access(selected_league)
-                            st.markdown(league_diag)
-                            
-                        else:
-                            st.error("❌ Problema na conexão com a API FootyStats")
-                            if api_test.get("error"):
-                                st.error(f"Erro: {api_test['error']}")
-                                
-                        return None, None
-                    
-                    # Verificar se os dados contêm estatísticas básicas de cada time
-                    if "basic_stats" not in complete_analysis or \
-                       "home_team" not in complete_analysis["basic_stats"] or \
-                       "away_team" not in complete_analysis["basic_stats"]:
-                        st.warning("Dados incompletos recebidos da API. Tentando extrair estatísticas de forma mais agressiva...")
-                        
-                        # Tentar extrair dados de forma mais agressiva usando extract_deep_team_data
-                        enhanced_data = extract_deep_team_data(complete_analysis, home_team, away_team)
-                        if enhanced_data and enhanced_data["home_team"] and enhanced_data["away_team"]:
-                            # Substituir dados básicos pelos dados aprimorados
-                            complete_analysis = enhanced_data
-                            st.success("Estatísticas recuperadas com método alternativo!")
-                        else:
-                            st.error("Falha ao extrair estatísticas necessárias dos times.")
-                            return None, None
-                    
-                    # Log das estatísticas recebidas
-                    logger.info(f"Recebidas estatísticas completas para {home_team} vs {away_team}")
-                    
-                    # Converter para o formato de DataFrame esperado pelo restante da aplicação
-                    team_stats_df = convert_to_dataframe_format(complete_analysis)
-                    
-                    if team_stats_df is not None:
-                        st.success(f"Estatísticas carregadas com sucesso para {home_team} vs {away_team}")
-                        
-                        # Etapa 2: Processar os dados para análise
-                        status.info("Processando dados estatísticos...")
-
-                        # Abordagem ultra-simplificada
-                        # Inicializar o resultado diretamente com os dados brutos
-                        optimized_data = {
-                            "match_info": {
-                                "home_team": home_team,
-                                "away_team": away_team,
-                                "league": selected_league,
-                                "league_id": None
-                            },
-                            "home_team": {},
-                            "away_team": {},
-                            "h2h": {}
-                        }
-
-                        try:
-                            # PARTE 1: Cópia direta dos dados recebidos
-                            # Extrair dados do time da casa
-                            if "home_team" in complete_analysis and isinstance(complete_analysis["home_team"], dict):
-                                optimized_data["home_team"] = complete_analysis["home_team"].copy()
-                                logger.info("Copiados os dados do time da casa diretamente")
-                            
-                            # Extrair dados do time visitante
-                            if "away_team" in complete_analysis and isinstance(complete_analysis["away_team"], dict):
-                                optimized_data["away_team"] = complete_analysis["away_team"].copy()
-                                logger.info("Copiados os dados do time visitante diretamente")
-                            
-                            # Extrair dados de H2H
-                            if "h2h" in complete_analysis and isinstance(complete_analysis["h2h"], dict):
-                                optimized_data["h2h"] = complete_analysis["h2h"].copy()
-                                logger.info("Copiados os dados de H2H diretamente")
-                            
-                            # PARTE 2: Verificar e logar a quantidade de campos
-                            # Contagem simples de itens não-zero ou não-vazios
-                            home_field_count = sum(1 for k, v in optimized_data["home_team"].items() 
-                                                if (isinstance(v, (int, float)) and v != 0) or 
-                                                   (isinstance(v, str) and v not in ["", "?????"]))
-                            
-                            away_field_count = sum(1 for k, v in optimized_data["away_team"].items() 
-                                                if (isinstance(v, (int, float)) and v != 0) or 
-                                                   (isinstance(v, str) and v not in ["", "?????"]))
-                            
-                            h2h_field_count = sum(1 for k, v in optimized_data["h2h"].items() 
-                                              if (isinstance(v, (int, float)) and v != 0))
-                            
-                            # Log dos totais
-                            logger.info(f"Campos extraídos: Casa={home_field_count}, Visitante={away_field_count}, H2H={h2h_field_count}")
-                            
-                            # PARTE 3: Alertas para o usuário
-                            if home_field_count < 10 or away_field_count < 10:
-                                st.warning(f"⚠️ Extração com dados limitados ({home_field_count} para casa, {away_field_count} para visitante)")
-                            else:
-                                st.success(f"✅ Dados extraídos: {home_field_count} campos para casa, {away_field_count} para visitante")
-                            
-                            # Verificar dados de H2H específicos
-                            if st.session_state.debug_mode:
-                                with st.expander("Dados de Confronto Direto (H2H)", expanded=True):
-                                    st.json(optimized_data["h2h"])
-                                    
-                        except Exception as process_error:
-                            # Log detalhado do erro
-                            logger.error(f"Erro ao processar dados: {str(process_error)}")
-                            logger.error(traceback.format_exc())
-                            st.error(f"Erro ao processar os dados: {str(process_error)}")
-                            
-                            # Em caso de erro, mostrar detalhes para debug
-                            if st.session_state.debug_mode:
-                                with st.expander("Detalhes do erro", expanded=True):
-                                    st.code(traceback.format_exc())
-                            
-                            # Retornar None para abortar a análise
-                            return None, None
-                        
-                        return team_stats_df, optimized_data
-                    else:
-                        st.error("Erro ao processar estatísticas para formato DataFrame")
-                        return None, None
-                
-                except Exception as api_error:
-                    st.error(f"Erro ao obter estatísticas da API: {str(api_error)}")
-                    # Detalhar o erro para depuração
-                    logger.error(f"Erro na API de estatísticas: {str(api_error)}")
-                    logger.error(traceback.format_exc())
-                    
-                    # Mostrar detalhes do erro para o usuário em uma expansão
-                    with st.expander("Detalhes do erro para suporte"):
-                        st.code(traceback.format_exc())
-                    
-                    return None, None
-            else:
-                st.error("É necessário selecionar dois times para análise.")
-                return None, None
-    except Exception as e:
-        logger.error(f"Erro ao buscar estatísticas: {str(e)}")
-        logger.error(traceback.format_exc())
-        st.error(f"Erro ao buscar estatísticas: {str(e)}")
+    # Status placeholder
+    status = st.empty()
+    
+    # Verificar se temos times específicos para buscar
+    if not home_team or not away_team:
+        st.error("É necessário selecionar dois times para análise.")
         return None, None
+    
+    # Iniciar busca
+    status.info("Buscando estatísticas atualizadas...")
+    
+    try:
+        from utils.enhanced_api_client import get_complete_match_analysis, convert_to_dataframe_format
+        
+        # Determinar o season_id
+        if selected_league == "EFL League One (England)":
+            season_id = 12446  # ID fixo conhecido para EFL League One
+        else:
+            # Código original para outras ligas
+            from utils.footystats_api import LEAGUE_IDS
+            season_id = LEAGUE_IDS.get(selected_league)
+            if not season_id:
+                # Buscar correspondência parcial
+                for league_name, league_id in LEAGUE_IDS.items():
+                    if league_name.lower() in selected_league.lower() or selected_league.lower() in league_name.lower():
+                        season_id = league_id
+                        break
+        
+        if not season_id:
+            st.error(f"Não foi possível encontrar ID para liga: {selected_league}")
+            st.info("Verifique se a liga está corretamente selecionada na sua conta FootyStats.")
+            return None, None
+        
+        # Informar ao usuário
+        st.info(f"Buscando estatísticas para {selected_league} (ID: {season_id})")
+        logger.info(f"Iniciando busca para {home_team} vs {away_team} na liga {selected_league} (ID: {season_id})")
+        
+        # Buscar análise completa
+        complete_analysis = get_complete_match_analysis(home_team, away_team, season_id, force_refresh=False)
+        
+        # Verificar se obtivemos dados
+        if not complete_analysis:
+            st.error(f"Não foi possível obter estatísticas para {home_team} vs {away_team}")
+            return None, None
+        
+        # Converter para DataFrame
+        team_stats_df = convert_to_dataframe_format(complete_analysis)
+        if team_stats_df is None:
+            st.error("Erro ao processar estatísticas para formato DataFrame")
+            return None, None
+            
+        # Sucesso ao carregar os dados
+        st.success(f"Estatísticas carregadas com sucesso para {home_team} vs {away_team}")
+        
+        # Processamento simplificado dos dados
+        status.info("Processando dados estatísticos...")
+        
+        # Inicializar estrutura de dados otimizada
+        optimized_data = {
+            "match_info": {
+                "home_team": home_team,
+                "away_team": away_team,
+                "league": selected_league,
+                "league_id": season_id
+            },
+            "home_team": {},
+            "away_team": {},
+            "h2h": {}
+        }
+        
+        # Extrair dados diretamente
+        if "home_team" in complete_analysis and isinstance(complete_analysis["home_team"], dict):
+            optimized_data["home_team"] = complete_analysis["home_team"].copy()
+            
+        if "away_team" in complete_analysis and isinstance(complete_analysis["away_team"], dict):
+            optimized_data["away_team"] = complete_analysis["away_team"].copy()
+            
+        if "h2h" in complete_analysis and isinstance(complete_analysis["h2h"], dict):
+            optimized_data["h2h"] = complete_analysis["h2h"].copy()
+        
+        # Contagem de campos
+        home_fields = sum(1 for k, v in optimized_data["home_team"].items() 
+                      if (isinstance(v, (int, float)) and v != 0) or 
+                         (isinstance(v, str) and v != "" and v != "?????"))
+                         
+        away_fields = sum(1 for k, v in optimized_data["away_team"].items() 
+                      if (isinstance(v, (int, float)) and v != 0) or 
+                         (isinstance(v, str) and v != "" and v != "?????"))
+                         
+        h2h_fields = sum(1 for k, v in optimized_data["h2h"].items() 
+                      if isinstance(v, (int, float)) and v != 0)
+        
+        # Log de dados extraídos
+        logger.info(f"Campos extraídos: Casa={home_fields}, Visitante={away_fields}, H2H={h2h_fields}")
+        
+        # Alertas ao usuário
+        if home_fields < 10 or away_fields < 10:
+            st.warning(f"⚠️ Extração com dados limitados ({home_fields} para casa, {away_fields} para visitante)")
+        else:
+            st.success(f"✅ Dados extraídos: {home_fields} campos para casa, {away_fields} para visitante")
+            
+        # Modo debug
+        if "debug_mode" in st.session_state and st.session_state.debug_mode:
+            with st.expander("Dados extraídos", expanded=False):
+                st.json(optimized_data)
+                
+        # Retornar os dados
+        return team_stats_df, optimized_data
+        
+    except Exception as e:
+        # Log detalhado do erro
+        logger.error(f"Erro ao buscar ou processar estatísticas: {str(e)}")
+        logger.error(traceback.format_exc())
+        st.error(f"Erro: {str(e)}")
+        
+        # Mostrar detalhes para debug
+        if "debug_mode" in st.session_state and st.session_state.debug_mode:
+            with st.expander("Detalhes do erro", expanded=True):
+                st.code(traceback.format_exc())
+                
+        return None, None
+
 def get_cached_teams(league):
     """Carrega apenas os nomes dos times do cache persistente com verificação de temporada"""
     from utils.footystats_api import LEAGUE_SEASONS, CURRENT_SEASON
