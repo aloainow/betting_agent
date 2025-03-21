@@ -518,7 +518,8 @@ As probabilidades foram calculadas usando nossa metodologia de dispersão e pond
 - Posição na tabela: 20%
 - Métricas de criação: 20%"""
             
-        probability_section = f"""
+# 6. Probabilidade section
+probability_section = f"""
 # {prob_title}
 {prob_explanation}
 
@@ -528,6 +529,11 @@ As probabilidades foram calculadas usando nossa metodologia de dispersão e pond
 * {away_team}: {away_win_prob}%
 * Total: {home_win_prob + draw_prob + away_win_prob}%
 
+### Chance Dupla (Double Chance)
+* {home_team} ou Empate: {home_draw_prob:.1f}%
+* {away_team} ou Empate: {away_draw_prob:.1f}%
+* {home_team} ou {away_team}: {home_away_prob:.1f}%
+
 ### Over/Under 2.5 Gols
 * Over 2.5: {over_2_5_prob:.1f}%
 * Under 2.5: {under_2_5_prob:.1f}%
@@ -536,13 +542,7 @@ As probabilidades foram calculadas usando nossa metodologia de dispersão e pond
 ### Ambos Marcam (BTTS)
 * Sim: {btts_yes_prob:.1f}%
 * Não: {btts_no_prob:.1f}%
-
-### Chance Dupla
-* {home_team} ou Empate: {home_draw_prob:.1f}%
-* {away_team} ou Empate: {away_draw_prob:.1f}%
-* {home_team} ou {away_team}: {home_away_prob:.1f}%
 """
-
         # Adicionar seção de cartões se selecionado
         if selected_markets.get("cartoes"):
             probability_section += f"""
