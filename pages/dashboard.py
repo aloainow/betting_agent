@@ -1103,29 +1103,47 @@ def show_main_dashboard():
                         status.info("Transformando dados para análise...")
                         from utils.prompt_adapter import transform_api_data, extract_deep_team_data, extract_direct_team_stats
                         
-                        # MODIFICAÇÃO: Sempre usar primeiro a extração profunda
-                        enhanced_data = extract_deep_team_data(stats_data, home_team, away_team)
+                        # MODIFICAÇÃO: Usar estratégia em camadas para extração de dados
+                        # Começa com extração profunda (mais abrangente)
+                        enhanced_data = extract_deep_team_data(stats_data, home_team_name, away_team_name)
                         
-                        # Verificar se extração profunda encontrou dados úteis
-                        home_non_zero = sum(1 for k, v in enhanced_data["home_team"].items() 
-                                          if (isinstance(v, (int, float)) and v != 0) or 
-                                             (isinstance(v, str) and v not in ["", "?????"]))
-                        away_non_zero = sum(1 for k, v in enhanced_data["away_team"].items() 
-                                          if (isinstance(v, (int, float)) and v != 0) or 
-                                             (isinstance(v, str) and v not in ["", "?????"]))
+                        # Após extrair com extract_deep_team_data, fazer extração direta
+                        if "home_team" in stats_data and isinstance(stats_data["home_team"], dict):
+                            # Extrair dados diretamente (esta é a parte crucial para o formato do Gist)
+                            extract_direct_team_stats(stats_data["home_team"], enhanced_data["home_team"], "home")
+                            logger.info(f"Extraídas estatísticas diretamente de home_team na raiz")
+                            
+                        if "away_team" in stats_data and isinstance(stats_data["away_team"], dict):
+                            # Extrair dados diretamente (esta é a parte crucial para o formato do Gist)
+                            extract_direct_team_stats(stats_data["away_team"], enhanced_data["away_team"], "away")
+                            logger.info(f"Extraídas estatísticas diretamente de away_team na raiz")
                         
-                        # Verificar também dados H2H
-                        h2h_non_zero = sum(1 for k, v in enhanced_data["h2h"].items() 
-                                          if (isinstance(v, (int, float)) and v != 0))
+                        # Como fallback adicional, usar transform_api_data para preencher campos faltantes
+                        direct_data = transform_api_data(stats_data, home_team_name, away_team_name, selected_markets)
                         
-                        # MODIFICAÇÃO: Usar dados aprimorados independentemente da quantidade
-                        # Isso garante que sempre teremos todos os campos necessários
+                        # Combinar dados, priorizando enhanced_data mas preenchendo zeros com direct_data
+                        for section in ["home_team", "away_team", "h2h"]:
+                            for field, value in direct_data[section].items():
+                                if field not in enhanced_data[section] or enhanced_data[section][field] == 0:
+                                    if isinstance(value, (int, float)) and value != 0:
+                                        enhanced_data[section][field] = value
+                                    elif isinstance(value, str) and value and value != "?????":
+                                        enhanced_data[section][field] = value
+                        
+                        # Usar dados de enhanced_data como resultado final
                         optimized_data = enhanced_data
                         
-                        # Log da quantidade de dados extraídos para cada time
-                        logger.info(f"Dados extraídos para {home_team}: {home_non_zero} campos")
-                        logger.info(f"Dados extraídos para {away_team}: {away_non_zero} campos")
-                        logger.info(f"Dados H2H extraídos: {h2h_non_zero} campos")
+                        # Log de campos extraídos
+                        home_fields = sum(1 for k, v in optimized_data["home_team"].items() 
+                                        if (isinstance(v, (int, float)) and v != 0) or 
+                                            (isinstance(v, str) and v not in ["", "?????"]))
+                        away_fields = sum(1 for k, v in optimized_data["away_team"].items() 
+                                        if (isinstance(v, (int, float)) and v != 0) or 
+                                            (isinstance(v, str) and v not in ["", "?????"]))
+                        h2h_fields = sum(1 for k, v in optimized_data["h2h"].items() 
+                                        if isinstance(v, (int, float)) and v != 0)
+                        
+                        logger.info(f"Total de campos extraídos: Casa={home_fields}, Visitante={away_fields}, H2H={h2h_fields}")
                         
                         # MODIFICAÇÃO: Log detalhado dos campos de cada time para diagnóstico
                         if home_non_zero < 5:
