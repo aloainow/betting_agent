@@ -1656,6 +1656,7 @@ def transform_api_data(api_data, home_team_name, away_team_name, selected_market
         dict: Dados no formato completo requerido
     """
     import logging
+    import traceback
     logger = logging.getLogger("valueHunter.prompt_adapter")
     
     # Inicializa a estrutura de dados completa requerida
@@ -1679,8 +1680,8 @@ def transform_api_data(api_data, home_team_name, away_team_name, selected_market
             "win_pct": 0,
             "draw_pct": 0,
             "loss_pct": 0,
-            "form": "", 
-            "formRun_overall": "",
+            "form": "?????", 
+            "formRun_overall": "?????",
             "seasonPPG_overall": 0,
             "seasonRecentPPG": 0,
             "leaguePosition_overall": 0,
@@ -1694,8 +1695,8 @@ def transform_api_data(api_data, home_team_name, away_team_name, selected_market
             "seasonDrawsNum_home": 0,
             "home_losses": 0, 
             "seasonLossesNum_home": 0,
-            "home_form": "", 
-            "formRun_home": "",
+            "home_form": "?????", 
+            "formRun_home": "?????",
             "seasonPPG_home": 0,
             "leaguePosition_home": 0,
             
@@ -1786,8 +1787,8 @@ def transform_api_data(api_data, home_team_name, away_team_name, selected_market
             "win_pct": 0,
             "draw_pct": 0,
             "loss_pct": 0,
-            "form": "", 
-            "formRun_overall": "",
+            "form": "?????", 
+            "formRun_overall": "?????",
             "seasonPPG_overall": 0,
             "seasonRecentPPG": 0,
             "leaguePosition_overall": 0,
@@ -1801,8 +1802,8 @@ def transform_api_data(api_data, home_team_name, away_team_name, selected_market
             "seasonDrawsNum_away": 0,
             "away_losses": 0, 
             "seasonLossesNum_away": 0,
-            "away_form": "", 
-            "formRun_away": "",
+            "away_form": "?????", 
+            "formRun_away": "?????",
             "seasonPPG_away": 0,
             "leaguePosition_away": 0,
             
@@ -1899,66 +1900,105 @@ def transform_api_data(api_data, home_team_name, away_team_name, selected_market
         return formatted_data
     
     try:
-        # Preenche informações da liga
+        # Registrar a estrutura de dados para depuração
+        logger.info(f"Transformando dados para {home_team_name} vs {away_team_name}")
+        if isinstance(api_data, dict):
+            logger.info(f"Chaves principais nos dados da API: {list(api_data.keys())}")
+            
+            # Identificar possíveis caminhos para estatísticas
+            known_paths = []
+            if "basic_stats" in api_data:
+                known_paths.append("basic_stats")
+            if "team_stats" in api_data:
+                known_paths.append("team_stats")
+            if "data" in api_data and isinstance(api_data["data"], dict):
+                known_paths.append("data")
+            
+            logger.info(f"Caminhos conhecidos nos dados: {known_paths}")
+            
+            # Verificar caminhos principais onde os dados podem estar
+            for path in known_paths:
+                if path in api_data and isinstance(api_data[path], dict):
+                    logger.info(f"Chaves em {path}: {list(api_data[path].keys())}")
+                    
+                    # Verificar home/away dentro desses caminhos
+                    for team_type in ["home", "away", "home_team", "away_team"]:
+                        if team_type in api_data[path]:
+                            sub_path = f"{path}.{team_type}"
+                            logger.info(f"Encontrado caminho para time: {sub_path}")
+        
+        # Preenche informações da liga e da partida
         if "basic_stats" in api_data and "league_id" in api_data["basic_stats"]:
             formatted_data["match_info"]["league_id"] = api_data["basic_stats"]["league_id"]
             
         if "basic_stats" in api_data and "league_name" in api_data["basic_stats"]:
             formatted_data["match_info"]["league"] = api_data["basic_stats"]["league_name"]
-        elif "league" in api_data and "name" in api_data["league"]:
+        elif "league" in api_data and isinstance(api_data["league"], dict) and "name" in api_data["league"]:
             formatted_data["match_info"]["league"] = api_data["league"]["name"]
         
-        # Extrai estatísticas do time da casa e visitante
+        # MÉTODO 1: Tentar extrair usando funções existentes
+        logger.info("Tentando extrair dados usando funções padrão...")
         extract_team_data(api_data, formatted_data, "home")
         extract_team_data(api_data, formatted_data, "away")
-        
-        # Extrai dados de confronto direto (H2H)
         extract_h2h_data(api_data, formatted_data)
         
-        # Extrai dados de forma (form)
-        if "team_form" in api_data:
-            if "home" in api_data["team_form"] and isinstance(api_data["team_form"]["home"], list):
-                form_string = ""
-                for match in api_data["team_form"]["home"][:5]:
-                    if isinstance(match, dict) and "result" in match:
-                        form_string += match["result"]
-                    else:
-                        form_string += "?"
-                if form_string:
-                    formatted_data["home_team"]["form"] = form_string.ljust(5, '?')[:5]
-                    formatted_data["home_team"]["formRun_overall"] = form_string.ljust(5, '?')[:5]
-            
-            if "away" in api_data["team_form"] and isinstance(api_data["team_form"]["away"], list):
-                form_string = ""
-                for match in api_data["team_form"]["away"][:5]:
-                    if isinstance(match, dict) and "result" in match:
-                        form_string += match["result"]
-                    else:
-                        form_string += "?"
-                if form_string:
-                    formatted_data["away_team"]["form"] = form_string.ljust(5, '?')[:5]
-                    formatted_data["away_team"]["formRun_overall"] = form_string.ljust(5, '?')[:5]
+        # MÉTODO 2: Busca profunda e completa nos dados
+        logger.info("Realizando busca profunda para extração completa...")
+        deep_extraction = extract_deep_team_data(api_data, home_team_name, away_team_name)
         
-        # Tentar extrair dados adicionais de qualquer lugar da estrutura
-        extract_from_anywhere(api_data, formatted_data, home_team_name, away_team_name)
+        # Verificar resultados da extração profunda
+        home_found_count = count_non_zero_fields(deep_extraction["home_team"])
+        away_found_count = count_non_zero_fields(deep_extraction["away_team"])
+        logger.info(f"Extração profunda encontrou: {home_found_count} campos para casa, {away_found_count} para visitante")
         
-        # Calcular estatísticas derivadas
+        # Combinar resultados se a extração profunda encontrou mais dados
+        current_home_count = count_non_zero_fields(formatted_data["home_team"])
+        current_away_count = count_non_zero_fields(formatted_data["away_team"])
+        
+        if home_found_count > current_home_count:
+            logger.info(f"Usando dados da extração profunda para o time da casa (+{home_found_count-current_home_count} campos)")
+            formatted_data["home_team"] = deep_extraction["home_team"]
+        
+        if away_found_count > current_away_count:
+            logger.info(f"Usando dados da extração profunda para o time visitante (+{away_found_count-current_away_count} campos)")
+            formatted_data["away_team"] = deep_extraction["away_team"]
+        
+        # Combinar dados H2H
+        h2h_found_count = count_non_zero_fields(deep_extraction["h2h"])
+        current_h2h_count = count_non_zero_fields(formatted_data["h2h"])
+        if h2h_found_count > current_h2h_count:
+            logger.info(f"Usando dados H2H da extração profunda (+{h2h_found_count-current_h2h_count} campos)")
+            formatted_data["h2h"] = deep_extraction["h2h"]
+        
+        # MÉTODO 3: Busca específica por caminhos alternativos da API
+        logger.info("Verificando caminhos alternativos nos dados da API...")
+        alternative_paths_extraction(api_data, formatted_data, home_team_name, away_team_name)
+        
+        # Calcular estatísticas derivadas após todas as extrações
+        logger.info("Calculando estatísticas derivadas...")
         calculate_derived_stats(formatted_data["home_team"])
         calculate_derived_stats(formatted_data["away_team"])
         
-        # Garantir que temos estatísticas completas
-        ensure_complete_stats(formatted_data, home_team_name, away_team_name)
-        
-        # Realizar validação final dos dados
+        # Validação final dos dados
+        logger.info("Realizando validação final dos dados...")
         validated_data = validate_stats_for_agent(formatted_data)
         
-        # Log de sucesso
-        logger.info(f"Dados formatados com sucesso para {home_team_name} vs {away_team_name}")
+        # Verificar qualidade dos dados extraídos
+        home_final_count = count_non_zero_fields(validated_data["home_team"])
+        away_final_count = count_non_zero_fields(validated_data["away_team"])
+        home_quality = (home_final_count / len(validated_data["home_team"])) * 100
+        away_quality = (away_final_count / len(validated_data["away_team"])) * 100
+        
+        logger.info(f"Qualidade final dos dados: Casa {home_quality:.1f}% ({home_final_count} campos), Visitante {away_quality:.1f}% ({away_final_count} campos)")
+        
+        # Alertar sobre qualidade baixa de dados
+        if home_quality < 10 or away_quality < 10:
+            logger.warning(f"ALERTA: Qualidade de dados muito baixa. Casa: {home_quality:.1f}%, Visitante: {away_quality:.1f}%")
+        
         return validated_data
         
     except Exception as e:
         logger.error(f"Erro ao formatar dados: {str(e)}")
-        import traceback
         logger.error(traceback.format_exc())
         # Retorna a estrutura padrão em caso de erro
         return formatted_data
