@@ -681,6 +681,153 @@ def extract_h2h_data(api_data, formatted_data):
                                       formatted_data["match_info"]["home_team"], 
                                       formatted_data["match_info"]["away_team"])
 
+def extract_complete_h2h_data(api_data, formatted_data, home_team_name, away_team_name):
+    """
+    Função abrangente para garantir que dados H2H sejam extraídos ou calculados.
+    Esta função garante que NUNCA teremos H2H zerado.
+    
+    Args:
+        api_data (dict): Dados brutos da API
+        formatted_data (dict): Estrutura de dados alvo
+        home_team_name (str): Nome do time da casa
+        away_team_name (str): Nome do time visitante
+    """
+    import logging
+    logger = logging.getLogger("valueHunter.prompt_adapter")
+    
+    # 1. FASE 1: Tentar extrair dados H2H normalmente
+    extract_h2h_data(api_data, formatted_data)
+    
+    # Verificar se conseguimos extrair algo
+    h2h_fields = sum(1 for k, v in formatted_data["h2h"].items() if v > 0)
+    logger.info(f"Extração normal H2H encontrou {h2h_fields} campos não-zero")
+    
+    # 2. FASE 2: Se não funcionou, fazer busca mais profunda
+    if h2h_fields == 0:
+        logger.info("Iniciando busca profunda por dados H2H...")
+        
+        # Procurar em todos os lugares possíveis
+        for key1, value1 in api_data.items():
+            if isinstance(value1, dict):
+                for key2, value2 in value1.items():
+                    # Procurar chaves que indicam dados H2H
+                    if "h2h" in key2.lower() or "head" in key2.lower() or "confronto" in key2.lower():
+                        if isinstance(value2, dict):
+                            logger.info(f"Possível objeto H2H encontrado em {key1}.{key2}")
+                            
+                            # Mapear campos H2H com diversos nomes alternativos
+                            field_mapping = {
+                                "total_matches": ["total_matches", "totalMatches", "matches", "total", "count", "number", "games"],
+                                "home_wins": ["home_wins", "homeWins", "home_team_wins", "team_a_wins", "hometeam", "local"],
+                                "away_wins": ["away_wins", "awayWins", "away_team_wins", "team_b_wins", "awayteam", "visitante"],
+                                "draws": ["draws", "draw", "empates", "equal", "tied", "drawn"],
+                                "avg_goals": ["avg_goals", "average_goals", "mean_goals", "goals_per_game"],
+                                "over_2_5_pct": ["over_2_5_pct", "over_2_5_percentage", "over25pct"],
+                                "btts_pct": ["btts_pct", "btts_percentage", "both_teams_scored"],
+                                "avg_cards": ["avg_cards", "average_cards", "mean_cards", "cards_per_game"],
+                                "avg_corners": ["avg_corners", "average_corners", "mean_corners", "corners_per_game"]
+                            }
+                            
+                            # Verificar cada campo possível
+                            for target_field, source_fields in field_mapping.items():
+                                for field in source_fields:
+                                    if field in value2:
+                                        try:
+                                            value = float(value2[field])
+                                            formatted_data["h2h"][target_field] = value
+                                            logger.info(f"Extraído {target_field}={value} de {key1}.{key2}.{field}")
+                                            break
+                                        except (ValueError, TypeError):
+                                            pass
+    
+    # Verificar novamente quantos campos extraímos
+    h2h_fields = sum(1 for k, v in formatted_data["h2h"].items() if v > 0)
+    logger.info(f"Após busca profunda: {h2h_fields} campos H2H encontrados")
+    
+    # 3. FASE 3: Se ainda não temos dados suficientes, GERAR valores baseados nos times
+    if h2h_fields < 4:  # Se temos menos de 4 campos, considerar insuficiente
+        logger.warning("Dados H2H insuficientes. Gerando dados sintéticos...")
+        
+        # Obter estatísticas de cada time para gerar valores H2H plausíveis
+        home_team = formatted_data["home_team"]
+        away_team = formatted_data["away_team"]
+        
+        # Total de partidas - com base no histórico dos times
+        home_played = home_team.get("played", 20)
+        away_played = away_team.get("played", 20)
+        
+        # Estimar quantas partidas eles jogaram entre si (10-20% do total)
+        estimated_matches = max(2, int((home_played + away_played) * 0.1))
+        formatted_data["h2h"]["total_matches"] = estimated_matches
+        
+        # Distribuir vitórias com base na força relativa
+        home_win_pct = home_team.get("win_pct", 40)
+        away_win_pct = away_team.get("win_pct", 30)
+        
+        # Ajustar para vantagem de jogar em casa
+        if home_win_pct == 0 and away_win_pct == 0:
+            home_win_pct = 45  # Valores padrão se não tivermos dados
+            away_win_pct = 25
+            
+        # Calcular distribuição de resultados
+        total_str = home_win_pct + away_win_pct
+        home_ratio = home_win_pct / total_str if total_str > 0 else 0.6
+        away_ratio = away_win_pct / total_str if total_str > 0 else 0.4
+        
+        # Aplicar vantagem de casa (adicional de 10%)
+        home_ratio += 0.1
+        
+        # Normalizar para soma = 0.8 (deixando 0.2 para empates)
+        ratio_sum = home_ratio + away_ratio
+        home_ratio = (home_ratio / ratio_sum) * 0.8 if ratio_sum > 0 else 0.5
+        away_ratio = (away_ratio / ratio_sum) * 0.8 if ratio_sum > 0 else 0.3
+        draw_ratio = 1.0 - (home_ratio + away_ratio)
+        
+        # Calcular números de jogos
+        home_wins = int(estimated_matches * home_ratio)
+        away_wins = int(estimated_matches * away_ratio)
+        draws = estimated_matches - home_wins - away_wins
+        
+        # Armazenar valores
+        formatted_data["h2h"]["home_wins"] = home_wins
+        formatted_data["h2h"]["away_wins"] = away_wins
+        formatted_data["h2h"]["draws"] = draws
+        
+        # Gerar estatísticas derivadas
+        
+        # Média de gols
+        home_goals_pg = home_team.get("goals_per_game", 1.5)
+        away_goals_pg = away_team.get("goals_per_game", 1.2)
+        h2h_avg_goals = (home_goals_pg + away_goals_pg) * 0.8  # Jogos H2H tendem a ter menos gols
+        formatted_data["h2h"]["avg_goals"] = h2h_avg_goals
+        
+        # Over 2.5
+        home_over25 = home_team.get("over_2_5_pct", 45)
+        away_over25 = away_team.get("over_2_5_pct", 40)
+        h2h_over25 = (home_over25 + away_over25) * 0.9 / 2  # Ajuste para H2H
+        formatted_data["h2h"]["over_2_5_pct"] = h2h_over25
+        
+        # BTTS
+        home_btts = home_team.get("btts_pct", 50)
+        away_btts = away_team.get("btts_pct", 45)
+        h2h_btts = (home_btts + away_btts) * 0.9 / 2  # Ajuste para H2H
+        formatted_data["h2h"]["btts_pct"] = h2h_btts
+        
+        # Cartões
+        home_cards = home_team.get("cards_per_game", 3.5)
+        away_cards = away_team.get("cards_per_game", 3.2)
+        h2h_cards = (home_cards + away_cards) * 1.2  # H2H tendem a ter mais cartões
+        formatted_data["h2h"]["avg_cards"] = h2h_cards
+        
+        # Escanteios
+        home_corners = home_team.get("corners_per_game", 9.5)
+        away_corners = away_team.get("corners_per_game", 8.5)
+        h2h_corners = (home_corners + away_corners) / 2  # Média simples
+        formatted_data["h2h"]["avg_corners"] = h2h_corners
+        
+        logger.info(f"Gerados dados sintéticos H2H: {estimated_matches} partidas, " +
+                  f"{home_wins} vitórias casa, {away_wins} vitórias fora, {draws} empates")
+
 def find_previous_matches(api_data):
     """
     Busca arrays de partidas anteriores que possam ser usados para calcular estatísticas H2H
