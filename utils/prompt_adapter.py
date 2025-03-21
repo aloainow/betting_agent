@@ -3404,3 +3404,102 @@ def validate_stats_for_agent(stats_data):
     
     logger.info("Validação de dados concluída com sucesso")
     return validated_data
+def alternative_paths_extraction(api_data, formatted_data, home_team_name, away_team_name):
+    """
+    Busca estatísticas em caminhos alternativos específicos de algumas APIs.
+    
+    Args:
+        api_data (dict): Dados originais da API
+        formatted_data (dict): Dados formatados a serem preenchidos
+        home_team_name (str): Nome do time da casa
+        away_team_name (str): Nome do time visitante
+    """
+    import logging
+    logger = logging.getLogger("valueHunter.prompt_adapter")
+    
+    # Extrair dados do caminho teams[].stats
+    if "teams" in api_data and isinstance(api_data["teams"], list):
+        for i, team in enumerate(api_data["teams"]):
+            if isinstance(team, dict) and "name" in team:
+                # Determinar se é time da casa ou visitante
+                is_home = False
+                is_away = False
+                
+                # Comparação direta
+                if team["name"] == home_team_name:
+                    is_home = True
+                elif team["name"] == away_team_name:
+                    is_away = True
+                
+                # Ou por correspondência parcial
+                if not is_home and not is_away:
+                    if home_team_name.lower() in team["name"].lower():
+                        is_home = True
+                    elif away_team_name.lower() in team["name"].lower():
+                        is_away = True
+                
+                # Se encontramos um time, extrair estatísticas
+                if is_home or is_away:
+                    target_dict = formatted_data["home_team"] if is_home else formatted_data["away_team"]
+                    target_name = home_team_name if is_home else away_team_name
+                    
+                    logger.info(f"Encontrados dados de time em teams[{i}] para {target_name}")
+                    
+                    # Extrair estatísticas
+                    if "stats" in team and isinstance(team["stats"], dict):
+                        logger.info(f"Extraindo estatísticas de teams[{i}].stats")
+                        extract_stats_recursive(team["stats"], target_dict, f"teams[{i}].stats")
+                    
+                    # Extrair diretamente do time
+                    extract_stats_recursive(team, target_dict, f"teams[{i}]")
+    
+    # Extrair dados do caminho statistics
+    if "statistics" in api_data:
+        stats = api_data["statistics"]
+        
+        if isinstance(stats, dict):
+            # Verificar home/away em statistics
+            for team_type in ["home", "away"]:
+                if team_type in stats and isinstance(stats[team_type], dict):
+                    target_dict = formatted_data["home_team"] if team_type == "home" else formatted_data["away_team"]
+                    logger.info(f"Extraindo estatísticas de statistics.{team_type}")
+                    extract_stats_recursive(stats[team_type], target_dict, f"statistics.{team_type}")
+            
+            # Verificar também structure mais plana com prefixos home_/away_
+            home_prefixed = {}
+            away_prefixed = {}
+            
+            for key, value in stats.items():
+                if key.startswith("home_"):
+                    home_prefixed[key.replace("home_", "")] = value
+                elif key.startswith("away_"):
+                    away_prefixed[key.replace("away_", "")] = value
+            
+            if home_prefixed:
+                logger.info(f"Extraindo estatísticas de statistics com prefixo home_")
+                extract_stats_recursive(home_prefixed, formatted_data["home_team"], "statistics.home_prefixed")
+            
+            if away_prefixed:
+                logger.info(f"Extraindo estatísticas de statistics com prefixo away_")
+                extract_stats_recursive(away_prefixed, formatted_data["away_team"], "statistics.away_prefixed")
+    
+    # Extrair dados do caminho lineup.home/away.statistics
+    if "lineup" in api_data and isinstance(api_data["lineup"], dict):
+        for team_type in ["home", "away"]:
+            if team_type in api_data["lineup"] and isinstance(api_data["lineup"][team_type], dict):
+                if "statistics" in api_data["lineup"][team_type]:
+                    target_dict = formatted_data["home_team"] if team_type == "home" else formatted_data["away_team"]
+                    logger.info(f"Extraindo estatísticas de lineup.{team_type}.statistics")
+                    extract_stats_recursive(api_data["lineup"][team_type]["statistics"], target_dict, f"lineup.{team_type}.statistics")
+    
+    # Extrair dados do caminho data.teams
+    if "data" in api_data and isinstance(api_data["data"], dict) and "teams" in api_data["data"]:
+        teams = api_data["data"]["teams"]
+        
+        if isinstance(teams, dict):
+            # Verificar home/away em data.teams
+            for team_type in ["home", "away"]:
+                if team_type in teams and isinstance(teams[team_type], dict):
+                    target_dict = formatted_data["home_team"] if team_type == "home" else formatted_data["away_team"]
+                    logger.info(f"Extraindo estatísticas de data.teams.{team_type}")
+                    extract_stats_recursive(teams[team_type], target_dict, f"data.teams.{team_type}")
