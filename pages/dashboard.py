@@ -618,7 +618,83 @@ def fetch_stats_data(selected_league, home_team=None, away_team=None):
                     
                     if team_stats_df is not None:
                         st.success(f"Estatísticas carregadas com sucesso para {home_team} vs {away_team}")
-                        return team_stats_df, complete_analysis
+                        
+                        # Etapa 2: Processar os dados para análise
+                        status.info("Processando dados estatísticos...")
+
+                        # Abordagem ultra-simplificada
+                        # Inicializar o resultado diretamente com os dados brutos
+                        optimized_data = {
+                            "match_info": {
+                                "home_team": home_team,
+                                "away_team": away_team,
+                                "league": selected_league,
+                                "league_id": None
+                            },
+                            "home_team": {},
+                            "away_team": {},
+                            "h2h": {}
+                        }
+
+                        try:
+                            # PARTE 1: Cópia direta dos dados recebidos
+                            # Extrair dados do time da casa
+                            if "home_team" in complete_analysis and isinstance(complete_analysis["home_team"], dict):
+                                optimized_data["home_team"] = complete_analysis["home_team"].copy()
+                                logger.info("Copiados os dados do time da casa diretamente")
+                            
+                            # Extrair dados do time visitante
+                            if "away_team" in complete_analysis and isinstance(complete_analysis["away_team"], dict):
+                                optimized_data["away_team"] = complete_analysis["away_team"].copy()
+                                logger.info("Copiados os dados do time visitante diretamente")
+                            
+                            # Extrair dados de H2H
+                            if "h2h" in complete_analysis and isinstance(complete_analysis["h2h"], dict):
+                                optimized_data["h2h"] = complete_analysis["h2h"].copy()
+                                logger.info("Copiados os dados de H2H diretamente")
+                            
+                            # PARTE 2: Verificar e logar a quantidade de campos
+                            # Contagem simples de itens não-zero ou não-vazios
+                            home_field_count = sum(1 for k, v in optimized_data["home_team"].items() 
+                                                if (isinstance(v, (int, float)) and v != 0) or 
+                                                   (isinstance(v, str) and v not in ["", "?????"]))
+                            
+                            away_field_count = sum(1 for k, v in optimized_data["away_team"].items() 
+                                                if (isinstance(v, (int, float)) and v != 0) or 
+                                                   (isinstance(v, str) and v not in ["", "?????"]))
+                            
+                            h2h_field_count = sum(1 for k, v in optimized_data["h2h"].items() 
+                                              if (isinstance(v, (int, float)) and v != 0))
+                            
+                            # Log dos totais
+                            logger.info(f"Campos extraídos: Casa={home_field_count}, Visitante={away_field_count}, H2H={h2h_field_count}")
+                            
+                            # PARTE 3: Alertas para o usuário
+                            if home_field_count < 10 or away_field_count < 10:
+                                st.warning(f"⚠️ Extração com dados limitados ({home_field_count} para casa, {away_field_count} para visitante)")
+                            else:
+                                st.success(f"✅ Dados extraídos: {home_field_count} campos para casa, {away_field_count} para visitante")
+                            
+                            # Verificar dados de H2H específicos
+                            if st.session_state.debug_mode:
+                                with st.expander("Dados de Confronto Direto (H2H)", expanded=True):
+                                    st.json(optimized_data["h2h"])
+                                    
+                        except Exception as process_error:
+                            # Log detalhado do erro
+                            logger.error(f"Erro ao processar dados: {str(process_error)}")
+                            logger.error(traceback.format_exc())
+                            st.error(f"Erro ao processar os dados: {str(process_error)}")
+                            
+                            # Em caso de erro, mostrar detalhes para debug
+                            if st.session_state.debug_mode:
+                                with st.expander("Detalhes do erro", expanded=True):
+                                    st.code(traceback.format_exc())
+                            
+                            # Retornar None para abortar a análise
+                            return None, None
+                        
+                        return team_stats_df, optimized_data
                     else:
                         st.error("Erro ao processar estatísticas para formato DataFrame")
                         return None, None
