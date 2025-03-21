@@ -2376,6 +2376,9 @@ def transform_api_data(api_data, home_team_name, away_team_name, selected_market
         if isinstance(api_data, dict):
             logger.info(f"Chaves principais nos dados da API: {list(api_data.keys())}")
         
+        # MÉTODO ESPECÍFICO PARA O FORMATO DO GIST
+        extract_direct_team_stats_from_root(api_data, formatted_data)
+        
         # MÉTODO 1: Extrair dados básicos
         
         # Preencher informações da liga
@@ -2479,61 +2482,100 @@ def transform_api_data(api_data, home_team_name, away_team_name, selected_market
         # Retorna a estrutura padrão em caso de erro
         return formatted_data
 
-def extract_direct_team_stats(team_data, target_dict):
+def extract_direct_team_stats(team_data, target_dict, team_type=""):
     """
-    Extrai estatísticas diretamente da estrutura do time (nova função)
+    Extrai estatísticas diretamente da estrutura do time com suporte melhorado
+    para o formato específico do JSON fornecido.
     
     Args:
         team_data (dict): Dados do time
         target_dict (dict): Dicionário alvo para preenchimento
+        team_type (str, optional): Tipo de time ("home" ou "away")
     """
+    import logging
+    logger = logging.getLogger("valueHunter.prompt_adapter")
+    
     if not team_data or not isinstance(team_data, dict):
         return
     
-    # 1. Extrair campos diretos
-    direct_fields = [
-        "played", "seasonMatchesPlayed_overall", 
-        "wins", "seasonWinsNum_overall",
-        "draws", "seasonDrawsNum_overall", 
-        "losses", "seasonLossesNum_overall",
-        "goals_scored", "seasonScoredNum_overall",
-        "goals_conceded", "seasonConcededNum_overall",
-        "win_pct", "draw_pct", "loss_pct",
-        "form", "formRun_overall",
-        "seasonPPG_overall", "seasonRecentPPG",
-        "leaguePosition_overall",
-        "clean_sheets_pct", "btts_pct", "over_2_5_pct"
+    # Lista completa de todos os campos possíveis para garantir extração total
+    all_fields = [
+        # Estatísticas básicas
+        "played", "seasonMatchesPlayed_overall", "wins", "seasonWinsNum_overall",
+        "draws", "seasonDrawsNum_overall", "losses", "seasonLossesNum_overall",
+        "win_pct", "draw_pct", "loss_pct", "form", "formRun_overall",
+        "seasonPPG_overall", "seasonRecentPPG", "leaguePosition_overall",
+        
+        # Específicas de casa
+        "home_played", "seasonMatchesPlayed_home", "home_wins", "seasonWinsNum_home",
+        "home_draws", "seasonDrawsNum_home", "home_losses", "seasonLossesNum_home",
+        "home_form", "formRun_home", "seasonPPG_home", "leaguePosition_home",
+        
+        # Específicas de fora
+        "away_played", "seasonMatchesPlayed_away", "away_wins", "seasonWinsNum_away",
+        "away_draws", "seasonDrawsNum_away", "away_losses", "seasonLossesNum_away",
+        "away_form", "formRun_away", "seasonPPG_away", "leaguePosition_away",
+        
+        # Gols
+        "goals_scored", "seasonScoredNum_overall", "goals_conceded", "seasonConcededNum_overall",
+        "home_goals_scored", "seasonScoredNum_home", "home_goals_conceded", "seasonConcededNum_home",
+        "away_goals_scored", "seasonScoredNum_away", "away_goals_conceded", "seasonConcededNum_away",
+        "goals_per_game", "conceded_per_game", "seasonGoalsTotal_overall",
+        "seasonGoalsTotal_home", "seasonGoalsTotal_away", "clean_sheets_pct",
+        "seasonCSPercentage_overall", "seasonCS_overall", "seasonCS_home", "seasonCS_away",
+        "btts_pct", "seasonBTTSPercentage_overall", "over_2_5_pct", "seasonOver25Percentage_overall",
+        
+        # Expected Goals
+        "xg", "xg_for_overall", "xga", "xg_against_overall",
+        "home_xg", "xg_for_home", "home_xga", "xg_against_home",
+        "away_xg", "xg_for_away", "away_xga", "xg_against_away",
+        "xg_for_avg_overall", "xg_for_avg_home", "xg_for_avg_away",
+        "xg_against_avg_overall", "xg_against_avg_home", "xg_against_avg_away",
+        
+        # Cartões
+        "cards_per_game", "cardsAVG_overall", "home_cards_per_game", "cardsAVG_home",
+        "away_cards_per_game", "cardsAVG_away", "cardsTotal_overall", "cardsTotal_home",
+        "cardsTotal_away", "yellow_cards", "red_cards", "over_3_5_cards_pct",
+        
+        # Escanteios
+        "corners_per_game", "cornersTotalAVG_overall", "home_corners_per_game", "cornersTotalAVG_home",
+        "away_corners_per_game", "cornersTotalAVG_away", "corners_for", "cornersTotal_overall",
+        "corners_against", "cornersAgainst_overall", "cornersAVG_overall", "cornersAVG_home",
+        "cornersAVG_away", "cornersAgainstAVG_overall", "cornersAgainstAVG_home", "cornersAgainstAVG_away",
+        "over_9_5_corners_pct",
+        
+        # Chutes
+        "shotsAVG_overall", "shotsAVG_home", "shotsAVG_away",
+        "shotsOnTargetAVG_overall", "shotsOnTargetAVG_home", "shotsOnTargetAVG_away",
+        
+        # Posse de bola
+        "possession", "possessionAVG_overall", "home_possession", "possessionAVG_home",
+        "away_possession", "possessionAVG_away"
     ]
     
-    for field in direct_fields:
+    # SUPER IMPORTANTE: Extrair TODOS os campos diretamente
+    # Esta é a principal melhoria para o formato JSON específico
+    for field in all_fields:
         if field in team_data and team_data[field] not in [None, '', 'N/A']:
             try:
                 if isinstance(team_data[field], (int, float)):
                     target_dict[field] = team_data[field]
-                elif isinstance(team_data[field], str) and field in ["form", "formRun_overall"]:
+                    logger.info(f"Extraído {field}={team_data[field]} diretamente")
+                elif isinstance(team_data[field], str) and field in ["form", "home_form", "away_form", "formRun_overall", "formRun_home", "formRun_away"]:
                     target_dict[field] = team_data[field]
+                    logger.info(f"Extraída forma {field}={team_data[field]} diretamente")
                 else:
                     # Tentar converter para número
-                    target_dict[field] = float(team_data[field])
-            except (ValueError, TypeError):
-                pass
+                    try:
+                        float_val = float(team_data[field])
+                        target_dict[field] = float_val
+                        logger.info(f"Convertido e extraído {field}={float_val} diretamente")
+                    except (ValueError, TypeError):
+                        pass
+            except Exception as e:
+                logger.error(f"Erro ao extrair campo {field}: {str(e)}")
     
-    # 2. Verificar estatísticas dentro de "stats"
-    if "stats" in team_data and isinstance(team_data["stats"], dict):
-        for field in direct_fields:
-            if field in team_data["stats"] and team_data["stats"][field] not in [None, '', 'N/A']:
-                try:
-                    if isinstance(team_data["stats"][field], (int, float)):
-                        target_dict[field] = team_data["stats"][field]
-                    elif isinstance(team_data["stats"][field], str) and field in ["form", "formRun_overall"]:
-                        target_dict[field] = team_data["stats"][field]
-                    else:
-                        # Tentar converter para número
-                        target_dict[field] = float(team_data["stats"][field])
-                except (ValueError, TypeError):
-                    pass
-    
-    # Verificar também em stats
+    # FASE 2: Verificar também em stats
     if "stats" in team_data and isinstance(team_data["stats"], dict):
         for field in all_fields:
             if field in team_data["stats"] and team_data["stats"][field] not in [None, '', 'N/A']:
@@ -2552,8 +2594,10 @@ def extract_direct_team_stats(team_data, target_dict):
                             logger.info(f"Extraído (convertido) {field}={numeric_value} de stats")
                 except (ValueError, TypeError):
                     pass
+                except Exception as e:
+                    logger.error(f"Erro ao extrair campo {field} de stats: {str(e)}")
     
-    # Verificar campos duplicados com nomes diferentes
+    # FASE 3: Verificar campos duplicados com nomes diferentes
     field_mapping = {
         "matches_played": "played",
         "matches": "played",
@@ -2585,6 +2629,8 @@ def extract_direct_team_stats(team_data, target_dict):
                         logger.info(f"Mapeado {source_field} → {target_field}={numeric_value}")
                 except (ValueError, TypeError):
                     pass
+                except Exception as e:
+                    logger.error(f"Erro ao mapear campo {source_field}: {str(e)}")
                     
             # Verificar também em stats
             if "stats" in team_data and isinstance(team_data["stats"], dict) and source_field in team_data["stats"] and team_data["stats"][source_field] not in [None, '', 'N/A']:
@@ -2595,12 +2641,58 @@ def extract_direct_team_stats(team_data, target_dict):
                         logger.info(f"Mapeado stats.{source_field} → {target_field}={numeric_value}")
                 except (ValueError, TypeError):
                     pass
+                except Exception as e:
+                    logger.error(f"Erro ao mapear campo stats.{source_field}: {str(e)}")
     
     # Log do total de campos extraídos
     non_zero_count = sum(1 for k, v in target_dict.items() 
                        if (isinstance(v, (int, float)) and v != 0) or 
                           (isinstance(v, str) and v not in ["", "?????"]))
     logger.info(f"Total de {non_zero_count} campos não-zero após extração direta")
+    
+def extract_direct_team_stats_from_root(api_data, result):
+    """
+    Extrai estatísticas diretamente da estrutura raiz do JSON onde os teams
+    estão no formato enviado pelo Gist.
+    
+    Args:
+        api_data (dict): Dados originais da API
+        result (dict): Dicionário de resultado para preencher
+    """
+    import logging
+    logger = logging.getLogger("valueHunter.prompt_adapter")
+    
+    # EXTRAÇÃO ESPECÍFICA PARA O FORMATO DO GIST
+    # Verifica se os times estão na raiz do JSON como no Gist
+    if "home_team" in api_data and isinstance(api_data["home_team"], dict):
+        logger.info("Encontradas estatísticas do time da casa na raiz do JSON")
+        extract_direct_team_stats(api_data["home_team"], result["home_team"], "home")
+        
+    if "away_team" in api_data and isinstance(api_data["away_team"], dict):
+        logger.info("Encontradas estatísticas do time visitante na raiz do JSON")
+        extract_direct_team_stats(api_data["away_team"], result["away_team"], "away")
+        
+    # Verificar também dados de H2H
+    if "h2h" in api_data and isinstance(api_data["h2h"], dict):
+        logger.info("Encontrados dados H2H na raiz do JSON")
+        
+        # Copiar diretamente todos os campos H2H
+        for field, value in api_data["h2h"].items():
+            if value is not None and value != 'N/A' and value != '':
+                try:
+                    if isinstance(value, (int, float)):
+                        result["h2h"][field] = value
+                    else:
+                        # Tentar converter para número
+                        numeric_val = float(value)
+                        result["h2h"][field] = numeric_val
+                except (ValueError, TypeError):
+                    # Manter como string se não for conversível
+                    if isinstance(value, str) and value:
+                        result["h2h"][field] = value
+                except Exception as e:
+                    logger.error(f"Erro ao copiar campo H2H {field}: {str(e)}")
+    
 
 def extract_traditional_stats(api_data, result):
     """Extrai estatísticas usando a estrutura tradicional da API"""
