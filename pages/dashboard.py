@@ -1099,24 +1099,24 @@ def show_main_dashboard():
                             status.error("Falha ao carregar dados")
                             return
 
-                        #Etapa 2: Processar os dados para análise
-                        status.info("Processando dados estatísticos...")
+                       # Etapa 2: Processar os dados para análise
+                    status.info("Processando dados estatísticos...")
+                    
+                    # Abordagem ultra-simplificada
+                    # Inicializar o resultado diretamente com os dados brutos
+                    optimized_data = {
+                        "match_info": {
+                            "home_team": home_team,
+                            "away_team": away_team,
+                            "league": selected_league,
+                            "league_id": None
+                        },
+                        "home_team": {},
+                        "away_team": {},
+                        "h2h": {}
+                    }
                     
                     try:
-                        # Abordagem ultra-simplificada
-                        # Inicializar o resultado diretamente com os dados brutos
-                        optimized_data = {
-                            "match_info": {
-                                "home_team": home_team,
-                                "away_team": away_team,
-                                "league": selected_league,
-                                "league_id": None
-                            },
-                            "home_team": {},
-                            "away_team": {},
-                            "h2h": {}
-                        }
-                        
                         # PARTE 1: Cópia direta dos dados recebidos
                         # Extrair dados do time da casa
                         if "home_team" in stats_data and isinstance(stats_data["home_team"], dict):
@@ -1172,7 +1172,7 @@ def show_main_dashboard():
                                 st.code(traceback.format_exc())
                         
                         # Retornar None para abortar a análise
-                        return None, None                        
+                        return None, None
                         # MODIFICAÇÃO: Forçar extração de estatísticas da estrutura raiz
                         # Esta parte é crucial para lidar com a estrutura do JSON no Gist
                         if "home_team" in stats_data and isinstance(stats_data["home_team"], dict):
