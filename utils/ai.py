@@ -70,16 +70,6 @@ def get_openai_client():
 def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_data, selected_markets):
     """
     Format prompt for GPT with improved layout and comprehensive home/away data.
-    
-    Args:
-        optimized_data (dict): Data in the highly optimized format
-        home_team (str): Home team name
-        away_team (str): Away team name
-        odds_data (str): Formatted odds data
-        selected_markets (dict): Dictionary of selected markets
-        
-    Returns:
-        str: Formatted prompt
     """
     import logging
     import traceback
@@ -501,7 +491,7 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
         away_draw_prob = away_win_prob + draw_prob
         home_away_prob = home_win_prob + away_win_prob
         
-# 6. PROBABILITY SECTION (continuação)
+# 6. PROBABILITY SECTION
         if not has_stats_data:
             prob_title = "PROBABILIDADES CALCULADAS (MODELO DE FALLBACK)"
             prob_explanation = """
@@ -518,8 +508,7 @@ As probabilidades foram calculadas usando nossa metodologia de dispersão e pond
 - Posição na tabela: 20%
 - Métricas de criação: 20%"""
             
-# 6. Probabilidade section
-probability_section = f"""
+        probability_section = f"""
 # {prob_title}
 {prob_explanation}
 
