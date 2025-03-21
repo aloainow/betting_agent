@@ -1101,50 +1101,101 @@ def show_main_dashboard():
                         
                         # Etapa 2: Transformar os dados para o formato otimizado
                         status.info("Transformando dados para análise...")
-                        from utils.prompt_adapter import transform_api_data, extract_deep_team_data
+                        from utils.prompt_adapter import transform_api_data, extract_deep_team_data, extract_direct_team_stats
                         
-                        # Verificar os dados brutos e fazer extração profunda se necessário
-                        if "team_stats" not in stats_data and "basic_stats" not in stats_data:
-                            status.warning("Detectada estrutura de dados não reconhecida. Utilizando extração profunda...")
-                            enhanced_data = extract_deep_team_data(stats_data, home_team, away_team)
-                            
-                            # Verificar se extração profunda encontrou algo útil
-                            home_non_zero = sum(1 for k, v in enhanced_data["home_team"].items() 
-                                              if (isinstance(v, (int, float)) and v != 0) or 
-                                                 (isinstance(v, str) and v not in ["", "?????"]))
-                            away_non_zero = sum(1 for k, v in enhanced_data["away_team"].items() 
-                                              if (isinstance(v, (int, float)) and v != 0) or 
-                                                 (isinstance(v, str) and v not in ["", "?????"]))
-                            
-                            if home_non_zero > 5 or away_non_zero > 5:
-                                status.success(f"Extração profunda encontrou {home_non_zero + away_non_zero} campos de dados úteis!")
-                                # Usar dados da extração profunda
-                                optimized_data = enhanced_data
-                            else:
-                                # Continuar com a transformação padrão
-                                optimized_data = transform_api_data(stats_data, home_team, away_team, selected_markets)
-                        else:
-                            # Usar transformação padrão
-                            optimized_data = transform_api_data(stats_data, home_team, away_team, selected_markets)
+                        # MODIFICAÇÃO: Sempre usar primeiro a extração profunda
+                        enhanced_data = extract_deep_team_data(stats_data, home_team, away_team)
                         
-                        # Verificar se a transformação produziu dados não-zerados
-                        home_non_zero = sum(1 for k, v in optimized_data["home_team"].items() 
+                        # Verificar se extração profunda encontrou dados úteis
+                        home_non_zero = sum(1 for k, v in enhanced_data["home_team"].items() 
                                           if (isinstance(v, (int, float)) and v != 0) or 
                                              (isinstance(v, str) and v not in ["", "?????"]))
-                        away_non_zero = sum(1 for k, v in optimized_data["away_team"].items() 
+                        away_non_zero = sum(1 for k, v in enhanced_data["away_team"].items() 
                                           if (isinstance(v, (int, float)) and v != 0) or 
                                              (isinstance(v, str) and v not in ["", "?????"]))
                         
-                        if home_non_zero < 5 or away_non_zero < 5:
-                            st.warning(f"⚠️ Atenção: Poucos dados estatísticos extraídos ({home_non_zero} para casa, {away_non_zero} para visitante). A análise será baseada em um modelo limitado.")
+                        # Verificar também dados H2H
+                        h2h_non_zero = sum(1 for k, v in enhanced_data["h2h"].items() 
+                                          if (isinstance(v, (int, float)) and v != 0))
+                        
+                        # MODIFICAÇÃO: Usar dados aprimorados independentemente da quantidade
+                        # Isso garante que sempre teremos todos os campos necessários
+                        optimized_data = enhanced_data
+                        
+                        # Log da quantidade de dados extraídos para cada time
+                        logger.info(f"Dados extraídos para {home_team}: {home_non_zero} campos")
+                        logger.info(f"Dados extraídos para {away_team}: {away_non_zero} campos")
+                        logger.info(f"Dados H2H extraídos: {h2h_non_zero} campos")
+                        
+                        # MODIFICAÇÃO: Log detalhado dos campos de cada time para diagnóstico
+                        if home_non_zero < 5:
+                            logger.warning(f"Poucos dados encontrados para {home_team}: {[k for k, v in enhanced_data['home_team'].items() if (isinstance(v, (int, float)) and v != 0) or (isinstance(v, str) and v not in ['', '?????'])]}")
+                        if away_non_zero < 5:
+                            logger.warning(f"Poucos dados encontrados para {away_team}: {[k for k, v in enhanced_data['away_team'].items() if (isinstance(v, (int, float)) and v != 0) or (isinstance(v, str) and v not in ['', '?????'])]}")
+                        
+                        # MODIFICAÇÃO: Forçar extração de estatísticas da estrutura raiz
+                        # Esta parte é crucial para lidar com a estrutura do JSON no Gist
+                        if "home_team" in stats_data and isinstance(stats_data["home_team"], dict):
+                            # Extrair estatísticas diretamente da raiz, priorizando-as
+                            extract_direct_team_stats(stats_data["home_team"], optimized_data["home_team"], "home")
+                            logger.info(f"Extraídas estatísticas diretamente de home_team na raiz")
+                            
+                        if "away_team" in stats_data and isinstance(stats_data["away_team"], dict):
+                            # Extrair estatísticas diretamente da raiz, priorizando-as
+                            extract_direct_team_stats(stats_data["away_team"], optimized_data["away_team"], "away")
+                            logger.info(f"Extraídas estatísticas diretamente de away_team na raiz")
+                        
+                        # MODIFICAÇÃO: Verificar se temos campos mínimos necessários
+                        required_fields = ["played", "wins", "draws", "losses", "goals_scored", "goals_conceded"]
+                        missing_home = [field for field in required_fields if optimized_data["home_team"].get(field, 0) == 0]
+                        missing_away = [field for field in required_fields if optimized_data["away_team"].get(field, 0) == 0]
+                        
+                        if missing_home or missing_away:
+                            # Se faltam campos essenciais, tentar extração direta usando a nova função transform_api_data
+                            logger.warning(f"Campos essenciais faltando. Tentando extração direta.")
+                            logger.warning(f"Campos faltando para {home_team}: {missing_home}")
+                            logger.warning(f"Campos faltando para {away_team}: {missing_away}")
+                            
+                            # Usar a função transform_api_data aprimorada
+                            direct_data = transform_api_data(stats_data, home_team, away_team, selected_markets)
+                            
+                            # Combinar dados, priorizando os não-zero de direct_data
+                            merge_non_zero_data(direct_data["home_team"], optimized_data["home_team"])
+                            merge_non_zero_data(direct_data["away_team"], optimized_data["away_team"])
+                            merge_non_zero_data(direct_data["h2h"], optimized_data["h2h"])
+                        
+                        # Código auxiliar para diagnóstico
+                        home_non_zero_after = sum(1 for k, v in optimized_data["home_team"].items() 
+                                               if (isinstance(v, (int, float)) and v != 0) or 
+                                                  (isinstance(v, str) and v not in ["", "?????"]))
+                        away_non_zero_after = sum(1 for k, v in optimized_data["away_team"].items() 
+                                               if (isinstance(v, (int, float)) and v != 0) or 
+                                                  (isinstance(v, str) and v not in ["", "?????"]))
+                        h2h_non_zero_after = sum(1 for k, v in optimized_data["h2h"].items() 
+                                              if (isinstance(v, (int, float)) and v != 0))
+                        
+                        logger.info(f"Campos finais após otimização: Casa={home_non_zero_after}, Visitante={away_non_zero_after}, H2H={h2h_non_zero_after}")
+                        
+                        # MODIFICAÇÃO: Alerta ao usuário se ainda tivermos poucos dados
+                        if home_non_zero_after < 5 or away_non_zero_after < 5:
+                            st.warning(f"⚠️ Atenção: Poucos dados estatísticos extraídos ({home_non_zero_after} para casa, {away_non_zero_after} para visitante). A análise será baseada em um modelo limitado.")
                         else:
-                            st.success(f"✅ Dados extraídos com sucesso: {home_non_zero} campos para casa, {away_non_zero} para visitante")
+                            st.success(f"✅ Dados extraídos com sucesso: {home_non_zero_after} campos para casa, {away_non_zero_after} para visitante, {h2h_non_zero_after} campos H2H")
                         
                         # Modo de depuração - mostrar dados extraídos
                         if st.session_state.debug_mode:
                             with st.expander("Dados extraídos", expanded=False):
                                 st.json(optimized_data)
-                        
+
+                        # Adicione apenas esta função auxiliar, já que não precisamos mais das outras:
+                        def merge_non_zero_data(source, target):
+                            """Mescla dados não-zero de source para target, sem sobrescrever valores existentes"""
+                            for k, v in source.items():
+                                if k not in target or target[k] == 0:
+                                    if isinstance(v, (int, float)) and v != 0:
+                                        target[k] = v
+                                    elif isinstance(v, str) and v not in ["", "?????"]:
+                                        target[k] = v                        
                         # Verificar se a transformação foi bem-sucedida
                         if not optimized_data or not optimized_data.get("home_team") or not optimized_data.get("away_team"):
                             status.error("Falha na transformação dos dados. Tente novamente.")
