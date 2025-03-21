@@ -1099,8 +1099,8 @@ def show_main_dashboard():
                             status.error("Falha ao carregar dados")
                             return
 
-                    #Etapa 2: Processar os dados para análise
-                    status.info("Processando dados estatísticos...")
+                        #Etapa 2: Processar os dados para análise
+                        status.info("Processando dados estatísticos...")
                     
                     try:
                         # Abordagem ultra-simplificada
