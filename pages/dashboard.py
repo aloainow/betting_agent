@@ -1099,10 +1099,22 @@ def show_main_dashboard():
                             status.error("Falha ao carregar dados")
                             return
                         
-                        # Etapa 2: Transformar os dados para o formato otimizada
+                        # Etapa 2: Transformar os dados para o formato otimizado
+                        status.info("Transformando dados para análise...")
                         from utils.prompt_adapter import transform_api_data
                         optimized_data = transform_api_data(stats_data, home_team, away_team, selected_markets)
                         
+                        # Verificar se a transformação foi bem-sucedida
+                        if not optimized_data or not optimized_data.get("home_team") or not optimized_data.get("away_team"):
+                            status.error("Falha na transformação dos dados. Tente novamente.")
+                            # Log detalhado para debug
+                            logger.error("Transformação de dados falhou. Estatísticas originais:")
+                            logger.error(f"Keys: {list(stats_data.keys() if isinstance(stats_data, dict) else [])}")
+                            return
+                        
+                        # Log das estatísticas após transformação
+                        logger.info(f"Dados transformados com sucesso. Campos home_team: {len(optimized_data['home_team'])}")
+                        logger.info(f"Dados transformados com sucesso. Campos away_team: {len(optimized_data['away_team'])}")                        
                         # Modo de depuração - mostrar informações sobre dados
                         if st.session_state.debug_mode:
                             import sys
