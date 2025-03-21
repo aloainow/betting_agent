@@ -528,56 +528,344 @@ def extract_advanced_metrics(target, advanced_data):
 
 def extract_h2h_data(api_data, formatted_data):
     """
-    Extract head-to-head data
+    Extrai dados de H2H (head-to-head) de forma abrangente, procurando em
+    todos os possíveis lugares da estrutura JSON e identificando diferentes 
+    nomenclaturas para os mesmos campos.
     
     Args:
-        api_data (dict): Original API data
-        formatted_data (dict): Target data structure
+        api_data (dict): Dados originais da API
+        formatted_data (dict): Estrutura de dados alvo para preenchimento
     """
-    h2h_data = None
+    import logging
+    logger = logging.getLogger("valueHunter.prompt_adapter")
     
-    # Try different possible locations for H2H data
-    if "head_to_head" in api_data:
-        h2h_data = api_data["head_to_head"]
-    elif "match_details" in api_data and api_data["match_details"]:
-        if "h2h" in api_data["match_details"]:
-            h2h_data = api_data["match_details"]["h2h"]
-    elif "h2h" in api_data:
-        h2h_data = api_data["h2h"]
-    
-    if not h2h_data:
-        return
+    # Função de busca profunda específica para dados H2H
+    def find_h2h_object(obj, path=""):
+        h2h_objects = []
         
-    # Define mappings for H2H fields
-    mappings = {
-        "total_matches": ["total_matches", "matches", "matches_total"],
-        "home_wins": ["home_wins", "home_team_wins"],
-        "away_wins": ["away_wins", "away_team_wins"],
-        "draws": ["draws", "equal"],
-        "over_2_5_pct": ["over_2_5_percentage", "over_2_5_pct", "over25_percentage"],
-        "btts_pct": ["btts_percentage", "btts_pct", "both_teams_scored_percentage"],
-        "avg_cards": ["average_cards", "avg_cards", "cards_avg"],
-        "avg_corners": ["average_corners", "avg_corners", "corners_avg"]
-    }
-    
-    # Extract each field using mappings
-    for target_field, source_fields in mappings.items():
-        for field in source_fields:
-            if field in h2h_data:
-                value = h2h_data[field]
-                if value is not None and value != 'N/A':
-                    try:
-                        formatted_data["h2h"][target_field] = float(value)
+        if isinstance(obj, dict):
+            # Identificadores de objetos H2H
+            h2h_identifiers = ["h2h", "head_to_head", "head2head", "confronto", "vs", "versus", "previous_meetings"]
+            
+            # Verificar se o próprio objeto é H2H
+            for identifier in h2h_identifiers:
+                if identifier in path.lower():
+                    has_h2h_fields = any(field in obj for field in [
+                        "total_matches", "matches_total", "total", "count",
+                        "home_wins", "away_wins", "draws", 
+                        "avg_goals", "over_2_5_pct", "btts_pct"
+                    ])
+                    
+                    if has_h2h_fields:
+                        h2h_objects.append((obj, path))
+                        logger.info(f"Encontrado objeto H2H em {path}")
                         break
-                    except (ValueError, TypeError):
-                        pass
+            
+            # Verificar campos que indicam dados H2H (mesmo se o caminho não contém h2h)
+            has_key_fields = (
+                ("total_matches" in obj or "matches_total" in obj) and
+                (("home_wins" in obj and "away_wins" in obj) or 
+                 ("team_a_wins" in obj and "team_b_wins" in obj))
+            )
+            if has_key_fields:
+                h2h_objects.append((obj, path))
+                logger.info(f"Encontrado objeto com campos H2H em {path}")
+            
+            # Procurar em subchaves
+            for key, value in obj.items():
+                new_path = f"{path}.{key}" if path else key
+                h2h_objects.extend(find_h2h_object(value, new_path))
+                
+        elif isinstance(obj, list):
+            # Procurar em cada item da lista
+            for i, item in enumerate(obj):
+                new_path = f"{path}[{i}]"
+                h2h_objects.extend(find_h2h_object(item, new_path))
+                
+        return h2h_objects
     
-    # Extract recent matches
-    if "matches" in h2h_data and isinstance(h2h_data["matches"], list):
-        formatted_data["h2h"]["recent_matches"] = h2h_data["matches"][:5]
-    elif "previous_matches" in h2h_data and isinstance(h2h_data["previous_matches"], list):
-        formatted_data["h2h"]["recent_matches"] = h2h_data["previous_matches"][:5]
+    # Encontrar todos os possíveis objetos H2H
+    h2h_objects = find_h2h_object(api_data)
+    
+    if h2h_objects:
+        logger.info(f"Encontrados {len(h2h_objects)} possíveis objetos H2H")
+        
+        # Processar cada objeto encontrado
+        for h2h_obj, path in h2h_objects:
+            # Mapeamento extremamente abrangente de campos H2H
+            h2h_mapping = {
+                "total_matches": [
+                    "total_matches", "totalMatches", "matchesTotal", "matches", "matches_total", 
+                    "total", "count", "jogos", "partidas", "n_matches", "numeroJogos", "games",
+                    "number_of_matches", "played", "played_matches", "quantity"
+                ],
+                "home_wins": [
+                    "home_wins", "homeWins", "home_team_wins", "homeTeamWins", "team_a_wins", 
+                    "teamAWins", "local_wins", "casa_vitorias", "first_team_wins", "team1_wins",
+                    "wins_home", "victorias_local", "home"
+                ],
+                "away_wins": [
+                    "away_wins", "awayWins", "away_team_wins", "awayTeamWins", "team_b_wins", 
+                    "teamBWins", "visitor_wins", "fora_vitorias", "second_team_wins", "team2_wins",
+                    "wins_away", "victorias_visitante", "away", "visitante"
+                ],
+                "draws": [
+                    "draws", "draw", "equal", "empates", "empate", "ties", "tied", "drawn",
+                    "igualdades", "drawns", "draw_matches", "drawn_matches", "equals"
+                ],
+                "avg_goals": [
+                    "avg_goals", "average_goals", "goals_avg", "avgGoals", "meanGoals", 
+                    "media_gols", "goalsMean", "goalsAverage", "goals_per_game", "gpg",
+                    "mean_goals", "media_de_gols", "promedio_goles"
+                ],
+                "over_2_5_pct": [
+                    "over_2_5_pct", "over_2_5_percentage", "over25_percentage", "over25pct", 
+                    "o25_pct", "over25", "over_25_pct", "mais_2_5_pct", "over_two_five_pct",
+                    "pct_over25", "percentage_over_25"
+                ],
+                "btts_pct": [
+                    "btts_pct", "btts_percentage", "both_teams_to_score", "both_teams_scored", 
+                    "btts", "bttsPercentage", "ambos_marcam", "both_score", "both_teams",
+                    "pct_btts", "percentage_btts", "both_score_percentage"
+                ],
+                "avg_cards": [
+                    "avg_cards", "average_cards", "cards_avg", "avgCards", "meanCards", 
+                    "media_cartoes", "cardsMean", "cardsAverage", "cards_per_game", "cpg",
+                    "mean_cards", "media_de_cartoes", "promedio_tarjetas"
+                ],
+                "avg_corners": [
+                    "avg_corners", "average_corners", "corners_avg", "avgCorners", "meanCorners", 
+                    "media_escanteios", "cornersMean", "cornersAverage", "corners_per_game", 
+                    "mean_corners", "media_de_escanteios", "promedio_corners"
+                ]
+            }
+            
+            # Extrair cada campo usando todos os possíveis nomes
+            for target_field, source_fields in h2h_mapping.items():
+                for field in source_fields:
+                    if field in h2h_obj:
+                        value = h2h_obj[field]
+                        try:
+                            if value is not None and value != 'N/A' and value != '':
+                                # Tentar converter para número
+                                numeric_value = float(value)
+                                
+                                # Verificar se faz sentido
+                                if numeric_value > 0:
+                                    # Se já existe um valor, só substitui se o novo for maior (mais informativo)
+                                    if target_field not in formatted_data["h2h"] or formatted_data["h2h"][target_field] == 0:
+                                        formatted_data["h2h"][target_field] = numeric_value
+                                        logger.info(f"H2H: Extraído {target_field}={numeric_value} de {path}.{field}")
+                                    # Ou se o campo atualmente é zero
+                                    elif formatted_data["h2h"][target_field] == 0 and numeric_value > 0:
+                                        formatted_data["h2h"][target_field] = numeric_value
+                                break  # Encontrou um valor válido, não precisa continuar para este campo
+                        except (ValueError, TypeError):
+                            # Ignorar valores que não podem ser convertidos para número
+                            pass
+    else:
+        logger.warning("Nenhum objeto H2H encontrado nos dados da API")
+    
+    # Verificar se conseguimos extrair algum dado de H2H
+    h2h_fields = sum(1 for k, v in formatted_data["h2h"].items() if v > 0)
+    if h2h_fields > 0:
+        logger.info(f"Extraídos {h2h_fields} campos H2H com valores não-zero")
+    else:
+        logger.warning("Todos os campos H2H permanecem com valor zero")
+        
+        # Tentar encontrar array de partidas anteriores que possa ser usado para calcular H2H
+        previous_matches = find_previous_matches(api_data)
+        if previous_matches:
+            # Calcular estatísticas H2H a partir das partidas encontradas
+            calculate_h2h_from_matches(previous_matches, formatted_data["h2h"], 
+                                      formatted_data["match_info"]["home_team"], 
+                                      formatted_data["match_info"]["away_team"])
 
+def find_previous_matches(api_data):
+    """
+    Busca arrays de partidas anteriores que possam ser usados para calcular estatísticas H2H
+    
+    Args:
+        api_data (dict): Dados originais da API
+        
+    Returns:
+        list: Lista de partidas encontradas ou lista vazia
+    """
+    import logging
+    logger = logging.getLogger("valueHunter.prompt_adapter")
+    
+    # Função de busca recursiva
+    def search_for_matches(obj, path=""):
+        matches_arrays = []
+        
+        if isinstance(obj, dict):
+            # Verificar chaves que provavelmente contêm partidas anteriores
+            match_keys = ["previous_matches", "matches", "h2h_matches", "past_matches", "history"]
+            
+            for key in match_keys:
+                if key in obj and isinstance(obj[key], list) and len(obj[key]) > 0:
+                    # Verificar se parece um array de partidas
+                    if all(isinstance(m, dict) for m in obj[key]):
+                        # Verificar se contém campos típicos de partida
+                        sample = obj[key][0]
+                        has_match_fields = any(f in sample for f in [
+                            "home_team", "away_team", "score", "result", "date", "home_score", "away_score"
+                        ])
+                        
+                        if has_match_fields:
+                            matches_arrays.append((obj[key], f"{path}.{key}"))
+                            logger.info(f"Encontrado array de partidas em {path}.{key}")
+            
+            # Continuar busca em subchaves
+            for key, value in obj.items():
+                new_path = f"{path}.{key}" if path else key
+                matches_arrays.extend(search_for_matches(value, new_path))
+                
+        elif isinstance(obj, list):
+            # Verificar se a própria lista parece um array de partidas
+            if len(obj) > 0 and all(isinstance(m, dict) for m in obj):
+                sample = obj[0]
+                has_match_fields = any(f in sample for f in [
+                    "home_team", "away_team", "score", "result", "date", "home_score", "away_score"
+                ])
+                
+                if has_match_fields:
+                    matches_arrays.append((obj, path))
+                    logger.info(f"Encontrado array de partidas em {path}")
+            
+            # Continuar busca em cada item
+            for i, item in enumerate(obj):
+                new_path = f"{path}[{i}]"
+                matches_arrays.extend(search_for_matches(item, new_path))
+                
+        return matches_arrays
+    
+    # Buscar em todo o objeto
+    match_arrays = search_for_matches(api_data)
+    
+    # Retornar o primeiro array encontrado (geralmente o mais relevante)
+    if match_arrays:
+        logger.info(f"Encontrados {len(match_arrays)} arrays de partidas")
+        return match_arrays[0][0]  # Retorna o primeiro array
+    else:
+        logger.warning("Nenhum array de partidas encontrado")
+        return []
+
+def calculate_h2h_from_matches(matches, h2h_dict, home_team_name, away_team_name):
+    """
+    Calcula estatísticas H2H a partir de um array de partidas anteriores
+    
+    Args:
+        matches (list): Lista de partidas
+        h2h_dict (dict): Dicionário H2H para preencher
+        home_team_name (str): Nome do time da casa
+        away_team_name (str): Nome do time visitante
+    """
+    import logging
+    logger = logging.getLogger("valueHunter.prompt_adapter")
+    
+    if not matches:
+        return
+    
+    # Inicializar contadores
+    total_matches = 0
+    home_wins = 0
+    away_wins = 0
+    draws = 0
+    total_goals = 0
+    over_2_5_count = 0
+    btts_count = 0
+    
+    # Processar cada partida
+    for match in matches:
+        # Verificar se contém os times que estamos analisando
+        contains_home_team = False
+        contains_away_team = False
+        
+        # Verificar vários formatos possíveis
+        if "home_team" in match and isinstance(match["home_team"], str):
+            if home_team_name.lower() in match["home_team"].lower() or match["home_team"].lower() in home_team_name.lower():
+                contains_home_team = True
+            elif away_team_name.lower() in match["home_team"].lower() or match["home_team"].lower() in away_team_name.lower():
+                contains_away_team = True
+                
+        if "away_team" in match and isinstance(match["away_team"], str):
+            if home_team_name.lower() in match["away_team"].lower() or match["away_team"].lower() in home_team_name.lower():
+                contains_home_team = True
+            elif away_team_name.lower() in match["away_team"].lower() or match["away_team"].lower() in away_team_name.lower():
+                contains_away_team = True
+        
+        # Verificar se a partida é entre os times que estamos analisando
+        if contains_home_team and contains_away_team:
+            total_matches += 1
+            
+            # Tentar determinar o resultado
+            home_score = None
+            away_score = None
+            
+            # Buscar resultado em vários formatos
+            if "score" in match and isinstance(match["score"], str):
+                # Formato "2-1"
+                score_parts = match["score"].split("-")
+                if len(score_parts) == 2:
+                    try:
+                        home_score = int(score_parts[0].strip())
+                        away_score = int(score_parts[1].strip())
+                    except ValueError:
+                        pass
+            
+            # Buscar em outros campos
+            if home_score is None and "home_score" in match:
+                try:
+                    home_score = int(match["home_score"])
+                except ValueError:
+                    pass
+                    
+            if away_score is None and "away_score" in match:
+                try:
+                    away_score = int(match["away_score"])
+                except ValueError:
+                    pass
+            
+            # Verificar se temos um resultado válido
+            if home_score is not None and away_score is not None:
+                # Determinar vencedor
+                if home_score > away_score:
+                    # Verificar qual time estava em casa nesta partida
+                    if "home_team" in match and home_team_name.lower() in match["home_team"].lower():
+                        home_wins += 1
+                    else:
+                        away_wins += 1
+                elif away_score > home_score:
+                    if "home_team" in match and away_team_name.lower() in match["home_team"].lower():
+                        away_wins += 1
+                    else:
+                        home_wins += 1
+                else:
+                    draws += 1
+                
+                # Calcular gols
+                total_goals += home_score + away_score
+                
+                # Verificar over 2.5
+                if home_score + away_score > 2.5:
+                    over_2_5_count += 1
+                
+                # Verificar ambos marcam
+                if home_score > 0 and away_score > 0:
+                    btts_count += 1
+    
+    # Preencher o dicionário H2H se tivermos partidas válidas
+    if total_matches > 0:
+        h2h_dict["total_matches"] = total_matches
+        h2h_dict["home_wins"] = home_wins
+        h2h_dict["away_wins"] = away_wins
+        h2h_dict["draws"] = draws
+        h2h_dict["avg_goals"] = total_goals / total_matches
+        h2h_dict["over_2_5_pct"] = (over_2_5_count / total_matches) * 100
+        h2h_dict["btts_pct"] = (btts_count / total_matches) * 100
+        
+        logger.info(f"Calculadas estatísticas H2H a partir de {total_matches} partidas anteriores")
 def extract_form_data(api_data, formatted_data, home_team_name, away_team_name):
     """Extração melhorada de dados de forma dos times"""
     
