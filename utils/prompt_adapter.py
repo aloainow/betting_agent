@@ -1035,35 +1035,221 @@ def ensure_recent_matches(formatted_data, home_team_name, away_team_name):
 
 def extract_team_data(api_data, formatted_data, team_type):
     """
-    Extract team data from API data and fill in the formatted data structure
+    Extrai dados completos de um time a partir dos dados da API
     
     Args:
-        api_data (dict): Original API data
-        formatted_data (dict): Target data structure to fill
-        team_type (str): "home" or "away" team
+        api_data (dict): Dados originais da API
+        formatted_data (dict): Estrutura de dados alvo para preencher
+        team_type (str): "home" ou "away"
     """
     team_key = f"{team_type}_team"
+    target_dict = formatted_data[team_key]
     
+    # Verifica se temos dados básicos para o time
     if "basic_stats" in api_data and team_key in api_data["basic_stats"]:
         team_data = api_data["basic_stats"][team_key]
         
-        # Extract stats from different possible locations
+        # Extrair estatísticas de diferentes possíveis locais
         stats_data = {}
         
-        # Try stats directly on team
+        # Caso 1: stats direto no objeto
         if "stats" in team_data and isinstance(team_data["stats"], dict):
             stats_data = team_data["stats"]
-        # Try nested stats
+        
+        # Caso 2: stats aninhado (stats.stats)
         elif "stats" in team_data and isinstance(team_data["stats"], dict) and "stats" in team_data["stats"]:
             stats_data = team_data["stats"]["stats"]
         
-        # Extract each stat field
-        extract_team_stats(formatted_data[team_key], stats_data, team_data, team_type)
+        # Caso 3: stats diretamente no time_data
+        if not stats_data:
+            for key in ["played", "seasonMatchesPlayed_overall", "wins", "goals_scored"]:
+                if key in team_data:
+                    stats_data = team_data
+                    break
         
-        # Get advanced stats if available
-        if "advanced_stats" in api_data and team_type in api_data["advanced_stats"]:
-            extract_advanced_metrics(formatted_data[team_key], api_data["advanced_stats"][team_type])
-
+        # Extrair todos os campos de estatísticas disponíveis
+        if stats_data:
+            # Mapeamento de campo da API para campo no nosso formato
+            field_mapping = {
+                # Estatísticas Gerais
+                "played": ["played", "seasonMatchesPlayed_overall", "matches_played", "MP"],
+                "seasonMatchesPlayed_overall": ["seasonMatchesPlayed_overall", "matches_played", "MP"],
+                "wins": ["wins", "seasonWinsNum_overall", "W"],
+                "seasonWinsNum_overall": ["seasonWinsNum_overall", "wins", "W"],
+                "draws": ["draws", "seasonDrawsNum_overall", "D"],
+                "seasonDrawsNum_overall": ["seasonDrawsNum_overall", "draws", "D"],
+                "losses": ["losses", "seasonLossesNum_overall", "L"],
+                "seasonLossesNum_overall": ["seasonLossesNum_overall", "losses", "L"],
+                "win_pct": ["win_percentage", "winPercentage"],
+                "draw_pct": ["draw_percentage", "drawPercentage"],
+                "loss_pct": ["loss_percentage", "lossPercentage"],
+                "seasonPPG_overall": ["seasonPPG_overall", "ppg", "points_per_game"],
+                "seasonRecentPPG": ["seasonRecentPPG", "recent_ppg"],
+                "leaguePosition_overall": ["leaguePosition_overall", "league_position"],
+                
+                # Estatísticas Casa/Fora
+                "home_played": ["home_played", "seasonMatchesPlayed_home", "matches_played_home"],
+                "away_played": ["away_played", "seasonMatchesPlayed_away", "matches_played_away"],
+                "seasonMatchesPlayed_home": ["seasonMatchesPlayed_home", "home_played", "matches_played_home"],
+                "seasonMatchesPlayed_away": ["seasonMatchesPlayed_away", "away_played", "matches_played_away"],
+                "home_wins": ["home_wins", "seasonWinsNum_home", "wins_home"],
+                "away_wins": ["away_wins", "seasonWinsNum_away", "wins_away"],
+                "seasonWinsNum_home": ["seasonWinsNum_home", "home_wins", "wins_home"],
+                "seasonWinsNum_away": ["seasonWinsNum_away", "away_wins", "wins_away"],
+                "home_draws": ["home_draws", "seasonDrawsNum_home", "draws_home"],
+                "away_draws": ["away_draws", "seasonDrawsNum_away", "draws_away"],
+                "seasonDrawsNum_home": ["seasonDrawsNum_home", "home_draws", "draws_home"],
+                "seasonDrawsNum_away": ["seasonDrawsNum_away", "away_draws", "draws_away"],
+                "home_losses": ["home_losses", "seasonLossesNum_home", "losses_home"],
+                "away_losses": ["away_losses", "seasonLossesNum_away", "losses_away"],
+                "seasonLossesNum_home": ["seasonLossesNum_home", "home_losses", "losses_home"],
+                "seasonLossesNum_away": ["seasonLossesNum_away", "away_losses", "losses_away"],
+                "seasonPPG_home": ["seasonPPG_home", "home_ppg", "points_per_game_home"],
+                "seasonPPG_away": ["seasonPPG_away", "away_ppg", "points_per_game_away"],
+                "leaguePosition_home": ["leaguePosition_home", "home_league_position"],
+                "leaguePosition_away": ["leaguePosition_away", "away_league_position"],
+                "home_form": ["home_form", "formRun_home", "current_form_home"],
+                "away_form": ["away_form", "formRun_away", "current_form_away"],
+                "formRun_home": ["formRun_home", "home_form", "current_form_home"],
+                "formRun_away": ["formRun_away", "away_form", "current_form_away"],
+                
+                # Estatísticas de Gols
+                "goals_scored": ["goals_scored", "seasonScoredNum_overall", "scored", "GF"],
+                "seasonScoredNum_overall": ["seasonScoredNum_overall", "goals_scored", "scored", "GF"],
+                "goals_conceded": ["goals_conceded", "seasonConcededNum_overall", "conceded", "GA"],
+                "seasonConcededNum_overall": ["seasonConcededNum_overall", "goals_conceded", "conceded", "GA"],
+                "home_goals_scored": ["home_goals_scored", "seasonScoredNum_home", "goals_scored_home"],
+                "seasonScoredNum_home": ["seasonScoredNum_home", "home_goals_scored", "goals_scored_home"],
+                "away_goals_scored": ["away_goals_scored", "seasonScoredNum_away", "goals_scored_away"],
+                "seasonScoredNum_away": ["seasonScoredNum_away", "away_goals_scored", "goals_scored_away"],
+                "home_goals_conceded": ["home_goals_conceded", "seasonConcededNum_home", "goals_conceded_home"],
+                "seasonConcededNum_home": ["seasonConcededNum_home", "home_goals_conceded", "goals_conceded_home"],
+                "away_goals_conceded": ["away_goals_conceded", "seasonConcededNum_away", "goals_conceded_away"],
+                "seasonConcededNum_away": ["seasonConcededNum_away", "away_goals_conceded", "goals_conceded_away"],
+                "goals_per_game": ["goals_per_game", "gpg", "goals_per_match"],
+                "conceded_per_game": ["conceded_per_game", "cpg", "conceded_per_match"],
+                "seasonGoalsTotal_overall": ["seasonGoalsTotal_overall", "total_goals"],
+                "seasonGoalsTotal_home": ["seasonGoalsTotal_home", "total_goals_home"],
+                "seasonGoalsTotal_away": ["seasonGoalsTotal_away", "total_goals_away"],
+                "clean_sheets_pct": ["clean_sheets_pct", "clean_sheet_percentage", "cs_pct"],
+                "seasonCSPercentage_overall": ["seasonCSPercentage_overall", "clean_sheet_percentage", "cs_pct"],
+                "seasonCS_overall": ["seasonCS_overall", "clean_sheets", "cs"],
+                "seasonCS_home": ["seasonCS_home", "home_clean_sheets", "cs_home"],
+                "seasonCS_away": ["seasonCS_away", "away_clean_sheets", "cs_away"],
+                "btts_pct": ["btts_pct", "btts_percentage", "both_teams_scored_pct"],
+                "seasonBTTSPercentage_overall": ["seasonBTTSPercentage_overall", "btts_percentage", "both_teams_to_score_pct"],
+                "over_2_5_pct": ["over_2_5_pct", "over_2_5_percentage", "o25_pct"],
+                "seasonOver25Percentage_overall": ["seasonOver25Percentage_overall", "over_2_5_percentage", "o25_pct"],
+                
+                # Expected Goals
+                "xg": ["xg", "xG", "expected_goals", "xg_for"],
+                "xg_for_overall": ["xg_for_overall", "xg", "xG", "expected_goals"],
+                "xga": ["xga", "xGA", "expected_goals_against", "xg_against"],
+                "xg_against_overall": ["xg_against_overall", "xga", "xGA", "expected_goals_against"],
+                "home_xg": ["home_xg", "xg_home", "xg_for_home"],
+                "xg_for_home": ["xg_for_home", "home_xg", "xg_home"],
+                "away_xg": ["away_xg", "xg_away", "xg_for_away"],
+                "xg_for_away": ["xg_for_away", "away_xg", "xg_away"],
+                "home_xga": ["home_xga", "xga_home", "xg_against_home"],
+                "xg_against_home": ["xg_against_home", "home_xga", "xga_home"],
+                "away_xga": ["away_xga", "xga_away", "xg_against_away"],
+                "xg_against_away": ["xg_against_away", "away_xga", "xga_away"],
+                "xg_for_avg_overall": ["xg_for_avg_overall", "xg_per_game", "expected_goals_per_game"],
+                "xg_for_avg_home": ["xg_for_avg_home", "xg_per_game_home", "expected_goals_per_game_home"],
+                "xg_for_avg_away": ["xg_for_avg_away", "xg_per_game_away", "expected_goals_per_game_away"],
+                "xg_against_avg_overall": ["xg_against_avg_overall", "xga_per_game", "expected_goals_against_per_game"],
+                "xg_against_avg_home": ["xg_against_avg_home", "xga_per_game_home", "expected_goals_against_per_game_home"],
+                "xg_against_avg_away": ["xg_against_avg_away", "xga_per_game_away", "expected_goals_against_per_game_away"],
+                
+                # Estatísticas de Cartões
+                "cards_per_game": ["cards_per_game", "cards_avg", "avg_cards"],
+                "cardsAVG_overall": ["cardsAVG_overall", "cards_per_game", "cards_avg"],
+                "home_cards_per_game": ["home_cards_per_game", "cards_per_game_home", "home_cards_avg"],
+                "cardsAVG_home": ["cardsAVG_home", "home_cards_per_game", "cards_per_game_home"],
+                "away_cards_per_game": ["away_cards_per_game", "cards_per_game_away", "away_cards_avg"],
+                "cardsAVG_away": ["cardsAVG_away", "away_cards_per_game", "cards_per_game_away"],
+                "cardsTotal_overall": ["cardsTotal_overall", "total_cards", "cards_total"],
+                "cardsTotal_home": ["cardsTotal_home", "total_cards_home", "cards_total_home"],
+                "cardsTotal_away": ["cardsTotal_away", "total_cards_away", "cards_total_away"],
+                "yellow_cards": ["yellow_cards", "yellows", "cards_yellow"],
+                "red_cards": ["red_cards", "reds", "cards_red"],
+                "over_3_5_cards_pct": ["over_3_5_cards_pct", "over_3_5_cards_percentage", "o35_cards_pct"],
+                
+                # Estatísticas de Escanteios
+                "corners_per_game": ["corners_per_game", "corners_avg", "avg_corners"],
+                "cornersTotalAVG_overall": ["cornersTotalAVG_overall", "corners_per_game", "corners_avg"],
+                "home_corners_per_game": ["home_corners_per_game", "corners_per_game_home", "home_corners_avg"],
+                "cornersTotalAVG_home": ["cornersTotalAVG_home", "home_corners_per_game", "corners_per_game_home"],
+                "away_corners_per_game": ["away_corners_per_game", "corners_per_game_away", "away_corners_avg"],
+                "cornersTotalAVG_away": ["cornersTotalAVG_away", "away_corners_per_game", "corners_per_game_away"],
+                "corners_for": ["corners_for", "cornersTotal_overall", "corners"],
+                "cornersTotal_overall": ["cornersTotal_overall", "corners_for", "corners"],
+                "corners_against": ["corners_against", "cornersAgainst_overall", "corners_against_total"],
+                "cornersAgainst_overall": ["cornersAgainst_overall", "corners_against", "corners_against_total"],
+                "cornersAVG_overall": ["cornersAVG_overall", "corners_for_avg", "corners_for_per_game"],
+                "cornersAVG_home": ["cornersAVG_home", "corners_for_avg_home", "corners_for_per_game_home"],
+                "cornersAVG_away": ["cornersAVG_away", "corners_for_avg_away", "corners_for_per_game_away"],
+                "cornersAgainstAVG_overall": ["cornersAgainstAVG_overall", "corners_against_avg", "corners_against_per_game"],
+                "cornersAgainstAVG_home": ["cornersAgainstAVG_home", "corners_against_avg_home", "corners_against_per_game_home"],
+                "cornersAgainstAVG_away": ["cornersAgainstAVG_away", "corners_against_avg_away", "corners_against_per_game_away"],
+                "over_9_5_corners_pct": ["over_9_5_corners_pct", "over_9_5_corners_percentage", "o95_corners_pct"],
+                
+                # Estatísticas de Chutes
+                "shotsAVG_overall": ["shotsAVG_overall", "shots_per_game", "shots_avg"],
+                "shotsAVG_home": ["shotsAVG_home", "shots_per_game_home", "shots_avg_home"],
+                "shotsAVG_away": ["shotsAVG_away", "shots_per_game_away", "shots_avg_away"],
+                "shotsOnTargetAVG_overall": ["shotsOnTargetAVG_overall", "shots_on_target_per_game", "sot_avg"],
+                "shotsOnTargetAVG_home": ["shotsOnTargetAVG_home", "shots_on_target_per_game_home", "sot_avg_home"],
+                "shotsOnTargetAVG_away": ["shotsOnTargetAVG_away", "shots_on_target_per_game_away", "sot_avg_away"],
+                
+                # Posse de Bola
+                "possession": ["possession", "possessionAVG_overall", "possession_avg"],
+                "possessionAVG_overall": ["possessionAVG_overall", "possession", "possession_avg"],
+                "home_possession": ["home_possession", "possessionAVG_home", "possession_home"],
+                "possessionAVG_home": ["possessionAVG_home", "home_possession", "possession_home"],
+                "away_possession": ["away_possession", "possessionAVG_away", "possession_away"],
+                "possessionAVG_away": ["possessionAVG_away", "away_possession", "possession_away"],
+            }
+            
+            # Extrai cada campo, buscando em múltiplos nomes possíveis
+            for target_field, source_fields in field_mapping.items():
+                for field in source_fields:
+                    if field in stats_data:
+                        value = stats_data[field]
+                        try:
+                            # Caso especial para campos de texto como form
+                            if target_field in ["form", "home_form", "away_form", "formRun_overall", "formRun_home", "formRun_away"]:
+                                if isinstance(value, str):
+                                    target_dict[target_field] = value
+                                break
+                            # Para valores numéricos
+                            elif value is not None and value != 'N/A':
+                                target_dict[target_field] = float(value)
+                                break
+                        except (ValueError, TypeError):
+                            # Ignorar conversão falha
+                            pass
+    
+    # Buscar em advanced_stats
+    if "advanced_stats" in api_data and team_type in api_data["advanced_stats"]:
+        adv_stats = api_data["advanced_stats"][team_type]
+        
+        # Mapeamento para stats avançadas
+        adv_mapping = {
+            "xg": ["xg", "xG", "expected_goals"],
+            "xga": ["xga", "xGA", "expected_goals_against"],
+            "ppda": ["ppda", "passes_per_defensive_action", "PPDA"],
+            "possession": ["possession", "possessionAVG", "possession_avg"]
+        }
+        
+        for target_field, source_fields in adv_mapping.items():
+            for field in source_fields:
+                if field in adv_stats and adv_stats[field] is not None:
+                    try:
+                        target_dict[target_field] = float(adv_stats[field])
+                        break
+                    except (ValueError, TypeError):
+                        pass
 def get_value(data_dict, possible_keys, default=0):
     """
     Helper function to get a value from a dictionary using multiple possible keys
@@ -1457,241 +1643,325 @@ def adapt_api_data_for_prompt(complete_analysis):
         return None
 def transform_api_data(api_data, home_team_name, away_team_name, selected_markets=None):
     """
-    Transformar dados da API no formato completo esperado pelo agente IA.
-    Implementação 100% completa com todos os campos especificados.
+    Transforma os dados da API no formato completo requerido pelo agente de IA,
+    garantindo que TODOS os campos listados no documento sejam incluídos.
     
     Args:
-        api_data (dict): Dados brutos da API
+        api_data (dict): Dados originais da API FootyStats
         home_team_name (str): Nome do time da casa
         away_team_name (str): Nome do time visitante
-        selected_markets (dict): Mercados selecionados
+        selected_markets (dict, optional): Dicionário de mercados selecionados
         
     Returns:
-        dict: Dados transformados no formato esperado
+        dict: Dados no formato completo requerido
     """
     import logging
     logger = logging.getLogger("valueHunter.prompt_adapter")
     
-    # Estrutura inicial
-    result = {
+    # Inicializa a estrutura de dados completa requerida
+    formatted_data = {
         "match_info": {
             "home_team": home_team_name,
             "away_team": away_team_name,
-            "league": api_data.get("league_name", ""),
-            "league_id": api_data.get("league_id", 0)
+            "league": "",
+            "league_id": None
         },
-        "home_team": {},
-        "away_team": {},
-        "h2h": {}
+        "home_team": {
+            # Estatísticas Gerais
+            "played": 0, 
+            "seasonMatchesPlayed_overall": 0,
+            "wins": 0, 
+            "seasonWinsNum_overall": 0,
+            "draws": 0, 
+            "seasonDrawsNum_overall": 0,
+            "losses": 0, 
+            "seasonLossesNum_overall": 0,
+            "win_pct": 0,
+            "draw_pct": 0,
+            "loss_pct": 0,
+            "form": "", 
+            "formRun_overall": "",
+            "seasonPPG_overall": 0,
+            "seasonRecentPPG": 0,
+            "leaguePosition_overall": 0,
+            
+            # Estatísticas em Casa
+            "home_played": 0, 
+            "seasonMatchesPlayed_home": 0,
+            "home_wins": 0, 
+            "seasonWinsNum_home": 0,
+            "home_draws": 0, 
+            "seasonDrawsNum_home": 0,
+            "home_losses": 0, 
+            "seasonLossesNum_home": 0,
+            "home_form": "", 
+            "formRun_home": "",
+            "seasonPPG_home": 0,
+            "leaguePosition_home": 0,
+            
+            # Estatísticas de Gols
+            "goals_scored": 0, 
+            "seasonScoredNum_overall": 0,
+            "goals_conceded": 0, 
+            "seasonConcededNum_overall": 0,
+            "home_goals_scored": 0, 
+            "seasonScoredNum_home": 0,
+            "home_goals_conceded": 0, 
+            "seasonConcededNum_home": 0,
+            "goals_per_game": 0,
+            "conceded_per_game": 0,
+            "seasonGoalsTotal_overall": 0,
+            "seasonGoalsTotal_home": 0,
+            "clean_sheets_pct": 0, 
+            "seasonCSPercentage_overall": 0,
+            "seasonCS_overall": 0,
+            "seasonCS_home": 0,
+            "btts_pct": 0, 
+            "seasonBTTSPercentage_overall": 0,
+            "over_2_5_pct": 0, 
+            "seasonOver25Percentage_overall": 0,
+            
+            # Expected Goals
+            "xg": 0, 
+            "xg_for_overall": 0,
+            "xga": 0, 
+            "xg_against_overall": 0,
+            "home_xg": 0, 
+            "xg_for_home": 0,
+            "home_xga": 0, 
+            "xg_against_home": 0,
+            "xg_for_avg_overall": 0,
+            "xg_for_avg_home": 0,
+            "xg_against_avg_overall": 0,
+            "xg_against_avg_home": 0,
+            
+            # Estatísticas de Cartões
+            "cards_per_game": 0, 
+            "cardsAVG_overall": 0,
+            "home_cards_per_game": 0, 
+            "cardsAVG_home": 0,
+            "cardsTotal_overall": 0,
+            "cardsTotal_home": 0,
+            "yellow_cards": 0,
+            "red_cards": 0,
+            "over_3_5_cards_pct": 0,
+            
+            # Estatísticas de Escanteios
+            "corners_per_game": 0, 
+            "cornersTotalAVG_overall": 0,
+            "home_corners_per_game": 0, 
+            "cornersTotalAVG_home": 0,
+            "corners_for": 0, 
+            "cornersTotal_overall": 0,
+            "corners_against": 0, 
+            "cornersAgainst_overall": 0,
+            "cornersAVG_overall": 0,
+            "cornersAVG_home": 0,
+            "cornersAgainstAVG_overall": 0,
+            "cornersAgainstAVG_home": 0,
+            "over_9_5_corners_pct": 0,
+            
+            # Estatísticas de Chutes
+            "shotsAVG_overall": 0,
+            "shotsAVG_home": 0,
+            "shotsOnTargetAVG_overall": 0,
+            "shotsOnTargetAVG_home": 0,
+            
+            # Posse de Bola
+            "possession": 0, 
+            "possessionAVG_overall": 0,
+            "home_possession": 0, 
+            "possessionAVG_home": 0
+        },
+        "away_team": {
+            # Estatísticas Gerais
+            "played": 0, 
+            "seasonMatchesPlayed_overall": 0,
+            "wins": 0, 
+            "seasonWinsNum_overall": 0,
+            "draws": 0, 
+            "seasonDrawsNum_overall": 0,
+            "losses": 0, 
+            "seasonLossesNum_overall": 0,
+            "win_pct": 0,
+            "draw_pct": 0,
+            "loss_pct": 0,
+            "form": "", 
+            "formRun_overall": "",
+            "seasonPPG_overall": 0,
+            "seasonRecentPPG": 0,
+            "leaguePosition_overall": 0,
+            
+            # Estatísticas Fora
+            "away_played": 0, 
+            "seasonMatchesPlayed_away": 0,
+            "away_wins": 0, 
+            "seasonWinsNum_away": 0,
+            "away_draws": 0, 
+            "seasonDrawsNum_away": 0,
+            "away_losses": 0, 
+            "seasonLossesNum_away": 0,
+            "away_form": "", 
+            "formRun_away": "",
+            "seasonPPG_away": 0,
+            "leaguePosition_away": 0,
+            
+            # Estatísticas de Gols
+            "goals_scored": 0, 
+            "seasonScoredNum_overall": 0,
+            "goals_conceded": 0, 
+            "seasonConcededNum_overall": 0,
+            "away_goals_scored": 0, 
+            "seasonScoredNum_away": 0,
+            "away_goals_conceded": 0, 
+            "seasonConcededNum_away": 0,
+            "goals_per_game": 0,
+            "conceded_per_game": 0,
+            "seasonGoalsTotal_overall": 0,
+            "seasonGoalsTotal_away": 0,
+            "clean_sheets_pct": 0, 
+            "seasonCSPercentage_overall": 0,
+            "seasonCS_overall": 0,
+            "seasonCS_away": 0,
+            "btts_pct": 0, 
+            "seasonBTTSPercentage_overall": 0,
+            "over_2_5_pct": 0, 
+            "seasonOver25Percentage_overall": 0,
+            
+            # Expected Goals
+            "xg": 0, 
+            "xg_for_overall": 0,
+            "xga": 0, 
+            "xg_against_overall": 0,
+            "away_xg": 0, 
+            "xg_for_away": 0,
+            "away_xga": 0, 
+            "xg_against_away": 0,
+            "xg_for_avg_overall": 0,
+            "xg_for_avg_away": 0,
+            "xg_against_avg_overall": 0,
+            "xg_against_avg_away": 0,
+            
+            # Estatísticas de Cartões
+            "cards_per_game": 0, 
+            "cardsAVG_overall": 0,
+            "away_cards_per_game": 0, 
+            "cardsAVG_away": 0,
+            "cardsTotal_overall": 0,
+            "cardsTotal_away": 0,
+            "yellow_cards": 0,
+            "red_cards": 0,
+            "over_3_5_cards_pct": 0,
+            
+            # Estatísticas de Escanteios
+            "corners_per_game": 0, 
+            "cornersTotalAVG_overall": 0,
+            "away_corners_per_game": 0, 
+            "cornersTotalAVG_away": 0,
+            "corners_for": 0, 
+            "cornersTotal_overall": 0,
+            "corners_against": 0, 
+            "cornersAgainst_overall": 0,
+            "cornersAVG_overall": 0,
+            "cornersAVG_away": 0,
+            "cornersAgainstAVG_overall": 0,
+            "cornersAgainstAVG_away": 0,
+            "over_9_5_corners_pct": 0,
+            
+            # Estatísticas de Chutes
+            "shotsAVG_overall": 0,
+            "shotsAVG_away": 0,
+            "shotsOnTargetAVG_overall": 0,
+            "shotsOnTargetAVG_away": 0,
+            
+            # Posse de Bola
+            "possession": 0, 
+            "possessionAVG_overall": 0,
+            "away_possession": 0, 
+            "possessionAVG_away": 0
+        },
+        "h2h": {
+            "total_matches": 0,
+            "home_wins": 0,
+            "away_wins": 0,
+            "draws": 0,
+            "avg_goals": 0,
+            "over_2_5_pct": 0,
+            "btts_pct": 0,
+            "avg_cards": 0,
+            "avg_corners": 0
+        }
     }
     
-    # Extrair estatísticas dos times
-    for team_type in ["home", "away"]:
-        team_result = result["home_team"] if team_type == "home" else result["away_team"]
-        
-        # 1. ESTATÍSTICAS GERAIS
-        if "team_stats" in api_data and team_type in api_data["team_stats"]:
-            team_stats = api_data["team_stats"][team_type]
-            
-            # Estatísticas básicas
-            team_result["played"] = team_stats.get("matches_played", 0)
-            team_result["wins"] = team_stats.get("wins", 0)
-            team_result["draws"] = team_stats.get("draws", 0)
-            team_result["losses"] = team_stats.get("losses", 0)
-            
-            # Calcular porcentagens
-            if team_result["played"] > 0:
-                team_result["win_pct"] = round((team_result["wins"] / team_result["played"]) * 100, 1)
-                team_result["draw_pct"] = round((team_result["draws"] / team_result["played"]) * 100, 1)
-                team_result["loss_pct"] = round((team_result["losses"] / team_result["played"]) * 100, 1)
-            else:
-                team_result["win_pct"] = 0
-                team_result["draw_pct"] = 0
-                team_result["loss_pct"] = 0
-        
-        # 2. INFORMAÇÕES ADICIONAIS DO TIME
-        if "team_info" in api_data and team_type in api_data["team_info"]:
-            team_info = api_data["team_info"][team_type]
-            
-            # Pontos por jogo
-            team_result["seasonPPG_overall"] = team_info.get("points_per_game", 0)
-            team_result["seasonRecentPPG"] = team_info.get("recent_points_per_game", team_info.get("points_per_game", 0))
-            
-            # Posição na tabela
-            team_result["leaguePosition_overall"] = team_info.get("league_position", 0)
-        
-        # 3. EXTRAIR FORMA (SEM FALLBACK)
-        # Buscar dados de forma geral
-        form = extract_form_string(api_data, team_type)
-        if form:
-            team_result["form"] = form
-        else:
-            logger.error(f"Não foi possível extrair forma para {team_type}")
-            team_result["form"] = "?????"
-        
-        # Forma específica para casa/fora
-        home_away_prefix = "home" if team_type == "home" else "away"
-        if f"{team_type}_form" in api_data and f"{home_away_prefix}" in api_data[f"{team_type}_form"]:
-            team_result[f"{home_away_prefix}_form"] = api_data[f"{team_type}_form"][f"{home_away_prefix}"]
-        else:
-            team_result[f"{home_away_prefix}_form"] = "?????"
-        
-        # 4. ESTATÍSTICAS EM CASA/FORA
-        if "team_stats" in api_data and team_type in api_data["team_stats"]:
-            team_stats = api_data["team_stats"][team_type]
-            
-            # Jogos, vitórias, empates, derrotas
-            team_result[f"{home_away_prefix}_played"] = team_stats.get(f"{home_away_prefix}_matches_played", 0)
-            team_result[f"{home_away_prefix}_wins"] = team_stats.get(f"{home_away_prefix}_wins", 0)
-            team_result[f"{home_away_prefix}_draws"] = team_stats.get(f"{home_away_prefix}_draws", 0)
-            team_result[f"{home_away_prefix}_losses"] = team_stats.get(f"{home_away_prefix}_losses", 0)
-        
-        if "team_info" in api_data and team_type in api_data["team_info"]:
-            team_info = api_data["team_info"][team_type]
-            
-            # Pontos por jogo e posição em casa/fora
-            team_result[f"seasonPPG_{home_away_prefix}"] = team_info.get(f"{home_away_prefix}_points_per_game", 0)
-            team_result[f"leaguePosition_{home_away_prefix}"] = team_info.get(f"{home_away_prefix}_league_position", 0)
-        
-        # 5. ESTATÍSTICAS DE GOLS
-        if "team_stats" in api_data and team_type in api_data["team_stats"]:
-            team_stats = api_data["team_stats"][team_type]
-            
-            # Gols marcados e sofridos (total)
-            team_result["goals_scored"] = team_stats.get("goals_scored", 0)
-            team_result["goals_conceded"] = team_stats.get("goals_conceded", 0)
-            
-            # Gols marcados e sofridos (casa/fora)
-            team_result[f"{home_away_prefix}_goals_scored"] = team_stats.get(f"{home_away_prefix}_goals_scored", 0)
-            team_result[f"{home_away_prefix}_goals_conceded"] = team_stats.get(f"{home_away_prefix}_goals_conceded", 0)
-            
-            # Médias por jogo
-            if team_result["played"] > 0:
-                team_result["goals_per_game"] = round(team_result["goals_scored"] / team_result["played"], 2)
-                team_result["conceded_per_game"] = round(team_result["goals_conceded"] / team_result["played"], 2)
-            else:
-                team_result["goals_per_game"] = 0
-                team_result["conceded_per_game"] = 0
-                
-            # Percentuais importantes
-            team_result["clean_sheets_pct"] = team_stats.get("clean_sheet_percentage", 0)
-            team_result["btts_pct"] = team_stats.get("btts_percentage", 0)
-            team_result["over_2_5_pct"] = team_stats.get("over_2_5_percentage", 0)
-        
-        if "team_info" in api_data and team_type in api_data["team_info"]:
-            team_info = api_data["team_info"][team_type]
-            
-            # Total de gols nos jogos
-            team_result["seasonGoalsTotal_overall"] = team_info.get("total_goals_in_matches", 0)
-            team_result[f"seasonGoalsTotal_{home_away_prefix}"] = team_info.get(f"{home_away_prefix}_total_goals", 0)
-            
-            # Clean sheets
-            team_result["seasonCS_overall"] = team_info.get("clean_sheets", 0)
-            team_result[f"seasonCS_{home_away_prefix}"] = team_info.get(f"{home_away_prefix}_clean_sheets", 0)
-        
-        # 6. EXPECTED GOALS (XG)
-        if "team_stats" in api_data and team_type in api_data["team_stats"]:
-            team_stats = api_data["team_stats"][team_type]
-            
-            # xG e xGA total
-            team_result["xg"] = team_stats.get("xg_for", 0)
-            team_result["xga"] = team_stats.get("xg_against", 0)
-            
-            # xG e xGA específico para casa/fora
-            team_result[f"{home_away_prefix}_xg"] = team_stats.get(f"{home_away_prefix}_xg_for", 0)
-            team_result[f"{home_away_prefix}_xga"] = team_stats.get(f"{home_away_prefix}_xg_against", 0)
-        
-        if "team_info" in api_data and team_type in api_data["team_info"]:
-            team_info = api_data["team_info"][team_type]
-            
-            # Médias de xG por jogo
-            team_result["xg_for_avg_overall"] = team_info.get("xg_for_avg", 0)
-            team_result["xg_against_avg_overall"] = team_info.get("xg_against_avg", 0)
-            team_result[f"xg_for_avg_{home_away_prefix}"] = team_info.get(f"{home_away_prefix}_xg_for_avg", 0)
-            team_result[f"xg_against_avg_{home_away_prefix}"] = team_info.get(f"{home_away_prefix}_xg_against_avg", 0)
-        
-        # 7. ESTATÍSTICAS DE CARTÕES
-        if "team_stats" in api_data and team_type in api_data["team_stats"]:
-            team_stats = api_data["team_stats"][team_type]
-            
-            # Cartões por jogo
-            team_result["cards_per_game"] = team_stats.get("cards_per_game", 0)
-            team_result[f"{home_away_prefix}_cards_per_game"] = team_stats.get(f"{home_away_prefix}_cards_per_game", 0)
-            
-            # Cartões amarelos e vermelhos
-            team_result["yellow_cards"] = team_stats.get("yellow_cards", 0)
-            team_result["red_cards"] = team_stats.get("red_cards", 0)
-            
-            # Total de cartões
-            team_result["cardsTotal_overall"] = team_stats.get("total_cards", 
-                                               team_result["yellow_cards"] + team_result["red_cards"])
-            team_result[f"cardsTotal_{home_away_prefix}"] = team_stats.get(f"{home_away_prefix}_total_cards", 0)
-            
-            # Porcentagem over 3.5 cartões
-            team_result["over_3_5_cards_pct"] = team_stats.get("over_3_5_cards_percentage", 0)
-        
-        # 8. ESTATÍSTICAS DE ESCANTEIOS
-        if "team_stats" in api_data and team_type in api_data["team_stats"]:
-            team_stats = api_data["team_stats"][team_type]
-            
-            # Escanteios por jogo
-            team_result["corners_per_game"] = team_stats.get("corners_per_game", 0)
-            team_result[f"{home_away_prefix}_corners_per_game"] = team_stats.get(f"{home_away_prefix}_corners_per_game", 0)
-            
-            # Escanteios a favor e contra
-            team_result["corners_for"] = team_stats.get("corners_for", 0)
-            team_result["corners_against"] = team_stats.get("corners_against", 0)
-            
-            # Médias de escanteios a favor
-            team_result["cornersAVG_overall"] = team_stats.get("corners_for_avg", 0)
-            team_result[f"cornersAVG_{home_away_prefix}"] = team_stats.get(f"{home_away_prefix}_corners_for_avg", 0)
-            
-            # Médias de escanteios contra
-            team_result["cornersAgainstAVG_overall"] = team_stats.get("corners_against_avg", 0)
-            team_result[f"cornersAgainstAVG_{home_away_prefix}"] = team_stats.get(f"{home_away_prefix}_corners_against_avg", 0)
-            
-            # Porcentagem over 9.5 escanteios
-            team_result["over_9_5_corners_pct"] = team_stats.get("over_9_5_corners_percentage", 0)
-        
-        # 9. ESTATÍSTICAS DE CHUTES
-        if "team_stats" in api_data and team_type in api_data["team_stats"]:
-            team_stats = api_data["team_stats"][team_type]
-            
-            # Chutes por jogo
-            team_result["shotsAVG_overall"] = team_stats.get("shots_per_game", 0)
-            team_result[f"shotsAVG_{home_away_prefix}"] = team_stats.get(f"{home_away_prefix}_shots_per_game", 0)
-            
-            # Chutes no alvo por jogo
-            team_result["shotsOnTargetAVG_overall"] = team_stats.get("shots_on_target_per_game", 0)
-            team_result[f"shotsOnTargetAVG_{home_away_prefix}"] = team_stats.get(f"{home_away_prefix}_shots_on_target_per_game", 0)
-        
-        # 10. ESTATÍSTICAS DE POSSE DE BOLA
-        if "team_stats" in api_data and team_type in api_data["team_stats"]:
-            team_stats = api_data["team_stats"][team_type]
-            
-            # Posse de bola
-            team_result["possession"] = team_stats.get("possession", 0)
-            team_result[f"{home_away_prefix}_possession"] = team_stats.get(f"{home_away_prefix}_possession", 0)
+    # Se não houver dados da API, retorna a estrutura padrão
+    if not api_data or not isinstance(api_data, dict):
+        logger.warning("Dados da API inválidos ou vazios, retornando estrutura padrão")
+        return formatted_data
     
-    # 11. DADOS DE H2H (CONFRONTO DIRETO)
-    if "h2h_stats" in api_data:
-        h2h_stats = api_data["h2h_stats"]
+    try:
+        # Preenche informações da liga
+        if "basic_stats" in api_data and "league_id" in api_data["basic_stats"]:
+            formatted_data["match_info"]["league_id"] = api_data["basic_stats"]["league_id"]
+            
+        if "basic_stats" in api_data and "league_name" in api_data["basic_stats"]:
+            formatted_data["match_info"]["league"] = api_data["basic_stats"]["league_name"]
+        elif "league" in api_data and "name" in api_data["league"]:
+            formatted_data["match_info"]["league"] = api_data["league"]["name"]
         
-        result["h2h"]["total_matches"] = h2h_stats.get("total_matches", 0)
-        result["h2h"]["home_wins"] = h2h_stats.get("home_wins", 0)
-        result["h2h"]["away_wins"] = h2h_stats.get("away_wins", 0)
-        result["h2h"]["draws"] = h2h_stats.get("draws", 0)
-        result["h2h"]["avg_goals"] = h2h_stats.get("avg_goals", 0)
-        result["h2h"]["over_2_5_pct"] = h2h_stats.get("over_2_5_percentage", 0)
-        result["h2h"]["btts_pct"] = h2h_stats.get("btts_percentage", 0)
-        result["h2h"]["avg_cards"] = h2h_stats.get("avg_cards", 0)
-        result["h2h"]["avg_corners"] = h2h_stats.get("avg_corners", 0)
-    
-    # Log para confirmar campos extraídos
-    logger.info(f"Transformação de dados concluída: {len(result['home_team'])} campos para time da casa, " +
-                f"{len(result['away_team'])} campos para time visitante, {len(result['h2h'])} campos para H2H")
-    
-    return result
+        # Extrai estatísticas do time da casa e visitante
+        extract_team_data(api_data, formatted_data, "home")
+        extract_team_data(api_data, formatted_data, "away")
+        
+        # Extrai dados de confronto direto (H2H)
+        extract_h2h_data(api_data, formatted_data)
+        
+        # Extrai dados de forma (form)
+        if "team_form" in api_data:
+            if "home" in api_data["team_form"] and isinstance(api_data["team_form"]["home"], list):
+                form_string = ""
+                for match in api_data["team_form"]["home"][:5]:
+                    if isinstance(match, dict) and "result" in match:
+                        form_string += match["result"]
+                    else:
+                        form_string += "?"
+                if form_string:
+                    formatted_data["home_team"]["form"] = form_string.ljust(5, '?')[:5]
+                    formatted_data["home_team"]["formRun_overall"] = form_string.ljust(5, '?')[:5]
+            
+            if "away" in api_data["team_form"] and isinstance(api_data["team_form"]["away"], list):
+                form_string = ""
+                for match in api_data["team_form"]["away"][:5]:
+                    if isinstance(match, dict) and "result" in match:
+                        form_string += match["result"]
+                    else:
+                        form_string += "?"
+                if form_string:
+                    formatted_data["away_team"]["form"] = form_string.ljust(5, '?')[:5]
+                    formatted_data["away_team"]["formRun_overall"] = form_string.ljust(5, '?')[:5]
+        
+        # Tentar extrair dados adicionais de qualquer lugar da estrutura
+        extract_from_anywhere(api_data, formatted_data, home_team_name, away_team_name)
+        
+        # Calcular estatísticas derivadas
+        calculate_derived_stats(formatted_data["home_team"])
+        calculate_derived_stats(formatted_data["away_team"])
+        
+        # Garantir que temos estatísticas completas
+        ensure_complete_stats(formatted_data, home_team_name, away_team_name)
+        
+        # Realizar validação final dos dados
+        validated_data = validate_stats_for_agent(formatted_data)
+        
+        # Log de sucesso
+        logger.info(f"Dados formatados com sucesso para {home_team_name} vs {away_team_name}")
+        return validated_data
+        
+    except Exception as e:
+        logger.error(f"Erro ao formatar dados: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        # Retorna a estrutura padrão em caso de erro
+        return formatted_data
 def extract_traditional_stats(api_data, result):
     """Extrai estatísticas usando a estrutura tradicional da API"""
     # Importação necessária
@@ -1897,67 +2167,51 @@ def extract_advanced_stats(advanced_data, target_dict):
                     except (ValueError, TypeError):
                         pass
 
-def extract_h2h_data(h2h_data, target_dict):
-    """Extrai dados de confronto direto (H2H)"""
-    if not h2h_data or not isinstance(h2h_data, dict):
+def extract_h2h_data(api_data, formatted_data):
+    """
+    Extrai dados completos de H2H (confronto direto)
+    
+    Args:
+        api_data (dict): Dados originais da API
+        formatted_data (dict): Estrutura de dados alvo
+    """
+    # Buscar dados H2H em diferentes locais possíveis
+    h2h_data = None
+    
+    if "head_to_head" in api_data:
+        h2h_data = api_data["head_to_head"]
+    elif "match_details" in api_data and api_data["match_details"] and "h2h" in api_data["match_details"]:
+        h2h_data = api_data["match_details"]["h2h"]
+    elif "h2h" in api_data:
+        h2h_data = api_data["h2h"]
+    
+    if not h2h_data:
         return
     
     # Mapeamento de campos H2H
     h2h_mapping = {
-        "total_matches": ["total_matches", "totalMatches", "matches", "total"],
+        "total_matches": ["total_matches", "totalMatches", "matches", "matches_total"],
         "home_wins": ["home_wins", "team_a_wins", "home_team_wins"],
         "away_wins": ["away_wins", "team_b_wins", "away_team_wins"],
-        "draws": ["draws", "draw", "equal"],
-        "over_2_5_pct": ["over_2_5_percentage", "over25Percentage", "over_2_5_pct"],
-        "btts_pct": ["btts_percentage", "bttsPercentage", "btts_pct"],
-        "avg_cards": ["avg_cards", "average_cards", "cards_avg"],
-        "avg_corners": ["avg_corners", "average_corners", "corners_avg"],
-        "avg_goals": ["avg_goals", "average_goals", "goals_avg"]
+        "draws": ["draws", "equal", "draw"],
+        "avg_goals": ["avg_goals", "average_goals", "goals_avg"],
+        "over_2_5_pct": ["over_2_5_percentage", "over_2_5_pct", "over25_percentage"],
+        "btts_pct": ["btts_percentage", "btts_pct", "both_teams_scored_percentage"],
+        "avg_cards": ["average_cards", "avg_cards", "cards_avg"],
+        "avg_corners": ["average_corners", "avg_corners", "corners_avg"]
     }
     
-    # Extrair campos diretamente
+    # Extrair cada campo
     for target_field, source_fields in h2h_mapping.items():
         for field in source_fields:
             if field in h2h_data:
                 value = h2h_data[field]
-                try:
-                    if value is not None and value != 'N/A':
-                        target_dict[target_field] = float(value)
+                if value is not None and value != 'N/A':
+                    try:
+                        formatted_data["h2h"][target_field] = float(value)
                         break
-                except (ValueError, TypeError):
-                    pass
-    
-    # Verificar estruturas aninhadas
-    if "previous_matches_results" in h2h_data and isinstance(h2h_data["previous_matches_results"], dict):
-        results = h2h_data["previous_matches_results"]
-        
-        for field, map_to in [
-            ("totalMatches", "total_matches"),
-            ("team_a_wins", "home_wins"),
-            ("team_b_wins", "away_wins"),
-            ("draw", "draws")
-        ]:
-            if field in results and (map_to not in target_dict or target_dict[map_to] == 0):
-                try:
-                    target_dict[map_to] = float(results[field])
-                except (ValueError, TypeError):
-                    pass
-    
-    # Verificar em betting_stats
-    if "betting_stats" in h2h_data and isinstance(h2h_data["betting_stats"], dict):
-        betting = h2h_data["betting_stats"]
-        
-        for field, map_to in [
-            ("over25Percentage", "over_2_5_pct"),
-            ("bttsPercentage", "btts_pct"),
-            ("avg_goals", "avg_goals")
-        ]:
-            if field in betting and (map_to not in target_dict or target_dict[map_to] == 0):
-                try:
-                    target_dict[map_to] = float(betting[field])
-                except (ValueError, TypeError):
-                    pass
-
+                    except (ValueError, TypeError):
+                        pass
 def extract_form_data(form_data, target_dict, field_name="form"):
     """Extrai dados de forma recente"""
     if not form_data or not isinstance(form_data, list):
@@ -2174,40 +2428,66 @@ def extract_h2h_from_anywhere(api_data, result):
     logger.info(f"Extraídos {h2h_fields} campos de H2H após busca completa")
 
 def calculate_derived_stats(team_dict):
-    """Calcula estatísticas derivadas quando possível"""
-    # Verificar jogos disputados
+    """
+    Calcula estatísticas derivadas quando possível
+    
+    Args:
+        team_dict (dict): Dicionário de estatísticas do time
+    """
+    # Jogos disputados
     played = team_dict.get("played", 0)
     if played > 0:
-        # Calcular win/draw/loss percentages
-        if "wins" in team_dict:
+        # Win/Draw/Loss percentagens
+        if "wins" in team_dict and "win_pct" not in team_dict:
             team_dict["win_pct"] = round((team_dict["wins"] / played) * 100, 1)
-        if "draws" in team_dict:
+        if "draws" in team_dict and "draw_pct" not in team_dict:
             team_dict["draw_pct"] = round((team_dict["draws"] / played) * 100, 1)
-        if "losses" in team_dict:
+        if "losses" in team_dict and "loss_pct" not in team_dict:
             team_dict["loss_pct"] = round((team_dict["losses"] / played) * 100, 1)
         
-        # Calcular médias por jogo
-        if "goals_scored" in team_dict:
+        # Médias por jogo
+        if "goals_scored" in team_dict and "goals_per_game" not in team_dict:
             team_dict["goals_per_game"] = round(team_dict["goals_scored"] / played, 2)
-        if "goals_conceded" in team_dict:
+        if "goals_conceded" in team_dict and "conceded_per_game" not in team_dict:
             team_dict["conceded_per_game"] = round(team_dict["goals_conceded"] / played, 2)
     
     # Cartões
     yellow = team_dict.get("yellow_cards", 0)
     red = team_dict.get("red_cards", 0)
-    if yellow > 0 or red > 0:
-        team_dict["cards_total"] = yellow + red
-        if played > 0:
-            team_dict["cards_per_game"] = round((yellow + red) / played, 2)
+    if "cardsTotal_overall" not in team_dict and (yellow > 0 or red > 0):
+        team_dict["cardsTotal_overall"] = yellow + red
+        if played > 0 and "cardsAVG_overall" not in team_dict:
+            team_dict["cardsAVG_overall"] = round((yellow + red) / played, 2)
+            team_dict["cards_per_game"] = team_dict["cardsAVG_overall"]
     
     # Escanteios
     corners_for = team_dict.get("corners_for", 0)
     corners_against = team_dict.get("corners_against", 0)
-    if corners_for > 0 or corners_against > 0:
-        team_dict["corners_total"] = corners_for + corners_against
-        if played > 0:
-            team_dict["corners_per_game"] = round((corners_for + corners_against) / played, 2)
-
+    if "cornersTotal_overall" not in team_dict and (corners_for > 0 or corners_against > 0):
+        team_dict["cornersTotal_overall"] = corners_for + corners_against
+        if played > 0 and "cornersTotalAVG_overall" not in team_dict:
+            team_dict["cornersTotalAVG_overall"] = round((corners_for + corners_against) / played, 2)
+            team_dict["corners_per_game"] = team_dict["cornersTotalAVG_overall"]
+    
+    # Garantir consistência entre campos duplicados
+    # Campos de time
+    for orig, dupe in [
+        ("played", "seasonMatchesPlayed_overall"),
+        ("wins", "seasonWinsNum_overall"),
+        ("draws", "seasonDrawsNum_overall"),
+        ("losses", "seasonLossesNum_overall"),
+        ("goals_scored", "seasonScoredNum_overall"),
+        ("goals_conceded", "seasonConcededNum_overall"),
+        ("xg", "xg_for_overall"),
+        ("xga", "xg_against_overall"),
+        ("possession", "possessionAVG_overall"),
+        ("cards_per_game", "cardsAVG_overall"),
+        ("corners_per_game", "cornersTotalAVG_overall")
+    ]:
+        if orig in team_dict and team_dict[orig] > 0 and (dupe not in team_dict or team_dict[dupe] == 0):
+            team_dict[dupe] = team_dict[orig]
+        elif dupe in team_dict and team_dict[dupe] > 0 and (orig not in team_dict or team_dict[orig] == 0):
+            team_dict[orig] = team_dict[dupe]
 def ensure_complete_stats(result, home_team_name, away_team_name):
     """Garante que temos um conjunto mínimo de estatísticas para análise"""
     import random  # Adicionar importação para randomização
