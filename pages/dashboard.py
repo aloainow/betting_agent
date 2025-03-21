@@ -1171,7 +1171,21 @@ def show_main_dashboard():
                             # Mostrar estrutura de dados otimizada para verificação
                             with st.expander("Estrutura de dados otimizada", expanded=False):
                                 st.json(optimized_data)
+
+                        # Após transformar os dados e antes de preparar o prompt
+                        h2h_fields = sum(1 for k, v in optimized_data["h2h"].items() if v > 0)
+                        if h2h_fields == 0:
+                            st.warning("⚠️ ATENÇÃO: Dados H2H não encontrados. Utilizando estimativas.")
+                            # Forçar geração de dados H2H caso estejam faltando
+                            from utils.prompt_adapter import extract_complete_h2h_data
+                            extract_complete_h2h_data(stats_data, optimized_data, home_team, away_team)
+                        else:
+                            st.success(f"✅ Dados H2H extraídos: {h2h_fields} campos")
                         
+                        # Modo de depuração - mostrar dados de H2H específicos
+                        if st.session_state.debug_mode:
+                            with st.expander("Dados de Confronto Direto (H2H)", expanded=True):
+                                st.json(optimized_data["h2h"])
                         # Etapa 3: Formatar prompt usando os dados otimizados
                         status.info("Preparando análise...")
                         prompt = format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_data, selected_markets)
