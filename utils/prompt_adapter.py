@@ -2375,11 +2375,11 @@ def transform_api_data(api_data, home_team_name, away_team_name, selected_market
         logger.info("Tentando extrair dados usando funções padrão...")
         extract_team_data(api_data, formatted_data, "home")
         extract_team_data(api_data, formatted_data, "away")
-        extract_h2h_data(api_data, formatted_data)
+         extract_complete_h2h_data(api_data, formatted_data)
         
         # MÉTODO 2: Busca profunda e completa nos dados
         logger.info("Realizando busca profunda para extração completa...")
-        deep_extraction = extract_deep_team_data(api_data, home_team_name, away_team_name)
+        deep_extraction = extract_complete_h2h_data(api_data, formatted_data, home_team_name, away_team_name)
         
         # Verificar resultados da extração profunda
         home_found_count = count_non_zero_fields(deep_extraction["home_team"])
