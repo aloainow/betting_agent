@@ -874,172 +874,67 @@ def extract_expanded_h2h(api_data):
 
 def extract_form_string(api_data, team_type):
     """
-    Extract recent form as a simple string like "WWDLD" instead of an array.
-    Enhanced with better error handling and debug logging.
+    Extrai forma de um time de várias fontes possíveis nos dados da API.
+    Versão otimizada que prioriza team_last_matches.
     
     Args:
-        api_data (dict): Original API data
-        team_type (str): "home" or "away"
+        api_data (dict): Dados brutos da API
+        team_type (str): "home" ou "away"
         
     Returns:
-        str: Form string like "WWDLD"
+        str: String de forma como "WDLWD" ou None se não encontrada
     """
     import logging
     logger = logging.getLogger("valueHunter.prompt_adapter")
     
-    form = ""
+    # Fonte 1: team_last_matches (melhor fonte)
+    if "team_last_matches" in api_data and team_type in api_data["team_last_matches"]:
+        matches = api_data["team_last_matches"][team_type]
+        if isinstance(matches, list) and len(matches) > 0:
+            form = ""
+            # Apenas os 5 jogos mais recentes (os primeiros na lista)
+            for match in matches[:5]:
+                if isinstance(match, dict) and "result" in match:
+                    form += match["result"]
+            
+            if form and len(form) > 0:
+                logger.info(f"Forma extraída de team_last_matches.{team_type}: {form}")
+                return form[:5]  # Garantir que só temos 5 caracteres
     
-    if "team_form" not in api_data:
-        logger.warning(f"team_form não encontrado nos dados da API para {team_type}")
-        return "?????"
-        
-    if team_type not in api_data["team_form"]:
-        logger.warning(f"{team_type} não encontrado em team_form para {team_type}")
-        return "?????"
-        
-    team_form = api_data["team_form"][team_type]
+    # Fonte 2: team_form (outra fonte comum)
+    if "team_form" in api_data and team_type in api_data["team_form"]:
+        form_data = api_data["team_form"][team_type]
+        if isinstance(form_data, list) and len(form_data) > 0:
+            form = ""
+            for match in form_data[:5]:
+                if isinstance(match, dict) and "result" in match:
+                    form += match["result"]
+            
+            if form and len(form) > 0:
+                logger.info(f"Forma extraída de team_form.{team_type}: {form}")
+                return form[:5]
     
-    # Log para depuração
-    logger.info(f"Tipo de dados para team_form[{team_type}]: {type(team_form)}")
+    # Fonte 3: recent_form nos dados do time
+    if "team_stats" in api_data and team_type in api_data["team_stats"]:
+        team_stats = api_data["team_stats"][team_type]
+        if "recent_form" in team_stats and isinstance(team_stats["recent_form"], str):
+            form = team_stats["recent_form"]
+            if len(form) > 0:
+                logger.info(f"Forma extraída de team_stats.{team_type}.recent_form: {form}")
+                return form[:5]
     
-    if isinstance(team_form, list) and len(team_form) > 0:
-        # Extract up to 5 recent results
-        for i in range(min(5, len(team_form))):
-            if isinstance(team_form[i], dict):
-                if "result" in team_form[i]:
-                    form += team_form[i]["result"]
-                    logger.info(f"Resultado {i+1} para {team_type}: {team_form[i]['result']}")
-                else:
-                    # Tentar extrair resultado de outras maneiras
-                    if "score" in team_form[i] and isinstance(team_form[i]["score"], str):
-                        score_parts = team_form[i]["score"].split("-")
-                        if len(score_parts) == 2:
-                            try:
-                                home_score = int(score_parts[0].strip())
-                                away_score = int(score_parts[1].strip())
-                                
-                                if team_type == "home":
-                                    if home_score > away_score:
-                                        form += "W"
-                                    elif home_score < away_score:
-                                        form += "L"
-                                    else:
-                                        form += "D"
-                                else:  # away
-                                    if away_score > home_score:
-                                        form += "W"
-                                    elif away_score < home_score:
-                                        form += "L"
-                                    else:
-                                        form += "D"
-                                        
-                                logger.info(f"Resultado {i+1} para {team_type} extraído do score: {form[-1]}")
-                            except ValueError:
-                                logger.warning(f"Não foi possível converter score: {team_form[i]['score']}")
-                                form += "?"
-                        else:
-                            form += "?"
-                    else:
-                        form += "?"
-                        logger.warning(f"Resultado não encontrado para jogo {i+1} do {team_type}")
-            else:
-                form += "?"
-                logger.warning(f"Formato inválido para jogo {i+1} do {team_type}: {type(team_form[i])}")
-    elif isinstance(team_form, dict) and "data" in team_form and isinstance(team_form["data"], list):
-        # Handle API lastx format with improved extraction
-        data = team_form["data"]
-        logger.info(f"Usando formato 'lastx' para {team_type} com {len(data)} jogos")
-        
-        for i in range(min(5, len(data))):
-            match = data[i]
-            result = "?"
-            
-            # Tentar diversos formatos possíveis
-            if "result" in match:
-                result = match["result"]
-                logger.info(f"Resultado {i+1} para {team_type} via campo 'result': {result}")
-            # Try to determine result based on goals
-            elif "homeGoals" in match and "awayGoals" in match and "teamID" in match:
-                if ("homeID" in match and match["homeID"] == match["teamID"]):
-                    # Home team
-                    if match["homeGoals"] > match["awayGoals"]:
-                        result = "W"
-                    elif match["homeGoals"] < match["awayGoals"]:
-                        result = "L"
-                    else:
-                        result = "D"
-                elif ("awayID" in match and match["awayID"] == match["teamID"]):
-                    # Away team
-                    if match["homeGoals"] < match["awayGoals"]:
-                        result = "W"
-                    elif match["homeGoals"] > match["awayGoals"]:
-                        result = "L"
-                    else:
-                        result = "D"
-                logger.info(f"Resultado {i+1} para {team_type} calculado dos gols: {result}")
-            elif "outcome" in match:
-                # Outro formato possível
-                outcome = match["outcome"].lower()
-                if "win" in outcome:
-                    result = "W"
-                elif "draw" in outcome or "tie" in outcome:
-                    result = "D"
-                elif "loss" in outcome or "defeat" in outcome:
-                    result = "L"
-                logger.info(f"Resultado {i+1} para {team_type} via campo 'outcome': {result}")
-            
-            form += result
-    else:
-        logger.warning(f"Formato inesperado para team_form[{team_type}]: {type(team_form)}")
-        
-    # Verificar se há algum resultado
-    if not form:
-        logger.warning(f"Nenhum resultado extraído para {team_type}, usando '?????'")
-        form = "?????"
+    # Fonte 4: formRun_overall nos dados do time
+    if "team_info" in api_data and team_type in api_data["team_info"]:
+        team_info = api_data["team_info"][team_type]
+        if "formRun_overall" in team_info and isinstance(team_info["formRun_overall"], str):
+            form = team_info["formRun_overall"]
+            if len(form) > 0:
+                logger.info(f"Forma extraída de team_info.{team_type}.formRun_overall: {form}")
+                return form[:5]
     
-    # Ensure we return exactly 5 characters
-    if len(form) < 5:
-        logger.info(f"Preenchendo forma com '?' para {team_type}: {form} -> {form.ljust(5, '?')}")
-        form = form.ljust(5, "?")
-    elif len(form) > 5:
-        logger.info(f"Truncando forma para {team_type}: {form} -> {form[:5]}")
-        form = form[:5]
-        
-    # Validação final - não permitir formas idênticas improváveis
-    if form in ["WWWWW", "DDDDD", "LLLLL"]:
-        logger.warning(f"Forma suspeita detectada para {team_type}: {form}. Randomizando...")
-        import random
-        
-        if form == "WWWWW":
-            # Time muito bom, mas provavelmente não perfeito
-            new_form = list(form)
-            # Mudar aleatoriamente 0-2 resultados
-            for _ in range(random.randint(0, 2)):
-                pos = random.randint(0, 4)
-                new_form[pos] = random.choice(["W", "D"])
-            form = "".join(new_form)
-            
-        elif form == "DDDDD":
-            # Time médio, randomizar com alguns W e L
-            new_form = list(form)
-            # Mudar aleatoriamente 1-3 resultados
-            for _ in range(random.randint(1, 3)):
-                pos = random.randint(0, 4)
-                new_form[pos] = random.choice(["W", "L"])
-            form = "".join(new_form)
-            
-        elif form == "LLLLL":
-            # Time fraco, mas provavelmente não completamente ruim
-            new_form = list(form)
-            # Mudar aleatoriamente 0-2 resultados
-            for _ in range(random.randint(0, 2)):
-                pos = random.randint(0, 4)
-                new_form[pos] = random.choice(["L", "D"])
-            form = "".join(new_form)
-            
-        logger.info(f"Forma randomizada para {team_type}: {form}")
-        
-    return form
+    # Não foi possível encontrar dados de forma
+    logger.warning(f"Não foi possível extrair forma para {team_type}")
+    return None
 def ensure_critical_fields(optimized_data, home_team_name, away_team_name):
     """
     Garante que campos críticos existam na estrutura de dados, sem adicionar valores fictícios.
@@ -1562,127 +1457,241 @@ def adapt_api_data_for_prompt(complete_analysis):
         return None
 def transform_api_data(api_data, home_team_name, away_team_name, selected_markets=None):
     """
-    Função unificada para transformar dados da API FootyStats com melhor tratamento de
-    dados incompletos e garantia de extração de estatísticas essenciais.
+    Transformar dados da API no formato completo esperado pelo agente IA.
+    Implementação 100% completa com todos os campos especificados.
     
     Args:
-        api_data (dict): Dados da API (qualquer endpoint)
+        api_data (dict): Dados brutos da API
         home_team_name (str): Nome do time da casa
         away_team_name (str): Nome do time visitante
-        selected_markets (dict, optional): Mercados selecionados
+        selected_markets (dict): Mercados selecionados
         
     Returns:
-        dict: Estrutura de dados unificada com estatísticas extraídas
+        dict: Dados transformados no formato esperado
     """
-    # Importações necessárias no início da função
     import logging
-    import traceback
+    logger = logging.getLogger("valueHunter.prompt_adapter")
     
-    logger = logging.getLogger("valueHunter.api_adapter")
-    
-    # Inicializar a estrutura padrão com dados mínimos para não quebrar a análise
+    # Estrutura inicial
     result = {
         "match_info": {
             "home_team": home_team_name,
             "away_team": away_team_name,
-            "league": "",
-            "league_id": None
+            "league": api_data.get("league_name", ""),
+            "league_id": api_data.get("league_id", 0)
         },
-        "home_team": {
-            # Estatísticas mínimas com valores padrão
-            "played": 0, "wins": 0, "draws": 0, "losses": 0,
-            "goals_scored": 0, "goals_conceded": 0, 
-            "form": "?????",
-            "clean_sheets_pct": 0, "btts_pct": 0, "over_2_5_pct": 0,
-            "xg": 0, "xga": 0, "possession": 50
-        },
-        "away_team": {
-            # Mesmos valores padrão para o visitante
-            "played": 0, "wins": 0, "draws": 0, "losses": 0,
-            "goals_scored": 0, "goals_conceded": 0,
-            "form": "?????",
-            "clean_sheets_pct": 0, "btts_pct": 0, "over_2_5_pct": 0,
-            "xg": 0, "xga": 0, "possession": 50
-        },
-        "h2h": {
-            "total_matches": 0, "home_wins": 0, "away_wins": 0, "draws": 0,
-            "over_2_5_pct": 0, "btts_pct": 0, "avg_cards": 0, "avg_corners": 0
-        }
+        "home_team": {},
+        "away_team": {},
+        "h2h": {}
     }
     
-    if not api_data or not isinstance(api_data, dict):
-        logger.error("Dados da API inválidos ou vazios")
-        return result
-    
-    try:
-        # Log para depuração
-        logger.info(f"Iniciando transformação de dados para {home_team_name} vs {away_team_name}")
-        logger.info(f"Estrutura de dados recebida: {list(api_data.keys())}")
+    # Extrair estatísticas dos times
+    for team_type in ["home", "away"]:
+        team_result = result["home_team"] if team_type == "home" else result["away_team"]
         
-        # Verificar se temos dados consistentes
-        has_basic_stats = "basic_stats" in api_data and isinstance(api_data["basic_stats"], dict)
-        has_advanced_stats = "advanced_stats" in api_data and isinstance(api_data["advanced_stats"], dict)
-        has_home_team = has_basic_stats and "home_team" in api_data["basic_stats"]
-        has_away_team = has_basic_stats and "away_team" in api_data["basic_stats"]
-        
-        logger.info(f"Validação: basic_stats={has_basic_stats}, advanced_stats={has_advanced_stats}, " +
-                   f"home_team={has_home_team}, away_team={has_away_team}")
-        
-        # ABORDAGEM 1: Tentar seguir a estrutura esperada primeiro
-        if has_home_team and has_away_team:
-            # Extrair informações básicas
-            extract_traditional_stats(api_data, result)
-            logger.info("Extração de dados usando estrutura tradicional concluída")
-        
-        # ABORDAGEM 2: Se houver poucos dados, tentar uma abordagem mais agressiva
-        home_fields = count_non_zero_fields(result["home_team"])
-        away_fields = count_non_zero_fields(result["away_team"])
-        logger.info(f"Campos preenchidos: home={home_fields}, away={away_fields}")
-        
-        if home_fields < 5 or away_fields < 5:
-            logger.warning("Poucos dados extraídos do formato tradicional. Tentando extract_deep_team_data.")
-            # Importar e usar extract_deep_team_data para busca mais agressiva
-            from utils.prompt_adapter import extract_deep_team_data
-            enhanced_data = extract_deep_team_data(api_data, home_team_name, away_team_name, log_details=True)
+        # 1. ESTATÍSTICAS GERAIS
+        if "team_stats" in api_data and team_type in api_data["team_stats"]:
+            team_stats = api_data["team_stats"][team_type]
             
-            # Se retornou dados melhores, usar eles
-            if enhanced_data and count_non_zero_fields(enhanced_data["home_team"]) > home_fields:
-                logger.info(f"extract_deep_team_data encontrou {count_non_zero_fields(enhanced_data['home_team'])} campos para o time da casa")
-                result = enhanced_data
+            # Estatísticas básicas
+            team_result["played"] = team_stats.get("matches_played", 0)
+            team_result["wins"] = team_stats.get("wins", 0)
+            team_result["draws"] = team_stats.get("draws", 0)
+            team_result["losses"] = team_stats.get("losses", 0)
+            
+            # Calcular porcentagens
+            if team_result["played"] > 0:
+                team_result["win_pct"] = round((team_result["wins"] / team_result["played"]) * 100, 1)
+                team_result["draw_pct"] = round((team_result["draws"] / team_result["played"]) * 100, 1)
+                team_result["loss_pct"] = round((team_result["losses"] / team_result["played"]) * 100, 1)
+            else:
+                team_result["win_pct"] = 0
+                team_result["draw_pct"] = 0
+                team_result["loss_pct"] = 0
         
-        # ABORDAGEM 3: Se ainda temos poucos dados, buscar em qualquer lugar da estrutura
-        home_fields = count_non_zero_fields(result["home_team"])
-        away_fields = count_non_zero_fields(result["away_team"])
+        # 2. INFORMAÇÕES ADICIONAIS DO TIME
+        if "team_info" in api_data and team_type in api_data["team_info"]:
+            team_info = api_data["team_info"][team_type]
+            
+            # Pontos por jogo
+            team_result["seasonPPG_overall"] = team_info.get("points_per_game", 0)
+            team_result["seasonRecentPPG"] = team_info.get("recent_points_per_game", team_info.get("points_per_game", 0))
+            
+            # Posição na tabela
+            team_result["leaguePosition_overall"] = team_info.get("league_position", 0)
         
-        if home_fields < 5 or away_fields < 5:
-            logger.warning("Ainda poucos dados. Buscando em qualquer lugar da estrutura.")
-            extract_from_anywhere(api_data, result, home_team_name, away_team_name)
+        # 3. EXTRAIR FORMA (SEM FALLBACK)
+        # Buscar dados de forma geral
+        form = extract_form_string(api_data, team_type)
+        if form:
+            team_result["form"] = form
+        else:
+            logger.error(f"Não foi possível extrair forma para {team_type}")
+            team_result["form"] = "?????"
         
-        # Verificar os dados de H2H - se não estão presentes, tentar encontrar de qualquer maneira
-        if count_non_zero_fields(result["h2h"]) < 3:
-            logger.warning("Poucos dados H2H. Buscando em qualquer lugar da estrutura.")
-            extract_h2h_from_anywhere(api_data, result)
+        # Forma específica para casa/fora
+        home_away_prefix = "home" if team_type == "home" else "away"
+        if f"{team_type}_form" in api_data and f"{home_away_prefix}" in api_data[f"{team_type}_form"]:
+            team_result[f"{home_away_prefix}_form"] = api_data[f"{team_type}_form"][f"{home_away_prefix}"]
+        else:
+            team_result[f"{home_away_prefix}_form"] = "?????"
         
-        # Calcular quaisquer estatísticas derivadas para completar o conjunto de dados
-        calculate_derived_stats(result["home_team"])
-        calculate_derived_stats(result["away_team"])
+        # 4. ESTATÍSTICAS EM CASA/FORA
+        if "team_stats" in api_data and team_type in api_data["team_stats"]:
+            team_stats = api_data["team_stats"][team_type]
+            
+            # Jogos, vitórias, empates, derrotas
+            team_result[f"{home_away_prefix}_played"] = team_stats.get(f"{home_away_prefix}_matches_played", 0)
+            team_result[f"{home_away_prefix}_wins"] = team_stats.get(f"{home_away_prefix}_wins", 0)
+            team_result[f"{home_away_prefix}_draws"] = team_stats.get(f"{home_away_prefix}_draws", 0)
+            team_result[f"{home_away_prefix}_losses"] = team_stats.get(f"{home_away_prefix}_losses", 0)
         
-        # Calcular estatísticas que dependem de outras
-        ensure_complete_stats(result, home_team_name, away_team_name)
+        if "team_info" in api_data and team_type in api_data["team_info"]:
+            team_info = api_data["team_info"][team_type]
+            
+            # Pontos por jogo e posição em casa/fora
+            team_result[f"seasonPPG_{home_away_prefix}"] = team_info.get(f"{home_away_prefix}_points_per_game", 0)
+            team_result[f"leaguePosition_{home_away_prefix}"] = team_info.get(f"{home_away_prefix}_league_position", 0)
         
-        # Log final
-        logger.info(f"Transformação de dados concluída. Campos extraídos: " +
-                   f"home={count_non_zero_fields(result['home_team'])}, " +
-                   f"away={count_non_zero_fields(result['away_team'])}, " +
-                   f"h2h={count_non_zero_fields(result['h2h'])}")
+        # 5. ESTATÍSTICAS DE GOLS
+        if "team_stats" in api_data and team_type in api_data["team_stats"]:
+            team_stats = api_data["team_stats"][team_type]
+            
+            # Gols marcados e sofridos (total)
+            team_result["goals_scored"] = team_stats.get("goals_scored", 0)
+            team_result["goals_conceded"] = team_stats.get("goals_conceded", 0)
+            
+            # Gols marcados e sofridos (casa/fora)
+            team_result[f"{home_away_prefix}_goals_scored"] = team_stats.get(f"{home_away_prefix}_goals_scored", 0)
+            team_result[f"{home_away_prefix}_goals_conceded"] = team_stats.get(f"{home_away_prefix}_goals_conceded", 0)
+            
+            # Médias por jogo
+            if team_result["played"] > 0:
+                team_result["goals_per_game"] = round(team_result["goals_scored"] / team_result["played"], 2)
+                team_result["conceded_per_game"] = round(team_result["goals_conceded"] / team_result["played"], 2)
+            else:
+                team_result["goals_per_game"] = 0
+                team_result["conceded_per_game"] = 0
+                
+            # Percentuais importantes
+            team_result["clean_sheets_pct"] = team_stats.get("clean_sheet_percentage", 0)
+            team_result["btts_pct"] = team_stats.get("btts_percentage", 0)
+            team_result["over_2_5_pct"] = team_stats.get("over_2_5_percentage", 0)
         
-        return result
+        if "team_info" in api_data and team_type in api_data["team_info"]:
+            team_info = api_data["team_info"][team_type]
+            
+            # Total de gols nos jogos
+            team_result["seasonGoalsTotal_overall"] = team_info.get("total_goals_in_matches", 0)
+            team_result[f"seasonGoalsTotal_{home_away_prefix}"] = team_info.get(f"{home_away_prefix}_total_goals", 0)
+            
+            # Clean sheets
+            team_result["seasonCS_overall"] = team_info.get("clean_sheets", 0)
+            team_result[f"seasonCS_{home_away_prefix}"] = team_info.get(f"{home_away_prefix}_clean_sheets", 0)
         
-    except Exception as e:
-        logger.error(f"Erro ao transformar dados da API: {str(e)}")
-        logger.error(traceback.format_exc())
-        return result
-
+        # 6. EXPECTED GOALS (XG)
+        if "team_stats" in api_data and team_type in api_data["team_stats"]:
+            team_stats = api_data["team_stats"][team_type]
+            
+            # xG e xGA total
+            team_result["xg"] = team_stats.get("xg_for", 0)
+            team_result["xga"] = team_stats.get("xg_against", 0)
+            
+            # xG e xGA específico para casa/fora
+            team_result[f"{home_away_prefix}_xg"] = team_stats.get(f"{home_away_prefix}_xg_for", 0)
+            team_result[f"{home_away_prefix}_xga"] = team_stats.get(f"{home_away_prefix}_xg_against", 0)
+        
+        if "team_info" in api_data and team_type in api_data["team_info"]:
+            team_info = api_data["team_info"][team_type]
+            
+            # Médias de xG por jogo
+            team_result["xg_for_avg_overall"] = team_info.get("xg_for_avg", 0)
+            team_result["xg_against_avg_overall"] = team_info.get("xg_against_avg", 0)
+            team_result[f"xg_for_avg_{home_away_prefix}"] = team_info.get(f"{home_away_prefix}_xg_for_avg", 0)
+            team_result[f"xg_against_avg_{home_away_prefix}"] = team_info.get(f"{home_away_prefix}_xg_against_avg", 0)
+        
+        # 7. ESTATÍSTICAS DE CARTÕES
+        if "team_stats" in api_data and team_type in api_data["team_stats"]:
+            team_stats = api_data["team_stats"][team_type]
+            
+            # Cartões por jogo
+            team_result["cards_per_game"] = team_stats.get("cards_per_game", 0)
+            team_result[f"{home_away_prefix}_cards_per_game"] = team_stats.get(f"{home_away_prefix}_cards_per_game", 0)
+            
+            # Cartões amarelos e vermelhos
+            team_result["yellow_cards"] = team_stats.get("yellow_cards", 0)
+            team_result["red_cards"] = team_stats.get("red_cards", 0)
+            
+            # Total de cartões
+            team_result["cardsTotal_overall"] = team_stats.get("total_cards", 
+                                               team_result["yellow_cards"] + team_result["red_cards"])
+            team_result[f"cardsTotal_{home_away_prefix}"] = team_stats.get(f"{home_away_prefix}_total_cards", 0)
+            
+            # Porcentagem over 3.5 cartões
+            team_result["over_3_5_cards_pct"] = team_stats.get("over_3_5_cards_percentage", 0)
+        
+        # 8. ESTATÍSTICAS DE ESCANTEIOS
+        if "team_stats" in api_data and team_type in api_data["team_stats"]:
+            team_stats = api_data["team_stats"][team_type]
+            
+            # Escanteios por jogo
+            team_result["corners_per_game"] = team_stats.get("corners_per_game", 0)
+            team_result[f"{home_away_prefix}_corners_per_game"] = team_stats.get(f"{home_away_prefix}_corners_per_game", 0)
+            
+            # Escanteios a favor e contra
+            team_result["corners_for"] = team_stats.get("corners_for", 0)
+            team_result["corners_against"] = team_stats.get("corners_against", 0)
+            
+            # Médias de escanteios a favor
+            team_result["cornersAVG_overall"] = team_stats.get("corners_for_avg", 0)
+            team_result[f"cornersAVG_{home_away_prefix}"] = team_stats.get(f"{home_away_prefix}_corners_for_avg", 0)
+            
+            # Médias de escanteios contra
+            team_result["cornersAgainstAVG_overall"] = team_stats.get("corners_against_avg", 0)
+            team_result[f"cornersAgainstAVG_{home_away_prefix}"] = team_stats.get(f"{home_away_prefix}_corners_against_avg", 0)
+            
+            # Porcentagem over 9.5 escanteios
+            team_result["over_9_5_corners_pct"] = team_stats.get("over_9_5_corners_percentage", 0)
+        
+        # 9. ESTATÍSTICAS DE CHUTES
+        if "team_stats" in api_data and team_type in api_data["team_stats"]:
+            team_stats = api_data["team_stats"][team_type]
+            
+            # Chutes por jogo
+            team_result["shotsAVG_overall"] = team_stats.get("shots_per_game", 0)
+            team_result[f"shotsAVG_{home_away_prefix}"] = team_stats.get(f"{home_away_prefix}_shots_per_game", 0)
+            
+            # Chutes no alvo por jogo
+            team_result["shotsOnTargetAVG_overall"] = team_stats.get("shots_on_target_per_game", 0)
+            team_result[f"shotsOnTargetAVG_{home_away_prefix}"] = team_stats.get(f"{home_away_prefix}_shots_on_target_per_game", 0)
+        
+        # 10. ESTATÍSTICAS DE POSSE DE BOLA
+        if "team_stats" in api_data and team_type in api_data["team_stats"]:
+            team_stats = api_data["team_stats"][team_type]
+            
+            # Posse de bola
+            team_result["possession"] = team_stats.get("possession", 0)
+            team_result[f"{home_away_prefix}_possession"] = team_stats.get(f"{home_away_prefix}_possession", 0)
+    
+    # 11. DADOS DE H2H (CONFRONTO DIRETO)
+    if "h2h_stats" in api_data:
+        h2h_stats = api_data["h2h_stats"]
+        
+        result["h2h"]["total_matches"] = h2h_stats.get("total_matches", 0)
+        result["h2h"]["home_wins"] = h2h_stats.get("home_wins", 0)
+        result["h2h"]["away_wins"] = h2h_stats.get("away_wins", 0)
+        result["h2h"]["draws"] = h2h_stats.get("draws", 0)
+        result["h2h"]["avg_goals"] = h2h_stats.get("avg_goals", 0)
+        result["h2h"]["over_2_5_pct"] = h2h_stats.get("over_2_5_percentage", 0)
+        result["h2h"]["btts_pct"] = h2h_stats.get("btts_percentage", 0)
+        result["h2h"]["avg_cards"] = h2h_stats.get("avg_cards", 0)
+        result["h2h"]["avg_corners"] = h2h_stats.get("avg_corners", 0)
+    
+    # Log para confirmar campos extraídos
+    logger.info(f"Transformação de dados concluída: {len(result['home_team'])} campos para time da casa, " +
+                f"{len(result['away_team'])} campos para time visitante, {len(result['h2h'])} campos para H2H")
+    
+    return result
 def extract_traditional_stats(api_data, result):
     """Extrai estatísticas usando a estrutura tradicional da API"""
     # Importação necessária
@@ -2804,7 +2813,7 @@ def extract_deep_team_data(api_data, home_team_name, away_team_name, log_details
 
 def validate_stats_for_agent(stats_data):
     """
-    Valida os dados estatísticos antes de enviar para o agente IA, corrigindo valores irrealistas.
+    Valida os dados estatísticos antes de enviar para o agente IA.
     
     Args:
         stats_data (dict): Dados formatados para enviar ao agente
@@ -2813,16 +2822,15 @@ def validate_stats_for_agent(stats_data):
         dict: Dados validados e corrigidos
     """
     import logging
-    import random
+    import copy
     
-    logger = logging.getLogger("valueHunter.dashboard")
+    logger = logging.getLogger("valueHunter.prompt_adapter")
     
     if not stats_data or not isinstance(stats_data, dict):
         logger.error("Dados estatísticos inválidos ou vazios")
         return stats_data
     
     # Clonar dados para não modificar o original
-    import copy
     validated_data = copy.deepcopy(stats_data)
     
     # Verificar e corrigir problemas em cada time
@@ -2833,92 +2841,85 @@ def validate_stats_for_agent(stats_data):
         team_data = validated_data[team_key]
         team_name = validated_data.get("match_info", {}).get(team_key, "Time")
         
-        # 1. Verificar forma suspeita (todos os resultados iguais)
+        # 1. Verificar forma inválida
         if "form" in team_data:
             form = team_data["form"]
             
-            # Detectar formas suspeitas: todos os resultados iguais
-            if form in ["WWWWW", "DDDDD", "LLLLL", "?????"] and len(form) == 5:
-                logger.warning(f"Forma suspeita detectada para {team_name}: {form}")
+            # Verificar se a forma é inválida (todos iguais ou ?????)
+            if form in ["WWWWW", "DDDDD", "LLLLL", "?????"]:
+                logger.warning(f"Forma inválida detectada para {team_name}: {form}")
                 
-                # Calcular distribuição realista baseada nas estatísticas
-                wins_pct = team_data.get("win_pct", 0) if "win_pct" in team_data else (team_data.get("wins", 0) / max(1, team_data.get("played", 1))) * 100
-                draws_pct = team_data.get("draw_pct", 0) if "draw_pct" in team_data else (team_data.get("draws", 0) / max(1, team_data.get("played", 1))) * 100
-                losses_pct = team_data.get("loss_pct", 0) if "loss_pct" in team_data else (team_data.get("losses", 0) / max(1, team_data.get("played", 1))) * 100
-                
-                # Normalizar para soma = 100%
-                total = wins_pct + draws_pct + losses_pct
-                if total > 0:
-                    wins_pct = (wins_pct / total) * 100
-                    draws_pct = (draws_pct / total) * 100
-                    losses_pct = (losses_pct / total) * 100
-                else:
-                    # Valores padrão realistas
-                    wins_pct, draws_pct, losses_pct = 40, 30, 30
-                
-                # Criar nova forma com distribuição baseada nas estatísticas reais
-                new_form = ""
-                for _ in range(5):
-                    r = random.random() * 100  # Valor de 0 a 100
-                    if r < wins_pct:
-                        new_form += "W"
-                    elif r < (wins_pct + draws_pct):
-                        new_form += "D"
-                    else:
-                        new_form += "L"
-                
-                logger.info(f"Forma corrigida para {team_name}: {form} -> {new_form}")
-                team_data["form"] = new_form
+                # Tentar derivar uma forma mais realista das estatísticas
+                if all(stat in team_data for stat in ["win_pct", "draw_pct", "loss_pct"]):
+                    import random
+                    
+                    # Usar as porcentagens para gerar uma forma mais realista
+                    new_form = ""
+                    for _ in range(5):
+                        r = random.random() * 100
+                        if r < team_data["win_pct"]:
+                            new_form += "W"
+                        elif r < (team_data["win_pct"] + team_data["draw_pct"]):
+                            new_form += "D"
+                        else:
+                            new_form += "L"
+                    
+                    logger.info(f"Forma corrigida para {team_name}: {form} -> {new_form}")
+                    team_data["form"] = new_form
         
-        # 2. Verificar e corrigir porcentagens
-        for pct_field in ["win_pct", "draw_pct", "loss_pct", "clean_sheets_pct", "btts_pct", "over_2_5_pct"]:
-            if pct_field in team_data:
-                pct_value = team_data[pct_field]
-                
-                # Corrigir valores fora da faixa de 0-100%
-                if pct_value < 0 or pct_value > 100:
-                    logger.warning(f"Porcentagem inválida para {team_name}.{pct_field}: {pct_value}")
-                    team_data[pct_field] = max(0, min(100, pct_value))
-                    logger.info(f"Corrigido {team_name}.{pct_field} para {team_data[pct_field]}")
+        # 2. Verificar porcentagens inválidas
+        for field in ["win_pct", "draw_pct", "loss_pct", "clean_sheets_pct", 
+                    "btts_pct", "over_2_5_pct", "over_3_5_cards_pct", 
+                    "over_9_5_corners_pct"]:
+            if field in team_data and (team_data[field] < 0 or team_data[field] > 100):
+                logger.warning(f"Porcentagem inválida em {team_name}.{field}: {team_data[field]}")
+                team_data[field] = max(0, min(100, team_data[field]))
         
-        # 3. Verificar consistência entre wins/draws/losses e win_pct/draw_pct/loss_pct
+        # 3. Verificar consistência entre jogos e resultados
         if "played" in team_data and team_data["played"] > 0:
             if all(k in team_data for k in ["wins", "draws", "losses"]):
-                total_games = team_data["wins"] + team_data["draws"] + team_data["losses"]
-                if abs(total_games - team_data["played"]) > 1:  # Permitir pequena discrepância
-                    logger.warning(f"Inconsistência nos jogos de {team_name}: played={team_data['played']}, mas soma de resultados={total_games}")
+                total = team_data["wins"] + team_data["draws"] + team_data["losses"]
+                if abs(total - team_data["played"]) > 1:  # Permitir pequena diferença
+                    logger.warning(f"Discrepância nos jogos de {team_name}: played={team_data['played']}, soma={total}")
                     
-                    # Tentar corrigir
-                    if total_games > 0:
+                    # Se a diferença é significativa, ajustar porcentagens
+                    if "win_pct" in team_data and "draw_pct" in team_data and "loss_pct" in team_data:
                         # Recalcular porcentagens com base nos jogos
-                        team_data["win_pct"] = round((team_data["wins"] / total_games) * 100, 1)
-                        team_data["draw_pct"] = round((team_data["draws"] / total_games) * 100, 1)
-                        team_data["loss_pct"] = round((team_data["losses"] / total_games) * 100, 1)
-                        logger.info(f"Porcentagens recalculadas para {team_name} com base nos jogos")
+                        if total > 0:
+                            team_data["win_pct"] = round((team_data["wins"] / total) * 100, 1)
+                            team_data["draw_pct"] = round((team_data["draws"] / total) * 100, 1)
+                            team_data["loss_pct"] = round((team_data["losses"] / total) * 100, 1)
+        
+        # 4. Verificar estatísticas de gols
+        if "goals_scored" in team_data and "goals_per_game" not in team_data and "played" in team_data and team_data["played"] > 0:
+            team_data["goals_per_game"] = round(team_data["goals_scored"] / team_data["played"], 2)
+            
+        if "goals_conceded" in team_data and "conceded_per_game" not in team_data and "played" in team_data and team_data["played"] > 0:
+            team_data["conceded_per_game"] = round(team_data["goals_conceded"] / team_data["played"], 2)
     
-    # Verificar e corrigir dados H2H
+    # Verificar dados de H2H
     if "h2h" in validated_data:
         h2h = validated_data["h2h"]
         
-        # Verificar total_matches vs. soma de resultados
-        total_h2h = h2h.get("total_matches", 0)
-        sum_results = h2h.get("home_wins", 0) + h2h.get("away_wins", 0) + h2h.get("draws", 0)
-        
-        if total_h2h == 0 and sum_results > 0:
-            logger.warning(f"H2H total_matches=0, mas soma de resultados={sum_results}")
-            h2h["total_matches"] = sum_results
-            logger.info(f"Corrigido H2H total_matches para {sum_results}")
+        # Verificar se total_matches é consistente com os resultados
+        if "total_matches" in h2h and "home_wins" in h2h and "away_wins" in h2h and "draws" in h2h:
+            total = h2h["home_wins"] + h2h["away_wins"] + h2h["draws"]
+            if h2h["total_matches"] == 0 and total > 0:
+                logger.warning(f"H2H total_matches=0 mas soma={total}")
+                h2h["total_matches"] = total
+            elif h2h["total_matches"] > 0 and total > 0 and abs(h2h["total_matches"] - total) > 1:
+                logger.warning(f"Discrepância em H2H: total_matches={h2h['total_matches']}, soma={total}")
+                
+                # Recalcular porcentagens se necessário
+                if "over_2_5_pct" in h2h and "btts_pct" in h2h:
+                    # Nenhum ajuste automático, apenas log
+                    logger.warning("Porcentagens de H2H podem não ser precisas devido à discrepância nos totais")
         
         # Verificar porcentagens
-        for pct_field in ["over_2_5_pct", "btts_pct"]:
-            if pct_field in h2h:
-                pct_value = h2h[pct_field]
-                
-                # Corrigir valores fora da faixa de 0-100%
-                if pct_value < 0 or pct_value > 100:
-                    logger.warning(f"Porcentagem inválida para h2h.{pct_field}: {pct_value}")
-                    h2h[pct_field] = max(0, min(100, pct_value))
-                    logger.info(f"Corrigido h2h.{pct_field} para {h2h[pct_field]}")
+        for field in ["over_2_5_pct", "btts_pct"]:
+            if field in h2h and (h2h[field] < 0 or h2h[field] > 100):
+                logger.warning(f"Porcentagem inválida em h2h.{field}: {h2h[field]}")
+                h2h[field] = max(0, min(100, h2h[field]))
     
     logger.info("Validação de dados concluída com sucesso")
     return validated_data
