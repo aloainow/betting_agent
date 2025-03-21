@@ -1098,8 +1098,8 @@ def show_main_dashboard():
                         if team_stats_df is None:
                             status.error("Falha ao carregar dados")
                             return
-                                            
-                     Etapa 2: Processar os dados para análise
+
+                    #Etapa 2: Processar os dados para análise
                     status.info("Processando dados estatísticos...")
                     
                     try:
