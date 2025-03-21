@@ -2114,8 +2114,8 @@ def adapt_api_data_for_prompt(complete_analysis):
         return None
 def transform_api_data(api_data, home_team_name, away_team_name, selected_markets=None):
     """
-    Transforma os dados da API no formato completo requerido pelo agente de IA,
-    garantindo que TODOS os campos listados no documento sejam incluídos.
+    Transforma os dados da API no formato completo requerido pelo agente de IA.
+    Versão simplificada que garante extração direta de todos os campos.
     
     Args:
         api_data (dict): Dados originais da API FootyStats
@@ -2139,229 +2139,13 @@ def transform_api_data(api_data, home_team_name, away_team_name, selected_market
             "league_id": None
         },
         "home_team": {
-            # Estatísticas Gerais
-            "played": 0, 
-            "seasonMatchesPlayed_overall": 0,
-            "wins": 0, 
-            "seasonWinsNum_overall": 0,
-            "draws": 0, 
-            "seasonDrawsNum_overall": 0,
-            "losses": 0, 
-            "seasonLossesNum_overall": 0,
-            "win_pct": 0,
-            "draw_pct": 0,
-            "loss_pct": 0,
-            "form": "?????", 
-            "formRun_overall": "?????",
-            "seasonPPG_overall": 0,
-            "seasonRecentPPG": 0,
-            "leaguePosition_overall": 0,
-            
-            # Estatísticas em Casa
-            "home_played": 0, 
-            "seasonMatchesPlayed_home": 0,
-            "home_wins": 0, 
-            "seasonWinsNum_home": 0,
-            "home_draws": 0, 
-            "seasonDrawsNum_home": 0,
-            "home_losses": 0, 
-            "seasonLossesNum_home": 0,
-            "home_form": "?????", 
-            "formRun_home": "?????",
-            "seasonPPG_home": 0,
-            "leaguePosition_home": 0,
-            
-            # Estatísticas de Gols
-            "goals_scored": 0, 
-            "seasonScoredNum_overall": 0,
-            "goals_conceded": 0, 
-            "seasonConcededNum_overall": 0,
-            "home_goals_scored": 0, 
-            "seasonScoredNum_home": 0,
-            "home_goals_conceded": 0, 
-            "seasonConcededNum_home": 0,
-            "goals_per_game": 0,
-            "conceded_per_game": 0,
-            "seasonGoalsTotal_overall": 0,
-            "seasonGoalsTotal_home": 0,
-            "clean_sheets_pct": 0, 
-            "seasonCSPercentage_overall": 0,
-            "seasonCS_overall": 0,
-            "seasonCS_home": 0,
-            "btts_pct": 0, 
-            "seasonBTTSPercentage_overall": 0,
-            "over_2_5_pct": 0, 
-            "seasonOver25Percentage_overall": 0,
-            
-            # Expected Goals
-            "xg": 0, 
-            "xg_for_overall": 0,
-            "xga": 0, 
-            "xg_against_overall": 0,
-            "home_xg": 0, 
-            "xg_for_home": 0,
-            "home_xga": 0, 
-            "xg_against_home": 0,
-            "xg_for_avg_overall": 0,
-            "xg_for_avg_home": 0,
-            "xg_against_avg_overall": 0,
-            "xg_against_avg_home": 0,
-            
-            # Estatísticas de Cartões
-            "cards_per_game": 0, 
-            "cardsAVG_overall": 0,
-            "home_cards_per_game": 0, 
-            "cardsAVG_home": 0,
-            "cardsTotal_overall": 0,
-            "cardsTotal_home": 0,
-            "yellow_cards": 0,
-            "red_cards": 0,
-            "over_3_5_cards_pct": 0,
-            
-            # Estatísticas de Escanteios
-            "corners_per_game": 0, 
-            "cornersTotalAVG_overall": 0,
-            "home_corners_per_game": 0, 
-            "cornersTotalAVG_home": 0,
-            "corners_for": 0, 
-            "cornersTotal_overall": 0,
-            "corners_against": 0, 
-            "cornersAgainst_overall": 0,
-            "cornersAVG_overall": 0,
-            "cornersAVG_home": 0,
-            "cornersAgainstAVG_overall": 0,
-            "cornersAgainstAVG_home": 0,
-            "over_9_5_corners_pct": 0,
-            
-            # Estatísticas de Chutes
-            "shotsAVG_overall": 0,
-            "shotsAVG_home": 0,
-            "shotsOnTargetAVG_overall": 0,
-            "shotsOnTargetAVG_home": 0,
-            
-            # Posse de Bola
-            "possession": 0, 
-            "possessionAVG_overall": 0,
-            "home_possession": 0, 
-            "possessionAVG_home": 0
+            # Manter a estrutura inicial vazia
         },
         "away_team": {
-            # Estatísticas Gerais
-            "played": 0, 
-            "seasonMatchesPlayed_overall": 0,
-            "wins": 0, 
-            "seasonWinsNum_overall": 0,
-            "draws": 0, 
-            "seasonDrawsNum_overall": 0,
-            "losses": 0, 
-            "seasonLossesNum_overall": 0,
-            "win_pct": 0,
-            "draw_pct": 0,
-            "loss_pct": 0,
-            "form": "?????", 
-            "formRun_overall": "?????",
-            "seasonPPG_overall": 0,
-            "seasonRecentPPG": 0,
-            "leaguePosition_overall": 0,
-            
-            # Estatísticas Fora
-            "away_played": 0, 
-            "seasonMatchesPlayed_away": 0,
-            "away_wins": 0, 
-            "seasonWinsNum_away": 0,
-            "away_draws": 0, 
-            "seasonDrawsNum_away": 0,
-            "away_losses": 0, 
-            "seasonLossesNum_away": 0,
-            "away_form": "?????", 
-            "formRun_away": "?????",
-            "seasonPPG_away": 0,
-            "leaguePosition_away": 0,
-            
-            # Estatísticas de Gols
-            "goals_scored": 0, 
-            "seasonScoredNum_overall": 0,
-            "goals_conceded": 0, 
-            "seasonConcededNum_overall": 0,
-            "away_goals_scored": 0, 
-            "seasonScoredNum_away": 0,
-            "away_goals_conceded": 0, 
-            "seasonConcededNum_away": 0,
-            "goals_per_game": 0,
-            "conceded_per_game": 0,
-            "seasonGoalsTotal_overall": 0,
-            "seasonGoalsTotal_away": 0,
-            "clean_sheets_pct": 0, 
-            "seasonCSPercentage_overall": 0,
-            "seasonCS_overall": 0,
-            "seasonCS_away": 0,
-            "btts_pct": 0, 
-            "seasonBTTSPercentage_overall": 0,
-            "over_2_5_pct": 0, 
-            "seasonOver25Percentage_overall": 0,
-            
-            # Expected Goals
-            "xg": 0, 
-            "xg_for_overall": 0,
-            "xga": 0, 
-            "xg_against_overall": 0,
-            "away_xg": 0, 
-            "xg_for_away": 0,
-            "away_xga": 0, 
-            "xg_against_away": 0,
-            "xg_for_avg_overall": 0,
-            "xg_for_avg_away": 0,
-            "xg_against_avg_overall": 0,
-            "xg_against_avg_away": 0,
-            
-            # Estatísticas de Cartões
-            "cards_per_game": 0, 
-            "cardsAVG_overall": 0,
-            "away_cards_per_game": 0, 
-            "cardsAVG_away": 0,
-            "cardsTotal_overall": 0,
-            "cardsTotal_away": 0,
-            "yellow_cards": 0,
-            "red_cards": 0,
-            "over_3_5_cards_pct": 0,
-            
-            # Estatísticas de Escanteios
-            "corners_per_game": 0, 
-            "cornersTotalAVG_overall": 0,
-            "away_corners_per_game": 0, 
-            "cornersTotalAVG_away": 0,
-            "corners_for": 0, 
-            "cornersTotal_overall": 0,
-            "corners_against": 0, 
-            "cornersAgainst_overall": 0,
-            "cornersAVG_overall": 0,
-            "cornersAVG_away": 0,
-            "cornersAgainstAVG_overall": 0,
-            "cornersAgainstAVG_away": 0,
-            "over_9_5_corners_pct": 0,
-            
-            # Estatísticas de Chutes
-            "shotsAVG_overall": 0,
-            "shotsAVG_away": 0,
-            "shotsOnTargetAVG_overall": 0,
-            "shotsOnTargetAVG_away": 0,
-            
-            # Posse de Bola
-            "possession": 0, 
-            "possessionAVG_overall": 0,
-            "away_possession": 0, 
-            "possessionAVG_away": 0
+            # Manter a estrutura inicial vazia
         },
         "h2h": {
-            "total_matches": 0,
-            "home_wins": 0,
-            "away_wins": 0,
-            "draws": 0,
-            "avg_goals": 0,
-            "over_2_5_pct": 0,
-            "btts_pct": 0,
-            "avg_cards": 0,
-            "avg_corners": 0
+            # Manter a estrutura inicial vazia
         }
     }
     
@@ -2373,86 +2157,35 @@ def transform_api_data(api_data, home_team_name, away_team_name, selected_market
     try:
         # Registrar a estrutura de dados para depuração
         logger.info(f"Transformando dados para {home_team_name} vs {away_team_name}")
-        if isinstance(api_data, dict):
-            logger.info(f"Chaves principais nos dados da API: {list(api_data.keys())}")
         
-        # MÉTODO ESPECÍFICO PARA O FORMATO DO GIST - LINHA CORRIGIDA
-        extract_direct_team_stats_from_root(api_data, formatted_data, home_team_name, away_team_name)
+        # MÉTODO DIRETO E SIMPLIFICADO: Extrair todos os campos diretamente
+        extract_all_fields_direct(api_data, formatted_data)
         
-        # MÉTODO 1: Extrair dados básicos
+        # MÉTODO ADICIONAL: Verificar se temos campos essenciais
+        # Se não, tentar extrair usando outras abordagens
         
-        # Preencher informações da liga
-        if "basic_stats" in api_data and "league_id" in api_data["basic_stats"]:
-            formatted_data["match_info"]["league_id"] = api_data["basic_stats"]["league_id"]
-            
-        if "basic_stats" in api_data and "league_name" in api_data["basic_stats"]:
-            formatted_data["match_info"]["league"] = api_data["basic_stats"]["league_name"]
-        elif "league" in api_data and isinstance(api_data["league"], dict) and "name" in api_data["league"]:
-            formatted_data["match_info"]["league"] = api_data["league"]["name"]
+        # Lista de campos essenciais
+        essential_fields = ["played", "wins", "draws", "losses", "goals_scored", "goals_conceded"]
         
-        # MÉTODO 2: Extrair dados dos times diretamente da estrutura raiz
-        # Isso é uma nova adição para lidar com a estrutura atual da API
-        
-        # Verificar se a estrutura inclui dados diretos de time
-        if "home_team" in api_data and isinstance(api_data["home_team"], dict):
-            # Extrair dados diretamente
-            extract_direct_team_stats(api_data["home_team"], formatted_data["home_team"])
-            
-        if "away_team" in api_data and isinstance(api_data["away_team"], dict):
-            # Extrair dados diretamente
-            extract_direct_team_stats(api_data["away_team"], formatted_data["away_team"])
-        
-        # MÉTODO 3: Extrair dados estruturados de basic_stats
-        if "basic_stats" in api_data:
-            # Time da casa
-            if "home_team" in api_data["basic_stats"]:
+        # Verificar se time da casa tem os campos essenciais
+        missing_home = [field for field in essential_fields if field not in formatted_data["home_team"]]
+        if missing_home:
+            logger.warning(f"Campos essenciais faltando para o time da casa: {missing_home}")
+            # Tenta extrair usando métodos alternativos
+            if "basic_stats" in api_data and "home_team" in api_data["basic_stats"]:
                 extract_basic_stats_team(api_data["basic_stats"]["home_team"], formatted_data["home_team"], "home")
-                
-            # Time visitante  
-            if "away_team" in api_data["basic_stats"]:
+        
+        # Verificar se time visitante tem os campos essenciais
+        missing_away = [field for field in essential_fields if field not in formatted_data["away_team"]]
+        if missing_away:
+            logger.warning(f"Campos essenciais faltando para o time visitante: {missing_away}")
+            # Tenta extrair usando métodos alternativos
+            if "basic_stats" in api_data and "away_team" in api_data["basic_stats"]:
                 extract_basic_stats_team(api_data["basic_stats"]["away_team"], formatted_data["away_team"], "away")
         
-        # MÉTODO 4: Extrair dados de advanced_stats
-        if "advanced_stats" in api_data:
-            # Time da casa
-            if "home" in api_data["advanced_stats"]:
-                extract_advanced_metrics(formatted_data["home_team"], api_data["advanced_stats"]["home"])
-                
-            # Time visitante
-            if "away" in api_data["advanced_stats"]: 
-                extract_advanced_metrics(formatted_data["away_team"], api_data["advanced_stats"]["away"])
-        
-        # MÉTODO 5: Extrair dados de team_form
-        if "team_form" in api_data:
-            # Time da casa
-            if "home" in api_data["team_form"]:
-                extract_form_data(api_data["team_form"]["home"], formatted_data["home_team"], "form")
-                
-            # Time visitante
-            if "away" in api_data["team_form"]:
-                extract_form_data(api_data["team_form"]["away"], formatted_data["away_team"], "form")
-        
-        # MÉTODO 6: Processar dados de H2H
-        if "head_to_head" in api_data:
-            extract_h2h_data(api_data["head_to_head"], formatted_data["h2h"])
-        elif "h2h" in api_data:
-            extract_h2h_data(api_data["h2h"], formatted_data["h2h"])
-        
-        # MÉTODO 7: Extrair dados de equipe de stats
-        if "stats" in api_data:
-            # Verificar se stats contém dados de equipe
-            if "home" in api_data["stats"]:
-                extract_stats_team(api_data["stats"]["home"], formatted_data["home_team"], "home")
-                
-            if "away" in api_data["stats"]:
-                extract_stats_team(api_data["stats"]["away"], formatted_data["away_team"], "away")
-                
-            # Ou em formato alternativo
-            if "home_team" in api_data["stats"]:
-                extract_stats_team(api_data["stats"]["home_team"], formatted_data["home_team"], "home")
-                
-            if "away_team" in api_data["stats"]:
-                extract_stats_team(api_data["stats"]["away_team"], formatted_data["away_team"], "away")
+        # Calcular estatísticas derivadas (médias, percentuais, etc)
+        calculate_derived_stats(formatted_data["home_team"])
+        calculate_derived_stats(formatted_data["away_team"])
         
         # IMPORTANTE: Verificar se os dados extraídos são válidos
         home_non_zero = sum(1 for k, v in formatted_data["home_team"].items() 
@@ -2463,16 +2196,6 @@ def transform_api_data(api_data, home_team_name, away_team_name, selected_market
                              (isinstance(v, str) and v not in ["", "?????"]))
         
         logger.info(f"Campos não-zero extraídos: Casa={home_non_zero}, Visitante={away_non_zero}")
-        
-        # Extrair informações de H2H se ainda não tiverem sido extraídas
-        h2h_non_zero = sum(1 for k, v in formatted_data["h2h"].items() if v != 0)
-        if h2h_non_zero == 0:
-            # Extrair dados H2H usando função mais agressiva
-            extract_complete_h2h_data(api_data, formatted_data, home_team_name, away_team_name)
-        
-        # Calcular estatísticas derivadas (médias, percentuais, etc)
-        calculate_derived_stats(formatted_data["home_team"])
-        calculate_derived_stats(formatted_data["away_team"])
         
         return formatted_data
         
@@ -4710,3 +4433,49 @@ def count_non_zero_fields(data_dict):
             count += 1
     
     return count
+
+def extract_all_fields_direct(api_data, result_dict):
+    """
+    Extrai diretamente TODOS os campos do formato JSON fornecido.
+    Esta é uma solução simplificada que copia todos os campos disponíveis.
+    
+    Args:
+        api_data (dict): Dados brutos da API
+        result_dict (dict): Dicionário de resultado
+    """
+    import logging
+    logger = logging.getLogger("valueHunter.prompt_adapter")
+    
+    # Extrair dados do time da casa
+    if "home_team" in api_data and isinstance(api_data["home_team"], dict):
+        logger.info("Extraindo campos do time da casa diretamente")
+        for field, value in api_data["home_team"].items():
+            # Ignorar campos None, vazios ou N/A
+            if value is not None and value != '' and value != 'N/A':
+                # Copiar direto para o resultado
+                result_dict["home_team"][field] = value
+    
+    # Extrair dados do time visitante
+    if "away_team" in api_data and isinstance(api_data["away_team"], dict):
+        logger.info("Extraindo campos do time visitante diretamente")
+        for field, value in api_data["away_team"].items():
+            # Ignorar campos None, vazios ou N/A
+            if value is not None and value != '' and value != 'N/A':
+                # Copiar direto para o resultado
+                result_dict["away_team"][field] = value
+    
+    # Extrair dados de H2H
+    if "h2h" in api_data and isinstance(api_data["h2h"], dict):
+        logger.info("Extraindo campos de H2H diretamente")
+        for field, value in api_data["h2h"].items():
+            # Ignorar campos None, vazios ou N/A
+            if value is not None and value != '' and value != 'N/A':
+                # Copiar direto para o resultado
+                result_dict["h2h"][field] = value
+    
+    # Fazer log da quantidade de campos extraídos
+    home_fields = sum(1 for v in result_dict["home_team"].values() if v != 0 and v != "" and v != "?????")
+    away_fields = sum(1 for v in result_dict["away_team"].values() if v != 0 and v != "" and v != "?????")
+    h2h_fields = sum(1 for v in result_dict["h2h"].values() if v != 0)
+    
+    logger.info(f"Campos extraídos diretamente: Casa={home_fields}, Visitante={away_fields}, H2H={h2h_fields}")
