@@ -100,6 +100,11 @@ def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_da
         # Extract league name if available
         league_name = match_info.get("league", "")
         
+        # Log para depuração
+        logger.info(f"Home team data keys: {list(home.keys())}")
+        logger.info(f"Away team data keys: {list(away.keys())}")
+        logger.info(f"H2H data keys: {list(h2h.keys())}")
+        
         # 1. FUNDAMENTAL STATISTICS
         fundamental_stats = f"""
 # ESTATÍSTICAS FUNDAMENTAIS: {home_team} vs {away_team}
