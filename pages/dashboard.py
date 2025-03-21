@@ -1110,135 +1110,82 @@ def show_main_dashboard():
                             status.error("Falha ao carregar dados")
                             return
 
-                       # Etapa 2: Processar os dados para análise
-                    status.info("Processando dados estatísticos...")
-                    
-                    # Abordagem ultra-simplificada
-                    # Inicializar o resultado diretamente com os dados brutos
-                    optimized_data = {
-                        "match_info": {
-                            "home_team": home_team,
-                            "away_team": away_team,
-                            "league": selected_league,
-                            "league_id": None
-                        },
-                        "home_team": {},
-                        "away_team": {},
-                        "h2h": {}
-                    }
-                    
-                    try:
-                        # PARTE 1: Cópia direta dos dados recebidos
-                        # Extrair dados do time da casa
-                        if "home_team" in stats_data and isinstance(stats_data["home_team"], dict):
-                            optimized_data["home_team"] = stats_data["home_team"].copy()
-                            logger.info("Copiados os dados do time da casa diretamente")
+                        # Etapa 2: Processar os dados para análise
+                        status.info("Processando dados estatísticos...")
                         
-                        # Extrair dados do time visitante
-                        if "away_team" in stats_data and isinstance(stats_data["away_team"], dict):
-                            optimized_data["away_team"] = stats_data["away_team"].copy()
-                            logger.info("Copiados os dados do time visitante diretamente")
+                        # Abordagem ultra-simplificada
+                        # Inicializar o resultado diretamente com os dados brutos
+                        optimized_data = {
+                            "match_info": {
+                                "home_team": home_team,
+                                "away_team": away_team,
+                                "league": selected_league,
+                                "league_id": None
+                            },
+                            "home_team": {},
+                            "away_team": {},
+                            "h2h": {}
+                        }
                         
-                        # Extrair dados de H2H
-                        if "h2h" in stats_data and isinstance(stats_data["h2h"], dict):
-                            optimized_data["h2h"] = stats_data["h2h"].copy()
-                            logger.info("Copiados os dados de H2H diretamente")
-                        
-                        # PARTE 2: Verificar e logar a quantidade de campos
-                        # Contagem simples de itens não-zero ou não-vazios
-                        home_field_count = sum(1 for k, v in optimized_data["home_team"].items() 
-                                            if (isinstance(v, (int, float)) and v != 0) or 
-                                               (isinstance(v, str) and v not in ["", "?????"]))
-                        
-                        away_field_count = sum(1 for k, v in optimized_data["away_team"].items() 
-                                            if (isinstance(v, (int, float)) and v != 0) or 
-                                               (isinstance(v, str) and v not in ["", "?????"]))
-                        
-                        h2h_field_count = sum(1 for k, v in optimized_data["h2h"].items() 
-                                          if (isinstance(v, (int, float)) and v != 0))
-                        
-                        # Log dos totais
-                        logger.info(f"Campos extraídos: Casa={home_field_count}, Visitante={away_field_count}, H2H={h2h_field_count}")
-                        
-                        # PARTE 3: Alertas para o usuário
-                        if home_field_count < 10 or away_field_count < 10:
-                            st.warning(f"⚠️ Extração com dados limitados ({home_field_count} para casa, {away_field_count} para visitante)")
-                        else:
-                            st.success(f"✅ Dados extraídos: {home_field_count} campos para casa, {away_field_count} para visitante")
-                        
-                        # Verificar dados de H2H específicos
-                        if st.session_state.debug_mode:
-                            with st.expander("Dados de Confronto Direto (H2H)", expanded=True):
-                                st.json(optimized_data["h2h"])
-                                
-                    except Exception as process_error:
-                        # Log detalhado do erro
-                        logger.error(f"Erro ao processar dados: {str(process_error)}")
-                        logger.error(traceback.format_exc())
-                        st.error(f"Erro ao processar os dados: {str(process_error)}")
-                        
-                        # Em caso de erro, mostrar detalhes para debug
-                        if st.session_state.debug_mode:
-                            with st.expander("Detalhes do erro", expanded=True):
-                                st.code(traceback.format_exc())
-                        
-                        # Retornar None para abortar a análise
-                        return None, None
-                        # MODIFICAÇÃO: Forçar extração de estatísticas da estrutura raiz
-                        # Esta parte é crucial para lidar com a estrutura do JSON no Gist
-                        if "home_team" in stats_data and isinstance(stats_data["home_team"], dict):
-                            # Extrair estatísticas diretamente da raiz, priorizando-as
-                            extract_direct_team_stats(stats_data["home_team"], optimized_data["home_team"], "home")
-                            logger.info(f"Extraídas estatísticas diretamente de home_team na raiz")
+                        try:
+                            # PARTE 1: Cópia direta dos dados recebidos
+                            # Extrair dados do time da casa
+                            if "home_team" in stats_data and isinstance(stats_data["home_team"], dict):
+                                optimized_data["home_team"] = stats_data["home_team"].copy()
+                                logger.info("Copiados os dados do time da casa diretamente")
                             
-                        if "away_team" in stats_data and isinstance(stats_data["away_team"], dict):
-                            # Extrair estatísticas diretamente da raiz, priorizando-as
-                            extract_direct_team_stats(stats_data["away_team"], optimized_data["away_team"], "away")
-                            logger.info(f"Extraídas estatísticas diretamente de away_team na raiz")
-                        
-                        # MODIFICAÇÃO: Verificar se temos campos mínimos necessários
-                        required_fields = ["played", "wins", "draws", "losses", "goals_scored", "goals_conceded"]
-                        missing_home = [field for field in required_fields if optimized_data["home_team"].get(field, 0) == 0]
-                        missing_away = [field for field in required_fields if optimized_data["away_team"].get(field, 0) == 0]
-                        
-                        if missing_home or missing_away:
-                            # Se faltam campos essenciais, tentar extração direta usando a nova função transform_api_data
-                            logger.warning(f"Campos essenciais faltando. Tentando extração direta.")
-                            logger.warning(f"Campos faltando para {home_team}: {missing_home}")
-                            logger.warning(f"Campos faltando para {away_team}: {missing_away}")
+                            # Extrair dados do time visitante
+                            if "away_team" in stats_data and isinstance(stats_data["away_team"], dict):
+                                optimized_data["away_team"] = stats_data["away_team"].copy()
+                                logger.info("Copiados os dados do time visitante diretamente")
                             
-                            # Usar a função transform_api_data aprimorada
-                            direct_data = transform_api_data(stats_data, home_team, away_team, selected_markets)
+                            # Extrair dados de H2H
+                            if "h2h" in stats_data and isinstance(stats_data["h2h"], dict):
+                                optimized_data["h2h"] = stats_data["h2h"].copy()
+                                logger.info("Copiados os dados de H2H diretamente")
                             
-                            # Combinar dados, priorizando os não-zero de direct_data
-                            merge_non_zero_data(direct_data["home_team"], optimized_data["home_team"])
-                            merge_non_zero_data(direct_data["away_team"], optimized_data["away_team"])
-                            merge_non_zero_data(direct_data["h2h"], optimized_data["h2h"])
-                        
-                        # Código auxiliar para diagnóstico
-                        home_non_zero_after = sum(1 for k, v in optimized_data["home_team"].items() 
-                                               if (isinstance(v, (int, float)) and v != 0) or 
-                                                  (isinstance(v, str) and v not in ["", "?????"]))
-                        away_non_zero_after = sum(1 for k, v in optimized_data["away_team"].items() 
-                                               if (isinstance(v, (int, float)) and v != 0) or 
-                                                  (isinstance(v, str) and v not in ["", "?????"]))
-                        h2h_non_zero_after = sum(1 for k, v in optimized_data["h2h"].items() 
+                            # PARTE 2: Verificar e logar a quantidade de campos
+                            # Contagem simples de itens não-zero ou não-vazios
+                            home_field_count = sum(1 for k, v in optimized_data["home_team"].items() 
+                                                if (isinstance(v, (int, float)) and v != 0) or 
+                                                   (isinstance(v, str) and v not in ["", "?????"]))
+                            
+                            away_field_count = sum(1 for k, v in optimized_data["away_team"].items() 
+                                                if (isinstance(v, (int, float)) and v != 0) or 
+                                                   (isinstance(v, str) and v not in ["", "?????"]))
+                            
+                            h2h_field_count = sum(1 for k, v in optimized_data["h2h"].items() 
                                               if (isinstance(v, (int, float)) and v != 0))
+                            
+                            # Log dos totais
+                            logger.info(f"Campos extraídos: Casa={home_field_count}, Visitante={away_field_count}, H2H={h2h_field_count}")
+                            
+                            # PARTE 3: Alertas para o usuário
+                            if home_field_count < 10 or away_field_count < 10:
+                                st.warning(f"⚠️ Extração com dados limitados ({home_field_count} para casa, {away_field_count} para visitante)")
+                            else:
+                                st.success(f"✅ Dados extraídos: {home_field_count} campos para casa, {away_field_count} para visitante")
+                            
+                            # Verificar dados de H2H específicos
+                            if st.session_state.debug_mode:
+                                with st.expander("Dados de Confronto Direto (H2H)", expanded=True):
+                                    st.json(optimized_data["h2h"])
+                                    
+                        except Exception as process_error:
+                            # Log detalhado do erro
+                            logger.error(f"Erro ao processar dados: {str(process_error)}")
+                            logger.error(traceback.format_exc())
+                            st.error(f"Erro ao processar os dados: {str(process_error)}")
+                            
+                            # Em caso de erro, mostrar detalhes para debug
+                            if st.session_state.debug_mode:
+                                with st.expander("Detalhes do erro", expanded=True):
+                                    st.code(traceback.format_exc())
+                            
+                            # Retornar None para abortar a análise
+                            return
                         
-                        logger.info(f"Campos finais após otimização: Casa={home_non_zero_after}, Visitante={away_non_zero_after}, H2H={h2h_non_zero_after}")
-                        
-                        # MODIFICAÇÃO: Alerta ao usuário se ainda tivermos poucos dados
-                        if home_non_zero_after < 5 or away_non_zero_after < 5:
-                            st.warning(f"⚠️ Atenção: Poucos dados estatísticos extraídos ({home_non_zero_after} para casa, {away_non_zero_after} para visitante). A análise será baseada em um modelo limitado.")
-                        else:
-                            st.success(f"✅ Dados extraídos com sucesso: {home_non_zero_after} campos para casa, {away_non_zero_after} para visitante, {h2h_non_zero_after} campos H2H")
-                        
-                        # Modo de depuração - mostrar dados extraídos
-                        if st.session_state.debug_mode:
-                            with st.expander("Dados extraídos", expanded=False):
-                                st.json(optimized_data)
-
-                        # Adicione apenas esta função auxiliar, já que não precisamos mais das outras:
+                        # Função auxiliar para mesclar dados
                         def merge_non_zero_data(source, target):
                             """Mescla dados não-zero de source para target, sem sobrescrever valores existentes"""
                             for k, v in source.items():
@@ -1246,7 +1193,8 @@ def show_main_dashboard():
                                     if isinstance(v, (int, float)) and v != 0:
                                         target[k] = v
                                     elif isinstance(v, str) and v not in ["", "?????"]:
-                                        target[k] = v                        
+                                        target[k] = v
+                        
                         # Verificar se a transformação foi bem-sucedida
                         if not optimized_data or not optimized_data.get("home_team") or not optimized_data.get("away_team"):
                             status.error("Falha na transformação dos dados. Tente novamente.")
@@ -1257,7 +1205,8 @@ def show_main_dashboard():
                         
                         # Log das estatísticas após transformação
                         logger.info(f"Dados transformados com sucesso. Campos home_team: {len(optimized_data['home_team'])}")
-                        logger.info(f"Dados transformados com sucesso. Campos away_team: {len(optimized_data['away_team'])}")                        
+                        logger.info(f"Dados transformados com sucesso. Campos away_team: {len(optimized_data['away_team'])}")
+                        
                         # Modo de depuração - mostrar informações sobre dados
                         if st.session_state.debug_mode:
                             import sys
@@ -1288,6 +1237,7 @@ def show_main_dashboard():
                         if st.session_state.debug_mode:
                             with st.expander("Dados de Confronto Direto (H2H)", expanded=True):
                                 st.json(optimized_data["h2h"])
+                                
                         # Etapa 3: Formatar prompt usando os dados otimizados
                         status.info("Preparando análise...")
                         prompt = format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_data, selected_markets)
@@ -1412,3 +1362,51 @@ def show_main_dashboard():
         st.error("Erro ao carregar o painel principal. Por favor, tente novamente.")
         st.error(f"Erro: {str(e)}")
         traceback.print_exc()
+
+# Função auxiliar para transformação de dados da API
+def transform_api_data(stats_data, home_team, away_team, selected_markets):
+    """
+    Transforma os dados da API para um formato compatível com a análise
+    
+    Args:
+        stats_data (dict): Dados brutos da API
+        home_team (str): Nome do time da casa
+        away_team (str): Nome do time visitante
+        selected_markets (dict): Mercados selecionados
+        
+    Returns:
+        dict: Dados transformados
+    """
+    # Inicializar estrutura de resultado
+    result = {
+        "match_info": {
+            "home_team": home_team,
+            "away_team": away_team
+        },
+        "home_team": {},
+        "away_team": {},
+        "h2h": {}
+    }
+    
+    try:
+        # Extrair dados de H2H se disponíveis
+        if "h2h" in stats_data and isinstance(stats_data["h2h"], dict):
+            result["h2h"] = stats_data["h2h"].copy()
+        
+        # Extrair dados do time da casa
+        if "home_team" in stats_data and isinstance(stats_data["home_team"], dict):
+            result["home_team"] = stats_data["home_team"].copy()
+        
+        # Extrair dados do time visitante
+        if "away_team" in stats_data and isinstance(stats_data["away_team"], dict):
+            result["away_team"] = stats_data["away_team"].copy()
+            
+        # Log de diagnóstico
+        logger.info(f"Extração direta: home={len(result['home_team'])}, away={len(result['away_team'])}, h2h={len(result['h2h'])}")
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Erro na transformação de dados da API: {str(e)}")
+        logger.error(traceback.format_exc())
+        return result
