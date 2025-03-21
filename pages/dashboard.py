@@ -1101,8 +1101,49 @@ def show_main_dashboard():
                         
                         # Etapa 2: Transformar os dados para o formato otimizado
                         status.info("Transformando dados para análise...")
-                        from utils.prompt_adapter import transform_api_data
-                        optimized_data = transform_api_data(stats_data, home_team, away_team, selected_markets)
+                        from utils.prompt_adapter import transform_api_data, extract_deep_team_data
+                        
+                        # Verificar os dados brutos e fazer extração profunda se necessário
+                        if "team_stats" not in stats_data and "basic_stats" not in stats_data:
+                            status.warning("Detectada estrutura de dados não reconhecida. Utilizando extração profunda...")
+                            enhanced_data = extract_deep_team_data(stats_data, home_team, away_team)
+                            
+                            # Verificar se extração profunda encontrou algo útil
+                            home_non_zero = sum(1 for k, v in enhanced_data["home_team"].items() 
+                                              if (isinstance(v, (int, float)) and v != 0) or 
+                                                 (isinstance(v, str) and v not in ["", "?????"]))
+                            away_non_zero = sum(1 for k, v in enhanced_data["away_team"].items() 
+                                              if (isinstance(v, (int, float)) and v != 0) or 
+                                                 (isinstance(v, str) and v not in ["", "?????"]))
+                            
+                            if home_non_zero > 5 or away_non_zero > 5:
+                                status.success(f"Extração profunda encontrou {home_non_zero + away_non_zero} campos de dados úteis!")
+                                # Usar dados da extração profunda
+                                optimized_data = enhanced_data
+                            else:
+                                # Continuar com a transformação padrão
+                                optimized_data = transform_api_data(stats_data, home_team, away_team, selected_markets)
+                        else:
+                            # Usar transformação padrão
+                            optimized_data = transform_api_data(stats_data, home_team, away_team, selected_markets)
+                        
+                        # Verificar se a transformação produziu dados não-zerados
+                        home_non_zero = sum(1 for k, v in optimized_data["home_team"].items() 
+                                          if (isinstance(v, (int, float)) and v != 0) or 
+                                             (isinstance(v, str) and v not in ["", "?????"]))
+                        away_non_zero = sum(1 for k, v in optimized_data["away_team"].items() 
+                                          if (isinstance(v, (int, float)) and v != 0) or 
+                                             (isinstance(v, str) and v not in ["", "?????"]))
+                        
+                        if home_non_zero < 5 or away_non_zero < 5:
+                            st.warning(f"⚠️ Atenção: Poucos dados estatísticos extraídos ({home_non_zero} para casa, {away_non_zero} para visitante). A análise será baseada em um modelo limitado.")
+                        else:
+                            st.success(f"✅ Dados extraídos com sucesso: {home_non_zero} campos para casa, {away_non_zero} para visitante")
+                        
+                        # Modo de depuração - mostrar dados extraídos
+                        if st.session_state.debug_mode:
+                            with st.expander("Dados extraídos", expanded=False):
+                                st.json(optimized_data)
                         
                         # Verificar se a transformação foi bem-sucedida
                         if not optimized_data or not optimized_data.get("home_team") or not optimized_data.get("away_team"):
