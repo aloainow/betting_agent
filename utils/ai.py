@@ -100,10 +100,25 @@ def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_da
         # Extract league name if available
         league_name = match_info.get("league", "")
         
-        # Log para depuração
-        logger.info(f"Home team data keys: {list(home.keys())}")
-        logger.info(f"Away team data keys: {list(away.keys())}")
-        logger.info(f"H2H data keys: {list(h2h.keys())}")
+        # Verifica qualidade dos dados - se temos estatísticas mínimas
+        has_stats_data = (
+            (home.get("played", 0) > 0 or home.get("wins", 0) > 0 or home.get("goals_scored", 0) > 0) and
+            (away.get("played", 0) > 0 or away.get("wins", 0) > 0 or away.get("goals_scored", 0) > 0)
+        )
+        
+        # Log da qualidade dos dados
+        home_fields = sum(1 for k, v in home.items() 
+                       if (isinstance(v, (int, float)) and v != 0) or 
+                          (isinstance(v, str) and v not in ["", "?????"]))
+        away_fields = sum(1 for k, v in away.items() 
+                       if (isinstance(v, (int, float)) and v != 0) or 
+                          (isinstance(v, str) and v not in ["", "?????"]))
+        
+        logger.info(f"Qualidade dos dados: Casa={home_fields} campos, Visitante={away_fields} campos")
+        logger.info(f"Estatísticas suficientes: {has_stats_data}")
+        
+        if not has_stats_data:
+            logger.warning("AVISO: Dados estatísticos insuficientes. Usando cálculos de fallback.")
         
         # 1. FUNDAMENTAL STATISTICS
         fundamental_stats = f"""
@@ -152,6 +167,15 @@ def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_da
 * Vitórias {away_team}: {h2h.get('away_wins', 0)}
 * Empates: {h2h.get('draws', 0)}
 * Média de gols: {h2h.get('avg_goals', 0)}
+"""
+
+        # Adicionar aviso no prompt caso não tenhamos dados estatísticos suficientes
+        if not has_stats_data:
+            fundamental_stats += """
+### AVISO IMPORTANTE
+⚠️ Os dados estatísticos para esta partida são limitados ou inexistentes.
+As probabilidades calculadas estão utilizando a metodologia de fallback e devem ser consideradas aproximações.
+Recomenda-se cautela ao tomar decisões baseadas nesta análise.
 """
 
         # 2. STATS FOR RESULT MARKETS
@@ -477,16 +501,26 @@ def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_da
         away_draw_prob = away_win_prob + draw_prob
         home_away_prob = home_win_prob + away_win_prob
         
-        # 6. PROBABILITY SECTION
-        probability_section = f"""
-# PROBABILIDADES CALCULADAS (MÉTODO DE DISPERSÃO E PONDERAÇÃO)
-
+# 6. PROBABILITY SECTION (continuação)
+        if not has_stats_data:
+            prob_title = "PROBABILIDADES CALCULADAS (MODELO DE FALLBACK)"
+            prob_explanation = """
+### Observação Importante
+Devido à falta de dados estatísticos suficientes, estas probabilidades são aproximações 
+baseadas em um modelo simplificado e podem não refletir com precisão as chances reais."""
+        else:
+            prob_title = "PROBABILIDADES CALCULADAS (MÉTODO DE DISPERSÃO E PONDERAÇÃO)"
+            prob_explanation = """
 ### Metodologia
 As probabilidades foram calculadas usando nossa metodologia de dispersão e ponderação com:
 - Forma recente: 35%
 - Estatísticas de equipe: 25%
 - Posição na tabela: 20%
-- Métricas de criação: 20%
+- Métricas de criação: 20%"""
+            
+        probability_section = f"""
+# {prob_title}
+{prob_explanation}
 
 ### Moneyline (1X2)
 * {home_team}: {home_win_prob}%
@@ -576,6 +610,15 @@ ATENÇÃO: Ao explicar o nível de confiança, sempre esclareça que:
 - Consistência é uma medida (%) que indica quão previsível é o desempenho da equipe
 - Forma (X.X/15) representa a pontuação dos últimos 5 jogos (vitória=3pts, empate=1pt, derrota=0pts)
 - Valores mais altos em ambas métricas aumentam a confiança na previsão
+"""
+
+        # Adicionar aviso quando utilizamos o modelo de fallback
+        if not has_stats_data:
+            instructions += """
+
+⚠️ IMPORTANTE: Devido à limitação de dados estatísticos, as probabilidades calculadas são baseadas 
+em um modelo de fallback e devem ser consideradas aproximações. Mencione isto claramente na sua análise 
+e recomende cautela nas decisões baseadas nesta análise.
 """
 
         # Compile the final prompt
