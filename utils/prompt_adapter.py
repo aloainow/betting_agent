@@ -2206,172 +2206,133 @@ def transform_api_data(api_data, home_team_name, away_team_name, selected_market
         return formatted_data
 def extract_direct_team_stats(team_data, target_dict, team_type=""):
     """
-    Extrai estatísticas diretamente da estrutura do time com suporte melhorado
-    para o formato específico do JSON fornecido.
+    Extract team statistics directly with improved support for various JSON formats.
     
     Args:
-        team_data (dict): Dados do time
-        target_dict (dict): Dicionário alvo para preenchimento
-        team_type (str, optional): Tipo de time ("home" ou "away")
+        team_data (dict): Team data source
+        target_dict (dict): Target dictionary to fill
+        team_type (str, optional): Team type ("home" or "away")
     """
     import logging
+    import json
     logger = logging.getLogger("valueHunter.prompt_adapter")
     
     if not team_data or not isinstance(team_data, dict):
         return
     
-    # Lista completa de todos os campos possíveis para garantir extração total
-    all_fields = [
-        # Estatísticas básicas
-        "played", "seasonMatchesPlayed_overall", "wins", "seasonWinsNum_overall",
-        "draws", "seasonDrawsNum_overall", "losses", "seasonLossesNum_overall",
-        "win_pct", "draw_pct", "loss_pct", "form", "formRun_overall",
-        "seasonPPG_overall", "seasonRecentPPG", "leaguePosition_overall",
-        
-        # Específicas de casa
-        "home_played", "seasonMatchesPlayed_home", "home_wins", "seasonWinsNum_home",
-        "home_draws", "seasonDrawsNum_home", "home_losses", "seasonLossesNum_home",
-        "home_form", "formRun_home", "seasonPPG_home", "leaguePosition_home",
-        
-        # Específicas de fora
-        "away_played", "seasonMatchesPlayed_away", "away_wins", "seasonWinsNum_away",
-        "away_draws", "seasonDrawsNum_away", "away_losses", "seasonLossesNum_away",
-        "away_form", "formRun_away", "seasonPPG_away", "leaguePosition_away",
-        
-        # Gols
-        "goals_scored", "seasonScoredNum_overall", "goals_conceded", "seasonConcededNum_overall",
-        "home_goals_scored", "seasonScoredNum_home", "home_goals_conceded", "seasonConcededNum_home",
-        "away_goals_scored", "seasonScoredNum_away", "away_goals_conceded", "seasonConcededNum_away",
-        "goals_per_game", "conceded_per_game", "seasonGoalsTotal_overall",
-        "seasonGoalsTotal_home", "seasonGoalsTotal_away", "clean_sheets_pct",
-        "seasonCSPercentage_overall", "seasonCS_overall", "seasonCS_home", "seasonCS_away",
-        "btts_pct", "seasonBTTSPercentage_overall", "over_2_5_pct", "seasonOver25Percentage_overall",
-        
-        # Expected Goals
-        "xg", "xg_for_overall", "xga", "xg_against_overall",
-        "home_xg", "xg_for_home", "home_xga", "xg_against_home",
-        "away_xg", "xg_for_away", "away_xga", "xg_against_away",
-        "xg_for_avg_overall", "xg_for_avg_home", "xg_for_avg_away",
-        "xg_against_avg_overall", "xg_against_avg_home", "xg_against_avg_away",
-        
-        # Cartões
-        "cards_per_game", "cardsAVG_overall", "home_cards_per_game", "cardsAVG_home",
-        "away_cards_per_game", "cardsAVG_away", "cardsTotal_overall", "cardsTotal_home",
-        "cardsTotal_away", "yellow_cards", "red_cards", "over_3_5_cards_pct",
-        
-        # Escanteios
-        "corners_per_game", "cornersTotalAVG_overall", "home_corners_per_game", "cornersTotalAVG_home",
-        "away_corners_per_game", "cornersTotalAVG_away", "corners_for", "cornersTotal_overall",
-        "corners_against", "cornersAgainst_overall", "cornersAVG_overall", "cornersAVG_home",
-        "cornersAVG_away", "cornersAgainstAVG_overall", "cornersAgainstAVG_home", "cornersAgainstAVG_away",
-        "over_9_5_corners_pct",
-        
-        # Chutes
-        "shotsAVG_overall", "shotsAVG_home", "shotsAVG_away",
-        "shotsOnTargetAVG_overall", "shotsOnTargetAVG_home", "shotsOnTargetAVG_away",
-        
-        # Posse de bola
-        "possession", "possessionAVG_overall", "home_possession", "possessionAVG_home",
-        "away_possession", "possessionAVG_away"
-    ]
-    
-    # SUPER IMPORTANTE: Extrair TODOS os campos diretamente
-    # Esta é a principal melhoria para o formato JSON específico
-    for field in all_fields:
-        if field in team_data and team_data[field] not in [None, '', 'N/A']:
-            try:
-                if isinstance(team_data[field], (int, float)):
-                    target_dict[field] = team_data[field]
-                    logger.info(f"Extraído {field}={team_data[field]} diretamente")
-                elif isinstance(team_data[field], str) and field in ["form", "home_form", "away_form", "formRun_overall", "formRun_home", "formRun_away"]:
-                    target_dict[field] = team_data[field]
-                    logger.info(f"Extraída forma {field}={team_data[field]} diretamente")
+    # STRATEGY 1: DIRECT COPY OF ALL FIELDS - The key improvement!
+    for field, value in team_data.items():
+        try:
+            if value is not None and value != '' and value != 'N/A':
+                if isinstance(value, (int, float)):
+                    target_dict[field] = value
+                    logger.debug(f"Extracted {field}={value} directly")
+                elif isinstance(value, str) and field in ["form", "home_form", "away_form", "formRun_overall", 
+                                                          "formRun_home", "formRun_away"]:
+                    target_dict[field] = value
+                    logger.debug(f"Extracted form {field}={value} directly")
                 else:
-                    # Tentar converter para número
+                    # Try to convert to number
                     try:
-                        float_val = float(team_data[field])
+                        float_val = float(value)
                         target_dict[field] = float_val
-                        logger.info(f"Convertido e extraído {field}={float_val} diretamente")
+                        logger.debug(f"Converted and extracted {field}={float_val} directly")
                     except (ValueError, TypeError):
+                        # For non-numeric strings (except forms), also copy them
+                        if isinstance(value, str) and value:
+                            target_dict[field] = value
                         pass
-            except Exception as e:
-                logger.error(f"Erro ao extrair campo {field}: {str(e)}")
+        except Exception as e:
+            logger.error(f"Error extracting field {field}: {str(e)}")
     
-    # FASE 2: Verificar também em stats
-    if "stats" in team_data and isinstance(team_data["stats"], dict):
-        for field in all_fields:
-            if field in team_data["stats"] and team_data["stats"][field] not in [None, '', 'N/A']:
+    # STRATEGY 2: RECURSIVE EXTRACTION FROM NESTED STRUCTURES
+    nested_paths = ["stats", "statistics", "season_stats", "seasonStats", "data"]
+    
+    for path in nested_paths:
+        if path in team_data and isinstance(team_data[path], dict):
+            logger.info(f"Found nested structure at {path}")
+            # Recursively copy from nested dictionary
+            for nested_field, nested_value in team_data[path].items():
                 try:
-                    if isinstance(team_data["stats"][field], (int, float)) and team_data["stats"][field] != 0:
-                        target_dict[field] = team_data["stats"][field]
-                        logger.info(f"Extraído {field}={team_data['stats'][field]} de stats")
-                    elif isinstance(team_data["stats"][field], str) and field in ["form", "home_form", "away_form"] and team_data["stats"][field] != "?????":
-                        target_dict[field] = team_data["stats"][field]
-                        logger.info(f"Extraída forma {field}={team_data['stats'][field]} de stats")
-                    else:
-                        # Tentar converter para número
-                        numeric_value = float(team_data["stats"][field])
-                        if numeric_value != 0:
-                            target_dict[field] = numeric_value
-                            logger.info(f"Extraído (convertido) {field}={numeric_value} de stats")
-                except (ValueError, TypeError):
-                    pass
+                    # Only copy if not already set with non-zero value
+                    if nested_field not in target_dict or target_dict[nested_field] == 0:
+                        if nested_value is not None and nested_value != '' and nested_value != 'N/A':
+                            if isinstance(nested_value, (int, float)):
+                                target_dict[nested_field] = nested_value
+                            else:
+                                try:
+                                    float_val = float(nested_value)
+                                    target_dict[nested_field] = float_val
+                                except (ValueError, TypeError):
+                                    # Copy string values too
+                                    if isinstance(nested_value, str) and nested_value:
+                                        target_dict[nested_field] = nested_value
                 except Exception as e:
-                    logger.error(f"Erro ao extrair campo {field} de stats: {str(e)}")
+                    logger.error(f"Error extracting nested field {path}.{nested_field}: {str(e)}")
     
-    # FASE 3: Verificar campos duplicados com nomes diferentes
+    # STRATEGY 3: FIELD MAPPING FOR ALTERNATIVE NAMES
     field_mapping = {
-        "matches_played": "played",
-        "matches": "played",
-        "MP": "played",
-        "W": "wins",
-        "D": "draws",
-        "L": "losses",
-        "goals": "goals_scored",
-        "GF": "goals_scored",
-        "GA": "goals_conceded",
-        "xG": "xg",
-        "xGA": "xga",
-        "clean_sheet_percentage": "clean_sheets_pct",
-        "btts_percentage": "btts_pct",
-        "over_2_5_percentage": "over_2_5_pct",
-        "Poss": "possession"
+        # Basic stats
+        "matches_played": "played", "matches": "played", "MP": "played", "PJ": "played", "games": "played",
+        "W": "wins", "won": "wins", "victorias": "wins", "vitorias": "wins",
+        "D": "draws", "drawn": "draws", "empates": "draws", "tied": "draws",
+        "L": "losses", "lost": "losses", "defeats": "losses", "derrotas": "losses",
+        
+        # Goals
+        "goals": "goals_scored", "GF": "goals_scored", "goals_for": "goals_scored", "scored": "goals_scored",
+        "GA": "goals_conceded", "goals_against": "goals_conceded", "conceded": "goals_conceded",
+        
+        # Expected goals
+        "xG": "xg", "expected_goals": "xg", "xGF": "xg",
+        "xGA": "xga", "expected_goals_against": "xga", "xGAg": "xga",
+        
+        # Other stats  
+        "clean_sheet_percentage": "clean_sheets_pct", "cs_pct": "clean_sheets_pct",
+        "btts_percentage": "btts_pct", "both_teams_scored_pct": "btts_pct",
+        "over_2_5_percentage": "over_2_5_pct", "o25_pct": "over_2_5_pct",
+        "Poss": "possession", "ball_possession": "possession"
     }
     
-    # Verificar campos mapeados
+    # Apply field mappings
     for source_field, target_field in field_mapping.items():
-        # Verificar apenas se o campo alvo ainda não foi preenchido
         if target_field not in target_dict or target_dict[target_field] == 0:
-            # Verificar no objeto principal
+            # Check direct field
             if source_field in team_data and team_data[source_field] not in [None, '', 'N/A']:
                 try:
-                    numeric_value = float(team_data[source_field])
-                    if numeric_value != 0:
-                        target_dict[target_field] = numeric_value
-                        logger.info(f"Mapeado {source_field} → {target_field}={numeric_value}")
-                except (ValueError, TypeError):
+                    if isinstance(team_data[source_field], (int, float)):
+                        target_dict[target_field] = team_data[source_field]
+                    else:
+                        float_val = float(team_data[source_field])
+                        target_dict[target_field] = float_val
+                except Exception:
                     pass
-                except Exception as e:
-                    logger.error(f"Erro ao mapear campo {source_field}: {str(e)}")
-                    
-            # Verificar também em stats
-            if "stats" in team_data and isinstance(team_data["stats"], dict) and source_field in team_data["stats"] and team_data["stats"][source_field] not in [None, '', 'N/A']:
-                try:
-                    numeric_value = float(team_data["stats"][source_field])
-                    if numeric_value != 0:
-                        target_dict[target_field] = numeric_value
-                        logger.info(f"Mapeado stats.{source_field} → {target_field}={numeric_value}")
-                except (ValueError, TypeError):
-                    pass
-                except Exception as e:
-                    logger.error(f"Erro ao mapear campo stats.{source_field}: {str(e)}")
+            
+            # Check in nested structures
+            for path in nested_paths:
+                if path in team_data and isinstance(team_data[path], dict) and source_field in team_data[path]:
+                    try:
+                        if team_data[path][source_field] not in [None, '', 'N/A']:
+                            if isinstance(team_data[path][source_field], (int, float)):
+                                target_dict[target_field] = team_data[path][source_field]
+                            else:
+                                float_val = float(team_data[path][source_field])
+                                target_dict[target_field] = float_val
+                    except Exception:
+                        pass
     
-    # Log do total de campos extraídos
+    # STRATEGY 4: HANDLE HOME/AWAY SPECIFIC FIELDS
+    if team_type == "home" and "played" in target_dict and "home_played" not in target_dict:
+        target_dict["home_played"] = target_dict["played"]
+        
+    if team_type == "away" and "played" in target_dict and "away_played" not in target_dict:
+        target_dict["away_played"] = target_dict["played"]
+    
+    # Count non-zero fields for logging
     non_zero_count = sum(1 for k, v in target_dict.items() 
-                       if (isinstance(v, (int, float)) and v != 0) or 
-                          (isinstance(v, str) and v not in ["", "?????"]))
-    logger.info(f"Total de {non_zero_count} campos não-zero após extração direta")
+                      if (isinstance(v, (int, float)) and v != 0) or 
+                         (isinstance(v, str) and v not in ["", "?????"]))
     
+    logger.info(f"Total of {non_zero_count} non-zero fields extracted for {team_type} team")
 def extract_direct_team_stats_from_root(api_data, result, home_team_name, away_team_name):
     """
     Extrai estatísticas diretamente da estrutura raiz do JSON onde os teams
