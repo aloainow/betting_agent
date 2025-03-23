@@ -1,4 +1,5 @@
 import logging
+import json
 
 # Configuração de logging
 logger = logging.getLogger("valueHunter.prompt_adapter")
@@ -2208,8 +2209,6 @@ def extract_direct_team_stats(team_data, target_dict, team_type=""):
     """
     Extract team statistics directly with better JSON format handling.
     """
-    import logging
-    import json
     logger = logging.getLogger("valueHunter.prompt_adapter")
     
     if not team_data or not isinstance(team_data, dict):
@@ -2242,42 +2241,6 @@ def extract_direct_team_stats(team_data, target_dict, team_type=""):
                        if (isinstance(v, (int, float)) and v != 0) or 
                           (isinstance(v, str) and v not in ["", "?????"]))
     logger.info(f"Extracted {non_zero_count} non-zero fields for {team_type} team")
-    
-def extract_direct_team_stats(team_data, target_dict, team_type=""):
-    """
-    Extract team statistics directly with better JSON format handling.
-    """
-        import logging
-        logger = logging.getLogger("valueHunter.prompt_adapter")
-        
-        if not team_data or not isinstance(team_data, dict):
-            return
-            
-        # DIRECT COPY OF ALL FIELDS - Most important improvement!
-        for field, value in team_data.items():
-            try:
-                if value is not None and value != '' and value != 'N/A':
-                    # Copy the value directly regardless of type
-                    target_dict[field] = value
-            except Exception as e:
-                logger.error(f"Error copying field {field}: {str(e)}")
-        
-        # Also check stats sub-dictionary if it exists
-        if "stats" in team_data and isinstance(team_data["stats"], dict):
-            for field, value in team_data["stats"].items():
-                try:
-                    # Only copy if field doesn't exist in target or is zero
-                    if field not in target_dict or target_dict[field] == 0:
-                        if value is not None and value != '' and value != 'N/A':
-                            target_dict[field] = value
-                except Exception as e:
-                    logger.error(f"Error copying field from stats.{field}: {str(e)}")
-        
-        # Log the number of fields extracted
-        non_zero_count = sum(1 for k, v in target_dict.items() 
-                           if (isinstance(v, (int, float)) and v != 0) or 
-                              (isinstance(v, str) and v not in ["", "?????"]))
-        logger.info(f"Extracted {non_zero_count} non-zero fields for {team_type} team")
     
 
 def extract_traditional_stats(api_data, result):
