@@ -1,14 +1,13 @@
-# pages/dashboard.py - Solução com integrações de API-Football
-import streamlit as st
+# No início do arquivo, junto com os outros imports
 import logging
-import traceback  # Importado globalmente para evitar o erro
+import traceback
 import json
 import os
 import time
 from utils.core import show_valuehunter_logo, go_to_login, update_purchase_button, DATA_DIR
 from utils.data import parse_team_stats, get_odds_data, format_prompt
 from utils.ai import analyze_with_gpt, format_enhanced_prompt, format_highly_optimized_prompt
-from utils.prompt_adapter import extract_advanced_team_data
+from utils.prompt_adapter import extract_advanced_team_data, extract_direct_team_stats  # Adicione esta linha
 
 # Configuração de logging
 logger = logging.getLogger("valueHunter.dashboard")
@@ -601,8 +600,6 @@ def fetch_stats_data(selected_league, home_team=None, away_team=None):
             "h2h": {}
         }
 
-# Extrair dados usando a função de extração aprimorada
-from utils.prompt_adapter import extract_direct_team_stats
 
 # Extrair dados do time da casa
 if "home_team" in complete_analysis and isinstance(complete_analysis["home_team"], dict):
@@ -618,15 +615,6 @@ if "h2h" in complete_analysis and isinstance(complete_analysis["h2h"], dict):
         if value is not None and value != 'N/A' and value != '':
             optimized_data["h2h"][field] = value
         
-        # Extrair dados diretamente
-        if "home_team" in complete_analysis and isinstance(complete_analysis["home_team"], dict):
-            optimized_data["home_team"] = complete_analysis["home_team"].copy()
-            
-        if "away_team" in complete_analysis and isinstance(complete_analysis["away_team"], dict):
-            optimized_data["away_team"] = complete_analysis["away_team"].copy()
-            
-        if "h2h" in complete_analysis and isinstance(complete_analysis["h2h"], dict):
-            optimized_data["h2h"] = complete_analysis["h2h"].copy()
         
         # Contagem de campos
         home_fields = sum(1 for k, v in optimized_data["home_team"].items() 
