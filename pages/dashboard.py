@@ -598,82 +598,32 @@ def fetch_stats_data(selected_league, home_team=None, away_team=None):
             # Processamento simplificado dos dados
             status.info("Processando dados estatísticos...")
             
-             # Inicializar estrutura de dados otimizada
+            # Inicializar estrutura de dados otimizada
             optimized_data = {
-                    "match_info": {
-                        "home_team": home_team,
-                        "away_team": away_team,
-                        "league": selected_league,
-                        "league_id": season_id
-                    },
-                    "home_team": {},
-                    "away_team": {},
-                    "h2h": {}
-                }
-            
-                # MÉTODO 1: Verificar se temos o formato direto de dados
-               if isinstance(complete_analysis, dict):
-                    # Replace the code inside this if-block with:
-                    
-                    # Usar função simplificada para extrair apenas campos essenciais
-                    from utils.prompt_adapter import simplify_api_data
-                    
-                    # Substituir o optimized_data completamente
-                    optimized_data = simplify_api_data(complete_analysis, home_team, away_team)
-                    logger.info("Dados extraídos de forma simplificada para análise de IA")
-                    
-                    # Manter informações da liga que podem ter sido perdidas
-                    optimized_data["match_info"]["league"] = selected_league
-                    optimized_data["match_info"]["league_id"] = season_id
-                    
-                # Extrair dados do time visitante
-                if "away_team" in complete_analysis and isinstance(complete_analysis["away_team"], dict):
-                    from utils.prompt_adapter import extract_direct_team_stats
-                    extract_direct_team_stats(complete_analysis["away_team"], optimized_data["away_team"], "away")
-                    logger.info("Dados do time visitante extraídos diretamente da estrutura principal")
-                    
-                # Extrair dados de H2H
-                if "h2h" in complete_analysis and isinstance(complete_analysis["h2h"], dict):
-                    for field, value in complete_analysis["h2h"].items():
-                        if value is not None and value != 'N/A' and value != '':
-                            optimized_data["h2h"][field] = value
+                "match_info": {
+                    "home_team": home_team,
+                    "away_team": away_team,
+                    "league": selected_league,
+                    "league_id": season_id
+                },
+                "home_team": {},
+                "away_team": {},
+                "h2h": {}
+            }
+
+            # Substituir pelos métodos anteriores de extração com um único método simplificado
+            if isinstance(complete_analysis, dict):
+                # Usar a função simplificada para extrair apenas os campos essenciais
+                from utils.prompt_adapter import simplify_api_data
                 
-                # CASO 2: Verificar outras estruturas conhecidas
-                elif "basic_stats" in complete_analysis:
-                    if "home_team" in complete_analysis["basic_stats"]:
-                        from utils.prompt_adapter import extract_direct_team_stats
-                        extract_direct_team_stats(complete_analysis["basic_stats"]["home_team"], 
-                                               optimized_data["home_team"], "home")
-                        logger.info("Dados do time da casa extraídos de basic_stats.home_team")
-                    
-                    if "away_team" in complete_analysis["basic_stats"]:
-                        from utils.prompt_adapter import extract_direct_team_stats
-                        extract_direct_team_stats(complete_analysis["basic_stats"]["away_team"], 
-                                               optimized_data["away_team"], "away")
-                        logger.info("Dados do time visitante extraídos de basic_stats.away_team")
-            
-            # MÉTODO 2: Busca agressiva em todas as subchaves (backup)
-            if not optimized_data["home_team"] or not optimized_data["away_team"]:
-                logger.warning("Dados insuficientes encontrados, tentando busca agressiva...")
-                from utils.prompt_adapter import extract_deep_team_data
-                deep_data = extract_deep_team_data(complete_analysis, home_team, away_team)
+                # Substituir o optimized_data com uma versão simplificada
+                optimized_data = simplify_api_data(complete_analysis, home_team, away_team)
                 
-                # Mesclar dados encontrados
-                if deep_data:
-                    # Para casa
-                    if not optimized_data["home_team"] and deep_data["home_team"]:
-                        optimized_data["home_team"] = deep_data["home_team"]
-                        logger.info("Dados do time da casa recuperados por busca agressiva")
-                    
-                    # Para visitante
-                    if not optimized_data["away_team"] and deep_data["away_team"]:
-                        optimized_data["away_team"] = deep_data["away_team"]
-                        logger.info("Dados do time visitante recuperados por busca agressiva")
-                    
-                    # Para H2H
-                    if not optimized_data["h2h"] and deep_data["h2h"]:
-                        optimized_data["h2h"] = deep_data["h2h"]
-                        logger.info("Dados de H2H recuperados por busca agressiva")
+                # Preservar informações da liga que podem ter sido perdidas
+                optimized_data["match_info"]["league"] = selected_league
+                optimized_data["match_info"]["league_id"] = season_id
+                
+                logger.info("Dados extraídos de forma simplificada para análise de IA")
             
             # Contagem de campos
             home_fields = sum(1 for k, v in optimized_data["home_team"].items() 
