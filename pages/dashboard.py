@@ -4,6 +4,7 @@ import traceback
 import json
 import os
 import time
+import streamlit as st
 from utils.core import show_valuehunter_logo, go_to_login, update_purchase_button, DATA_DIR
 from utils.data import parse_team_stats, get_odds_data, format_prompt
 from utils.ai import analyze_with_gpt, format_enhanced_prompt, format_highly_optimized_prompt
@@ -25,6 +26,10 @@ def get_league_selection():
         str: A liga selecionada ou None se houver erro
     """
     try:
+        # Adicione um placeholder para mensagens de status
+        status_message = st.empty()
+        status_message.info("Carregando ligas disponíveis...")
+        
         # Importar a função para ligas pré-definidas
         from utils.footystats_api import get_user_selected_leagues_direct
         
@@ -90,11 +95,11 @@ def get_league_selection():
             # Recarregar a página
             st.experimental_rerun()
         
+        status_message.empty()  # Limpar a mensagem de status
         return selected_league
     
     except Exception as e:
         logger.error(f"Erro ao selecionar liga: {str(e)}")
-        import traceback
         logger.error(traceback.format_exc())
         st.error(f"Erro ao carregar ligas: {str(e)}")
         return None
@@ -146,160 +151,166 @@ def load_league_teams_direct(selected_league):
     Returns:
         list: Lista de nomes dos times ou lista vazia em caso de erro
     """
-    import traceback
-    import requests
-    import json
-    import os
-    import time
-    from datetime import datetime, timedelta
-    from utils.core import DATA_DIR
-    
-    status = st.empty()
-    status.info(f"Carregando times para {selected_league}...")
-    
-    # API Configuration
-    API_KEY = "b1742f67bda1c097be51c61409f1797a334d1889c291fedd5bcc0b3e070aa6c1"
-    BASE_URL = "https://api.football-data-api.com"
-    
-    # Encontrar o season_id correto para a liga selecionada
-    season_id = None
-    
-    # Verificar correspondência exata
-    if selected_league in LEAGUE_SEASON_IDS:
-        season_id = LEAGUE_SEASON_IDS[selected_league]
-    else:
-        # Verificar correspondência parcial
-        selected_league_lower = selected_league.lower()
-        for league, id in LEAGUE_SEASON_IDS.items():
-            if league.lower() in selected_league_lower or selected_league_lower in league.lower():
-                season_id = id
-                break
-    
-    if not season_id:
-        status.error(f"Não foi possível encontrar ID para liga: {selected_league}")
-        return []
-    
-    logger.info(f"Usando season_id {season_id} para {selected_league}")
-    
-    # Verificar cache
-    cache_dir = os.path.join(DATA_DIR, "teams_cache")
-    os.makedirs(cache_dir, exist_ok=True)
-    
-    # Nome do arquivo de cache
-    safe_league = selected_league.replace(' ', '_').replace('(', '').replace(')', '').replace('/', '_')
-    cache_file = os.path.join(cache_dir, f"{safe_league}_{season_id}.json")
-    
-    # Verificar cache
-    force_refresh = False
-    if os.path.exists(cache_file) and not force_refresh:
-        try:
-            with open(cache_file, 'r', encoding='utf-8') as f:
-                cache_data = json.load(f)
-            
-            # Verificar se o cache é recente (menos de 24 horas)
-            if "timestamp" in cache_data:
-                cache_time = datetime.fromtimestamp(cache_data["timestamp"])
-                if datetime.now() - cache_time < timedelta(days=1):
-                    logger.info(f"Usando times em cache para '{selected_league}'")
-                    status.success(f"✅ {len(cache_data['teams'])} times carregados do cache")
-                    return sorted(cache_data.get("teams", []))
-                else:
-                    logger.info(f"Cache expirado para '{selected_league}'")
-        except Exception as e:
-            logger.error(f"Erro ao ler cache: {str(e)}")
-    
     try:
-        # Buscar times da API
-        logger.info(f"Buscando times para '{selected_league}' (season_id: {season_id})")
+        import traceback
+        import requests
+        import json
+        import os
+        import time
+        from datetime import datetime, timedelta
+        from utils.core import DATA_DIR
         
-        response = requests.get(
-            f"{BASE_URL}/league-teams", 
-            params={
-                "key": API_KEY,
-                "season_id": season_id,
-                "include": "stats"
-            },
-            timeout=15
-        )
+        status = st.empty()
+        status.info(f"Carregando times para {selected_league}...")
         
-        if response.status_code != 200:
-            status.error(f"Erro da API: {response.status_code}")
-            logger.error(f"Erro da API: {response.status_code}")
-            
-            try:
-                error_data = response.json()
-                if "message" in error_data:
-                    error_msg = error_data["message"]
-                    logger.error(f"Mensagem da API: {error_msg}")
-                    
-                    # Mostrar diagnóstico
-                    with st.expander("Diagnóstico da API FootyStats", expanded=True):
-                        st.error(f"Erro da API: {error_msg}")
-                        st.info(f"Liga: {selected_league}")
-                        st.info(f"Season ID usado: {season_id}")
-                        
-                        # Botão para limpar cache
-                        if st.button("Limpar Cache e Tentar Novamente", key="clear_cache_forced"):
-                            if os.path.exists(cache_file):
-                                try:
-                                    os.remove(cache_file)
-                                    st.success("Cache removido!")
-                                except:
-                                    st.error("Erro ao remover cache")
-                            st.experimental_rerun()
-            except:
-                pass
-                
+        # API Configuration
+        API_KEY = "b1742f67bda1c097be51c61409f1797a334d1889c291fedd5bcc0b3e070aa6c1"
+        BASE_URL = "https://api.football-data-api.com"
+        
+        # Encontrar o season_id correto para a liga selecionada
+        season_id = None
+        
+        # Verificar correspondência exata
+        if selected_league in LEAGUE_SEASON_IDS:
+            season_id = LEAGUE_SEASON_IDS[selected_league]
+        else:
+            # Verificar correspondência parcial
+            selected_league_lower = selected_league.lower()
+            for league, id in LEAGUE_SEASON_IDS.items():
+                if league.lower() in selected_league_lower or selected_league_lower in league.lower():
+                    season_id = id
+                    break
+        
+        if not season_id:
+            status.error(f"Não foi possível encontrar ID para liga: {selected_league}")
             return []
         
-        # Processar resposta
-        data = response.json()
+        logger.info(f"Usando season_id {season_id} para {selected_league}")
         
-        if "data" not in data or not isinstance(data["data"], list):
-            status.error("Formato de resposta inválido")
-            logger.error(f"Formato de resposta inválido: {data}")
-            return []
+        # Verificar cache
+        cache_dir = os.path.join(DATA_DIR, "teams_cache")
+        os.makedirs(cache_dir, exist_ok=True)
         
-        # Extrair nomes dos times
-        teams = []
-        for team in data["data"]:
-            if "name" in team:
-                teams.append(team["name"])
+        # Nome do arquivo de cache
+        safe_league = selected_league.replace(' ', '_').replace('(', '').replace(')', '').replace('/', '_')
+        cache_file = os.path.join(cache_dir, f"{safe_league}_{season_id}.json")
         
-        # Salvar no cache
-        if teams:
+        # Verificar cache
+        force_refresh = False
+        if os.path.exists(cache_file) and not force_refresh:
             try:
-                cache_data = {
-                    "teams": teams,
-                    "timestamp": time.time(),
-                    "season_id": season_id
-                }
+                with open(cache_file, 'r', encoding='utf-8') as f:
+                    cache_data = json.load(f)
                 
-                with open(cache_file, 'w', encoding='utf-8') as f:
-                    json.dump(cache_data, f)
-                
-                logger.info(f"Salvos {len(teams)} times no cache para {selected_league}")
+                # Verificar se o cache é recente (menos de 24 horas)
+                if "timestamp" in cache_data:
+                    cache_time = datetime.fromtimestamp(cache_data["timestamp"])
+                    if datetime.now() - cache_time < timedelta(days=1):
+                        logger.info(f"Usando times em cache para '{selected_league}'")
+                        status.success(f"✅ {len(cache_data['teams'])} times carregados do cache")
+                        return sorted(cache_data.get("teams", []))
+                    else:
+                        logger.info(f"Cache expirado para '{selected_league}'")
             except Exception as e:
-                logger.error(f"Erro ao salvar cache: {str(e)}")
+                logger.error(f"Erro ao ler cache: {str(e)}")
         
-        # Sucesso!
-        status.success(f"✅ {len(teams)} times carregados para {selected_league}")
-        return sorted(teams)
-        
+        try:
+            # Buscar times da API
+            logger.info(f"Buscando times para '{selected_league}' (season_id: {season_id})")
+            
+            response = requests.get(
+                f"{BASE_URL}/league-teams", 
+                params={
+                    "key": API_KEY,
+                    "season_id": season_id,
+                    "include": "stats"
+                },
+                timeout=15
+            )
+            
+            if response.status_code != 200:
+                status.error(f"Erro da API: {response.status_code}")
+                logger.error(f"Erro da API: {response.status_code}")
+                
+                try:
+                    error_data = response.json()
+                    if "message" in error_data:
+                        error_msg = error_data["message"]
+                        logger.error(f"Mensagem da API: {error_msg}")
+                        
+                        # Mostrar diagnóstico
+                        with st.expander("Diagnóstico da API FootyStats", expanded=True):
+                            st.error(f"Erro da API: {error_msg}")
+                            st.info(f"Liga: {selected_league}")
+                            st.info(f"Season ID usado: {season_id}")
+                            
+                            # Botão para limpar cache
+                            if st.button("Limpar Cache e Tentar Novamente", key="clear_cache_forced"):
+                                if os.path.exists(cache_file):
+                                    try:
+                                        os.remove(cache_file)
+                                        st.success("Cache removido!")
+                                    except:
+                                        st.error("Erro ao remover cache")
+                                st.experimental_rerun()
+                except:
+                    pass
+                    
+                return []
+            
+            # Processar resposta
+            data = response.json()
+            
+            if "data" not in data or not isinstance(data["data"], list):
+                status.error("Formato de resposta inválido")
+                logger.error(f"Formato de resposta inválido: {data}")
+                return []
+            
+            # Extrair nomes dos times
+            teams = []
+            for team in data["data"]:
+                if "name" in team:
+                    teams.append(team["name"])
+            
+            # Salvar no cache
+            if teams:
+                try:
+                    cache_data = {
+                        "teams": teams,
+                        "timestamp": time.time(),
+                        "season_id": season_id
+                    }
+                    
+                    with open(cache_file, 'w', encoding='utf-8') as f:
+                        json.dump(cache_data, f)
+                    
+                    logger.info(f"Salvos {len(teams)} times no cache para {selected_league}")
+                except Exception as e:
+                    logger.error(f"Erro ao salvar cache: {str(e)}")
+            
+            # Sucesso!
+            status.success(f"✅ {len(teams)} times carregados para {selected_league}")
+            return sorted(teams)
+            
+        except Exception as e:
+            status.error(f"Erro ao carregar times: {str(e)}")
+            logger.error(f"Erro ao carregar times: {str(e)}")
+            
+            # Capturar o traceback manualmente
+            import traceback as tb
+            error_traceback = tb.format_exc()
+            logger.error(error_traceback)
+            
+            # Mostrar diagnóstico detalhado
+            with st.expander("Detalhes do Erro", expanded=True):
+                st.error(f"Erro ao acessar a API FootyStats: {str(e)}")
+                st.code(error_traceback)
+            
+            return []
     except Exception as e:
-        status.error(f"Erro ao carregar times: {str(e)}")
-        logger.error(f"Erro ao carregar times: {str(e)}")
-        
-        # Capturar o traceback manualmente
-        import traceback as tb
-        error_traceback = tb.format_exc()
-        logger.error(error_traceback)
-        
-        # Mostrar diagnóstico detalhado
-        with st.expander("Detalhes do Erro", expanded=True):
-            st.error(f"Erro ao acessar a API FootyStats: {str(e)}")
-            st.code(error_traceback)
-        
+        logger.error(f"Erro geral em load_league_teams_direct: {str(e)}")
+        logger.error(traceback.format_exc())
+        st.error(f"Erro ao carregar times: {str(e)}")
         return []
 
 def show_league_update_button(selected_league):
@@ -523,138 +534,144 @@ def fetch_stats_data(selected_league, home_team=None, away_team=None):
     Returns:
         tuple: (DataFrame com estatísticas, dados brutos) ou (None, None) em caso de erro
     """
-    import logging
-    import traceback
-    
-    # Configuração de logging
-    logger = logging.getLogger("valueHunter.dashboard")
-    
-    # Status placeholder
-    status = st.empty()
-    
-    # Verificar se temos times específicos para buscar
-    if not home_team or not away_team:
-        st.error("É necessário selecionar dois times para análise.")
-        return None, None
-    
-    # Iniciar busca
-    status.info("Buscando estatísticas atualizadas...")
-    
     try:
-        from utils.enhanced_api_client import get_complete_match_analysis, convert_to_dataframe_format
+        import logging
+        import traceback
         
-        # Determinar o season_id
-        if selected_league == "EFL League One (England)":
-            season_id = 12446  # ID fixo conhecido para EFL League One
-        else:
-            # Código original para outras ligas
-            from utils.footystats_api import LEAGUE_IDS
-            season_id = LEAGUE_IDS.get(selected_league)
+        # Configuração de logging
+        logger = logging.getLogger("valueHunter.dashboard")
+        
+        # Status placeholder
+        status = st.empty()
+        
+        # Verificar se temos times específicos para buscar
+        if not home_team or not away_team:
+            st.error("É necessário selecionar dois times para análise.")
+            return None, None
+        
+        # Iniciar busca
+        status.info("Buscando estatísticas atualizadas...")
+        
+        try:
+            from utils.enhanced_api_client import get_complete_match_analysis, convert_to_dataframe_format
+            
+            # Determinar o season_id
+            if selected_league == "EFL League One (England)":
+                season_id = 12446  # ID fixo conhecido para EFL League One
+            else:
+                # Código original para outras ligas
+                from utils.footystats_api import LEAGUE_IDS
+                season_id = LEAGUE_IDS.get(selected_league)
+                if not season_id:
+                    # Buscar correspondência parcial
+                    for league_name, league_id in LEAGUE_IDS.items():
+                        if league_name.lower() in selected_league.lower() or selected_league.lower() in league_name.lower():
+                            season_id = league_id
+                            break
+            
             if not season_id:
-                # Buscar correspondência parcial
-                for league_name, league_id in LEAGUE_IDS.items():
-                    if league_name.lower() in selected_league.lower() or selected_league.lower() in league_name.lower():
-                        season_id = league_id
-                        break
-        
-        if not season_id:
-            st.error(f"Não foi possível encontrar ID para liga: {selected_league}")
-            st.info("Verifique se a liga está corretamente selecionada na sua conta FootyStats.")
-            return None, None
-        
-        # Informar ao usuário
-        st.info(f"Buscando estatísticas para {selected_league} (ID: {season_id})")
-        logger.info(f"Iniciando busca para {home_team} vs {away_team} na liga {selected_league} (ID: {season_id})")
-        
-        # Buscar análise completa
-        complete_analysis = get_complete_match_analysis(home_team, away_team, season_id, force_refresh=False)
-        
-        # Verificar se obtivemos dados
-        if not complete_analysis:
-            st.error(f"Não foi possível obter estatísticas para {home_team} vs {away_team}")
-            return None, None
-        
-        # Converter para DataFrame
-        team_stats_df = convert_to_dataframe_format(complete_analysis)
-        if team_stats_df is None:
-            st.error("Erro ao processar estatísticas para formato DataFrame")
-            return None, None
+                st.error(f"Não foi possível encontrar ID para liga: {selected_league}")
+                st.info("Verifique se a liga está corretamente selecionada na sua conta FootyStats.")
+                return None, None
             
-        # Sucesso ao carregar os dados
-        st.success(f"Estatísticas carregadas com sucesso para {home_team} vs {away_team}")
-        
-                # Processamento simplificado dos dados
-        status.info("Processando dados estatísticos...")
-        
-        # Inicializar estrutura de dados otimizada
-        optimized_data = {
-            "match_info": {
-                "home_team": home_team,
-                "away_team": away_team,
-                "league": selected_league,
-                "league_id": season_id
-            },
-            "home_team": {},
-            "away_team": {},
-            "h2h": {}
-        }
-
-
-        # Extrair dados do time da casa
-        if "home_team" in complete_analysis and isinstance(complete_analysis["home_team"], dict):
-            extract_direct_team_stats(complete_analysis["home_team"], optimized_data["home_team"], "home")
+            # Informar ao usuário
+            st.info(f"Buscando estatísticas para {selected_league} (ID: {season_id})")
+            logger.info(f"Iniciando busca para {home_team} vs {away_team} na liga {selected_league} (ID: {season_id})")
             
-        # Extrair dados do time visitante
-        if "away_team" in complete_analysis and isinstance(complete_analysis["away_team"], dict):
-            extract_direct_team_stats(complete_analysis["away_team"], optimized_data["away_team"], "away")
+            # Buscar análise completa
+            complete_analysis = get_complete_match_analysis(home_team, away_team, season_id, force_refresh=False)
             
-        # Extrair dados de H2H
-        if "h2h" in complete_analysis and isinstance(complete_analysis["h2h"], dict):
-            for field, value in complete_analysis["h2h"].items():
-                if value is not None and value != 'N/A' and value != '':
-                    optimized_data["h2h"][field] = value
+            # Verificar se obtivemos dados
+            if not complete_analysis:
+                st.error(f"Não foi possível obter estatísticas para {home_team} vs {away_team}")
+                return None, None
+            
+            # Converter para DataFrame
+            team_stats_df = convert_to_dataframe_format(complete_analysis)
+            if team_stats_df is None:
+                st.error("Erro ao processar estatísticas para formato DataFrame")
+                return None, None
                 
-        
-        # Contagem de campos
-        home_fields = sum(1 for k, v in optimized_data["home_team"].items() 
-                      if (isinstance(v, (int, float)) and v != 0) or 
-                         (isinstance(v, str) and v != "" and v != "?????"))
-                         
-        away_fields = sum(1 for k, v in optimized_data["away_team"].items() 
-                      if (isinstance(v, (int, float)) and v != 0) or 
-                         (isinstance(v, str) and v != "" and v != "?????"))
-                         
-        h2h_fields = sum(1 for k, v in optimized_data["h2h"].items() 
-                      if isinstance(v, (int, float)) and v != 0)
-        
-        # Log de dados extraídos
-        logger.info(f"Campos extraídos: Casa={home_fields}, Visitante={away_fields}, H2H={h2h_fields}")
-        
-        # Alertas ao usuário
-        if home_fields < 10 or away_fields < 10:
-            st.warning(f"⚠️ Extração com dados limitados ({home_fields} para casa, {away_fields} para visitante)")
-        else:
-            st.success(f"✅ Dados extraídos: {home_fields} campos para casa, {away_fields} para visitante")
+            # Sucesso ao carregar os dados
+            st.success(f"Estatísticas carregadas com sucesso para {home_team} vs {away_team}")
             
-        # Modo debug
-        if "debug_mode" in st.session_state and st.session_state.debug_mode:
-            with st.expander("Dados extraídos", expanded=False):
-                st.json(optimized_data)
+            # Processamento simplificado dos dados
+            status.info("Processando dados estatísticos...")
+            
+            # Inicializar estrutura de dados otimizada
+            optimized_data = {
+                "match_info": {
+                    "home_team": home_team,
+                    "away_team": away_team,
+                    "league": selected_league,
+                    "league_id": season_id
+                },
+                "home_team": {},
+                "away_team": {},
+                "h2h": {}
+            }
+
+            # Extrair dados do time da casa
+            if "home_team" in complete_analysis and isinstance(complete_analysis["home_team"], dict):
+                extract_direct_team_stats(complete_analysis["home_team"], optimized_data["home_team"], "home")
                 
-        # Retornar os dados
-        return team_stats_df, optimized_data
-        
+            # Extrair dados do time visitante
+            if "away_team" in complete_analysis and isinstance(complete_analysis["away_team"], dict):
+                extract_direct_team_stats(complete_analysis["away_team"], optimized_data["away_team"], "away")
+                
+            # Extrair dados de H2H
+            if "h2h" in complete_analysis and isinstance(complete_analysis["h2h"], dict):
+                for field, value in complete_analysis["h2h"].items():
+                    if value is not None and value != 'N/A' and value != '':
+                        optimized_data["h2h"][field] = value
+                    
+            
+            # Contagem de campos
+            home_fields = sum(1 for k, v in optimized_data["home_team"].items() 
+                          if (isinstance(v, (int, float)) and v != 0) or 
+                            (isinstance(v, str) and v != "" and v != "?????"))
+                            
+            away_fields = sum(1 for k, v in optimized_data["away_team"].items() 
+                          if (isinstance(v, (int, float)) and v != 0) or 
+                            (isinstance(v, str) and v != "" and v != "?????"))
+                            
+            h2h_fields = sum(1 for k, v in optimized_data["h2h"].items() 
+                          if isinstance(v, (int, float)) and v != 0)
+            
+            # Log de dados extraídos
+            logger.info(f"Campos extraídos: Casa={home_fields}, Visitante={away_fields}, H2H={h2h_fields}")
+            
+            # Alertas ao usuário
+            if home_fields < 10 or away_fields < 10:
+                st.warning(f"⚠️ Extração com dados limitados ({home_fields} para casa, {away_fields} para visitante)")
+            else:
+                st.success(f"✅ Dados extraídos: {home_fields} campos para casa, {away_fields} para visitante")
+                
+            # Modo debug
+            if "debug_mode" in st.session_state and st.session_state.debug_mode:
+                with st.expander("Dados extraídos", expanded=False):
+                    st.json(optimized_data)
+                    
+            # Retornar os dados
+            return team_stats_df, optimized_data
+            
+        except Exception as e:
+            # Log detalhado do erro
+            logger.error(f"Erro ao buscar ou processar estatísticas: {str(e)}")
+            logger.error(traceback.format_exc())
+            st.error(f"Erro: {str(e)}")
+            
+            # Mostrar detalhes para debug
+            if "debug_mode" in st.session_state and st.session_state.debug_mode:
+                with st.expander("Detalhes do erro", expanded=True):
+                    st.code(traceback.format_exc())
+                    
+            return None, None
+            
     except Exception as e:
-        # Log detalhado do erro
-        logger.error(f"Erro ao buscar ou processar estatísticas: {str(e)}")
+        logger.error(f"Erro geral em fetch_stats_data: {str(e)}")
         logger.error(traceback.format_exc())
-        st.error(f"Erro: {str(e)}")
-        
-        # Mostrar detalhes para debug
-        if "debug_mode" in st.session_state and st.session_state.debug_mode:
-            with st.expander("Detalhes do erro", expanded=True):
-                st.code(traceback.format_exc())
-                
+        st.error(f"Erro ao buscar dados: {str(e)}")
         return None, None
 
 def get_cached_teams(league):
@@ -872,7 +889,7 @@ def check_analysis_limits(selected_markets):
 def show_main_dashboard():
     """Show the main dashboard with improved error handling and debug info"""
     try:
-        # ADICIONAR ESTA VERIFICAÇÃO
+        # VERIFICAÇÃO DE AUTENTICAÇÃO
         if not hasattr(st.session_state, 'authenticated') or not st.session_state.authenticated:
             st.error("Sessão não autenticada. Por favor, faça login novamente.")
             st.session_state.page = "login"
@@ -891,81 +908,35 @@ def show_main_dashboard():
             st.session_state.page = "login"
             st.experimental_rerun()
             return
-
-    # Teste de conexão com a API
-        with st.spinner("Verificando conexão com a API..."):
-            try:
-                from utils.footystats_api import test_api_connection
-                api_status = test_api_connection()
-                
-                if not api_status["success"]:
-                    st.error(f"Erro de conexão com a API FootyStats: {api_status.get('message', 'Erro desconhecido')}")
-                    st.info("Verifique sua conexão com a internet e suas credenciais da API.")
-                    
-                    # Botão para tentar novamente
-                    if st.button("Tentar novamente"):
-                        st.experimental_rerun()
-                    return
-            except Exception as e:
-                st.error(f"Erro ao verificar conexão com a API: {str(e)}")
-                if st.button("Tentar novamente"):
-                    st.experimental_rerun()
-                return
-            try:
-                # Garantir que a barra lateral esteja visível
-                st.markdown("""
-                <style>
-                /* FORÇA a barra lateral a ficar visível */
-                [data-testid="stSidebar"] {
-                    display: block !important;
-                    visibility: visible !important;
-                    opacity: 1 !important;
-                    width: auto !important;
-                    transform: none !important;
-                }
-                
-                /* Ocultar apenas os elementos de navegação do Streamlit, não a barra toda */
-                header[data-testid="stHeader"],
-                footer,
-                #MainMenu {
-                    display: none !important;
-                }
-                
-                /* Apenas ocultar o CONTAINER de navegação, não a barra lateral inteira */
-                section[data-testid="stSidebarNavContainer"] {
-                    display: none !important;
-                }
-                
-                /* Corrigir - NÃO ocultar o primeiro div do sidebar, apenas elementos específicos */
-                [data-testid="stSidebar"] > div:first-child > div:nth-child(2),  /* Este é o container de navegação */
-                button.stSidebarButton,
-                div.stSidebarNavItems {
-                    display: none !important;
-                }
-                
-                /* Seletores para itens de navegação, não para a barra inteira */
-                ul.st-emotion-cache-pbk8do,
-                div.st-emotion-cache-16idsys {
-                    display: none !important;
-                }
-                
-                /* Adicionais seletores para navegação */
-                [data-testid="collapsedControl"],
-                #MainMenu,
-                footer {
-                    display: none !important;
-                }
-                
-                /* Remover espaço extra no topo que normalmente é ocupado pelo menu */
-                .main .block-container {
-                    padding-top: 1rem !important;
-                }
-                </style>
-                """, unsafe_allow_html=True)
-                
+            
+        # Garantir que a barra lateral esteja visível
+        st.markdown("""
+        <style>
+        /* CSS simplificado para garantir visibilidade */
+        [data-testid="stSidebar"] {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            width: auto !important;
+            min-width: 250px !important;
+        }
+        
+        /* Ocultar apenas os elementos de navegação do Streamlit */
+        header[data-testid="stHeader"],
+        footer,
+        #MainMenu {
+            display: none !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
         # Iniciar com log de diagnóstico
         logger.info("Iniciando renderização do dashboard principal")     
         
+        # Adicionar modo de depuração para facilitar debug
+        if "debug_mode" not in st.session_state:
+            st.session_state.debug_mode = False
+            
         # ------------------------------------------------------------
         # BARRA LATERAL REORGANIZADA
         # ------------------------------------------------------------
@@ -995,6 +966,21 @@ def show_main_dashboard():
             st.session_state.email = None
             st.session_state.page = "landing"
             st.experimental_rerun()
+            
+        # Opções avançadas no sidebar
+        with st.sidebar.expander("Opções avançadas"):
+            st.session_state.debug_mode = st.checkbox("Modo de depuração", value=st.session_state.debug_mode)
+            
+            if st.button("Limpar cache"):
+                cleaned = clear_cache()
+                st.success(f"Cache limpo: {cleaned} arquivos removidos")
+                
+            if st.button("Reiniciar aplicação"):
+                for key in list(st.session_state.keys()):
+                    if key != "authenticated" and key != "email":
+                        del st.session_state[key]
+                st.success("Aplicação reiniciada")
+                st.experimental_rerun()
 
         # ------------------------------------------------------------
         # CONTEÚDO PRINCIPAL 
@@ -1012,6 +998,25 @@ def show_main_dashboard():
             
             # Container para status
             status_container = st.empty()
+            
+            # Verificar conexão com a API
+            with st.spinner("Verificando conexão..."):
+                try:
+                    from utils.footystats_api import test_api_connection
+                    api_status = test_api_connection()
+                    
+                    if not api_status["success"]:
+                        st.error(f"Erro de conexão com a API FootyStats: {api_status.get('message', 'Erro desconhecido')}")
+                        st.info("Verifique sua conexão com a internet e suas credenciais da API.")
+                        
+                        # Botão para tentar novamente
+                        if st.button("Tentar novamente"):
+                            st.experimental_rerun()
+                        return
+                except Exception as api_error:
+                    logger.error(f"Erro ao verificar conexão com a API: {str(api_error)}")
+                    if st.session_state.debug_mode:
+                        st.error(f"Erro ao verificar API: {str(api_error)}")
             
             # Carregar times diretamente (ignorando o cache)
             with st.spinner(f"Carregando times para {selected_league}..."):
@@ -1086,8 +1091,10 @@ def show_main_dashboard():
                 
             except Exception as markets_error:
                 logger.error(f"Erro na seleção de mercados: {str(markets_error)}")
+                logger.error(traceback.format_exc())
                 st.error(f"Erro ao exibir mercados disponíveis: {str(markets_error)}")
-                traceback.print_exc()
+                if st.session_state.debug_mode:
+                    st.code(traceback.format_exc())
                 return
             
             # Bloco try separado para odds
@@ -1102,18 +1109,16 @@ def show_main_dashboard():
                 
             except Exception as odds_error:
                 logger.error(f"Erro na configuração de odds: {str(odds_error)}")
+                logger.error(traceback.format_exc())
                 st.error(f"Erro ao configurar odds: {str(odds_error)}")
-                traceback.print_exc()
+                if st.session_state.debug_mode:
+                    st.code(traceback.format_exc())
                 return
             
             # Botão de análise centralizado
             try:
                 # Botão em largura total para melhor design
                 analyze_button = st.button("Analisar Partida", type="primary", use_container_width=True)
-                
-                # Modo de depuração para desenvolvedores
-                if st.checkbox("Modo de depuração", value=False, key="debug_mode"):
-                    st.info("Modo de depuração ativado. Execute a análise para ver informações detalhadas.")
                 
                 # Find the analyze button handler in pages/dashboard.py and replace it with this code
 
@@ -1548,25 +1553,32 @@ def show_main_dashboard():
                                     
                     except Exception as analysis_error:
                         logger.error(f"Erro durante a análise: {str(analysis_error)}")
-                        status.error(f"Erro durante a análise: {str(analysis_error)}")
-                        import traceback
                         logger.error(traceback.format_exc())
+                        status.error(f"Erro durante a análise: {str(analysis_error)}")
+                        if st.session_state.debug_mode:
+                            st.code(traceback.format_exc())
             except Exception as button_error:
                 logger.error(f"Erro no botão de análise: {str(button_error)}")
+                logger.error(traceback.format_exc())
                 st.error(f"Erro no botão de análise: {str(button_error)}")
-                traceback.print_exc()
+                if st.session_state.debug_mode:
+                    st.code(traceback.format_exc())
                     
         except Exception as content_error:
             logger.error(f"Erro fatal no conteúdo principal: {str(content_error)}")
+            logger.error(traceback.format_exc())
             st.error("Erro ao carregar o conteúdo principal. Detalhes no log.")
             st.error(f"Detalhes: {str(content_error)}")
-            traceback.print_exc()
+            if st.session_state.debug_mode:
+                st.code(traceback.format_exc())
             
     except Exception as e:
         logger.error(f"Erro crítico ao exibir painel principal: {str(e)}")
+        logger.error(traceback.format_exc())
         st.error("Erro ao carregar o painel principal. Por favor, tente novamente.")
         st.error(f"Erro: {str(e)}")
-        traceback.print_exc()
+        if st.session_state.debug_mode:
+            st.code(traceback.format_exc())
 
 # Função auxiliar para extração de dados avançada
 def extract_direct_team_stats(source, target, team_type):
@@ -1616,18 +1628,18 @@ def transform_api_data(stats_data, home_team, away_team, selected_markets):
     Returns:
         dict: Dados transformados
     """
-    # Inicializar estrutura de resultado
-    result = {
-        "match_info": {
-            "home_team": home_team,
-            "away_team": away_team
-        },
-        "home_team": {},
-        "away_team": {},
-        "h2h": {}
-    }
-    
     try:
+        # Inicializar estrutura de resultado
+        result = {
+            "match_info": {
+                "home_team": home_team,
+                "away_team": away_team
+            },
+            "home_team": {},
+            "away_team": {},
+            "h2h": {}
+        }
+        
         # Extrair dados de H2H se disponíveis
         if "h2h" in stats_data and isinstance(stats_data["h2h"], dict):
             result["h2h"] = stats_data["h2h"].copy()
@@ -1714,33 +1726,37 @@ def transform_api_data(stats_data, home_team, away_team, selected_markets):
         logger.error(traceback.format_exc())
         
         # Garantir que retornamos pelo menos dados mínimos
-        result["home_team"].update({
-            "name": home_team,
-            "played": 10,
-            "wins": 5,
-            "draws": 3,
-            "losses": 2,
-            "goals_scored": 15,
-            "goals_conceded": 10
-        })
-        
-        result["away_team"].update({
-            "name": away_team,
-            "played": 10,
-            "wins": 4,
-            "draws": 2,
-            "losses": 4,
-            "goals_scored": 12,
-            "goals_conceded": 14
-        })
-        
-        result["h2h"].update({
-            "matches": 3,
-            "home_wins": 1,
-            "away_wins": 1,
-            "draws": 1,
-            "home_goals": 3,
-            "away_goals": 3
-        })
+        result = {
+            "match_info": {
+                "home_team": home_team,
+                "away_team": away_team
+            },
+            "home_team": {
+                "name": home_team,
+                "played": 10,
+                "wins": 5,
+                "draws": 3,
+                "losses": 2,
+                "goals_scored": 15,
+                "goals_conceded": 10
+            },
+            "away_team": {
+                "name": away_team,
+                "played": 10,
+                "wins": 4,
+                "draws": 2,
+                "losses": 4,
+                "goals_scored": 12,
+                "goals_conceded": 14
+            },
+            "h2h": {
+                "matches": 3,
+                "home_wins": 1,
+                "away_wins": 1,
+                "draws": 1,
+                "home_goals": 3,
+                "away_goals": 3
+            }
+        }
         
         return result
