@@ -601,20 +601,20 @@ def fetch_stats_data(selected_league, home_team=None, away_team=None):
         }
 
 
-# Extrair dados do time da casa
-if "home_team" in complete_analysis and isinstance(complete_analysis["home_team"], dict):
-    extract_direct_team_stats(complete_analysis["home_team"], optimized_data["home_team"], "home")
-    
-# Extrair dados do time visitante
-if "away_team" in complete_analysis and isinstance(complete_analysis["away_team"], dict):
-    extract_direct_team_stats(complete_analysis["away_team"], optimized_data["away_team"], "away")
-    
-# Extrair dados de H2H
-if "h2h" in complete_analysis and isinstance(complete_analysis["h2h"], dict):
-    for field, value in complete_analysis["h2h"].items():
-        if value is not None and value != 'N/A' and value != '':
-            optimized_data["h2h"][field] = value
-        
+        # Extrair dados do time da casa
+        if "home_team" in complete_analysis and isinstance(complete_analysis["home_team"], dict):
+            extract_direct_team_stats(complete_analysis["home_team"], optimized_data["home_team"], "home")
+            
+        # Extrair dados do time visitante
+        if "away_team" in complete_analysis and isinstance(complete_analysis["away_team"], dict):
+            extract_direct_team_stats(complete_analysis["away_team"], optimized_data["away_team"], "away")
+            
+        # Extrair dados de H2H
+        if "h2h" in complete_analysis and isinstance(complete_analysis["h2h"], dict):
+            for field, value in complete_analysis["h2h"].items():
+                if value is not None and value != 'N/A' and value != '':
+                    optimized_data["h2h"][field] = value
+                
         
         # Contagem de campos
         home_fields = sum(1 for k, v in optimized_data["home_team"].items() 
