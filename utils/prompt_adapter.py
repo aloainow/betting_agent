@@ -4313,3 +4313,148 @@ def extract_all_fields_direct(api_data, result_dict):
     h2h_fields = sum(1 for v in result_dict["h2h"].values() if v != 0)
     
     logger.info(f"Campos extraídos diretamente: Casa={home_fields}, Visitante={away_fields}, H2H={h2h_fields}")
+def simplify_api_data(api_data, home_team_name, away_team_name):
+    """
+    Transforms API data into the minimal format required by the AI model.
+    Only includes essential fields like in paste.txt format.
+    
+    Args:
+        api_data (dict): Original API data from FootyStats
+        home_team_name (str): Name of home team
+        away_team_name (str): Name of away team
+        
+    Returns:
+        dict: Simplified data structure with minimal fields
+    """
+    import logging
+    logger = logging.getLogger("valueHunter.prompt_adapter")
+    
+    # Initialize with the correct minimal structure
+    simplified_data = {
+        "match_info": {
+            "home_team": home_team_name,
+            "away_team": away_team_name,
+            "league": "",
+            "league_id": None
+        },
+        "home_team": {},
+        "away_team": {},
+        "h2h": {
+            "total_matches": 0,
+            "home_wins": 0,
+            "away_wins": 0,
+            "draws": 0,
+            "avg_goals": 0,
+            "over_2_5_pct": 0,
+            "btts_pct": 0,
+            "avg_cards": 0,
+            "avg_corners": 0
+        }
+    }
+    
+    # Check if we have valid API data
+    if not api_data or not isinstance(api_data, dict):
+        logger.error("Invalid API data provided")
+        return simplified_data
+    
+    # Fill in league info
+    if "basic_stats" in api_data and "league_id" in api_data["basic_stats"]:
+        simplified_data["match_info"]["league_id"] = api_data["basic_stats"]["league_id"]
+    
+    # List of ONLY the essential fields to include (based on paste.txt format)
+    essential_fields = [
+        "played", "seasonMatchesPlayed_overall", 
+        "wins", "seasonWinsNum_overall", 
+        "draws", "seasonDrawsNum_overall", 
+        "losses", "seasonLossesNum_overall",
+        "win_pct", "draw_pct", "loss_pct",
+        "form", "formRun_overall", 
+        "seasonPPG_overall", "seasonRecentPPG", 
+        "leaguePosition_overall",
+        
+        # Home specific
+        "home_played", "seasonMatchesPlayed_home",
+        "home_wins", "seasonWinsNum_home",
+        "home_draws", "seasonDrawsNum_home",
+        "home_losses", "seasonLossesNum_home",
+        "home_form", "formRun_home",
+        "seasonPPG_home", "leaguePosition_home",
+        
+        # Away specific
+        "away_played", "seasonMatchesPlayed_away",
+        "away_wins", "seasonWinsNum_away",
+        "away_draws", "seasonDrawsNum_away",
+        "away_losses", "seasonLossesNum_away",
+        "away_form", "formRun_away",
+        "seasonPPG_away", "leaguePosition_away",
+        
+        # Goals stats
+        "goals_scored", "seasonScoredNum_overall",
+        "goals_conceded", "seasonConcededNum_overall",
+        "home_goals_scored", "seasonScoredNum_home",
+        "home_goals_conceded", "seasonConcededNum_home",
+        "away_goals_scored", "seasonScoredNum_away",
+        "away_goals_conceded", "seasonConcededNum_away",
+        "goals_per_game", "conceded_per_game",
+        "seasonGoalsTotal_overall", "seasonGoalsTotal_home", "seasonGoalsTotal_away",
+        "clean_sheets_pct", "seasonCSPercentage_overall",
+        "seasonCS_overall", "seasonCS_home", "seasonCS_away",
+        "btts_pct", "seasonBTTSPercentage_overall",
+        "over_2_5_pct", "seasonOver25Percentage_overall",
+        
+        # Expected goals
+        "xg", "xg_for_overall", "xga", "xg_against_overall",
+        "home_xg", "xg_for_home", "home_xga", "xg_against_home",
+        "away_xg", "xg_for_away", "away_xga", "xg_against_away",
+        "xg_for_avg_overall", "xg_for_avg_home", "xg_for_avg_away",
+        "xg_against_avg_overall", "xg_against_avg_home", "xg_against_avg_away",
+        
+        # Cards stats
+        "cards_per_game", "cardsAVG_overall",
+        "home_cards_per_game", "cardsAVG_home",
+        "away_cards_per_game", "cardsAVG_away",
+        "cardsTotal_overall", "cardsTotal_home", "cardsTotal_away",
+        "yellow_cards", "red_cards", "over_3_5_cards_pct",
+        
+        # Corners stats
+        "corners_per_game", "cornersTotalAVG_overall",
+        "home_corners_per_game", "cornersTotalAVG_home",
+        "away_corners_per_game", "cornersTotalAVG_away",
+        "corners_for", "cornersTotal_overall",
+        "corners_against", "cornersAgainst_overall",
+        "cornersAVG_overall", "cornersAVG_home", "cornersAVG_away",
+        "cornersAgainstAVG_overall", "cornersAgainstAVG_home", "cornersAgainstAVG_away",
+        "over_9_5_corners_pct",
+        
+        # Other stats
+        "shotsAVG_overall", "shotsAVG_home", "shotsAVG_away",
+        "shotsOnTargetAVG_overall", "shotsOnTargetAVG_home", "shotsOnTargetAVG_away",
+        "possession", "possessionAVG_overall",
+        "home_possession", "possessionAVG_home",
+        "away_possession", "possessionAVG_away"
+    ]
+    
+    # Extract home team stats
+    if "home_team" in api_data and isinstance(api_data["home_team"], dict):
+        # Only copy the essential fields
+        for field in essential_fields:
+            if field in api_data["home_team"]:
+                simplified_data["home_team"][field] = api_data["home_team"][field]
+    
+    # Extract away team stats
+    if "away_team" in api_data and isinstance(api_data["away_team"], dict):
+        # Only copy the essential fields
+        for field in essential_fields:
+            if field in api_data["away_team"]:
+                simplified_data["away_team"][field] = api_data["away_team"][field]
+    
+    # Extract h2h data selectively
+    if "h2h" in api_data and isinstance(api_data["h2h"], dict):
+        h2h_fields = ["total_matches", "home_wins", "away_wins", "draws", 
+                       "avg_goals", "over_2_5_pct", "btts_pct", "avg_cards", "avg_corners"]
+        for field in h2h_fields:
+            if field in api_data["h2h"]:
+                simplified_data["h2h"][field] = api_data["h2h"][field]
+    
+    logger.info(f"Created simplified data structure for {home_team_name} vs {away_team_name}")
+    return simplified_data
