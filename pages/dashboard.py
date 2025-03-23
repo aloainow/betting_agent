@@ -598,27 +598,25 @@ def fetch_stats_data(selected_league, home_team=None, away_team=None):
             # Processamento simplificado dos dados
             status.info("Processando dados estatísticos...")
             
-            # Inicializar estrutura de dados otimizada
-            optimized_data = {
-                "match_info": {
-                    "home_team": home_team,
-                    "away_team": away_team,
-                    "league": selected_league,
-                    "league_id": season_id
-                },
-                "home_team": {},
-                "away_team": {},
-                "h2h": {}
-            }
-
-            # MÉTODO 1: Verificar se temos o formato direto de dados
-            if isinstance(complete_analysis, dict):
-                # CASO 1: Dados já no formato correto (como paste.txt)
-                if "home_team" in complete_analysis and isinstance(complete_analysis["home_team"], dict):
-                    from utils.prompt_adapter import extract_direct_team_stats
-                    # Extrair dados do time da casa diretamente
-                    extract_direct_team_stats(complete_analysis["home_team"], optimized_data["home_team"], "home")
-                    logger.info("Dados do time da casa extraídos diretamente da estrutura principal")
+             # Inicializar estrutura de dados otimizada
+                optimized_data = {
+                    "match_info": {
+                        "home_team": home_team,
+                        "away_team": away_team,
+                        "league": selected_league,
+                        "league_id": season_id
+                    },
+                    "home_team": {},
+                    "away_team": {},
+                    "h2h": {}
+                }
+            
+                # Use our simplified data extractor instead of the current methods
+                if isinstance(complete_analysis, dict):
+                    from utils.prompt_adapter import simplify_api_data
+                    # This will extract only essential fields in the correct format
+                    optimized_data = simplify_api_data(complete_analysis, home_team, away_team)
+                    logger.info("Dados extraídos de forma simplificada para análise de IA")
                     
                 # Extrair dados do time visitante
                 if "away_team" in complete_analysis and isinstance(complete_analysis["away_team"], dict):
