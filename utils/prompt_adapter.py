@@ -2205,43 +2205,52 @@ def transform_api_data(api_data, home_team_name, away_team_name, selected_market
         logger.error(traceback.format_exc())
         # Retorna a estrutura padrão em caso de erro
         return formatted_data
-def extract_direct_team_stats(team_data, target_dict, team_type=""):
+def extract_direct_team_stats(source, target, team_type=""):
     """
     Extract team statistics directly with better JSON format handling.
+    
+    Args:
+        source (dict): Source dictionary containing team statistics
+        target (dict): Target dictionary to store the extracted statistics
+        team_type (str): Type of team ("home" or "away")
     """
+    import logging
     logger = logging.getLogger("valueHunter.prompt_adapter")
     
-    if not team_data or not isinstance(team_data, dict):
+    if not source or not isinstance(source, dict):
+        logger.warning(f"Invalid source data for {team_type} team")
         return
         
     # DIRECT COPY OF ALL FIELDS - Most important improvement!
-    for field, value in team_data.items():
+    fields_copied = 0
+    for field, value in source.items():
         try:
             if value is not None and value != '' and value != 'N/A':
                 # Copy the value directly regardless of type
-                target_dict[field] = value
+                target[field] = value
+                fields_copied += 1
                 logger.debug(f"Copied {field} directly")
         except Exception as e:
             logger.error(f"Error copying field {field}: {str(e)}")
     
     # Also check stats sub-dictionary if it exists
-    if "stats" in team_data and isinstance(team_data["stats"], dict):
-        for field, value in team_data["stats"].items():
+    if "stats" in source and isinstance(source["stats"], dict):
+        for field, value in source["stats"].items():
             try:
                 # Only copy if field doesn't exist in target or is zero
-                if field not in target_dict or target_dict[field] == 0:
+                if field not in target or target[field] == 0:
                     if value is not None and value != '' and value != 'N/A':
-                        target_dict[field] = value
+                        target[field] = value
+                        fields_copied += 1
                         logger.debug(f"Copied {field} from stats")
             except Exception as e:
                 logger.error(f"Error copying field from stats.{field}: {str(e)}")
     
     # Log the number of fields extracted
-    non_zero_count = sum(1 for k, v in target_dict.items() 
+    non_zero_count = sum(1 for k, v in target.items() 
                        if (isinstance(v, (int, float)) and v != 0) or 
                           (isinstance(v, str) and v not in ["", "?????"]))
-    logger.info(f"Extracted {non_zero_count} non-zero fields for {team_type} team")
-    
+    logger.info(f"Extracted {non_zero_count} non-zero fields for {team_type} team")    
 
 def extract_traditional_stats(api_data, result):
     """Extrai estatísticas usando a estrutura tradicional da API"""
