@@ -599,7 +599,7 @@ def fetch_stats_data(selected_league, home_team=None, away_team=None):
             status.info("Processando dados estatísticos...")
             
              # Inicializar estrutura de dados otimizada
-                optimized_data = {
+            optimized_data = {
                     "match_info": {
                         "home_team": home_team,
                         "away_team": away_team,
