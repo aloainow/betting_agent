@@ -2206,12 +2206,7 @@ def transform_api_data(api_data, home_team_name, away_team_name, selected_market
         return formatted_data
 def extract_direct_team_stats(team_data, target_dict, team_type=""):
     """
-    Extract team statistics directly with improved support for various JSON formats.
-    
-    Args:
-        team_data (dict): Team data source
-        target_dict (dict): Target dictionary to fill
-        team_type (str, optional): Team type ("home" or "away")
+    Extract team statistics directly with better JSON format handling.
     """
     import logging
     import json
@@ -2219,121 +2214,36 @@ def extract_direct_team_stats(team_data, target_dict, team_type=""):
     
     if not team_data or not isinstance(team_data, dict):
         return
-    
-    # STRATEGY 1: DIRECT COPY OF ALL FIELDS - The key improvement!
+        
+    # DIRECT COPY OF ALL FIELDS - Most important improvement!
     for field, value in team_data.items():
         try:
             if value is not None and value != '' and value != 'N/A':
-                if isinstance(value, (int, float)):
-                    target_dict[field] = value
-                    logger.debug(f"Extracted {field}={value} directly")
-                elif isinstance(value, str) and field in ["form", "home_form", "away_form", "formRun_overall", 
-                                                          "formRun_home", "formRun_away"]:
-                    target_dict[field] = value
-                    logger.debug(f"Extracted form {field}={value} directly")
-                else:
-                    # Try to convert to number
-                    try:
-                        float_val = float(value)
-                        target_dict[field] = float_val
-                        logger.debug(f"Converted and extracted {field}={float_val} directly")
-                    except (ValueError, TypeError):
-                        # For non-numeric strings (except forms), also copy them
-                        if isinstance(value, str) and value:
-                            target_dict[field] = value
-                        pass
+                # Copy the value directly regardless of type
+                target_dict[field] = value
+                logger.debug(f"Copied {field} directly")
         except Exception as e:
-            logger.error(f"Error extracting field {field}: {str(e)}")
+            logger.error(f"Error copying field {field}: {str(e)}")
     
-    # STRATEGY 2: RECURSIVE EXTRACTION FROM NESTED STRUCTURES
-    nested_paths = ["stats", "statistics", "season_stats", "seasonStats", "data"]
+    # Also check stats sub-dictionary if it exists
+    if "stats" in team_data and isinstance(team_data["stats"], dict):
+        for field, value in team_data["stats"].items():
+            try:
+                # Only copy if field doesn't exist in target or is zero
+                if field not in target_dict or target_dict[field] == 0:
+                    if value is not None and value != '' and value != 'N/A':
+                        target_dict[field] = value
+                        logger.debug(f"Copied {field} from stats")
+            except Exception as e:
+                logger.error(f"Error copying field from stats.{field}: {str(e)}")
     
-    for path in nested_paths:
-        if path in team_data and isinstance(team_data[path], dict):
-            logger.info(f"Found nested structure at {path}")
-            # Recursively copy from nested dictionary
-            for nested_field, nested_value in team_data[path].items():
-                try:
-                    # Only copy if not already set with non-zero value
-                    if nested_field not in target_dict or target_dict[nested_field] == 0:
-                        if nested_value is not None and nested_value != '' and nested_value != 'N/A':
-                            if isinstance(nested_value, (int, float)):
-                                target_dict[nested_field] = nested_value
-                            else:
-                                try:
-                                    float_val = float(nested_value)
-                                    target_dict[nested_field] = float_val
-                                except (ValueError, TypeError):
-                                    # Copy string values too
-                                    if isinstance(nested_value, str) and nested_value:
-                                        target_dict[nested_field] = nested_value
-                except Exception as e:
-                    logger.error(f"Error extracting nested field {path}.{nested_field}: {str(e)}")
-    
-    # STRATEGY 3: FIELD MAPPING FOR ALTERNATIVE NAMES
-    field_mapping = {
-        # Basic stats
-        "matches_played": "played", "matches": "played", "MP": "played", "PJ": "played", "games": "played",
-        "W": "wins", "won": "wins", "victorias": "wins", "vitorias": "wins",
-        "D": "draws", "drawn": "draws", "empates": "draws", "tied": "draws",
-        "L": "losses", "lost": "losses", "defeats": "losses", "derrotas": "losses",
-        
-        # Goals
-        "goals": "goals_scored", "GF": "goals_scored", "goals_for": "goals_scored", "scored": "goals_scored",
-        "GA": "goals_conceded", "goals_against": "goals_conceded", "conceded": "goals_conceded",
-        
-        # Expected goals
-        "xG": "xg", "expected_goals": "xg", "xGF": "xg",
-        "xGA": "xga", "expected_goals_against": "xga", "xGAg": "xga",
-        
-        # Other stats  
-        "clean_sheet_percentage": "clean_sheets_pct", "cs_pct": "clean_sheets_pct",
-        "btts_percentage": "btts_pct", "both_teams_scored_pct": "btts_pct",
-        "over_2_5_percentage": "over_2_5_pct", "o25_pct": "over_2_5_pct",
-        "Poss": "possession", "ball_possession": "possession"
-    }
-    
-    # Apply field mappings
-    for source_field, target_field in field_mapping.items():
-        if target_field not in target_dict or target_dict[target_field] == 0:
-            # Check direct field
-            if source_field in team_data and team_data[source_field] not in [None, '', 'N/A']:
-                try:
-                    if isinstance(team_data[source_field], (int, float)):
-                        target_dict[target_field] = team_data[source_field]
-                    else:
-                        float_val = float(team_data[source_field])
-                        target_dict[target_field] = float_val
-                except Exception:
-                    pass
-            
-            # Check in nested structures
-            for path in nested_paths:
-                if path in team_data and isinstance(team_data[path], dict) and source_field in team_data[path]:
-                    try:
-                        if team_data[path][source_field] not in [None, '', 'N/A']:
-                            if isinstance(team_data[path][source_field], (int, float)):
-                                target_dict[target_field] = team_data[path][source_field]
-                            else:
-                                float_val = float(team_data[path][source_field])
-                                target_dict[target_field] = float_val
-                    except Exception:
-                        pass
-    
-    # STRATEGY 4: HANDLE HOME/AWAY SPECIFIC FIELDS
-    if team_type == "home" and "played" in target_dict and "home_played" not in target_dict:
-        target_dict["home_played"] = target_dict["played"]
-        
-    if team_type == "away" and "played" in target_dict and "away_played" not in target_dict:
-        target_dict["away_played"] = target_dict["played"]
-    
-    # Count non-zero fields for logging
+    # Log the number of fields extracted
     non_zero_count = sum(1 for k, v in target_dict.items() 
-                      if (isinstance(v, (int, float)) and v != 0) or 
-                         (isinstance(v, str) and v not in ["", "?????"]))
+                       if (isinstance(v, (int, float)) and v != 0) or 
+                          (isinstance(v, str) and v not in ["", "?????"]))
+    logger.info(f"Extracted {non_zero_count} non-zero fields for {team_type} team")
     
-    logger.info(f"Total of {non_zero_count} non-zero fields extracted for {team_type} team")
-def extract_direct_team_stats_from_root(api_data, result, home_team_name, away_team_name):
+    def extract_direct_team_stats_from_root(api_data, result, home_team_name, away_team_name):
     """
     Extrai estatísticas diretamente da estrutura raiz do JSON onde os teams
     estão no formato enviado pelo Gist.
