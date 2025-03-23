@@ -4315,8 +4315,8 @@ def extract_all_fields_direct(api_data, result_dict):
     logger.info(f"Campos extraídos diretamente: Casa={home_fields}, Visitante={away_fields}, H2H={h2h_fields}")
 def simplify_api_data(api_data, home_team_name, away_team_name):
     """
-    Transforms API data into the minimal format required by the AI model.
-    Enhanced version with deeper field searching capabilities.
+    Advanced data extraction - thoroughly searches all nested structures
+    for essential football statistics.
     
     Args:
         api_data (dict): Original API data from FootyStats
@@ -4324,13 +4324,14 @@ def simplify_api_data(api_data, home_team_name, away_team_name):
         away_team_name (str): Name of away team
         
     Returns:
-        dict: Simplified data structure with minimal fields
+        dict: Data structure with all essential fields
     """
     import logging
-    import copy
+    import json
+    import pprint
     logger = logging.getLogger("valueHunter.prompt_adapter")
     
-    # Initialize with the correct minimal structure
+    # Initialize with the correct structure
     simplified_data = {
         "match_info": {
             "home_team": home_team_name,
@@ -4338,8 +4339,8 @@ def simplify_api_data(api_data, home_team_name, away_team_name):
             "league": "",
             "league_id": None
         },
-        "home_team": {},
-        "away_team": {},
+        "home_team": {"name": home_team_name},
+        "away_team": {"name": away_team_name},
         "h2h": {
             "total_matches": 0,
             "home_wins": 0,
@@ -4353,59 +4354,180 @@ def simplify_api_data(api_data, home_team_name, away_team_name):
         }
     }
     
-    # Check if we have valid API data
-    if not api_data or not isinstance(api_data, dict):
-        logger.error("Invalid API data provided")
-        return simplified_data
-    
-    # Log the API data top-level keys for debugging
+    # Log API data structure
     logger.info(f"API data keys: {list(api_data.keys())}")
     
-    # Fill in league info
-    if "basic_stats" in api_data and "league_id" in api_data["basic_stats"]:
-        simplified_data["match_info"]["league_id"] = api_data["basic_stats"]["league_id"]
+    # Helper function to recursively search for fields in a structure
+    def deep_search(obj, path="", home_data=None, away_data=None, h2h_data=None):
+        if home_data is None: home_data = {}
+        if away_data is None: away_data = {}
+        if h2h_data is None: h2h_data = {}
+        
+        if isinstance(obj, dict):
+            # Log if this object contains important information
+            if any(key in obj for key in ["played", "wins", "form", "xg", "cards", "corners"]):
+                logger.info(f"Found potential stats at path: {path}")
+                
+            # Check if this is team-specific data
+            is_home = False
+            is_away = False
+            is_h2h = False
+            
+            if "name" in obj and isinstance(obj["name"], str):
+                # By team name
+                if home_team_name.lower() in obj["name"].lower():
+                    is_home = True
+                    logger.info(f"Found home team by name at {path}")
+                elif away_team_name.lower() in obj["name"].lower():
+                    is_away = True
+                    logger.info(f"Found away team by name at {path}")
+            
+            # By path name
+            if not (is_home or is_away):
+                if "home" in path.lower():
+                    is_home = True
+                elif "away" in path.lower():
+                    is_away = True
+                    
+            # Check if this is H2H data
+            if "h2h" in path.lower() or "head" in path.lower() or "vs" in path.lower():
+                is_h2h = True
+                
+            # Process the data according to its type
+            if is_home:
+                extract_team_fields(obj, home_data)
+            elif is_away:
+                extract_team_fields(obj, away_data)
+            elif is_h2h:
+                extract_h2h_fields(obj, h2h_data)
+            
+            # Continue searching in all keys
+            for key, value in obj.items():
+                new_path = f"{path}.{key}" if path else key
+                deep_search(value, new_path, home_data, away_data, h2h_data)
+                
+        elif isinstance(obj, list):
+            # Search in list items
+            for i, item in enumerate(obj):
+                new_path = f"{path}[{i}]"
+                deep_search(item, new_path, home_data, away_data, h2h_data)
+        
+        return home_data, away_data, h2h_data
     
-    # Define fields we want to extract, with all possible variant names
-    field_mappings = {
-        "played": ["played", "matches_played", "matchesPlayed", "seasonMatchesPlayed_overall", "MP", "games", "total_matches"],
-        "wins": ["wins", "seasonWinsNum_overall", "W", "victories", "won", "wins_overall"],
-        "draws": ["draws", "seasonDrawsNum_overall", "D", "drawn", "empates", "draws_overall"],
-        "losses": ["losses", "seasonLossesNum_overall", "L", "defeats", "lost", "derrotas", "losses_overall"],
-        "goals_scored": ["goals_scored", "seasonScoredNum_overall", "GF", "goals_for", "goalsFor", "goals", "scored"],
-        "goals_conceded": ["goals_conceded", "seasonConcededNum_overall", "GA", "goals_against", "goalsAgainst", "conceded"],
-        "form": ["form", "formRun_overall", "current_form", "recent_form", "form_string"],
-        "win_pct": ["win_pct", "winPercentage", "win_percentage", "winningPercentage"],
-        "draw_pct": ["draw_pct", "drawPercentage", "draw_percentage"],
-        "loss_pct": ["loss_pct", "lossPercentage", "loss_percentage"],
-        "seasonPPG_overall": ["seasonPPG_overall", "ppg", "points_per_game", "ppg_overall"],
-        "home_played": ["home_played", "seasonMatchesPlayed_home", "home_matches", "matches_home"],
-        "home_wins": ["home_wins", "seasonWinsNum_home", "wins_home", "home_victories"],
-        "home_draws": ["home_draws", "seasonDrawsNum_home", "draws_home"],
-        "home_losses": ["home_losses", "seasonLossesNum_home", "losses_home"],
-        "home_goals_scored": ["home_goals_scored", "seasonScoredNum_home", "home_goals_for", "goals_for_home"],
-        "home_goals_conceded": ["home_goals_conceded", "seasonConcededNum_home", "home_goals_against", "goals_against_home"],
-        "away_played": ["away_played", "seasonMatchesPlayed_away", "away_matches", "matches_away"],
-        "away_wins": ["away_wins", "seasonWinsNum_away", "wins_away", "away_victories"],
-        "away_draws": ["away_draws", "seasonDrawsNum_away", "draws_away"],
-        "away_losses": ["away_losses", "seasonLossesNum_away", "losses_away"],
-        "away_goals_scored": ["away_goals_scored", "seasonScoredNum_away", "away_goals_for", "goals_for_away"],
-        "away_goals_conceded": ["away_goals_conceded", "seasonConcededNum_away", "away_goals_against", "goals_against_away"],
-        # Continue with all other fields you need...
-    }
-    
-    # Helper function to extract fields from a source dictionary
-    def extract_fields(source, target, field_map):
+    # Helper to extract team fields with many variant names
+    def extract_team_fields(source, target):
         if not source or not isinstance(source, dict):
             return
+            
+        # Comprehensive field mapping with all possible variant names
+        field_mappings = {
+            # Basic stats
+            "played": ["played", "matches_played", "matchesPlayed", "seasonMatchesPlayed_overall", "MP", "games"],
+            "wins": ["wins", "seasonWinsNum_overall", "W", "victories", "won", "team_wins"],
+            "draws": ["draws", "seasonDrawsNum_overall", "D", "drawn", "empates", "team_draws"],
+            "losses": ["losses", "seasonLossesNum_overall", "L", "defeats", "lost", "derrotas"],
+            "goals_scored": ["goals_scored", "seasonScoredNum_overall", "GF", "goals_for", "goalsFor", "goals"],
+            "goals_conceded": ["goals_conceded", "seasonConcededNum_overall", "GA", "goals_against", "goalsAgainst"],
+            
+            # Form/Runs
+            "form": ["form", "recent_form", "last5", "team_form", "current_form"],
+            "formRun_overall": ["formRun_overall", "form_run", "form_string", "recent_results"],
+            
+            # Percentages
+            "win_pct": ["win_pct", "winPercentage", "win_percentage", "victory_percentage"],
+            "draw_pct": ["draw_pct", "drawPercentage", "draw_percentage"],
+            "loss_pct": ["loss_pct", "lossPercentage", "loss_percentage", "defeat_percentage"],
+            "clean_sheets_pct": ["clean_sheets_pct", "clean_sheet_percentage", "cs_pct", "seasonCSPercentage_overall"],
+            "btts_pct": ["btts_pct", "btts_percentage", "both_teams_to_score_pct", "seasonBTTSPercentage_overall"],
+            "over_2_5_pct": ["over_2_5_pct", "over_2_5_percentage", "o25_pct", "seasonOver25Percentage_overall"],
+            
+            # Points per game
+            "seasonPPG_overall": ["seasonPPG_overall", "ppg", "points_per_game", "pts_per_game"],
+            "seasonRecentPPG": ["seasonRecentPPG", "recent_ppg", "last5_ppg"],
+            
+            # League position
+            "leaguePosition_overall": ["leaguePosition_overall", "league_position", "position", "rank"],
+            
+            # Home stats
+            "home_played": ["home_played", "seasonMatchesPlayed_home", "home_matches", "matches_home"],
+            "home_wins": ["home_wins", "seasonWinsNum_home", "wins_home", "home_victories"],
+            "home_draws": ["home_draws", "seasonDrawsNum_home", "draws_home", "home_drawn"],
+            "home_losses": ["home_losses", "seasonLossesNum_home", "losses_home", "home_lost"],
+            "home_goals_scored": ["home_goals_scored", "seasonScoredNum_home", "home_goals_for", "goals_for_home"],
+            "home_goals_conceded": ["home_goals_conceded", "seasonConcededNum_home", "home_goals_against"],
+            "home_form": ["home_form", "formRun_home", "home_recent_form", "form_home"],
+            "formRun_home": ["formRun_home", "home_form_run", "home_form_string"],
+            
+            # Away stats
+            "away_played": ["away_played", "seasonMatchesPlayed_away", "away_matches", "matches_away"],
+            "away_wins": ["away_wins", "seasonWinsNum_away", "wins_away", "away_victories"],
+            "away_draws": ["away_draws", "seasonDrawsNum_away", "draws_away", "away_drawn"],
+            "away_losses": ["away_losses", "seasonLossesNum_away", "losses_away", "away_lost"],
+            "away_goals_scored": ["away_goals_scored", "seasonScoredNum_away", "away_goals_for", "goals_for_away"],
+            "away_goals_conceded": ["away_goals_conceded", "seasonConcededNum_away", "away_goals_against"],
+            "away_form": ["away_form", "formRun_away", "away_recent_form", "form_away"],
+            "formRun_away": ["formRun_away", "away_form_run", "away_form_string"],
+            
+            # xG stats (VERY IMPORTANT)
+            "xg": ["xg", "xG", "expected_goals", "xg_for", "xGF"],
+            "xg_for_overall": ["xg_for_overall", "xg", "xG", "expected_goals"],
+            "xga": ["xga", "xGA", "expected_goals_against", "xg_against", "xGAg"],
+            "xg_against_overall": ["xg_against_overall", "xga", "xGA", "expected_goals_against"],
+            "home_xg": ["home_xg", "xg_home", "xg_for_home", "home_expected_goals"],
+            "xg_for_home": ["xg_for_home", "home_xg", "xg_home", "home_expected_goals"],
+            "away_xg": ["away_xg", "xg_away", "xg_for_away", "away_expected_goals"],
+            "xg_for_away": ["xg_for_away", "away_xg", "xg_away", "away_expected_goals"],
+            "home_xga": ["home_xga", "xga_home", "xg_against_home"],
+            "xg_against_home": ["xg_against_home", "home_xga", "xga_home"],
+            "away_xga": ["away_xga", "xga_away", "xg_against_away"],
+            "xg_against_away": ["xg_against_away", "away_xga", "xga_away"],
+            "xg_for_avg_overall": ["xg_for_avg_overall", "xg_per_game", "expected_goals_per_game"],
+            "xg_against_avg_overall": ["xg_against_avg_overall", "xga_per_game"],
+            
+            # Card stats (IMPORTANT)
+            "cards_per_game": ["cards_per_game", "cards_avg", "avg_cards", "cardsAVG_overall"],
+            "home_cards_per_game": ["home_cards_per_game", "cards_per_game_home", "cardsAVG_home"],
+            "away_cards_per_game": ["away_cards_per_game", "cards_per_game_away", "cardsAVG_away"],
+            "cardsTotal_overall": ["cardsTotal_overall", "total_cards", "cards_total", "cards"],
+            "cardsTotal_home": ["cardsTotal_home", "total_cards_home", "cards_total_home"],
+            "cardsTotal_away": ["cardsTotal_away", "total_cards_away", "cards_total_away"],
+            "yellow_cards": ["yellow_cards", "yellows", "cards_yellow", "CrdY", "YellowCards"],
+            "red_cards": ["red_cards", "reds", "cards_red", "CrdR", "RedCards"],
+            "over_3_5_cards_pct": ["over_3_5_cards_pct", "over_3_5_cards_percentage"],
+            
+            # Corner stats (IMPORTANT)
+            "corners_per_game": ["corners_per_game", "corners_avg", "avg_corners", "cornersTotalAVG_overall"],
+            "home_corners_per_game": ["home_corners_per_game", "corners_per_game_home", "cornersTotalAVG_home"],
+            "away_corners_per_game": ["away_corners_per_game", "corners_per_game_away", "cornersTotalAVG_away"],
+            "corners_for": ["corners_for", "cornersTotal_overall", "corners", "CK", "Corners"],
+            "corners_against": ["corners_against", "cornersAgainst_overall", "corners_against_total"],
+            "cornersAVG_overall": ["cornersAVG_overall", "corners_for_avg", "corners_for_per_game"],
+            "cornersAVG_home": ["cornersAVG_home", "corners_for_avg_home", "corners_for_per_game_home"],
+            "cornersAVG_away": ["cornersAVG_away", "corners_for_avg_away", "corners_for_per_game_away"],
+            "cornersAgainstAVG_overall": ["cornersAgainstAVG_overall", "corners_against_avg"],
+            "cornersAgainstAVG_home": ["cornersAgainstAVG_home", "corners_against_avg_home"],
+            "cornersAgainstAVG_away": ["cornersAgainstAVG_away", "corners_against_avg_away"],
+            "over_9_5_corners_pct": ["over_9_5_corners_pct", "over_9_5_corners_percentage"],
+            
+            # Other important stats
+            "shotsAVG_overall": ["shotsAVG_overall", "shots_per_game", "shots_avg"],
+            "shotsOnTargetAVG_overall": ["shotsOnTargetAVG_overall", "shots_on_target_per_game", "sot_avg"],
+            "possession": ["possession", "possessionAVG_overall", "possession_avg", "Poss"]
+        }
         
-        for target_field, possible_names in field_map.items():
+        # Extract each field with all possible names
+        for target_field, possible_names in field_mappings.items():
             for name in possible_names:
                 if name in source and source[name] is not None and source[name] != 'N/A' and source[name] != '':
                     try:
-                        if isinstance(source[name], (int, float)):
-                            target[target_field] = source[name]
-                            break
-                        elif isinstance(source[name], str) and target_field in ["form", "home_form", "away_form"]:
+                        # Special handling for form fields
+                        if target_field in ["form", "home_form", "away_form", "formRun_overall", "formRun_home", "formRun_away"]:
+                            if isinstance(source[name], str):
+                                target[target_field] = source[name]
+                                logger.info(f"Found {target_field}={source[name]}")
+                                break
+                        # Numeric fields
+                        elif isinstance(source[name], (int, float)):
                             target[target_field] = source[name]
                             break
                         else:
@@ -4413,120 +4535,120 @@ def simplify_api_data(api_data, home_team_name, away_team_name):
                             target[target_field] = float(source[name])
                             break
                     except (ValueError, TypeError):
-                        # Continue to next field name if conversion fails
+                        # Skip if conversion fails
+                        pass
+        
+        # Also check for stats in sub-dictionaries
+        for subkey in ["stats", "statistics", "seasonStats", "additional_info"]:
+            if subkey in source and isinstance(source[subkey], dict):
+                extract_team_fields(source[subkey], target)
+    
+    # Helper to extract H2H fields
+    def extract_h2h_fields(source, target):
+        if not source or not isinstance(source, dict):
+            return
+            
+        # H2H field mappings
+        h2h_mappings = {
+            "total_matches": ["total_matches", "matches", "total", "matches_played", "numberOfMatches"],
+            "home_wins": ["home_wins", "homeWins", "home_team_wins", "team_a_wins", "local_wins"],
+            "away_wins": ["away_wins", "awayWins", "away_team_wins", "team_b_wins", "visitor_wins"],
+            "draws": ["draws", "draw", "empates", "equal", "tied", "drawn"],
+            "avg_goals": ["avg_goals", "average_goals", "goals_avg", "goals_per_match", "mean_goals"],
+            "over_2_5_pct": ["over_2_5_pct", "over_2_5_percentage", "over25_percentage", "o25_pct"],
+            "btts_pct": ["btts_pct", "btts_percentage", "both_teams_scored_percentage", "both_score_pct"],
+            "avg_cards": ["avg_cards", "average_cards", "cards_avg", "cards_per_match", "mean_cards"],
+            "avg_corners": ["avg_corners", "average_corners", "corners_avg", "corners_per_match"]
+        }
+        
+        # Extract each H2H field
+        for target_field, possible_names in h2h_mappings.items():
+            for name in possible_names:
+                if name in source and source[name] is not None and source[name] != 'N/A' and source[name] != '':
+                    try:
+                        if isinstance(source[name], (int, float)):
+                            target[target_field] = source[name]
+                            break
+                        else:
+                            # Try to convert to number
+                            target[target_field] = float(source[name])
+                            break
+                    except (ValueError, TypeError):
+                        # Skip if conversion fails
                         pass
     
-    # Deep search for team data in all plausible locations
-    # 1. Direct top-level objects
+    # First, search known paths directly
+    logger.info("Search phase 1: checking known direct paths")
+    
+    # Home team
     if "home_team" in api_data and isinstance(api_data["home_team"], dict):
-        extract_fields(api_data["home_team"], simplified_data["home_team"], field_mappings)
+        extract_team_fields(api_data["home_team"], simplified_data["home_team"])
     
+    # Away team
     if "away_team" in api_data and isinstance(api_data["away_team"], dict):
-        extract_fields(api_data["away_team"], simplified_data["away_team"], field_mappings)
+        extract_team_fields(api_data["away_team"], simplified_data["away_team"])
     
-    # 2. Basic stats structure
+    # H2H
+    if "h2h" in api_data and isinstance(api_data["h2h"], dict):
+        extract_h2h_fields(api_data["h2h"], simplified_data["h2h"])
+    
+    # Check basic_stats structure
     if "basic_stats" in api_data:
         if "home_team" in api_data["basic_stats"]:
-            home_data = api_data["basic_stats"]["home_team"]
-            extract_fields(home_data, simplified_data["home_team"], field_mappings)
-            
-            # Check for nested stats
-            if "stats" in home_data and isinstance(home_data["stats"], dict):
-                extract_fields(home_data["stats"], simplified_data["home_team"], field_mappings)
-                
-                # Sometimes stats are nested one level deeper
-                if "stats" in home_data["stats"] and isinstance(home_data["stats"]["stats"], dict):
-                    extract_fields(home_data["stats"]["stats"], simplified_data["home_team"], field_mappings)
-        
+            extract_team_fields(api_data["basic_stats"]["home_team"], simplified_data["home_team"])
         if "away_team" in api_data["basic_stats"]:
-            away_data = api_data["basic_stats"]["away_team"]
-            extract_fields(away_data, simplified_data["away_team"], field_mappings)
-            
-            # Check for nested stats
-            if "stats" in away_data and isinstance(away_data["stats"], dict):
-                extract_fields(away_data["stats"], simplified_data["away_team"], field_mappings)
-                
-                # Sometimes stats are nested one level deeper
-                if "stats" in away_data["stats"] and isinstance(away_data["stats"]["stats"], dict):
-                    extract_fields(away_data["stats"]["stats"], simplified_data["away_team"], field_mappings)
+            extract_team_fields(api_data["basic_stats"]["away_team"], simplified_data["away_team"])
+        if "h2h" in api_data["basic_stats"]:
+            extract_h2h_fields(api_data["basic_stats"]["h2h"], simplified_data["h2h"])
     
-    # 3. Team stats structure
-    if "team_stats" in api_data:
-        if "home" in api_data["team_stats"]:
-            extract_fields(api_data["team_stats"]["home"], simplified_data["home_team"], field_mappings)
-        if "away" in api_data["team_stats"]:
-            extract_fields(api_data["team_stats"]["away"], simplified_data["away_team"], field_mappings)
+    # Now do a deep recursive search
+    logger.info("Search phase 2: deep recursive search")
+    home_deep, away_deep, h2h_deep = deep_search(api_data)
     
-    # 4. Check data.teams structure (sometimes used)
-    if "data" in api_data and "teams" in api_data["data"]:
-        if "home" in api_data["data"]["teams"]:
-            extract_fields(api_data["data"]["teams"]["home"], simplified_data["home_team"], field_mappings)
-        if "away" in api_data["data"]["teams"]:
-            extract_fields(api_data["data"]["teams"]["away"], simplified_data["away_team"], field_mappings)
+    # Merge the results from deep search with simplified_data
+    for key, value in home_deep.items():
+        if key not in simplified_data["home_team"] or simplified_data["home_team"][key] == 0:
+            simplified_data["home_team"][key] = value
     
-    # 5. Check for advanced stats
-    if "advanced_stats" in api_data:
-        if "home" in api_data["advanced_stats"]:
-            extract_fields(api_data["advanced_stats"]["home"], simplified_data["home_team"], field_mappings)
-        if "away" in api_data["advanced_stats"]:
-            extract_fields(api_data["advanced_stats"]["away"], simplified_data["away_team"], field_mappings)
+    for key, value in away_deep.items():
+        if key not in simplified_data["away_team"] or simplified_data["away_team"][key] == 0:
+            simplified_data["away_team"][key] = value
     
-    # Extract H2H data from various possible locations
-    h2h_field_map = {
-        "total_matches": ["total_matches", "matches", "total", "matches_played"],
-        "home_wins": ["home_wins", "homeWins", "home_team_wins", "team_a_wins"],
-        "away_wins": ["away_wins", "awayWins", "away_team_wins", "team_b_wins"],
-        "draws": ["draws", "draw", "empates", "equal"],
-        "avg_goals": ["avg_goals", "average_goals", "goals_avg", "goals_per_match"],
-        "over_2_5_pct": ["over_2_5_pct", "over_2_5_percentage", "over25_percentage"],
-        "btts_pct": ["btts_pct", "btts_percentage", "both_teams_scored_percentage"],
-        "avg_cards": ["avg_cards", "average_cards", "cards_avg", "cards_per_match"],
-        "avg_corners": ["avg_corners", "average_corners", "corners_avg", "corners_per_match"]
-    }
+    for key, value in h2h_deep.items():
+        if key not in simplified_data["h2h"] or simplified_data["h2h"][key] == 0:
+            simplified_data["h2h"][key] = value
     
-    # Check various H2H locations
-    h2h_locations = []
-    
-    if "h2h" in api_data:
-        h2h_locations.append(api_data["h2h"])
-    
-    if "head_to_head" in api_data:
-        h2h_locations.append(api_data["head_to_head"])
-    
-    if "match_details" in api_data and "h2h" in api_data["match_details"]:
-        h2h_locations.append(api_data["match_details"]["h2h"])
-    
-    # Process each H2H location found
-    for h2h_data in h2h_locations:
-        if isinstance(h2h_data, dict):
-            extract_fields(h2h_data, simplified_data["h2h"], h2h_field_map)
-    
-    # Special processing: calculate any missing required fields if we have the data
-    # E.g., win percentage from wins and played
+    # Calculate any missing fields if we have the necessary data
     for team_key in ["home_team", "away_team"]:
         team = simplified_data[team_key]
         
-        # Calculate win_pct if missing
-        if "win_pct" not in team and "wins" in team and "played" in team and team["played"] > 0:
-            team["win_pct"] = (team["wins"] / team["played"]) * 100
-        
-        # Calculate draw_pct if missing
-        if "draw_pct" not in team and "draws" in team and "played" in team and team["played"] > 0:
-            team["draw_pct"] = (team["draws"] / team["played"]) * 100
-        
-        # Calculate loss_pct if missing
-        if "loss_pct" not in team and "losses" in team and "played" in team and team["played"] > 0:
-            team["loss_pct"] = (team["losses"] / team["played"]) * 100
+        # Calculate percentages
+        if "played" in team and team["played"] > 0:
+            if "wins" in team and "win_pct" not in team:
+                team["win_pct"] = (team["wins"] / team["played"]) * 100
+                
+            if "draws" in team and "draw_pct" not in team:
+                team["draw_pct"] = (team["draws"] / team["played"]) * 100
+                
+            if "losses" in team and "loss_pct" not in team:
+                team["loss_pct"] = (team["losses"] / team["played"]) * 100
             
-        # Calculate goals_per_game if missing
-        if "goals_per_game" not in team and "goals_scored" in team and "played" in team and team["played"] > 0:
-            team["goals_per_game"] = team["goals_scored"] / team["played"]
-            
-        # Calculate conceded_per_game if missing
-        if "conceded_per_game" not in team and "goals_conceded" in team and "played" in team and team["played"] > 0:
-            team["conceded_per_game"] = team["goals_conceded"] / team["played"]
+            # Calculate per-game stats
+            if "goals_scored" in team and "goals_per_game" not in team:
+                team["goals_per_game"] = team["goals_scored"] / team["played"]
+                
+            if "goals_conceded" in team and "conceded_per_game" not in team:
+                team["conceded_per_game"] = team["goals_conceded"] / team["played"]
+                
+            # Calculate cards per game
+            if "cardsTotal_overall" in team and "cards_per_game" not in team:
+                team["cards_per_game"] = team["cardsTotal_overall"] / team["played"]
+                
+            # Calculate corners per game
+            if "cornersTotal_overall" in team and "corners_per_game" not in team:
+                team["corners_per_game"] = team["cornersTotal_overall"] / team["played"]
     
-    # Count the fields we extracted
+    # Log what we found
     home_count = sum(1 for k, v in simplified_data["home_team"].items() 
                    if (isinstance(v, (int, float)) and v != 0) or 
                       (isinstance(v, str) and v != "" and v != "?????"))
@@ -4538,9 +4660,33 @@ def simplify_api_data(api_data, home_team_name, away_team_name):
     h2h_count = sum(1 for k, v in simplified_data["h2h"].items() 
                   if isinstance(v, (int, float)) and v != 0)
     
+    # Log the structure of what we found
     logger.info(f"Fields extracted: Home={home_count}, Away={away_count}, H2H={h2h_count}")
+    logger.info(f"Home team keys: {list(simplified_data['home_team'].keys())}")
+    logger.info(f"Away team keys: {list(simplified_data['away_team'].keys())}")
     
-    # Add team names explicitly
+    # Final backup: check if API data is exactly what we want already
+    if "match_info" in api_data and "home_team" in api_data and "away_team" in api_data and "h2h" in api_data:
+        logger.info("API data already in correct format, using directly")
+        # Just make sure we have the team names
+        if "home_team" in api_data:
+            api_data["home_team"]["name"] = home_team_name
+        if "away_team" in api_data:
+            api_data["away_team"]["name"] = away_team_name
+        
+        # Copy any fields we're missing
+        for team_key in ["home_team", "away_team"]:
+            if team_key in api_data:
+                for field, value in api_data[team_key].items():
+                    if field not in simplified_data[team_key] or simplified_data[team_key][field] == 0:
+                        simplified_data[team_key][field] = value
+        
+        if "h2h" in api_data:
+            for field, value in api_data["h2h"].items():
+                if field not in simplified_data["h2h"] or simplified_data["h2h"][field] == 0:
+                    simplified_data["h2h"][field] = value
+    
+    # Ensure team names are present
     simplified_data["home_team"]["name"] = home_team_name
     simplified_data["away_team"]["name"] = away_team_name
     
