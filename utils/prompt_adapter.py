@@ -2243,50 +2243,41 @@ def extract_direct_team_stats(team_data, target_dict, team_type=""):
                           (isinstance(v, str) and v not in ["", "?????"]))
     logger.info(f"Extracted {non_zero_count} non-zero fields for {team_type} team")
     
-    def extract_direct_team_stats_from_root(api_data, result, home_team_name, away_team_name):
+def extract_direct_team_stats(team_data, target_dict, team_type=""):
     """
-    Extrai estatísticas diretamente da estrutura raiz do JSON onde os teams
-    estão no formato enviado pelo Gist.
-    
-    Args:
-        api_data (dict): Dados originais da API
-        result (dict): Dicionário de resultado para preencher
-        home_team_name (str): Nome do time da casa
-        away_team_name (str): Nome do time visitante
+    Extract team statistics directly with better JSON format handling.
     """
-    import logging
-    logger = logging.getLogger("valueHunter.prompt_adapter")
-    
-    # EXTRAÇÃO ESPECÍFICA PARA O FORMATO DO GIST
-    # Verifica se os times estão na raiz do JSON como no Gist
-    if "home_team" in api_data and isinstance(api_data["home_team"], dict):
-        logger.info(f"Encontradas estatísticas do time da casa '{home_team_name}' na raiz do JSON")
-        extract_direct_team_stats(api_data["home_team"], result["home_team"], "home")
+        import logging
+        logger = logging.getLogger("valueHunter.prompt_adapter")
         
-    if "away_team" in api_data and isinstance(api_data["away_team"], dict):
-        logger.info(f"Encontradas estatísticas do time visitante '{away_team_name}' na raiz do JSON")
-        extract_direct_team_stats(api_data["away_team"], result["away_team"], "away")
+        if not team_data or not isinstance(team_data, dict):
+            return
+            
+        # DIRECT COPY OF ALL FIELDS - Most important improvement!
+        for field, value in team_data.items():
+            try:
+                if value is not None and value != '' and value != 'N/A':
+                    # Copy the value directly regardless of type
+                    target_dict[field] = value
+            except Exception as e:
+                logger.error(f"Error copying field {field}: {str(e)}")
         
-    # Verificar também dados de H2H
-    if "h2h" in api_data and isinstance(api_data["h2h"], dict):
-        logger.info("Encontrados dados H2H na raiz do JSON")
-        
-        # Copiar diretamente todos os campos H2H
-        for field, value in api_data["h2h"].items():
-            if value is not None and value != 'N/A' and value != '':
+        # Also check stats sub-dictionary if it exists
+        if "stats" in team_data and isinstance(team_data["stats"], dict):
+            for field, value in team_data["stats"].items():
                 try:
-                    if isinstance(value, (int, float)):
-                        result["h2h"][field] = value
-                    else:
-                        # Tentar converter para número
-                        numeric_val = float(value)
-                        result["h2h"][field] = numeric_val
-                except (ValueError, TypeError):
-                    # Manter como string se não for conversível
-                    if isinstance(value, str) and value:
-                        result["h2h"][field] = value
+                    # Only copy if field doesn't exist in target or is zero
+                    if field not in target_dict or target_dict[field] == 0:
+                        if value is not None and value != '' and value != 'N/A':
+                            target_dict[field] = value
                 except Exception as e:
-                    logger.error(f"Erro ao copiar campo H2H {field}: {str(e)}")
+                    logger.error(f"Error copying field from stats.{field}: {str(e)}")
+        
+        # Log the number of fields extracted
+        non_zero_count = sum(1 for k, v in target_dict.items() 
+                           if (isinstance(v, (int, float)) and v != 0) or 
+                              (isinstance(v, str) and v not in ["", "?????"]))
+        logger.info(f"Extracted {non_zero_count} non-zero fields for {team_type} team")
     
 
 def extract_traditional_stats(api_data, result):
