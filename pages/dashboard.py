@@ -872,6 +872,46 @@ def check_analysis_limits(selected_markets):
 def show_main_dashboard():
     """Show the main dashboard with improved error handling and debug info"""
     try:
+        # ADICIONAR ESTA VERIFICAÇÃO
+        if not hasattr(st.session_state, 'authenticated') or not st.session_state.authenticated:
+            st.error("Sessão não autenticada. Por favor, faça login novamente.")
+            st.session_state.page = "login"
+            st.experimental_rerun()
+            return
+            
+        if not hasattr(st.session_state, 'email') or not st.session_state.email:
+            st.error("Informações de usuário não encontradas. Por favor, faça login novamente.")
+            st.session_state.page = "login"
+            st.experimental_rerun()
+            return
+            
+        # Verificar se o user_manager está disponível
+        if not hasattr(st.session_state, 'user_manager'):
+            st.error("Gerenciador de usuários não inicializado.")
+            st.session_state.page = "login"
+            st.experimental_rerun()
+            return
+
+    # Teste de conexão com a API
+        with st.spinner("Verificando conexão com a API..."):
+            try:
+                from utils.footystats_api import test_api_connection
+                api_status = test_api_connection()
+                
+                if not api_status["success"]:
+                    st.error(f"Erro de conexão com a API FootyStats: {api_status.get('message', 'Erro desconhecido')}")
+                    st.info("Verifique sua conexão com a internet e suas credenciais da API.")
+                    
+                    # Botão para tentar novamente
+                    if st.button("Tentar novamente"):
+                        st.experimental_rerun()
+                    return
+            except Exception as e:
+                st.error(f"Erro ao verificar conexão com a API: {str(e)}")
+                if st.button("Tentar novamente"):
+                    st.experimental_rerun()
+                return
+    try:
         # Garantir que a barra lateral esteja visível
         st.markdown("""
         <style>
