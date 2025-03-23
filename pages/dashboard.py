@@ -911,58 +911,58 @@ def show_main_dashboard():
                 if st.button("Tentar novamente"):
                     st.experimental_rerun()
                 return
-    try:
-        # Garantir que a barra lateral esteja visível
-        st.markdown("""
-        <style>
-        /* FORÇA a barra lateral a ficar visível */
-        [data-testid="stSidebar"] {
-            display: block !important;
-            visibility: visible !important;
-            opacity: 1 !important;
-            width: auto !important;
-            transform: none !important;
-        }
-        
-        /* Ocultar apenas os elementos de navegação do Streamlit, não a barra toda */
-        header[data-testid="stHeader"],
-        footer,
-        #MainMenu {
-            display: none !important;
-        }
-        
-        /* Apenas ocultar o CONTAINER de navegação, não a barra lateral inteira */
-        section[data-testid="stSidebarNavContainer"] {
-            display: none !important;
-        }
-        
-        /* Corrigir - NÃO ocultar o primeiro div do sidebar, apenas elementos específicos */
-        [data-testid="stSidebar"] > div:first-child > div:nth-child(2),  /* Este é o container de navegação */
-        button.stSidebarButton,
-        div.stSidebarNavItems {
-            display: none !important;
-        }
-        
-        /* Seletores para itens de navegação, não para a barra inteira */
-        ul.st-emotion-cache-pbk8do,
-        div.st-emotion-cache-16idsys {
-            display: none !important;
-        }
-        
-        /* Adicionais seletores para navegação */
-        [data-testid="collapsedControl"],
-        #MainMenu,
-        footer {
-            display: none !important;
-        }
-        
-        /* Remover espaço extra no topo que normalmente é ocupado pelo menu */
-        .main .block-container {
-            padding-top: 1rem !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-        
+            try:
+                # Garantir que a barra lateral esteja visível
+                st.markdown("""
+                <style>
+                /* FORÇA a barra lateral a ficar visível */
+                [data-testid="stSidebar"] {
+                    display: block !important;
+                    visibility: visible !important;
+                    opacity: 1 !important;
+                    width: auto !important;
+                    transform: none !important;
+                }
+                
+                /* Ocultar apenas os elementos de navegação do Streamlit, não a barra toda */
+                header[data-testid="stHeader"],
+                footer,
+                #MainMenu {
+                    display: none !important;
+                }
+                
+                /* Apenas ocultar o CONTAINER de navegação, não a barra lateral inteira */
+                section[data-testid="stSidebarNavContainer"] {
+                    display: none !important;
+                }
+                
+                /* Corrigir - NÃO ocultar o primeiro div do sidebar, apenas elementos específicos */
+                [data-testid="stSidebar"] > div:first-child > div:nth-child(2),  /* Este é o container de navegação */
+                button.stSidebarButton,
+                div.stSidebarNavItems {
+                    display: none !important;
+                }
+                
+                /* Seletores para itens de navegação, não para a barra inteira */
+                ul.st-emotion-cache-pbk8do,
+                div.st-emotion-cache-16idsys {
+                    display: none !important;
+                }
+                
+                /* Adicionais seletores para navegação */
+                [data-testid="collapsedControl"],
+                #MainMenu,
+                footer {
+                    display: none !important;
+                }
+                
+                /* Remover espaço extra no topo que normalmente é ocupado pelo menu */
+                .main .block-container {
+                    padding-top: 1rem !important;
+                }
+                </style>
+                """, unsafe_allow_html=True)
+                
         # Iniciar com log de diagnóstico
         logger.info("Iniciando renderização do dashboard principal")     
         
