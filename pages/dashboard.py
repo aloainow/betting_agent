@@ -1507,122 +1507,70 @@ def show_main_dashboard():
                             # NOVO: Formatar a resposta para garantir que tenha todas as seções
                             formatted_analysis = format_analysis_response(analysis, home_team, away_team)
                             
-                            # Aplicar estilo básico
-                            st.markdown("""
-                            <style>
-                            .header { 
-                                background-color: #1e1e24;
-                                padding: 15px;
-                                border-radius: 8px;
-                                margin-bottom: 20px;
-                                text-align: center;
-                            }
-                            .header h2 {
-                                color: #fd7014;
-                                margin: 0;
-                            }
-                            .section {
-                                background-color: #282836;
-                                padding: 15px;
-                                border-radius: 8px;
-                                margin-bottom: 15px;
-                                color: white;
-                            }
-                            .section h3 {
-                                color: #fd7014;
-                                border-bottom: 1px solid #3d3d44;
-                                padding-bottom: 8px;
-                            }
-                            .highlight {
-                                color: #50fa7b;
-                                font-weight: bold;
-                            }
-                            </style>
-                            """, unsafe_allow_html=True)
+                            # Exibir a análise usando componentes nativos do Streamlit
+                            st.markdown(f"## 📊 Análise: {home_team} vs {away_team}")
                             
-                            # Cabeçalho
-                            st.markdown(f"<div class='header'><h2>📊 Análise: {home_team} vs {away_team}</h2></div>", unsafe_allow_html=True)
-                            
-                            # Usar as abas nativas do Streamlit
+                            # Usar as abas nativas do Streamlit para organizar o conteúdo
                             tab1, tab2, tab3, tab4 = st.tabs(["🎯 Oportunidades", "📊 Mercados", "🔢 Probabilidades", "🔍 Confiança"])
                             
+                            # Tab 1: Oportunidades
                             with tab1:
-                                st.markdown("<div class='section'><h3>Oportunidades Identificadas</h3>", unsafe_allow_html=True)
-                                # Extrair seção de oportunidades - usar markdown puro, sem manipulação de string
-                                if "Oportunidades Identificadas" in formatted_analysis:
-                                    opps_start = formatted_analysis.find("# Oportunidades Identificadas")
-                                    opps_end = formatted_analysis.find("#", opps_start + 1)
-                                    if opps_end == -1:  # Se não houver mais seções
-                                        opps_end = len(formatted_analysis)
+                                if "# Oportunidades Identificadas" in formatted_analysis:
+                                    # Extrair a seção usando string normal (sem regex)
+                                    start = formatted_analysis.find("# Oportunidades Identificadas")
+                                    next_section = formatted_analysis.find("# ", start + 10)
+                                    if next_section == -1:
+                                        next_section = len(formatted_analysis)
                                     
-                                    opps_section = formatted_analysis[opps_start:opps_end].strip()
-                                    lines = opps_section.split("\n")
-                                    # Mostrar tudo exceto o título
-                                    for line in lines[1:]:
-                                        if line.startswith("*"):
-                                            st.markdown("• " + line[1:].strip(), unsafe_allow_html=True)
-                                        else:
-                                            st.markdown(line, unsafe_allow_html=True)
-                                st.markdown("</div>", unsafe_allow_html=True)
+                                    opps_section = formatted_analysis[start:next_section]
+                                    st.markdown(opps_section)
+                                else:
+                                    st.info("Nenhuma oportunidade identificada.")
                             
+                            # Tab 2: Mercados
                             with tab2:
-                                st.markdown("<div class='section'><h3>Análise de Mercados Disponíveis</h3>", unsafe_allow_html=True)
-                                # Extrair seção de mercados
-                                if "Análise de Mercados Disponíveis" in formatted_analysis:
-                                    markets_start = formatted_analysis.find("# Análise de Mercados Disponíveis")
-                                    markets_end = formatted_analysis.find("#", markets_start + 1)
-                                    if markets_end == -1:
-                                        markets_end = len(formatted_analysis)
+                                if "# Análise de Mercados Disponíveis" in formatted_analysis:
+                                    start = formatted_analysis.find("# Análise de Mercados Disponíveis")
+                                    next_section = formatted_analysis.find("# ", start + 10)
+                                    if next_section == -1:
+                                        next_section = len(formatted_analysis)
                                     
-                                    markets_section = formatted_analysis[markets_start:markets_end].strip()
-                                    lines = markets_section.split("\n")
-                                    # Mostrar tudo exceto o título
-                                    for line in lines[1:]:
-                                        st.markdown(line, unsafe_allow_html=True)
-                                st.markdown("</div>", unsafe_allow_html=True)
+                                    markets_section = formatted_analysis[start:next_section]
+                                    st.markdown(markets_section)
                             
+                            # Tab 3: Probabilidades
                             with tab3:
-                                st.markdown("<div class='section'><h3>Probabilidades Calculadas</h3>", unsafe_allow_html=True)
-                                # Extrair seção de probabilidades
-                                if "Probabilidades Calculadas" in formatted_analysis:
-                                    probs_start = formatted_analysis.find("# Probabilidades Calculadas")
-                                    probs_end = formatted_analysis.find("#", probs_start + 1)
-                                    if probs_end == -1:
-                                        probs_end = len(formatted_analysis)
+                                if "# Probabilidades Calculadas" in formatted_analysis:
+                                    start = formatted_analysis.find("# Probabilidades Calculadas")
+                                    next_section = formatted_analysis.find("# ", start + 10)
+                                    if next_section == -1:
+                                        next_section = len(formatted_analysis)
                                     
-                                    probs_section = formatted_analysis[probs_start:probs_end].strip()
-                                    lines = probs_section.split("\n")
-                                    # Mostrar tudo exceto o título
-                                    for line in lines[1:]:
-                                        st.markdown(line, unsafe_allow_html=True)
-                                st.markdown("</div>", unsafe_allow_html=True)
+                                    probs_section = formatted_analysis[start:next_section]
+                                    st.markdown(probs_section)
                             
+                            # Tab 4: Confiança
                             with tab4:
-                                st.markdown("<div class='section'><h3>Nível de Confiança</h3>", unsafe_allow_html=True)
-                                # Extrair seção de confiança
-                                if "Nível de Confiança Geral" in formatted_analysis:
-                                    conf_start = formatted_analysis.find("# Nível de Confiança Geral")
-                                    conf_end = formatted_analysis.find("#", conf_start + 1)
-                                    if conf_end == -1:
-                                        conf_end = len(formatted_analysis)
+                                if "# Nível de Confiança Geral" in formatted_analysis:
+                                    start = formatted_analysis.find("# Nível de Confiança Geral")
+                                    next_section = formatted_analysis.find("# ", start + 10)
+                                    if next_section == -1:
+                                        next_section = len(formatted_analysis)
                                     
-                                    conf_section = formatted_analysis[conf_start:conf_end].strip()
-                                    lines = conf_section.split("\n")
+                                    conf_section = formatted_analysis[start:next_section]
                                     
-                                    # Mostrar o nível com estrelas
-                                    if len(lines) > 0:
-                                        level_line = lines[0]
-                                        if "Baixo" in level_line:
-                                            st.markdown("**Nível de Confiança**: Baixo ⭐")
-                                        elif "Médio" in level_line:
-                                            st.markdown("**Nível de Confiança**: Médio ⭐⭐⭐")
-                                        elif "Alto" in level_line:
-                                            st.markdown("**Nível de Confiança**: Alto ⭐⭐⭐⭐⭐")
-                                        
-                                        # Mostrar o resto das linhas
-                                        for line in lines[1:]:
-                                            st.markdown(line, unsafe_allow_html=True)
-                                st.markdown("</div>", unsafe_allow_html=True)
+                                    # Extrair nível
+                                    level = "Médio"
+                                    if "Baixo" in conf_section:
+                                        level = "Baixo ⭐"
+                                    elif "Médio" in conf_section:
+                                        level = "Médio ⭐⭐⭐"
+                                    elif "Alto" in conf_section:
+                                        level = "Alto ⭐⭐⭐⭐⭐"
+                                    
+                                    st.markdown(f"## Nível de Confiança: {level}")
+                                    st.markdown(conf_section)
+                            
                             # Registrar uso após análise bem-sucedida
                             num_markets = sum(1 for v in selected_markets.values() if v)
                             
