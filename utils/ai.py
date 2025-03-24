@@ -1302,3 +1302,218 @@ def calculate_advanced_probabilities(home_team, away_team, league_table=None):
         logger.error(traceback.format_exc())
         # Não usamos fallback, então retornamos None em caso de erro
         return None
+# Adicionar ao arquivo utils/ai.py
+def format_enhanced_display(analysis_text, home_team, away_team):
+    """
+    Reformata a análise bruta da IA para um formato mais visual com tabelas e elementos destacados
+    """
+    import re
+    
+    # Extrair as diferentes seções da análise
+    sections = {}
+    
+    # Encontrar títulos de seção e conteúdo
+    section_pattern = r'\*\*([^:]+):\*\*(.*?)(?=\*\*\w+:|$)'
+    matches = re.findall(section_pattern, analysis_text, re.DOTALL)
+    
+    for title, content in matches:
+        sections[title.strip()] = content.strip()
+    
+    # Extrair oportunidades para tabela destacada
+    opportunities = []
+    if "Oportunidades Identificadas" in sections:
+        opp_text = sections["Oportunidades Identificadas"]
+        for line in opp_text.split('\n'):
+            if line.startswith('*'):
+                parts = line.strip('* ').split('(Vantagem:')
+                if len(parts) == 2:
+                    market_selection = parts[0].strip()
+                    advantage = parts[1].strip().strip(')')
+                    
+                    # Dividir mercado e seleção
+                    if ':' in market_selection:
+                        market, selection = market_selection.split(':', 1)
+                    else:
+                        market_parts = market_selection.split(' ')
+                        market = ' '.join(market_parts[:-1])
+                        selection = market_parts[-1]
+                    
+                    # Determinar nível de confiança baseado na vantagem
+                    adv_value = float(advantage.strip('%'))
+                    confidence = "⭐"
+                    if adv_value > 5:
+                        confidence = "⭐⭐"
+                    if adv_value > 10:
+                        confidence = "⭐⭐⭐"
+                    if adv_value > 20:
+                        confidence = "⭐⭐⭐⭐"
+                    
+                    opportunities.append({
+                        "market": market.strip(),
+                        "selection": selection.strip(),
+                        "advantage": advantage.strip(),
+                        "confidence": confidence
+                    })
+    
+    # Extrair informações de confiança
+    confidence_info = {}
+    if "Nível de Confiança Geral" in sections:
+        conf_text = sections["Nível de Confiança Geral"]
+        
+        # Consistência
+        home_consistency = re.search(r'consistência do ([^é]+) é de (\d+\.\d+)%', conf_text)
+        away_consistency = re.search(r'consistência do ([^é]+) é de (\d+\.\d+)%', conf_text, re.MULTILINE)
+        
+        # Forma
+        home_form = re.search(r'forma recente .+? (\d+\.\d+)/15', conf_text)
+        away_form = re.search(r'forma recente .+? (\d+\.\d+)/15', conf_text, re.MULTILINE)
+        
+        if home_consistency and away_consistency:
+            confidence_info["home_consistency"] = float(home_consistency.group(2))
+            confidence_info["away_consistency"] = float(away_consistency.group(2))
+        
+        if home_form and away_form:
+            confidence_info["home_form"] = float(home_form.group(1))
+            confidence_info["away_form"] = float(away_form.group(1))
+    
+    # Construir HTML formatado
+    html = f"""
+    <div class="enhanced-analysis">
+        <h1>📊 Análise da Partida: {home_team} vs {away_team}</h1>
+        
+        <!-- Oportunidades Identificadas -->
+        <div class="opportunities-section">
+            <h2>🎯 Oportunidades Identificadas</h2>
+            <table class="opportunities-table">
+                <thead>
+                    <tr>
+                        <th>Mercado</th>
+                        <th>Seleção</th>
+                        <th>Vantagem</th>
+                        <th>Confiança</th>
+                    </tr>
+                </thead>
+                <tbody>
+    """
+    
+    # Adicionar oportunidades à tabela
+    for opp in opportunities:
+        html += f"""
+                    <tr>
+                        <td><strong>{opp['market']}</strong></td>
+                        <td>{opp['selection']}</td>
+                        <td class="advantage">+{opp['advantage']}</td>
+                        <td>{opp['confidence']}</td>
+                    </tr>
+        """
+    
+    # Se não tem oportunidades, mostra mensagem
+    if not opportunities:
+        html += """
+                    <tr>
+                        <td colspan="4" class="no-opportunities">Nenhuma oportunidade significativa identificada</td>
+                    </tr>
+        """
+    
+    html += """
+                </tbody>
+            </table>
+        </div>
+    """
+    
+    # Seção de análise de mercados
+    if "Análise de Mercados Disponíveis" in sections:
+        html += f"""
+        <div class="markets-section">
+            <h2>📈 Análise de Mercados Disponíveis</h2>
+            <div class="market-content">
+                {sections["Análise de Mercados Disponíveis"].replace('\n', '<br>')}
+            </div>
+        </div>
+        """
+    
+    # Seção de probabilidades
+    if "Probabilidades Calculadas" in sections:
+        html += f"""
+        <div class="probabilities-section">
+            <h2>🔢 Probabilidades Calculadas (REAL vs IMPLÍCITA)</h2>
+            <div class="probability-content">
+                {sections["Probabilidades Calculadas"].replace('\n', '<br>')}
+            </div>
+        </div>
+        """
+    
+    # Seção de confiança
+    html += """
+        <div class="confidence-section">
+            <h2>🔍 Análise de Confiança</h2>
+    """
+    
+    if confidence_info:
+        html += f"""
+            <div class="confidence-grid">
+                <div class="confidence-card">
+                    <h3>{home_team}</h3>
+                    <div class="confidence-metric">
+                        <span class="metric-label">Consistência:</span>
+                        <div class="progress-bar">
+                            <div class="progress" style="width: {min(confidence_info.get('home_consistency', 0), 100)}%;"></div>
+                        </div>
+                        <span class="metric-value">{confidence_info.get('home_consistency', 0):.1f}%</span>
+                    </div>
+                    <div class="confidence-metric">
+                        <span class="metric-label">Forma Recente:</span>
+                        <div class="progress-bar">
+                            <div class="progress" style="width: {min(confidence_info.get('home_form', 0) / 15 * 100, 100)}%;"></div>
+                        </div>
+                        <span class="metric-value">{confidence_info.get('home_form', 0):.1f}/15</span>
+                    </div>
+                </div>
+                
+                <div class="confidence-card">
+                    <h3>{away_team}</h3>
+                    <div class="confidence-metric">
+                        <span class="metric-label">Consistência:</span>
+                        <div class="progress-bar">
+                            <div class="progress" style="width: {min(confidence_info.get('away_consistency', 0), 100)}%;"></div>
+                        </div>
+                        <span class="metric-value">{confidence_info.get('away_consistency', 0):.1f}%</span>
+                    </div>
+                    <div class="confidence-metric">
+                        <span class="metric-label">Forma Recente:</span>
+                        <div class="progress-bar">
+                            <div class="progress" style="width: {min(confidence_info.get('away_form', 0) / 15 * 100, 100)}%;"></div>
+                        </div>
+                        <span class="metric-value">{confidence_info.get('away_form', 0):.1f}/15</span>
+                    </div>
+                </div>
+            </div>
+        """
+    
+    # Restante do texto de confiança
+    if "Nível de Confiança Geral" in sections:
+        level_match = re.match(r'(\w+)', sections["Nível de Confiança Geral"].strip())
+        level = level_match.group(1) if level_match else "Médio"
+        
+        stars = "⭐"
+        if level == "Médio":
+            stars = "⭐⭐⭐"
+        elif level == "Alto":
+            stars = "⭐⭐⭐⭐⭐"
+        
+        html += f"""
+            <div class="confidence-level">
+                <span class="level-label">Nível de Confiança Geral:</span>
+                <span class="level-value">{level} {stars}</span>
+            </div>
+            <div class="confidence-explanation">
+                {sections["Nível de Confiança Geral"].replace('\n', '<br>')}
+            </div>
+        """
+    
+    html += """
+        </div>
+    </div>
+    """
+    
+    return html
