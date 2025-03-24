@@ -2596,6 +2596,7 @@ def show_main_dashboard():
                                 st.success(f"{num_markets} créditos foram consumidos. Agora você tem {credits_after} créditos.")
                             else:
                                 st.error("Não foi possível registrar o uso dos créditos. Por favor, tente novamente.")
+                
                 except Exception as analysis_error:
                         logger.error(f"Erro durante a análise: {str(analysis_error)}")
                         logger.error(traceback.format_exc())
