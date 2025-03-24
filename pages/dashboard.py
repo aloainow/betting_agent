@@ -1712,14 +1712,13 @@ def show_main_dashboard():
                             status.error("Falha na análise com IA")
                             return
                         
-                        # Substitua a parte da análise no arquivo dashboard.py
-
+        
                         # Etapa 5: Mostrar resultado
                         if analysis:
                             # Limpar status
                             status.empty()
                             
-                            # Limpar possíveis tags HTML da resposta
+                            # Remover tags HTML da resposta se existirem
                             if isinstance(analysis, str):
                                 if "<div class=\"analysis-result\">" in analysis:
                                     analysis = analysis.replace("<div class=\"analysis-result\">", "")
@@ -1729,49 +1728,102 @@ def show_main_dashboard():
                             # NOVO: Formatar a resposta para garantir que tenha todas as seções
                             formatted_analysis = format_analysis_response(analysis, home_team, away_team)
                             
-                            # Exibir a análise com estilo simples mas eficaz
+                            # Separar as seções usando expressões regulares simples
+                            import re
+                            
+                            # Função auxiliar para extrair conteúdo de uma seção
+                            def get_section(text, section_name):
+                                pattern = f"# {section_name}[^\n]*\n(.*?)(?=# |\Z)"
+                                match = re.search(pattern, text, re.DOTALL)
+                                if match:
+                                    return match.group(1).strip()
+                                return ""
+                            
+                            # Extração de seções específicas
+                            title = f"# Análise da Partida\n## {home_team} x {away_team}"
+                            markets = get_section(formatted_analysis, "Análise de Mercados Disponíveis")
+                            probabilities = get_section(formatted_analysis, "Probabilidades Calculadas")
+                            opportunities = get_section(formatted_analysis, "Oportunidades Identificadas")
+                            confidence = get_section(formatted_analysis, "Nível de Confiança Geral")
+                            
+                            # Extrair nível de confiança (Baixo/Médio/Alto)
+                            confidence_level = "Médio"  # Valor padrão
+                            match = re.search(r"Nível de Confiança Geral: (\w+)", formatted_analysis)
+                            if match:
+                                confidence_level = match.group(1)
+                            
+                            # Criar container colorido com CSS básico
                             st.markdown("""
                             <style>
-                            .analysis-result {
-                                width: 100%;
-                                max-width: 100%;
-                                padding: 2rem;
+                            .analysis-header {
                                 background-color: #1e1e24;
+                                color: white;
+                                padding: 15px;
+                                border-radius: 8px 8px 0 0;
+                                text-align: center;
+                                border: 1px solid #3d3d44;
+                                border-bottom: none;
+                            }
+                            .analysis-section {
+                                background-color: #282836;
+                                color: white;
+                                padding: 15px;
+                                margin-bottom: 15px;
                                 border-radius: 8px;
                                 border: 1px solid #3d3d44;
-                                margin: 1rem 0;
-                                color: #f8f8f2;
-                                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
                             }
-                            
-                            .analysis-result h1 {
+                            .analysis-title {
                                 color: #fd7014;
-                                font-size: 24px;
-                                margin-bottom: 20px;
-                                text-align: center;
+                                margin-bottom: 10px;
                             }
-                            
-                            .analysis-result h2 {
-                                color: #fd7014;
-                                font-size: 20px;
-                                margin-top: 30px;
-                                margin-bottom: 15px;
-                                border-bottom: 1px solid #3d3d44;
-                                padding-bottom: 8px;
-                            }
-                            
-                            .analysis-result strong {
+                            .opportunity-text {
                                 color: #50fa7b;
+                                font-weight: bold;
                             }
                             </style>
                             """, unsafe_allow_html=True)
                             
-                            # Criar HTML para a análise formatada
-                            html_content = f'<div class="analysis-result"><h1>📊 Análise da Partida: {home_team} vs {away_team}</h1>{formatted_analysis}</div>'
+                            # Header
+                            st.markdown(f'<div class="analysis-header"><h2>📊 Análise: {home_team} vs {away_team}</h2></div>', unsafe_allow_html=True)
                             
-                            # Mostrar a análise
-                            st.markdown(html_content, unsafe_allow_html=True)    
+                            # Oportunidades (destacadas)
+                            st.markdown('<div class="analysis-section"><h3 class="analysis-title">🎯 Oportunidades Identificadas</h3>', unsafe_allow_html=True)
                             
+                            # Destacar as oportunidades com cores
+                            highlighted_opps = opportunities
+                            if opportunities:
+                                # Destacar os valores com *
+                                highlighted_opps = re.sub(r'\* ([^(]+)\(Vantagem: ([^)]+)\)', r'* <span class="opportunity-text">\1(Vantagem: \2)</span>', opportunities)
+                            
+                            st.markdown(highlighted_opps.replace("*", "•"), unsafe_allow_html=True)
+                            st.markdown('</div>', unsafe_allow_html=True)
+                            
+                            # Usar as abas do Streamlit para organizar o resto do conteúdo
+                            tab1, tab2, tab3 = st.tabs(["📈 Análise de Mercados", "🔢 Probabilidades", "🔍 Confiança"])
+                            
+                            with tab1:
+                                st.markdown('<div class="analysis-section">', unsafe_allow_html=True)
+                                st.markdown(markets)
+                                st.markdown('</div>', unsafe_allow_html=True)
+                            
+                            with tab2:
+                                st.markdown('<div class="analysis-section">', unsafe_allow_html=True)
+                                st.markdown(probabilities)
+                                st.markdown('</div>', unsafe_allow_html=True)
+                            
+                            with tab3:
+                                st.markdown('<div class="analysis-section">', unsafe_allow_html=True)
+                                
+                                # Mostrar nível de confiança com estrelas
+                                stars = "⭐" 
+                                if confidence_level == "Médio":
+                                    stars = "⭐⭐⭐"
+                                elif confidence_level == "Alto":
+                                    stars = "⭐⭐⭐⭐⭐"
+                                
+                                st.markdown(f"**Nível de Confiança:** {confidence_level} {stars}")
+                                st.markdown(confidence)
+                                st.markdown('</div>', unsafe_allow_html=True)                            
                             # Registrar uso após análise bem-sucedida
                             num_markets = sum(1 for v in selected_markets.values() if v)
                             
