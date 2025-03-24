@@ -920,220 +920,6 @@ def check_analysis_limits(selected_markets):
         st.error("Erro ao verificar limites de análise. Por favor, tente novamente.")
         return False
 
-def format_enhanced_display(analysis_text, home_team, away_team):
-    """
-    Reformata a análise bruta da IA para um formato mais visual com tabelas e elementos destacados
-    """
-    import re
-    
-    # Extrair as diferentes seções da análise
-    sections = {}
-    
-    # Encontrar títulos de seção e conteúdo
-    section_pattern = r'\*\*([^:]+):\*\*(.*?)(?=\*\*\w+:|$)'
-    matches = re.findall(section_pattern, analysis_text, re.DOTALL)
-    
-    for title, content in matches:
-        sections[title.strip()] = content.strip()
-    
-    # Extrair oportunidades para tabela destacada
-    opportunities = []
-    if "Oportunidades Identificadas" in sections:
-        opp_text = sections["Oportunidades Identificadas"]
-        for line in opp_text.split('\n'):
-            if line.startswith('*'):
-                parts = line.strip('* ').split('(Vantagem:')
-                if len(parts) == 2:
-                    market_selection = parts[0].strip()
-                    advantage = parts[1].strip().strip(')')
-                    
-                    # Dividir mercado e seleção
-                    if ':' in market_selection:
-                        market, selection = market_selection.split(':', 1)
-                    else:
-                        market_parts = market_selection.split(' ')
-                        market = ' '.join(market_parts[:-1])
-                        selection = market_parts[-1]
-                    
-                    # Determinar nível de confiança baseado na vantagem
-                    adv_value = float(advantage.strip('%'))
-                    confidence = "⭐"
-                    if adv_value > 5:
-                        confidence = "⭐⭐"
-                    if adv_value > 10:
-                        confidence = "⭐⭐⭐"
-                    if adv_value > 20:
-                        confidence = "⭐⭐⭐⭐"
-                    
-                    opportunities.append({
-                        "market": market.strip(),
-                        "selection": selection.strip(),
-                        "advantage": advantage.strip(),
-                        "confidence": confidence
-                    })
-    
-    # Extrair informações de confiança
-    confidence_info = {}
-    if "Nível de Confiança Geral" in sections:
-        conf_text = sections["Nível de Confiança Geral"]
-        
-        # Consistência
-        home_consistency = re.search(r'consistência do ([^é]+) é de (\d+\.\d+)%', conf_text)
-        away_consistency = re.search(r'consistência do ([^é]+) é de (\d+\.\d+)%', conf_text, re.MULTILINE)
-        
-        # Forma
-        home_form = re.search(r'forma recente .+? (\d+\.\d+)/15', conf_text)
-        away_form = re.search(r'forma recente .+? (\d+\.\d+)/15', conf_text, re.MULTILINE)
-        
-        if home_consistency and away_consistency:
-            confidence_info["home_consistency"] = float(home_consistency.group(2))
-            confidence_info["away_consistency"] = float(away_consistency.group(2))
-        
-        if home_form and away_form:
-            confidence_info["home_form"] = float(home_form.group(1))
-            confidence_info["away_form"] = float(away_form.group(1))
-    
-    # Construir HTML formatado
-    html = f"""
-    <div class="enhanced-analysis">
-        <h1>📊 Análise da Partida: {home_team} vs {away_team}</h1>
-        
-        <!-- Oportunidades Identificadas -->
-        <div class="opportunities-section">
-            <h2>🎯 Oportunidades Identificadas</h2>
-            <table class="opportunities-table">
-                <thead>
-                    <tr>
-                        <th>Mercado</th>
-                        <th>Seleção</th>
-                        <th>Vantagem</th>
-                        <th>Confiança</th>
-                    </tr>
-                </thead>
-                <tbody>
-    """
-    
-    # Adicionar oportunidades à tabela
-    for opp in opportunities:
-        html += f"""
-                    <tr>
-                        <td><strong>{opp['market']}</strong></td>
-                        <td>{opp['selection']}</td>
-                        <td class="advantage">+{opp['advantage']}</td>
-                        <td>{opp['confidence']}</td>
-                    </tr>
-        """
-    
-    # Se não tem oportunidades, mostra mensagem
-    if not opportunities:
-        html += """
-                    <tr>
-                        <td colspan="4" class="no-opportunities">Nenhuma oportunidade significativa identificada</td>
-                    </tr>
-        """
-    
-    html += """
-                </tbody>
-            </table>
-        </div>
-    """
-    
-    # Seção de análise de mercados
-    if "Análise de Mercados Disponíveis" in sections:
-        html += f"""
-        <div class="markets-section">
-            <h2>📈 Análise de Mercados Disponíveis</h2>
-            <div class="market-content">
-                {sections["Análise de Mercados Disponíveis"].replace('\n', '<br>')}
-            </div>
-        </div>
-        """
-    
-    # Seção de probabilidades
-    if "Probabilidades Calculadas" in sections:
-        html += f"""
-        <div class="probabilities-section">
-            <h2>🔢 Probabilidades Calculadas (REAL vs IMPLÍCITA)</h2>
-            <div class="probability-content">
-                {sections["Probabilidades Calculadas"].replace('\n', '<br>')}
-            </div>
-        </div>
-        """
-    
-    # Seção de confiança
-    html += """
-        <div class="confidence-section">
-            <h2>🔍 Análise de Confiança</h2>
-    """
-    
-    if confidence_info:
-        html += f"""
-            <div class="confidence-grid">
-                <div class="confidence-card">
-                    <h3>{home_team}</h3>
-                    <div class="confidence-metric">
-                        <span class="metric-label">Consistência:</span>
-                        <div class="progress-bar">
-                            <div class="progress" style="width: {min(confidence_info.get('home_consistency', 0), 100)}%;"></div>
-                        </div>
-                        <span class="metric-value">{confidence_info.get('home_consistency', 0):.1f}%</span>
-                    </div>
-                    <div class="confidence-metric">
-                        <span class="metric-label">Forma Recente:</span>
-                        <div class="progress-bar">
-                            <div class="progress" style="width: {min(confidence_info.get('home_form', 0) / 15 * 100, 100)}%;"></div>
-                        </div>
-                        <span class="metric-value">{confidence_info.get('home_form', 0):.1f}/15</span>
-                    </div>
-                </div>
-                
-                <div class="confidence-card">
-                    <h3>{away_team}</h3>
-                    <div class="confidence-metric">
-                        <span class="metric-label">Consistência:</span>
-                        <div class="progress-bar">
-                            <div class="progress" style="width: {min(confidence_info.get('away_consistency', 0), 100)}%;"></div>
-                        </div>
-                        <span class="metric-value">{confidence_info.get('away_consistency', 0):.1f}%</span>
-                    </div>
-                    <div class="confidence-metric">
-                        <span class="metric-label">Forma Recente:</span>
-                        <div class="progress-bar">
-                            <div class="progress" style="width: {min(confidence_info.get('away_form', 0) / 15 * 100, 100)}%;"></div>
-                        </div>
-                        <span class="metric-value">{confidence_info.get('away_form', 0):.1f}/15</span>
-                    </div>
-                </div>
-            </div>
-        """
-    
-    # Restante do texto de confiança
-    if "Nível de Confiança Geral" in sections:
-        level_match = re.match(r'(\w+)', sections["Nível de Confiança Geral"].strip())
-        level = level_match.group(1) if level_match else "Médio"
-        
-        stars = "⭐"
-        if level == "Médio":
-            stars = "⭐⭐⭐"
-        elif level == "Alto":
-            stars = "⭐⭐⭐⭐⭐"
-        
-        html += f"""
-            <div class="confidence-level">
-                <span class="level-label">Nível de Confiança Geral:</span>
-                <span class="level-value">{level} {stars}</span>
-            </div>
-            <div class="confidence-explanation">
-                {sections["Nível de Confiança Geral"].replace('\n', '<br>')}
-            </div>
-        """
-    
-    html += """
-        </div>
-    </div>
-    """
-    
-    return html
 
 def show_main_dashboard():
     """Show the main dashboard with improved error handling and debug info"""
@@ -1718,112 +1504,125 @@ def show_main_dashboard():
                             # Limpar status
                             status.empty()
                             
-                            # Remover tags HTML da resposta se existirem
-                            if isinstance(analysis, str):
-                                if "<div class=\"analysis-result\">" in analysis:
-                                    analysis = analysis.replace("<div class=\"analysis-result\">", "")
-                                    if "</div>" in analysis:
-                                        analysis = analysis.replace("</div>", "")
-                            
                             # NOVO: Formatar a resposta para garantir que tenha todas as seções
                             formatted_analysis = format_analysis_response(analysis, home_team, away_team)
                             
-                            # Separar as seções usando expressões regulares simples
-                            import re
-                            
-                            # Função auxiliar para extrair conteúdo de uma seção
-                            def get_section(text, section_name):
-                                pattern = f"# {section_name}[^\n]*\n(.*?)(?=# |\Z)"
-                                match = re.search(pattern, text, re.DOTALL)
-                                if match:
-                                    return match.group(1).strip()
-                                return ""
-                            
-                            # Extração de seções específicas
-                            title = f"# Análise da Partida\n## {home_team} x {away_team}"
-                            markets = get_section(formatted_analysis, "Análise de Mercados Disponíveis")
-                            probabilities = get_section(formatted_analysis, "Probabilidades Calculadas")
-                            opportunities = get_section(formatted_analysis, "Oportunidades Identificadas")
-                            confidence = get_section(formatted_analysis, "Nível de Confiança Geral")
-                            
-                            # Extrair nível de confiança (Baixo/Médio/Alto)
-                            confidence_level = "Médio"  # Valor padrão
-                            match = re.search(r"Nível de Confiança Geral: (\w+)", formatted_analysis)
-                            if match:
-                                confidence_level = match.group(1)
-                            
-                            # Criar container colorido com CSS básico
+                            # Aplicar estilo básico
                             st.markdown("""
                             <style>
-                            .analysis-header {
+                            .header { 
                                 background-color: #1e1e24;
-                                color: white;
                                 padding: 15px;
-                                border-radius: 8px 8px 0 0;
-                                text-align: center;
-                                border: 1px solid #3d3d44;
-                                border-bottom: none;
-                            }
-                            .analysis-section {
-                                background-color: #282836;
-                                color: white;
-                                padding: 15px;
-                                margin-bottom: 15px;
                                 border-radius: 8px;
-                                border: 1px solid #3d3d44;
+                                margin-bottom: 20px;
+                                text-align: center;
                             }
-                            .analysis-title {
+                            .header h2 {
                                 color: #fd7014;
-                                margin-bottom: 10px;
+                                margin: 0;
                             }
-                            .opportunity-text {
+                            .section {
+                                background-color: #282836;
+                                padding: 15px;
+                                border-radius: 8px;
+                                margin-bottom: 15px;
+                                color: white;
+                            }
+                            .section h3 {
+                                color: #fd7014;
+                                border-bottom: 1px solid #3d3d44;
+                                padding-bottom: 8px;
+                            }
+                            .highlight {
                                 color: #50fa7b;
                                 font-weight: bold;
                             }
                             </style>
                             """, unsafe_allow_html=True)
                             
-                            # Header
-                            st.markdown(f'<div class="analysis-header"><h2>📊 Análise: {home_team} vs {away_team}</h2></div>', unsafe_allow_html=True)
+                            # Cabeçalho
+                            st.markdown(f"<div class='header'><h2>📊 Análise: {home_team} vs {away_team}</h2></div>", unsafe_allow_html=True)
                             
-                            # Oportunidades (destacadas)
-                            st.markdown('<div class="analysis-section"><h3 class="analysis-title">🎯 Oportunidades Identificadas</h3>', unsafe_allow_html=True)
-                            
-                            # Destacar as oportunidades com cores
-                            highlighted_opps = opportunities
-                            if opportunities:
-                                # Destacar os valores com *
-                                highlighted_opps = re.sub(r'\* ([^(]+)\(Vantagem: ([^)]+)\)', r'* <span class="opportunity-text">\1(Vantagem: \2)</span>', opportunities)
-                            
-                            st.markdown(highlighted_opps.replace("*", "•"), unsafe_allow_html=True)
-                            st.markdown('</div>', unsafe_allow_html=True)
-                            
-                            # Usar as abas do Streamlit para organizar o resto do conteúdo
-                            tab1, tab2, tab3 = st.tabs(["📈 Análise de Mercados", "🔢 Probabilidades", "🔍 Confiança"])
+                            # Usar as abas nativas do Streamlit
+                            tab1, tab2, tab3, tab4 = st.tabs(["🎯 Oportunidades", "📊 Mercados", "🔢 Probabilidades", "🔍 Confiança"])
                             
                             with tab1:
-                                st.markdown('<div class="analysis-section">', unsafe_allow_html=True)
-                                st.markdown(markets)
-                                st.markdown('</div>', unsafe_allow_html=True)
+                                st.markdown("<div class='section'><h3>Oportunidades Identificadas</h3>", unsafe_allow_html=True)
+                                # Extrair seção de oportunidades - usar markdown puro, sem manipulação de string
+                                if "Oportunidades Identificadas" in formatted_analysis:
+                                    opps_start = formatted_analysis.find("# Oportunidades Identificadas")
+                                    opps_end = formatted_analysis.find("#", opps_start + 1)
+                                    if opps_end == -1:  # Se não houver mais seções
+                                        opps_end = len(formatted_analysis)
+                                    
+                                    opps_section = formatted_analysis[opps_start:opps_end].strip()
+                                    lines = opps_section.split("\n")
+                                    # Mostrar tudo exceto o título
+                                    for line in lines[1:]:
+                                        if line.startswith("*"):
+                                            st.markdown("• " + line[1:].strip(), unsafe_allow_html=True)
+                                        else:
+                                            st.markdown(line, unsafe_allow_html=True)
+                                st.markdown("</div>", unsafe_allow_html=True)
                             
                             with tab2:
-                                st.markdown('<div class="analysis-section">', unsafe_allow_html=True)
-                                st.markdown(probabilities)
-                                st.markdown('</div>', unsafe_allow_html=True)
+                                st.markdown("<div class='section'><h3>Análise de Mercados Disponíveis</h3>", unsafe_allow_html=True)
+                                # Extrair seção de mercados
+                                if "Análise de Mercados Disponíveis" in formatted_analysis:
+                                    markets_start = formatted_analysis.find("# Análise de Mercados Disponíveis")
+                                    markets_end = formatted_analysis.find("#", markets_start + 1)
+                                    if markets_end == -1:
+                                        markets_end = len(formatted_analysis)
+                                    
+                                    markets_section = formatted_analysis[markets_start:markets_end].strip()
+                                    lines = markets_section.split("\n")
+                                    # Mostrar tudo exceto o título
+                                    for line in lines[1:]:
+                                        st.markdown(line, unsafe_allow_html=True)
+                                st.markdown("</div>", unsafe_allow_html=True)
                             
                             with tab3:
-                                st.markdown('<div class="analysis-section">', unsafe_allow_html=True)
-                                
-                                # Mostrar nível de confiança com estrelas
-                                stars = "⭐" 
-                                if confidence_level == "Médio":
-                                    stars = "⭐⭐⭐"
-                                elif confidence_level == "Alto":
-                                    stars = "⭐⭐⭐⭐⭐"
-                                
-                                st.markdown(f"**Nível de Confiança:** {confidence_level} {stars}")
-                                st.markdown(confidence)
-                                st.markdown('</div>', unsafe_allow_html=True)                            
+                                st.markdown("<div class='section'><h3>Probabilidades Calculadas</h3>", unsafe_allow_html=True)
+                                # Extrair seção de probabilidades
+                                if "Probabilidades Calculadas" in formatted_analysis:
+                                    probs_start = formatted_analysis.find("# Probabilidades Calculadas")
+                                    probs_end = formatted_analysis.find("#", probs_start + 1)
+                                    if probs_end == -1:
+                                        probs_end = len(formatted_analysis)
+                                    
+                                    probs_section = formatted_analysis[probs_start:probs_end].strip()
+                                    lines = probs_section.split("\n")
+                                    # Mostrar tudo exceto o título
+                                    for line in lines[1:]:
+                                        st.markdown(line, unsafe_allow_html=True)
+                                st.markdown("</div>", unsafe_allow_html=True)
+                            
+                            with tab4:
+                                st.markdown("<div class='section'><h3>Nível de Confiança</h3>", unsafe_allow_html=True)
+                                # Extrair seção de confiança
+                                if "Nível de Confiança Geral" in formatted_analysis:
+                                    conf_start = formatted_analysis.find("# Nível de Confiança Geral")
+                                    conf_end = formatted_analysis.find("#", conf_start + 1)
+                                    if conf_end == -1:
+                                        conf_end = len(formatted_analysis)
+                                    
+                                    conf_section = formatted_analysis[conf_start:conf_end].strip()
+                                    lines = conf_section.split("\n")
+                                    
+                                    # Mostrar o nível com estrelas
+                                    if len(lines) > 0:
+                                        level_line = lines[0]
+                                        if "Baixo" in level_line:
+                                            st.markdown("**Nível de Confiança**: Baixo ⭐")
+                                        elif "Médio" in level_line:
+                                            st.markdown("**Nível de Confiança**: Médio ⭐⭐⭐")
+                                        elif "Alto" in level_line:
+                                            st.markdown("**Nível de Confiança**: Alto ⭐⭐⭐⭐⭐")
+                                        
+                                        # Mostrar o resto das linhas
+                                        for line in lines[1:]:
+                                            st.markdown(line, unsafe_allow_html=True)
+                                st.markdown("</div>", unsafe_allow_html=True)
                             # Registrar uso após análise bem-sucedida
                             num_markets = sum(1 for v in selected_markets.values() if v)
                             
