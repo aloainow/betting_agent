@@ -1712,6 +1712,8 @@ def show_main_dashboard():
                             status.error("Falha na análise com IA")
                             return
                         
+                        # Substitua a parte da análise no arquivo dashboard.py
+
                         # Etapa 5: Mostrar resultado
                         if analysis:
                             # Limpar status
@@ -1719,7 +1721,6 @@ def show_main_dashboard():
                             
                             # Limpar possíveis tags HTML da resposta
                             if isinstance(analysis, str):
-                                # Verificar se a análise começa com a tag de div
                                 if "<div class=\"analysis-result\">" in analysis:
                                     analysis = analysis.replace("<div class=\"analysis-result\">", "")
                                     if "</div>" in analysis:
@@ -1728,31 +1729,29 @@ def show_main_dashboard():
                             # NOVO: Formatar a resposta para garantir que tenha todas as seções
                             formatted_analysis = format_analysis_response(analysis, home_team, away_team)
                             
-                            # NOVO: Formatar para visualização aprimorada
-                            enhanced_display = format_enhanced_display(formatted_analysis, home_team, away_team)
-                            
-                            # Definir CSS como string separada para evitar problemas com f-strings
-                            css_styles = '''
+                            # Exibir a análise com estilo simples mas eficaz
+                            st.markdown("""
                             <style>
-                            /* Estilos básicos */
-                            .enhanced-analysis {
+                            .analysis-result {
                                 width: 100%;
+                                max-width: 100%;
+                                padding: 2rem;
                                 background-color: #1e1e24;
-                                border-radius: 10px;
-                                padding: 20px;
+                                border-radius: 8px;
+                                border: 1px solid #3d3d44;
+                                margin: 1rem 0;
                                 color: #f8f8f2;
                                 font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
                             }
-                        
-                            /* Cabeçalhos */
-                            .enhanced-analysis h1 {
+                            
+                            .analysis-result h1 {
                                 color: #fd7014;
                                 font-size: 24px;
                                 margin-bottom: 20px;
                                 text-align: center;
                             }
-                        
-                            .enhanced-analysis h2 {
+                            
+                            .analysis-result h2 {
                                 color: #fd7014;
                                 font-size: 20px;
                                 margin-top: 30px;
@@ -1760,124 +1759,18 @@ def show_main_dashboard():
                                 border-bottom: 1px solid #3d3d44;
                                 padding-bottom: 8px;
                             }
-                        
-                            .enhanced-analysis h3 {
-                                color: #f8f8f2;
-                                font-size: 18px;
-                                margin-top: 15px;
-                                margin-bottom: 10px;
-                            }
-                        
-                            /* Tabela de oportunidades */
-                            .opportunities-table {
-                                width: 100%;
-                                border-collapse: collapse;
-                                margin-bottom: 20px;
-                                background-color: #282836;
-                                border-radius: 8px;
-                                overflow: hidden;
-                            }
-                        
-                            .opportunities-table th {
-                                background-color: #3d3d44;
-                                padding: 12px 15px;
-                                text-align: left;
-                                font-weight: 600;
-                            }
-                        
-                            .opportunities-table td {
-                                padding: 12px 15px;
-                                border-top: 1px solid #3d3d44;
-                            }
-                        
-                            .opportunities-table .advantage {
+                            
+                            .analysis-result strong {
                                 color: #50fa7b;
-                                font-weight: bold;
-                            }
-                        
-                            .opportunities-table .no-opportunities {
-                                text-align: center;
-                                color: #bd93f9;
-                                padding: 20px 0;
-                            }
-                        
-                            /* Seções de conteúdo */
-                            .market-content, .probability-content, .confidence-explanation {
-                                background-color: #282836;
-                                padding: 15px;
-                                border-radius: 8px;
-                                margin-top: 10px;
-                                line-height: 1.6;
-                            }
-                        
-                            /* Cards de confiança */
-                            .confidence-grid {
-                                display: flex;
-                                gap: 20px;
-                                margin-bottom: 20px;
-                            }
-                        
-                            .confidence-card {
-                                flex: 1;
-                                background-color: #282836;
-                                border-radius: 8px;
-                                padding: 15px;
-                            }
-                        
-                            .confidence-metric {
-                                margin-bottom: 15px;
-                            }
-                        
-                            .metric-label {
-                                display: block;
-                                margin-bottom: 5px;
-                                color: #bd93f9;
-                            }
-                        
-                            .progress-bar {
-                                width: 100%;
-                                height: 10px;
-                                background-color: #44475a;
-                                border-radius: 5px;
-                                overflow: hidden;
-                                margin-bottom: 5px;
-                            }
-                        
-                            .progress {
-                                height: 100%;
-                                background-color: #fd7014;
-                                border-radius: 5px;
-                            }
-                        
-                            .metric-value {
-                                float: right;
-                                font-weight: bold;
-                            }
-                        
-                            /* Nível de confiança */
-                            .confidence-level {
-                                background-color: #282836;
-                                padding: 15px;
-                                border-radius: 8px;
-                                margin-bottom: 15px;
-                                text-align: center;
-                            }
-                        
-                            .level-label {
-                                margin-right: 10px;
-                                color: #bd93f9;
-                            }
-                        
-                            .level-value {
-                                font-size: 18px;
-                                font-weight: bold;
                             }
                             </style>
-                            '''
+                            """, unsafe_allow_html=True)
                             
-                            # Agora combine o CSS com o conteúdo sem usar f-string
-                            combined_html = css_styles + enhanced_display
-                            st.markdown(combined_html, unsafe_allow_html=True)
+                            # Criar HTML para a análise formatada
+                            html_content = f'<div class="analysis-result"><h1>📊 Análise da Partida: {home_team} vs {away_team}</h1>{formatted_analysis}</div>'
+                            
+                            # Mostrar a análise
+                            st.markdown(html_content, unsafe_allow_html=True)    
                             
                             # Registrar uso após análise bem-sucedida
                             num_markets = sum(1 for v in selected_markets.values() if v)
