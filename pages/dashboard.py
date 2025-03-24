@@ -1731,150 +1731,153 @@ def show_main_dashboard():
                             # NOVO: Formatar para visualização aprimorada
                             enhanced_display = format_enhanced_display(formatted_analysis, home_team, away_team)
                             
-                            # Exibir a análise com estilo aprimorado
-                            st.markdown(f'''
+                            # Definir CSS como string separada para evitar problemas com f-strings
+                            css_styles = '''
                             <style>
                             /* Estilos básicos */
-                            .enhanced-analysis {{
+                            .enhanced-analysis {
                                 width: 100%;
                                 background-color: #1e1e24;
                                 border-radius: 10px;
                                 padding: 20px;
                                 color: #f8f8f2;
                                 font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                            }}
-
+                            }
+                        
                             /* Cabeçalhos */
-                            .enhanced-analysis h1 {{
+                            .enhanced-analysis h1 {
                                 color: #fd7014;
                                 font-size: 24px;
                                 margin-bottom: 20px;
                                 text-align: center;
-                            }}
-
-                            .enhanced-analysis h2 {{
+                            }
+                        
+                            .enhanced-analysis h2 {
                                 color: #fd7014;
                                 font-size: 20px;
                                 margin-top: 30px;
                                 margin-bottom: 15px;
                                 border-bottom: 1px solid #3d3d44;
                                 padding-bottom: 8px;
-                            }}
-
-                            .enhanced-analysis h3 {{
+                            }
+                        
+                            .enhanced-analysis h3 {
                                 color: #f8f8f2;
                                 font-size: 18px;
                                 margin-top: 15px;
                                 margin-bottom: 10px;
-                            }}
-
+                            }
+                        
                             /* Tabela de oportunidades */
-                            .opportunities-table {{
+                            .opportunities-table {
                                 width: 100%;
                                 border-collapse: collapse;
                                 margin-bottom: 20px;
                                 background-color: #282836;
                                 border-radius: 8px;
                                 overflow: hidden;
-                            }}
-
-                            .opportunities-table th {{
+                            }
+                        
+                            .opportunities-table th {
                                 background-color: #3d3d44;
                                 padding: 12px 15px;
                                 text-align: left;
                                 font-weight: 600;
-                            }}
-
-                            .opportunities-table td {{
+                            }
+                        
+                            .opportunities-table td {
                                 padding: 12px 15px;
                                 border-top: 1px solid #3d3d44;
-                            }}
-
-                            .opportunities-table .advantage {{
+                            }
+                        
+                            .opportunities-table .advantage {
                                 color: #50fa7b;
                                 font-weight: bold;
-                            }}
-
-                            .opportunities-table .no-opportunities {{
+                            }
+                        
+                            .opportunities-table .no-opportunities {
                                 text-align: center;
                                 color: #bd93f9;
                                 padding: 20px 0;
-                            }}
-
+                            }
+                        
                             /* Seções de conteúdo */
-                            .market-content, .probability-content, .confidence-explanation {{
+                            .market-content, .probability-content, .confidence-explanation {
                                 background-color: #282836;
                                 padding: 15px;
                                 border-radius: 8px;
                                 margin-top: 10px;
                                 line-height: 1.6;
-                            }}
-
+                            }
+                        
                             /* Cards de confiança */
-                            .confidence-grid {{
+                            .confidence-grid {
                                 display: flex;
                                 gap: 20px;
                                 margin-bottom: 20px;
-                            }}
-
-                            .confidence-card {{
+                            }
+                        
+                            .confidence-card {
                                 flex: 1;
                                 background-color: #282836;
                                 border-radius: 8px;
                                 padding: 15px;
-                            }}
-
-                            .confidence-metric {{
+                            }
+                        
+                            .confidence-metric {
                                 margin-bottom: 15px;
-                            }}
-
-                            .metric-label {{
+                            }
+                        
+                            .metric-label {
                                 display: block;
                                 margin-bottom: 5px;
                                 color: #bd93f9;
-                            }}
-
-                            .progress-bar {{
+                            }
+                        
+                            .progress-bar {
                                 width: 100%;
                                 height: 10px;
                                 background-color: #44475a;
                                 border-radius: 5px;
                                 overflow: hidden;
                                 margin-bottom: 5px;
-                            }}
-
-                            .progress {{
+                            }
+                        
+                            .progress {
                                 height: 100%;
                                 background-color: #fd7014;
                                 border-radius: 5px;
-                            }}
-
-                            .metric-value {{
+                            }
+                        
+                            .metric-value {
                                 float: right;
                                 font-weight: bold;
-                            }}
-
+                            }
+                        
                             /* Nível de confiança */
-                            .confidence-level {{
+                            .confidence-level {
                                 background-color: #282836;
                                 padding: 15px;
                                 border-radius: 8px;
                                 margin-bottom: 15px;
                                 text-align: center;
-                            }}
-
-                            .level-label {{
+                            }
+                        
+                            .level-label {
                                 margin-right: 10px;
                                 color: #bd93f9;
-                            }}
-
-                            .level-value {{
+                            }
+                        
+                            .level-value {
                                 font-size: 18px;
                                 font-weight: bold;
-                            }}
+                            }
                             </style>
-                            {enhanced_display}
-                            ''', unsafe_allow_html=True)
+                            '''
+                            
+                            # Agora combine o CSS com o conteúdo sem usar f-string
+                            combined_html = css_styles + enhanced_display
+                            st.markdown(combined_html, unsafe_allow_html=True)
                             
                             # Registrar uso após análise bem-sucedida
                             num_markets = sum(1 for v in selected_markets.values() if v)
