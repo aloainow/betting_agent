@@ -2602,6 +2602,7 @@ def show_main_dashboard():
                         status.error(f"Erro durante a análise: {str(analysis_error)}")
                         if st.session_state.debug_mode:
                             st.code(traceback.format_exc())
+                            
             except Exception as button_error:
                 logger.error(f"Erro no botão de análise: {str(button_error)}")
                 logger.error(traceback.format_exc())
