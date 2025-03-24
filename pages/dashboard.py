@@ -7,7 +7,7 @@ import time
 import streamlit as st
 from utils.core import show_valuehunter_logo, go_to_login, update_purchase_button, DATA_DIR
 from utils.data import parse_team_stats, get_odds_data, format_prompt
-from utils.ai import analyze_with_gpt, format_enhanced_prompt, format_highly_optimized_prompt
+from utils.ai import analyze_with_gpt, format_enhanced_prompt, format_highly_optimized_prompt, format_analysis_response, format_enhanced_display
 
 # Configuração de logging
 logger = logging.getLogger("valueHunter.dashboard")
@@ -920,6 +920,221 @@ def check_analysis_limits(selected_markets):
         st.error("Erro ao verificar limites de análise. Por favor, tente novamente.")
         return False
 
+def format_enhanced_display(analysis_text, home_team, away_team):
+    """
+    Reformata a análise bruta da IA para um formato mais visual com tabelas e elementos destacados
+    """
+    import re
+    
+    # Extrair as diferentes seções da análise
+    sections = {}
+    
+    # Encontrar títulos de seção e conteúdo
+    section_pattern = r'\*\*([^:]+):\*\*(.*?)(?=\*\*\w+:|$)'
+    matches = re.findall(section_pattern, analysis_text, re.DOTALL)
+    
+    for title, content in matches:
+        sections[title.strip()] = content.strip()
+    
+    # Extrair oportunidades para tabela destacada
+    opportunities = []
+    if "Oportunidades Identificadas" in sections:
+        opp_text = sections["Oportunidades Identificadas"]
+        for line in opp_text.split('\n'):
+            if line.startswith('*'):
+                parts = line.strip('* ').split('(Vantagem:')
+                if len(parts) == 2:
+                    market_selection = parts[0].strip()
+                    advantage = parts[1].strip().strip(')')
+                    
+                    # Dividir mercado e seleção
+                    if ':' in market_selection:
+                        market, selection = market_selection.split(':', 1)
+                    else:
+                        market_parts = market_selection.split(' ')
+                        market = ' '.join(market_parts[:-1])
+                        selection = market_parts[-1]
+                    
+                    # Determinar nível de confiança baseado na vantagem
+                    adv_value = float(advantage.strip('%'))
+                    confidence = "⭐"
+                    if adv_value > 5:
+                        confidence = "⭐⭐"
+                    if adv_value > 10:
+                        confidence = "⭐⭐⭐"
+                    if adv_value > 20:
+                        confidence = "⭐⭐⭐⭐"
+                    
+                    opportunities.append({
+                        "market": market.strip(),
+                        "selection": selection.strip(),
+                        "advantage": advantage.strip(),
+                        "confidence": confidence
+                    })
+    
+    # Extrair informações de confiança
+    confidence_info = {}
+    if "Nível de Confiança Geral" in sections:
+        conf_text = sections["Nível de Confiança Geral"]
+        
+        # Consistência
+        home_consistency = re.search(r'consistência do ([^é]+) é de (\d+\.\d+)%', conf_text)
+        away_consistency = re.search(r'consistência do ([^é]+) é de (\d+\.\d+)%', conf_text, re.MULTILINE)
+        
+        # Forma
+        home_form = re.search(r'forma recente .+? (\d+\.\d+)/15', conf_text)
+        away_form = re.search(r'forma recente .+? (\d+\.\d+)/15', conf_text, re.MULTILINE)
+        
+        if home_consistency and away_consistency:
+            confidence_info["home_consistency"] = float(home_consistency.group(2))
+            confidence_info["away_consistency"] = float(away_consistency.group(2))
+        
+        if home_form and away_form:
+            confidence_info["home_form"] = float(home_form.group(1))
+            confidence_info["away_form"] = float(away_form.group(1))
+    
+    # Construir HTML formatado
+    html = f"""
+    <div class="enhanced-analysis">
+        <h1>📊 Análise da Partida: {home_team} vs {away_team}</h1>
+        
+        <!-- Oportunidades Identificadas -->
+        <div class="opportunities-section">
+            <h2>🎯 Oportunidades Identificadas</h2>
+            <table class="opportunities-table">
+                <thead>
+                    <tr>
+                        <th>Mercado</th>
+                        <th>Seleção</th>
+                        <th>Vantagem</th>
+                        <th>Confiança</th>
+                    </tr>
+                </thead>
+                <tbody>
+    """
+    
+    # Adicionar oportunidades à tabela
+    for opp in opportunities:
+        html += f"""
+                    <tr>
+                        <td><strong>{opp['market']}</strong></td>
+                        <td>{opp['selection']}</td>
+                        <td class="advantage">+{opp['advantage']}</td>
+                        <td>{opp['confidence']}</td>
+                    </tr>
+        """
+    
+    # Se não tem oportunidades, mostra mensagem
+    if not opportunities:
+        html += """
+                    <tr>
+                        <td colspan="4" class="no-opportunities">Nenhuma oportunidade significativa identificada</td>
+                    </tr>
+        """
+    
+    html += """
+                </tbody>
+            </table>
+        </div>
+    """
+    
+    # Seção de análise de mercados
+    if "Análise de Mercados Disponíveis" in sections:
+        html += f"""
+        <div class="markets-section">
+            <h2>📈 Análise de Mercados Disponíveis</h2>
+            <div class="market-content">
+                {sections["Análise de Mercados Disponíveis"].replace('\n', '<br>')}
+            </div>
+        </div>
+        """
+    
+    # Seção de probabilidades
+    if "Probabilidades Calculadas" in sections:
+        html += f"""
+        <div class="probabilities-section">
+            <h2>🔢 Probabilidades Calculadas (REAL vs IMPLÍCITA)</h2>
+            <div class="probability-content">
+                {sections["Probabilidades Calculadas"].replace('\n', '<br>')}
+            </div>
+        </div>
+        """
+    
+    # Seção de confiança
+    html += """
+        <div class="confidence-section">
+            <h2>🔍 Análise de Confiança</h2>
+    """
+    
+    if confidence_info:
+        html += f"""
+            <div class="confidence-grid">
+                <div class="confidence-card">
+                    <h3>{home_team}</h3>
+                    <div class="confidence-metric">
+                        <span class="metric-label">Consistência:</span>
+                        <div class="progress-bar">
+                            <div class="progress" style="width: {min(confidence_info.get('home_consistency', 0), 100)}%;"></div>
+                        </div>
+                        <span class="metric-value">{confidence_info.get('home_consistency', 0):.1f}%</span>
+                    </div>
+                    <div class="confidence-metric">
+                        <span class="metric-label">Forma Recente:</span>
+                        <div class="progress-bar">
+                            <div class="progress" style="width: {min(confidence_info.get('home_form', 0) / 15 * 100, 100)}%;"></div>
+                        </div>
+                        <span class="metric-value">{confidence_info.get('home_form', 0):.1f}/15</span>
+                    </div>
+                </div>
+                
+                <div class="confidence-card">
+                    <h3>{away_team}</h3>
+                    <div class="confidence-metric">
+                        <span class="metric-label">Consistência:</span>
+                        <div class="progress-bar">
+                            <div class="progress" style="width: {min(confidence_info.get('away_consistency', 0), 100)}%;"></div>
+                        </div>
+                        <span class="metric-value">{confidence_info.get('away_consistency', 0):.1f}%</span>
+                    </div>
+                    <div class="confidence-metric">
+                        <span class="metric-label">Forma Recente:</span>
+                        <div class="progress-bar">
+                            <div class="progress" style="width: {min(confidence_info.get('away_form', 0) / 15 * 100, 100)}%;"></div>
+                        </div>
+                        <span class="metric-value">{confidence_info.get('away_form', 0):.1f}/15</span>
+                    </div>
+                </div>
+            </div>
+        """
+    
+    # Restante do texto de confiança
+    if "Nível de Confiança Geral" in sections:
+        level_match = re.match(r'(\w+)', sections["Nível de Confiança Geral"].strip())
+        level = level_match.group(1) if level_match else "Médio"
+        
+        stars = "⭐"
+        if level == "Médio":
+            stars = "⭐⭐⭐"
+        elif level == "Alto":
+            stars = "⭐⭐⭐⭐⭐"
+        
+        html += f"""
+            <div class="confidence-level">
+                <span class="level-label">Nível de Confiança Geral:</span>
+                <span class="level-value">{level} {stars}</span>
+            </div>
+            <div class="confidence-explanation">
+                {sections["Nível de Confiança Geral"].replace('\n', '<br>')}
+            </div>
+        """
+    
+    html += """
+        </div>
+    </div>
+    """
+    
+    return html
+
 def show_main_dashboard():
     """Show the main dashboard with improved error handling and debug info"""
     try:
@@ -1511,50 +1726,154 @@ def show_main_dashboard():
                                         analysis = analysis.replace("</div>", "")
                             
                             # NOVO: Formatar a resposta para garantir que tenha todas as seções
-                            from utils.ai import format_analysis_response
                             formatted_analysis = format_analysis_response(analysis, home_team, away_team)
                             
-                            # Exibir a análise em uma div com largura total
+                            # NOVO: Formatar para visualização aprimorada
+                            enhanced_display = format_enhanced_display(formatted_analysis, home_team, away_team)
+                            
+                            # Exibir a análise com estilo aprimorado
                             st.markdown(f'''
                             <style>
-                            .analysis-result {{
-                                width: 100% !important;
-                                max-width: 100% !important;
-                                padding: 2rem !important;
-                                background-color: #575760;
+                            /* Estilos básicos */
+                            .enhanced-analysis {{
+                                width: 100%;
+                                background-color: #1e1e24;
+                                border-radius: 10px;
+                                padding: 20px;
+                                color: #f8f8f2;
+                                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                            }}
+
+                            /* Cabeçalhos */
+                            .enhanced-analysis h1 {{
+                                color: #fd7014;
+                                font-size: 24px;
+                                margin-bottom: 20px;
+                                text-align: center;
+                            }}
+
+                            .enhanced-analysis h2 {{
+                                color: #fd7014;
+                                font-size: 20px;
+                                margin-top: 30px;
+                                margin-bottom: 15px;
+                                border-bottom: 1px solid #3d3d44;
+                                padding-bottom: 8px;
+                            }}
+
+                            .enhanced-analysis h3 {{
+                                color: #f8f8f2;
+                                font-size: 18px;
+                                margin-top: 15px;
+                                margin-bottom: 10px;
+                            }}
+
+                            /* Tabela de oportunidades */
+                            .opportunities-table {{
+                                width: 100%;
+                                border-collapse: collapse;
+                                margin-bottom: 20px;
+                                background-color: #282836;
                                 border-radius: 8px;
-                                border: 1px solid #6b6b74;
-                                margin: 1rem 0;
+                                overflow: hidden;
                             }}
-                            
-                            /* Estilos para deixar o cabeçalho mais bonito */
-                            .analysis-result h1, 
-                            .analysis-result h2,
-                            .analysis-result h3 {{
-                                color: #fd7014;
-                                margin-top: 1.5rem;
-                                margin-bottom: 1rem;
+
+                            .opportunities-table th {{
+                                background-color: #3d3d44;
+                                padding: 12px 15px;
+                                text-align: left;
+                                font-weight: 600;
                             }}
-                            
-                            /* Estilos para parágrafos */
-                            .analysis-result p {{
-                                margin-bottom: 1rem;
-                                line-height: 1.5;
+
+                            .opportunities-table td {{
+                                padding: 12px 15px;
+                                border-top: 1px solid #3d3d44;
                             }}
-                            
-                            /* Estilos para listas */
-                            .analysis-result ul, 
-                            .analysis-result ol {{
-                                margin-left: 1.5rem;
-                                margin-bottom: 1rem;
+
+                            .opportunities-table .advantage {{
+                                color: #50fa7b;
+                                font-weight: bold;
                             }}
-                            
-                            /* Oportunidades destacadas */
-                            .analysis-result strong {{
-                                color: #fd7014;
+
+                            .opportunities-table .no-opportunities {{
+                                text-align: center;
+                                color: #bd93f9;
+                                padding: 20px 0;
+                            }}
+
+                            /* Seções de conteúdo */
+                            .market-content, .probability-content, .confidence-explanation {{
+                                background-color: #282836;
+                                padding: 15px;
+                                border-radius: 8px;
+                                margin-top: 10px;
+                                line-height: 1.6;
+                            }}
+
+                            /* Cards de confiança */
+                            .confidence-grid {{
+                                display: flex;
+                                gap: 20px;
+                                margin-bottom: 20px;
+                            }}
+
+                            .confidence-card {{
+                                flex: 1;
+                                background-color: #282836;
+                                border-radius: 8px;
+                                padding: 15px;
+                            }}
+
+                            .confidence-metric {{
+                                margin-bottom: 15px;
+                            }}
+
+                            .metric-label {{
+                                display: block;
+                                margin-bottom: 5px;
+                                color: #bd93f9;
+                            }}
+
+                            .progress-bar {{
+                                width: 100%;
+                                height: 10px;
+                                background-color: #44475a;
+                                border-radius: 5px;
+                                overflow: hidden;
+                                margin-bottom: 5px;
+                            }}
+
+                            .progress {{
+                                height: 100%;
+                                background-color: #fd7014;
+                                border-radius: 5px;
+                            }}
+
+                            .metric-value {{
+                                float: right;
+                                font-weight: bold;
+                            }}
+
+                            /* Nível de confiança */
+                            .confidence-level {{
+                                background-color: #282836;
+                                padding: 15px;
+                                border-radius: 8px;
+                                margin-bottom: 15px;
+                                text-align: center;
+                            }}
+
+                            .level-label {{
+                                margin-right: 10px;
+                                color: #bd93f9;
+                            }}
+
+                            .level-value {{
+                                font-size: 18px;
+                                font-weight: bold;
                             }}
                             </style>
-                            <div class="analysis-result">{formatted_analysis}</div>
+                            {enhanced_display}
                             ''', unsafe_allow_html=True)
                             
                             # Registrar uso após análise bem-sucedida
