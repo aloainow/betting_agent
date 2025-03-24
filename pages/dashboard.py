@@ -2597,12 +2597,12 @@ def show_main_dashboard():
                             else:
                                 st.error("Não foi possível registrar o uso dos créditos. Por favor, tente novamente.")
                 
-                except Exception as analysis_error:
-                        logger.error(f"Erro durante a análise: {str(analysis_error)}")
-                        logger.error(traceback.format_exc())
-                        status.error(f"Erro durante a análise: {str(analysis_error)}")
-                        if st.session_state.debug_mode:
-                            st.code(traceback.format_exc())
+                    except Exception as analysis_error:
+                            logger.error(f"Erro durante a análise: {str(analysis_error)}")
+                            logger.error(traceback.format_exc())
+                            status.error(f"Erro durante a análise: {str(analysis_error)}")
+                            if st.session_state.debug_mode:
+                                st.code(traceback.format_exc())
                             
             except Exception as button_error:
                 logger.error(f"Erro no botão de análise: {str(button_error)}")
