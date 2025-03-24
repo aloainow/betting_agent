@@ -1499,7 +1499,7 @@ def show_main_dashboard():
                             return
                         
         
-                        # Etapa 5: Mostrar resultado
+                       # Etapa 5: Mostrar resultado
                         if analysis:
                             # Limpar status
                             status.empty()
@@ -1635,93 +1635,257 @@ def show_main_dashboard():
                             # 3. SEÇÃO DE COMPARATIVO DE PROBABILIDADES
                             markdown_result += "\n## 📈 Comparativo de Probabilidades\n\n"
                             
-                            # Extrair probabilidades de todos os mercados
+                            # Extrair textos das seções relevantes
                             prob_section = extract_section(formatted_analysis, "Probabilidades Calculadas")
                             market_section = extract_section(formatted_analysis, "Análise de Mercados Disponíveis")
                             
-                            # CORREÇÃO PROBLEMA #3: Extrair todos os mercados selecionados
-                            # Função para criar tabela de comparativo para cada mercado
-                            def create_market_table(market_name, identifier_text, result_pattern=None):
-                                # Se o mercado não estiver presente no texto, retornar vazio
-                                if identifier_text not in prob_section and identifier_text not in market_section:
-                                    return ""
+                            # MONEY LINE - abordagem completamente nova e mais direta
+                            markdown_result += "### Money Line\n"
+                            markdown_result += "| Resultado | Odds | Prob. Implícita | Prob. Real | Diferença |\n"
+                            markdown_result += "|-----------|------|-----------------|------------|----------|\n"
+                            
+                            # Encontrar probabilidades reais e odds para Money Line
+                            home_real_prob = None
+                            draw_real_prob = None
+                            away_real_prob = None
+                            home_odds_val = None
+                            draw_odds_val = None
+                            away_odds_val = None
+                            
+                            # Padrões para extrair probabilidades reais
+                            home_prob_match = re.search(f"{re.escape(home_team)}.*?(\d+\.\d+)%", prob_section, re.IGNORECASE)
+                            if home_prob_match:
+                                home_real_prob = float(home_prob_match.group(1))
+                            
+                            draw_prob_match = re.search(r"Empate.*?(\d+\.\d+)%", prob_section, re.IGNORECASE)
+                            if draw_prob_match:
+                                draw_real_prob = float(draw_prob_match.group(1))
+                            
+                            away_prob_match = re.search(f"{re.escape(away_team)}.*?(\d+\.\d+)%", prob_section, re.IGNORECASE)
+                            if away_prob_match:
+                                away_real_prob = float(away_prob_match.group(1))
+                            
+                            # Padrões para extrair odds
+                            home_odds_match = re.search(f"{re.escape(home_team)}.*?@([0-9.]+)", market_section, re.IGNORECASE)
+                            if home_odds_match:
+                                home_odds_val = float(home_odds_match.group(1))
+                            
+                            draw_odds_match = re.search(r"[Ee]mpate.*?@([0-9.]+)", market_section, re.IGNORECASE)
+                            if draw_odds_match:
+                                draw_odds_val = float(draw_odds_match.group(1))
+                            
+                            away_odds_match = re.search(f"{re.escape(away_team)}.*?@([0-9.]+)", market_section, re.IGNORECASE)
+                            if away_odds_match:
+                                away_odds_val = float(away_odds_match.group(1))
+                            
+                            # Preencher a tabela de Money Line
+                            ml_data_added = False
+                            
+                            # Time da casa
+                            if home_real_prob is not None and home_odds_val is not None:
+                                home_implied_prob = round(100 / home_odds_val, 1)
+                                home_diff = round(home_real_prob - home_implied_prob, 1)
+                                home_diff_str = f"+{home_diff}% ✅" if home_diff > 0 else f"{home_diff}% ❌"
+                                markdown_result += f"| {home_team} | @{home_odds_val} | {home_implied_prob}% | {home_real_prob}% | {home_diff_str} |\n"
+                                ml_data_added = True
+                            
+                            # Empate
+                            if draw_real_prob is not None and draw_odds_val is not None:
+                                draw_implied_prob = round(100 / draw_odds_val, 1)
+                                draw_diff = round(draw_real_prob - draw_implied_prob, 1)
+                                draw_diff_str = f"+{draw_diff}% ✅" if draw_diff > 0 else f"{draw_diff}% ❌"
+                                markdown_result += f"| Empate | @{draw_odds_val} | {draw_implied_prob}% | {draw_real_prob}% | {draw_diff_str} |\n"
+                                ml_data_added = True
+                            
+                            # Time visitante
+                            if away_real_prob is not None and away_odds_val is not None:
+                                away_implied_prob = round(100 / away_odds_val, 1)
+                                away_diff = round(away_real_prob - away_implied_prob, 1)
+                                away_diff_str = f"+{away_diff}% ✅" if away_diff > 0 else f"{away_diff}% ❌"
+                                markdown_result += f"| {away_team} | @{away_odds_val} | {away_implied_prob}% | {away_real_prob}% | {away_diff_str} |\n"
+                                ml_data_added = True
+                            
+                            # Se não adicionou nenhum dado
+                            if not ml_data_added:
+                                markdown_result += "| Dados não disponíveis | - | - | - | - |\n"
+                            
+                            # OVER/UNDER - abordagem direta
+                            if "over_under" in selected_markets and selected_markets["over_under"]:
+                                # Incluir apenas se o mercado estiver selecionado
+                                markdown_result += "\n### Over/Under 2.5\n"
+                                markdown_result += "| Resultado | Odds | Prob. Implícita | Prob. Real | Diferença |\n"
+                                markdown_result += "|-----------|------|-----------------|------------|----------|\n"
                                 
-                                table = f"\n### {market_name}\n"
-                                table += "| Resultado | Odds | Prob. Implícita | Prob. Real | Diferença |\n"
-                                table += "|-----------|------|-----------------|------------|----------|\n"
+                                # Encontrar probabilidades reais e odds para Over/Under
+                                over_real_prob = None
+                                under_real_prob = None
+                                over_odds_val = None
+                                under_odds_val = None
                                 
-                                # Se temos um padrão de resultado definido
-                                if result_pattern:
-                                    results = re.findall(result_pattern, prob_section, re.IGNORECASE | re.DOTALL)
-                                    
-                                    for result in results:
-                                        result_name = result[0].strip()
-                                        real_prob = float(result[1].strip().replace("%", ""))
-                                        
-                                        # Buscar odds
-                                        odds_match = re.search(f"{re.escape(result_name)}.*?@([0-9.]+)", market_section, re.IGNORECASE)
-                                        
-                                        if odds_match:
-                                            odds_value = float(odds_match.group(1))
-                                            implied_prob = round(100 / odds_value, 1)
-                                            diff = round(real_prob - implied_prob, 1)
-                                            diff_str = f"+{diff}% ✅" if diff > 0 else f"{diff}% ❌"
-                                            
-                                            table += f"| {result_name} | @{odds_value} | {implied_prob}% | {real_prob}% | {diff_str} |\n"
-                                    
-                                    return table
+                                # Buscar probabilidades reais
+                                over_prob_match = re.search(r"[Oo]ver.*?(\d+\.\d+)%", prob_section)
+                                if over_prob_match:
+                                    over_real_prob = float(over_prob_match.group(1))
                                 
-                                # Caso não tenha um padrão específico, buscar genericamente
-                                else:
-                                    # Tentativa mais genérica de encontrar pares de resultado e probabilidade
-                                    generic_results = re.findall(r"(\w[^:]+):\s*(\d+\.\d+)%", prob_section)
-                                    
-                                    for result in generic_results:
-                                        if identifier_text.lower() in result[0].lower():
-                                            result_name = result[0].strip()
-                                            real_prob = float(result[1].strip())
-                                            
-                                            # Buscar odds
-                                            odds_match = re.search(f"{re.escape(result_name)}.*?@([0-9.]+)", market_section, re.IGNORECASE)
-                                            
-                                            if odds_match:
-                                                odds_value = float(odds_match.group(1))
-                                                implied_prob = round(100 / odds_value, 1)
-                                                diff = round(real_prob - implied_prob, 1)
-                                                diff_str = f"+{diff}% ✅" if diff > 0 else f"{diff}% ❌"
-                                                
-                                                table += f"| {result_name} | @{odds_value} | {implied_prob}% | {real_prob}% | {diff_str} |\n"
-                                    
-                                    return table
+                                under_prob_match = re.search(r"[Uu]nder.*?(\d+\.\d+)%", prob_section)
+                                if under_prob_match:
+                                    under_real_prob = float(under_prob_match.group(1))
+                                
+                                # Buscar odds
+                                over_odds_match = re.search(r"[Oo]ver.*?@([0-9.]+)", market_section)
+                                if over_odds_match:
+                                    over_odds_val = float(over_odds_match.group(1))
+                                
+                                under_odds_match = re.search(r"[Uu]nder.*?@([0-9.]+)", market_section)
+                                if under_odds_match:
+                                    under_odds_val = float(under_odds_match.group(1))
+                                
+                                # Preencher tabela de Over/Under
+                                ou_data_added = False
+                                
+                                # Over 2.5
+                                if over_real_prob is not None and over_odds_val is not None:
+                                    over_implied_prob = round(100 / over_odds_val, 1)
+                                    over_diff = round(over_real_prob - over_implied_prob, 1)
+                                    over_diff_str = f"+{over_diff}% ✅" if over_diff > 0 else f"{over_diff}% ❌"
+                                    markdown_result += f"| Over 2.5 | @{over_odds_val} | {over_implied_prob}% | {over_real_prob}% | {over_diff_str} |\n"
+                                    ou_data_added = True
+                                
+                                # Under 2.5
+                                if under_real_prob is not None and under_odds_val is not None:
+                                    under_implied_prob = round(100 / under_odds_val, 1)
+                                    under_diff = round(under_real_prob - under_implied_prob, 1)
+                                    under_diff_str = f"+{under_diff}% ✅" if under_diff > 0 else f"{under_diff}% ❌"
+                                    markdown_result += f"| Under 2.5 | @{under_odds_val} | {under_implied_prob}% | {under_real_prob}% | {under_diff_str} |\n"
+                                    ou_data_added = True
+                                
+                                # Se não adicionou nenhum dado
+                                if not ou_data_added:
+                                    markdown_result += "| Dados não disponíveis | - | - | - | - |\n"
                             
-                            # MONEY LINE
-                            ml_pattern = r"(?:money\s*line|1x2).*?{re.escape(home_team)}.*?(\d+\.\d+)%.*?Empate.*?(\d+\.\d+)%.*?{re.escape(away_team)}.*?(\d+\.\d+)%"
-                            ml_table = create_market_table("Money Line", "Money Line", 
-                                                           r"([^:]+):\s*(\d+\.\d+)%")
-                            
-                            if ml_table:
-                                markdown_result += ml_table
-                            
-                            # OVER/UNDER
-                            ou_table = create_market_table("Over/Under 2.5", "Over/Under", 
-                                                          r"(Over[^:]+|Under[^:]+):\s*(\d+\.\d+)%")
-                            
-                            if ou_table:
-                                markdown_result += ou_table
-                            
-                            # AMBOS MARCAM
-                            btts_table = create_market_table("Ambos Marcam", "Ambos Marcam", 
-                                                            r"(Sim|Não|Yes|No):\s*(\d+\.\d+)%")
-                            
-                            if btts_table:
-                                markdown_result += btts_table
+                            # AMBOS MARCAM (BTTS) - seguindo o mesmo padrão
+                            if "ambos_marcam" in selected_markets and selected_markets["ambos_marcam"]:
+                                markdown_result += "\n### Ambos Marcam\n"
+                                markdown_result += "| Resultado | Odds | Prob. Implícita | Prob. Real | Diferença |\n"
+                                markdown_result += "|-----------|------|-----------------|------------|----------|\n"
+                                
+                                # Encontrar probabilidades reais e odds para BTTS
+                                yes_real_prob = None
+                                no_real_prob = None
+                                yes_odds_val = None
+                                no_odds_val = None
+                                
+                                # Buscar probabilidades reais
+                                yes_patterns = [r"[Ss]im.*?(\d+\.\d+)%", r"[Yy]es.*?(\d+\.\d+)%", r"Ambos Marcam: Sim.*?(\d+\.\d+)%"]
+                                no_patterns = [r"[Nn]ão.*?(\d+\.\d+)%", r"[Nn]o.*?(\d+\.\d+)%", r"Ambos Marcam: Não.*?(\d+\.\d+)%"]
+                                
+                                for pattern in yes_patterns:
+                                    match = re.search(pattern, prob_section)
+                                    if match:
+                                        yes_real_prob = float(match.group(1))
+                                        break
+                                
+                                for pattern in no_patterns:
+                                    match = re.search(pattern, prob_section)
+                                    if match:
+                                        no_real_prob = float(match.group(1))
+                                        break
+                                
+                                # Buscar odds
+                                for pattern in yes_patterns:
+                                    pattern = pattern.replace("%", "@([0-9.]+)")
+                                    match = re.search(pattern, market_section)
+                                    if match:
+                                        yes_odds_val = float(match.group(1))
+                                        break
+                                
+                                for pattern in no_patterns:
+                                    pattern = pattern.replace("%", "@([0-9.]+)")
+                                    match = re.search(pattern, market_section)
+                                    if match:
+                                        no_odds_val = float(match.group(1))
+                                        break
+                                
+                                # Preencher tabela BTTS
+                                btts_data_added = False
+                                
+                                # Sim
+                                if yes_real_prob is not None and yes_odds_val is not None:
+                                    yes_implied_prob = round(100 / yes_odds_val, 1)
+                                    yes_diff = round(yes_real_prob - yes_implied_prob, 1)
+                                    yes_diff_str = f"+{yes_diff}% ✅" if yes_diff > 0 else f"{yes_diff}% ❌"
+                                    markdown_result += f"| Sim | @{yes_odds_val} | {yes_implied_prob}% | {yes_real_prob}% | {yes_diff_str} |\n"
+                                    btts_data_added = True
+                                
+                                # Não
+                                if no_real_prob is not None and no_odds_val is not None:
+                                    no_implied_prob = round(100 / no_odds_val, 1)
+                                    no_diff = round(no_real_prob - no_implied_prob, 1)
+                                    no_diff_str = f"+{no_diff}% ✅" if no_diff > 0 else f"{no_diff}% ❌"
+                                    markdown_result += f"| Não | @{no_odds_val} | {no_implied_prob}% | {no_real_prob}% | {no_diff_str} |\n"
+                                    btts_data_added = True
+                                
+                                # Se não adicionou nenhum dado
+                                if not btts_data_added:
+                                    markdown_result += "| Dados não disponíveis | - | - | - | - |\n"
                             
                             # CHANCE DUPLA
-                            dc_table = create_market_table("Chance Dupla", "Chance Dupla", 
-                                                          r"(1X|12|X2|[^:]+Empate|[^:]+ou[^:]+):\s*(\d+\.\d+)%")
-                            
-                            if dc_table:
-                                markdown_result += dc_table
+                            if "chance_dupla" in selected_markets and selected_markets["chance_dupla"]:
+                                markdown_result += "\n### Chance Dupla\n"
+                                markdown_result += "| Resultado | Odds | Prob. Implícita | Prob. Real | Diferença |\n"
+                                markdown_result += "|-----------|------|-----------------|------------|----------|\n"
+                                
+                                # Encontrar probabilidades reais e odds para Chance Dupla
+                                # Variáveis para armazenar os valores encontrados
+                                dc_pairs = [
+                                    ("1X", f"{home_team} ou Empate", None, None),  # (código, descrição, prob_real, odds)
+                                    ("12", f"{home_team} ou {away_team}", None, None),
+                                    ("X2", f"Empate ou {away_team}", None, None)
+                                ]
+                                
+                                # Padrões para buscar probabilidades reais
+                                for i, (code, desc, _, _) in enumerate(dc_pairs):
+                                    # Tentar vários padrões para cada opção
+                                    patterns = [
+                                        f"{re.escape(desc)}.*?(\d+\.\d+)%",
+                                        f"{code}.*?(\d+\.\d+)%",
+                                        f"Chance Dupla: {re.escape(desc)}.*?(\d+\.\d+)%"
+                                    ]
+                                    
+                                    for pattern in patterns:
+                                        match = re.search(pattern, prob_section, re.IGNORECASE)
+                                        if match:
+                                            dc_pairs[i] = (code, desc, float(match.group(1)), dc_pairs[i][3])
+                                            break
+                                
+                                # Padrões para buscar odds
+                                for i, (code, desc, prob, _) in enumerate(dc_pairs):
+                                    patterns = [
+                                        f"{re.escape(desc)}.*?@([0-9.]+)",
+                                        f"{code}.*?@([0-9.]+)",
+                                        f"Chance Dupla: {re.escape(desc)}.*?@([0-9.]+)"
+                                    ]
+                                    
+                                    for pattern in patterns:
+                                        match = re.search(pattern, market_section, re.IGNORECASE)
+                                        if match:
+                                            dc_pairs[i] = (code, desc, prob, float(match.group(1)))
+                                            break
+                                
+                                # Preencher tabela de Chance Dupla
+                                dc_data_added = False
+                                
+                                for code, desc, prob, odds in dc_pairs:
+                                    if prob is not None and odds is not None:
+                                        implied_prob = round(100 / odds, 1)
+                                        diff = round(prob - implied_prob, 1)
+                                        diff_str = f"+{diff}% ✅" if diff > 0 else f"{diff}% ❌"
+                                        markdown_result += f"| {code} ({desc}) | @{odds} | {implied_prob}% | {prob}% | {diff_str} |\n"
+                                        dc_data_added = True
+                                
+                                # Se não adicionou nenhum dado
+                                if not dc_data_added:
+                                    markdown_result += "| Dados não disponíveis | - | - | - | - |\n"
                             
                             # 4. SEÇÃO DE ANÁLISE DE CONFIANÇA
                             markdown_result += "\n## 🔍 Análise de Confiança\n"
@@ -1839,32 +2003,12 @@ def show_main_dashboard():
                                             form_text = away_form_match.group(1).strip()
                                             markdown_result += f"- **{away_team}**: Forma {form_text}\n"
                             
-                            # Se não encontrou com os padrões acima, buscar qualquer menção a forma
+                            # Se não encontrou com os padrões acima, mostrar valores padrão
                             if not found_home_form:
-                                generic_home_form = re.search(f"{re.escape(home_team)}.*?forma.*", conf_section, re.IGNORECASE | re.DOTALL)
-                                if generic_home_form:
-                                    text = generic_home_form.group(0)
-                                    # Limitar o texto até a próxima quebra de linha ou menção ao outro time
-                                    if "\n" in text:
-                                        text = text.split("\n")[0]
-                                    if away_team in text:
-                                        text = text.split(away_team)[0]
-                                    markdown_result += f"- **{home_team}**: {text.split(home_team)[1].strip()}\n"
-                                else:
-                                    markdown_result += f"- **{home_team}**: Forma recente não disponível\n"
+                                markdown_result += f"- **{home_team}**: Forma recente não disponível (0/15 pontos)\n"
                             
                             if not found_away_form:
-                                generic_away_form = re.search(f"{re.escape(away_team)}.*?forma.*", conf_section, re.IGNORECASE | re.DOTALL)
-                                if generic_away_form:
-                                    text = generic_away_form.group(0)
-                                    # Limitar o texto até a próxima quebra de linha ou menção ao outro time
-                                    if "\n" in text:
-                                        text = text.split("\n")[0]
-                                    if home_team in text:
-                                        text = text.split(home_team)[0]
-                                    markdown_result += f"- **{away_team}**: {text.split(away_team)[1].strip()}\n"
-                                else:
-                                    markdown_result += f"- **{away_team}**: Forma recente não disponível\n"
+                                markdown_result += f"- **{away_team}**: Forma recente não disponível (0/15 pontos)\n"
                             
                             # Adicionar observações
                             markdown_result += "\n### Observações\n"
@@ -1898,6 +2042,19 @@ def show_main_dashboard():
                                         observations.append(f"- O valor mais significativo está no mercado {market} com {advantage} de vantagem")
                                 else:
                                     observations.append("- Não foram identificadas vantagens significativas nas odds atuais")
+                                
+                                # Adicionar observação sobre consistência
+                                home_cons_val = None
+                                away_cons_val = None
+                                
+                                if home_consistency_match:
+                                    home_cons_val = float(home_consistency_match.group(1))
+                                if away_consistency_match:
+                                    away_cons_val = float(away_consistency_match.group(1))
+                                    
+                                if home_cons_val and away_cons_val and abs(home_cons_val - away_cons_val) > 20:
+                                    more_consistent = home_team if home_cons_val > away_cons_val else away_team
+                                    observations.append(f"- O {more_consistent} apresenta padrões de jogo mais consistentes e previsíveis")
                             
                             # Adicionar observações ao markdown
                             if observations:
@@ -1911,7 +2068,7 @@ def show_main_dashboard():
                             # 5. EXIBIR O RESULTADO FINAL COMO MARKDOWN
                             st.markdown(markdown_result)
                             
-                            # Registro de uso e cálculo de créditos (mantido igual)
+                            # Registro de uso e cálculo de créditos
                             num_markets = sum(1 for v in selected_markets.values() if v)
                             
                             # Registro de uso com dados detalhados
@@ -1939,7 +2096,7 @@ def show_main_dashboard():
                             else:
                                 st.error("Não foi possível registrar o uso dos créditos. Por favor, tente novamente.")
         
-        # Registrar uso após análise bem-sucedida
+                            # Registrar uso após análise bem-sucedida
                             num_markets = sum(1 for v in selected_markets.values() if v)
                             
                             # Registro de uso com dados detalhados
