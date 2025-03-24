@@ -1507,10 +1507,15 @@ def show_main_dashboard():
                             # NOVO: Formatar a resposta para garantir que tenha todas as seções
                             formatted_analysis = format_analysis_response(analysis, home_team, away_team)
                             
+                            # Para debug - mostra o texto bruto para verificar padrões
+                            if st.session_state.debug_mode:
+                                with st.expander("Texto bruto da análise", expanded=False):
+                                    st.code(formatted_analysis)
+                            
                             # Extrair informações relevantes usando expressões regulares simples
                             import re
                             
-                            # Função auxiliar para extrair dados
+                            # Função auxiliar para extrair conteúdo de uma seção
                             def extract_section(text, section_name):
                                 if f"# {section_name}" in text:
                                     start = text.find(f"# {section_name}")
@@ -1525,124 +1530,203 @@ def show_main_dashboard():
                             
                             # 2. SEÇÃO DE OPORTUNIDADES
                             markdown_result += "## 🎯 Oportunidades Identificadas\n"
-                            markdown_result += "| Mercado | Seleção | Odds | Vantagem | Confiança |\n"
-                            markdown_result += "|---------|---------|------|----------|----------|\n"
                             
-                            # Extrair oportunidades
+                            # Extrair oportunidades - PROBLEMA #1: Usado regex mais flexível e abordagens múltiplas
                             opp_section = extract_section(formatted_analysis, "Oportunidades Identificadas")
                             
-                            # Padrão para encontrar oportunidades (* Mercado: Seleção (Vantagem: X%))
-                            opp_pattern = r"\* ([^:]+)(?:: )?([^(]+)\(Vantagem: ([^)]+)\)"
-                            opp_matches = re.findall(opp_pattern, opp_section)
+                            # CORREÇÃO: Múltiplas tentativas de extração de oportunidades
+                            # Método 1: Padrão bullet points com "Vantagem"
+                            opp_matches = re.findall(r"\*\s+(.*?)\(Vantagem:\s+([^)]+)\)", opp_section)
                             
-                            for match in opp_matches:
-                                market = match[0].strip()
-                                selection = match[1].strip()
-                                advantage = match[2].strip()
+                            # Método 2: Se não encontrar, tentar outro padrão comum
+                            if not opp_matches:
+                                opp_matches = re.findall(r"\*\s+([^:]+):\s+([^(]+)\(([^)]+)\)", opp_section)
+                            
+                            # Método 3: Padrão genérico para qualquer linha que menciona vantagem
+                            if not opp_matches:
+                                opp_matches = re.findall(r"([^:\n]+):\s*([^\n(]+)\(?[Vv]antagem:?\s*([^)%\n]+)", opp_section)
+                            
+                            # Método 4: Qualquer linha com asterisco
+                            if not opp_matches:
+                                bullet_lines = re.findall(r"\*\s+(.+)", opp_section)
+                                opp_matches = []
+                                for line in bullet_lines:
+                                    # Tenta extrair mercado, seleção e vantagem da linha
+                                    if ":" in line and ("%" in line or "vantagem" in line.lower()):
+                                        parts = line.split(":", 1)
+                                        market = parts[0].strip()
+                                        rest = parts[1].strip()
+                                        
+                                        # Encontrar a vantagem
+                                        adv_match = re.search(r"[Vv]antagem:?\s*([^)%\n]+)", rest)
+                                        if adv_match:
+                                            advantage = adv_match.group(1).strip()
+                                            selection = rest.split("(")[0].strip()
+                                            opp_matches.append((market, selection, advantage))
+                            
+                            # Formatar a tabela de oportunidades
+                            if opp_matches:
+                                # Se encontrou oportunidades, criar tabela
+                                markdown_result += "| Mercado | Seleção | Odds | Vantagem | Confiança |\n"
+                                markdown_result += "|---------|---------|------|----------|----------|\n"
                                 
-                                # Determinar odds a partir da seção de mercados
-                                odds = "@?.??"
-                                if market and "# Análise de Mercados Disponíveis" in formatted_analysis:
-                                    market_section = formatted_analysis.split("# Análise de Mercados Disponíveis")[1].split("#")[0]
-                                    odds_pattern = f"{market}.*?{selection}.*?@([0-9.]+)"
-                                    odds_match = re.search(odds_pattern, market_section, re.IGNORECASE | re.DOTALL)
-                                    if odds_match:
-                                        odds = f"@{odds_match.group(1)}"
-                                
-                                # Determinar confiança baseada na vantagem
-                                adv_value = float(advantage.replace("%", "").strip())
-                                confidence = "⭐"
-                                if adv_value > 5:
-                                    confidence = "⭐⭐"
-                                if adv_value > 10:
-                                    confidence = "⭐⭐⭐"
-                                if adv_value > 20:
-                                    confidence = "⭐⭐⭐⭐"
-                                    
-                                # Adicionar linha à tabela
-                                markdown_result += f"| **{market}** | {selection} | {odds} | {advantage} | {confidence} |\n"
+                                for match in opp_matches:
+                                    # Extrair informações com mais robustez
+                                    if len(match) >= 2:  # Certifique-se de que temos pelo menos mercado e vantagem
+                                        if len(match) == 2:  # Formato: (mercado+seleção, vantagem)
+                                            # Tente separar mercado e seleção
+                                            market_selection = match[0].strip()
+                                            advantage = match[1].strip()
+                                            
+                                            if " " in market_selection:
+                                                market_parts = market_selection.split(" ", 1)
+                                                market = market_parts[0].strip()
+                                                selection = market_parts[1].strip()
+                                            else:
+                                                market = market_selection
+                                                selection = ""
+                                        else:  # Formato: (mercado, seleção, vantagem)
+                                            market = match[0].strip()
+                                            selection = match[1].strip()
+                                            advantage = match[2].strip()
+                                        
+                                        # Adicionar % se não estiver presente
+                                        if "%" not in advantage:
+                                            advantage = advantage + "%"
+                                        
+                                        # Determinar odds a partir da seção de mercados
+                                        odds = "@?.??"
+                                        market_section = extract_section(formatted_analysis, "Análise de Mercados Disponíveis")
+                                        
+                                        # Busca de odds mais flexível
+                                        if market and selection:
+                                            # Primeiro, tentar mercado e seleção juntos
+                                            odds_pattern = f"{re.escape(market)}.*?{re.escape(selection)}.*?@([0-9.]+)"
+                                            odds_match = re.search(odds_pattern, market_section, re.IGNORECASE | re.DOTALL)
+                                            
+                                            # Se não encontrar, tentar apenas com a seleção
+                                            if not odds_match and selection:
+                                                odds_pattern = f"{re.escape(selection)}.*?@([0-9.]+)"
+                                                odds_match = re.search(odds_pattern, market_section, re.IGNORECASE | re.DOTALL)
+                                            
+                                            if odds_match:
+                                                odds = f"@{odds_match.group(1)}"
+                                        
+                                        # Determinar confiança baseada na vantagem
+                                        try:
+                                            adv_value = float(advantage.replace("%", "").strip())
+                                            confidence = "⭐"
+                                            if adv_value > 5:
+                                                confidence = "⭐⭐"
+                                            if adv_value > 10:
+                                                confidence = "⭐⭐⭐"
+                                            if adv_value > 20:
+                                                confidence = "⭐⭐⭐⭐"
+                                        except:
+                                            confidence = "⭐⭐"  # Valor padrão se não conseguir converter
+                                            
+                                        # Adicionar linha à tabela
+                                        markdown_result += f"| **{market}** | {selection} | {odds} | {advantage} | {confidence} |\n"
+                            else:
+                                # Se não encontrou oportunidades, mostrar mensagem informativa
+                                markdown_result += "\n**Nenhuma oportunidade com valor significativo foi identificada nesta partida.**\n\n"
+                                markdown_result += "_A análise indica que as odds atuais estão alinhadas com as probabilidades reais calculadas, sem vantagens claras._\n\n"
                             
                             # 3. SEÇÃO DE COMPARATIVO DE PROBABILIDADES
                             markdown_result += "\n## 📈 Comparativo de Probabilidades\n\n"
                             
-                            # MONEY LINE
-                            markdown_result += "### Money Line\n"
-                            markdown_result += "| Resultado | Odds | Prob. Implícita | Prob. Real | Diferença |\n"
-                            markdown_result += "|-----------|------|-----------------|------------|----------|\n"
-                            
-                            # Extrair probabilidades de Money Line
+                            # Extrair probabilidades de todos os mercados
                             prob_section = extract_section(formatted_analysis, "Probabilidades Calculadas")
-                            
-                            # Extrair dados específicos de Money Line da análise
-                            home_real_match = re.search(f"{home_team}.*?(\d+\.\d+)%", prob_section, re.IGNORECASE)
-                            draw_real_match = re.search(r"Empate.*?(\d+\.\d+)%", prob_section, re.IGNORECASE) 
-                            away_real_match = re.search(f"{away_team}.*?(\d+\.\d+)%", prob_section, re.IGNORECASE)
-                            
-                            # Extrair odds do texto de mercados
                             market_section = extract_section(formatted_analysis, "Análise de Mercados Disponíveis")
                             
-                            home_odds_match = re.search(f"{home_team}.*?@([0-9.]+)", market_section, re.IGNORECASE)
-                            draw_odds_match = re.search(r"empate.*?@([0-9.]+)", market_section, re.IGNORECASE)
-                            away_odds_match = re.search(f"{away_team}.*?@([0-9.]+)", market_section, re.IGNORECASE)
-                            
-                            # Preencher a tabela Money Line
-                            if home_real_match and home_odds_match:
-                                home_real = float(home_real_match.group(1))
-                                home_odds = float(home_odds_match.group(1))
-                                home_implied = round(100 / home_odds, 1)
-                                diff = round(home_real - home_implied, 1)
-                                diff_str = f"+{diff}% ✅" if diff > 0 else f"{diff}% ❌"
+                            # CORREÇÃO PROBLEMA #3: Extrair todos os mercados selecionados
+                            # Função para criar tabela de comparativo para cada mercado
+                            def create_market_table(market_name, identifier_text, result_pattern=None):
+                                # Se o mercado não estiver presente no texto, retornar vazio
+                                if identifier_text not in prob_section and identifier_text not in market_section:
+                                    return ""
                                 
-                                markdown_result += f"| {home_team} | @{home_odds} | {home_implied}% | {home_real}% | {diff_str} |\n"
-                            
-                            if draw_real_match and draw_odds_match:
-                                draw_real = float(draw_real_match.group(1))
-                                draw_odds = float(draw_odds_match.group(1))
-                                draw_implied = round(100 / draw_odds, 1)
-                                diff = round(draw_real - draw_implied, 1)
-                                diff_str = f"+{diff}% ✅" if diff > 0 else f"{diff}% ❌"
+                                table = f"\n### {market_name}\n"
+                                table += "| Resultado | Odds | Prob. Implícita | Prob. Real | Diferença |\n"
+                                table += "|-----------|------|-----------------|------------|----------|\n"
                                 
-                                markdown_result += f"| Empate | @{draw_odds} | {draw_implied}% | {draw_real}% | {diff_str} |\n"
-                            
-                            if away_real_match and away_odds_match:
-                                away_real = float(away_real_match.group(1))
-                                away_odds = float(away_odds_match.group(1))
-                                away_implied = round(100 / away_odds, 1)
-                                diff = round(away_real - away_implied, 1)
-                                diff_str = f"+{diff}% ✅" if diff > 0 else f"{diff}% ❌"
-                                
-                                markdown_result += f"| {away_team} | @{away_odds} | {away_implied}% | {away_real}% | {diff_str} |\n"
-                            
-                            # Extrair outras probabilidades também se disponíveis
-                            # Over/Under
-                            over_under_pattern = r"Over.*?(\d+\.\d+)%.*?Under.*?(\d+\.\d+)%"
-                            over_under_match = re.search(over_under_pattern, prob_section, re.DOTALL)
-                            
-                            if over_under_match and "Over" in market_section and "Under" in market_section:
-                                over_real = float(over_under_match.group(1))
-                                under_real = float(over_under_match.group(2))
-                                
-                                # Extrair odds
-                                over_odds_match = re.search(r"Over.*?@([0-9.]+)", market_section, re.IGNORECASE)
-                                under_odds_match = re.search(r"Under.*?@([0-9.]+)", market_section, re.IGNORECASE)
-                                
-                                if over_odds_match and under_odds_match:
-                                    over_odds = float(over_odds_match.group(1))
-                                    under_odds = float(under_odds_match.group(1))
+                                # Se temos um padrão de resultado definido
+                                if result_pattern:
+                                    results = re.findall(result_pattern, prob_section, re.IGNORECASE | re.DOTALL)
                                     
-                                    over_implied = round(100 / over_odds, 1)
-                                    under_implied = round(100 / under_odds, 1)
+                                    for result in results:
+                                        result_name = result[0].strip()
+                                        real_prob = float(result[1].strip().replace("%", ""))
+                                        
+                                        # Buscar odds
+                                        odds_match = re.search(f"{re.escape(result_name)}.*?@([0-9.]+)", market_section, re.IGNORECASE)
+                                        
+                                        if odds_match:
+                                            odds_value = float(odds_match.group(1))
+                                            implied_prob = round(100 / odds_value, 1)
+                                            diff = round(real_prob - implied_prob, 1)
+                                            diff_str = f"+{diff}% ✅" if diff > 0 else f"{diff}% ❌"
+                                            
+                                            table += f"| {result_name} | @{odds_value} | {implied_prob}% | {real_prob}% | {diff_str} |\n"
                                     
-                                    over_diff = round(over_real - over_implied, 1)
-                                    under_diff = round(under_real - under_implied, 1)
+                                    return table
+                                
+                                # Caso não tenha um padrão específico, buscar genericamente
+                                else:
+                                    # Tentativa mais genérica de encontrar pares de resultado e probabilidade
+                                    generic_results = re.findall(r"(\w[^:]+):\s*(\d+\.\d+)%", prob_section)
                                     
-                                    markdown_result += "\n### Over/Under 2.5\n"
-                                    markdown_result += "| Resultado | Odds | Prob. Implícita | Prob. Real | Diferença |\n"
-                                    markdown_result += "|-----------|------|-----------------|------------|----------|\n"
-                                    markdown_result += f"| Over 2.5 | @{over_odds} | {over_implied}% | {over_real}% | {'+' if over_diff > 0 else ''}{over_diff}% {'✅' if over_diff > 0 else '❌'} |\n"
-                                    markdown_result += f"| Under 2.5 | @{under_odds} | {under_implied}% | {under_real}% | {'+' if under_diff > 0 else ''}{under_diff}% {'✅' if under_diff > 0 else '❌'} |\n"
+                                    for result in generic_results:
+                                        if identifier_text.lower() in result[0].lower():
+                                            result_name = result[0].strip()
+                                            real_prob = float(result[1].strip())
+                                            
+                                            # Buscar odds
+                                            odds_match = re.search(f"{re.escape(result_name)}.*?@([0-9.]+)", market_section, re.IGNORECASE)
+                                            
+                                            if odds_match:
+                                                odds_value = float(odds_match.group(1))
+                                                implied_prob = round(100 / odds_value, 1)
+                                                diff = round(real_prob - implied_prob, 1)
+                                                diff_str = f"+{diff}% ✅" if diff > 0 else f"{diff}% ❌"
+                                                
+                                                table += f"| {result_name} | @{odds_value} | {implied_prob}% | {real_prob}% | {diff_str} |\n"
+                                    
+                                    return table
+                            
+                            # MONEY LINE
+                            ml_pattern = r"(?:money\s*line|1x2).*?{re.escape(home_team)}.*?(\d+\.\d+)%.*?Empate.*?(\d+\.\d+)%.*?{re.escape(away_team)}.*?(\d+\.\d+)%"
+                            ml_table = create_market_table("Money Line", "Money Line", 
+                                                           r"([^:]+):\s*(\d+\.\d+)%")
+                            
+                            if ml_table:
+                                markdown_result += ml_table
+                            
+                            # OVER/UNDER
+                            ou_table = create_market_table("Over/Under 2.5", "Over/Under", 
+                                                          r"(Over[^:]+|Under[^:]+):\s*(\d+\.\d+)%")
+                            
+                            if ou_table:
+                                markdown_result += ou_table
+                            
+                            # AMBOS MARCAM
+                            btts_table = create_market_table("Ambos Marcam", "Ambos Marcam", 
+                                                            r"(Sim|Não|Yes|No):\s*(\d+\.\d+)%")
+                            
+                            if btts_table:
+                                markdown_result += btts_table
+                            
+                            # CHANCE DUPLA
+                            dc_table = create_market_table("Chance Dupla", "Chance Dupla", 
+                                                          r"(1X|12|X2|[^:]+Empate|[^:]+ou[^:]+):\s*(\d+\.\d+)%")
+                            
+                            if dc_table:
+                                markdown_result += dc_table
                             
                             # 4. SEÇÃO DE ANÁLISE DE CONFIANÇA
+                            markdown_result += "\n## 🔍 Análise de Confiança\n"
+                            
+                            # Extrair nível de confiança
                             conf_section = extract_section(formatted_analysis, "Nível de Confiança Geral")
                             conf_level = "Médio"
                             
@@ -1656,44 +1740,178 @@ def show_main_dashboard():
                             else:
                                 stars = "⭐⭐⭐"
                             
-                            markdown_result += "\n## 🔍 Análise de Confiança\n"
                             markdown_result += f"**Nível de Confiança Geral: {conf_level}** {stars}\n\n"
                             
-                            # Extrair informações de consistência e forma
-                            home_consistency_match = re.search(f"consistência (?:do|de) {home_team}.*?(\d+\.\d+)%", conf_section, re.IGNORECASE)
-                            away_consistency_match = re.search(f"consistência (?:do|de) {away_team}.*?(\d+\.\d+)%", conf_section, re.IGNORECASE)
-                            
-                            home_form_match = re.search(f"forma recente (?:do|de) {home_team}.*?(\d+\.\d+)/15", conf_section, re.IGNORECASE)
-                            away_form_match = re.search(f"forma recente (?:do|de) {away_team}.*?(\d+\.\d+)/15", conf_section, re.IGNORECASE)
-                            
+                            # CORREÇÃO PROBLEMA #2: Melhorar extração da forma recente
+                            # Seção de Consistência
                             markdown_result += "### Consistência das Equipes\n"
+                            markdown_result += "_A consistência indica quão previsível é o desempenho da equipe. Percentuais mais altos significam resultados mais confiáveis e padrões estabelecidos._\n\n"
                             
+                            # Buscar padrões mais genéricos para consistência
+                            home_consistency_match = re.search(f"consistência.*?{re.escape(home_team)}.*?(\d+\.\d+)%", conf_section, re.IGNORECASE)
+                            if not home_consistency_match:
+                                home_consistency_match = re.search(f"{re.escape(home_team)}.*?consistência.*?(\d+\.\d+)%", conf_section, re.IGNORECASE)
+                            
+                            away_consistency_match = re.search(f"consistência.*?{re.escape(away_team)}.*?(\d+\.\d+)%", conf_section, re.IGNORECASE)
+                            if not away_consistency_match:
+                                away_consistency_match = re.search(f"{re.escape(away_team)}.*?consistência.*?(\d+\.\d+)%", conf_section, re.IGNORECASE)
+                            
+                            # Adicionar consistência do time da casa
                             if home_consistency_match:
                                 home_consistency = float(home_consistency_match.group(1))
                                 consistency_level = "Alta previsibilidade" if home_consistency > 75 else "Média previsibilidade" if home_consistency > 50 else "Baixa previsibilidade"
                                 markdown_result += f"- **{home_team}**: {home_consistency}% ({consistency_level})\n"
+                            else:
+                                # Procurar qualquer número que possa ser consistência próximo ao nome do time
+                                generic_home_match = re.search(f"{re.escape(home_team)}.*?(\d+\.\d+)%", conf_section, re.IGNORECASE)
+                                if generic_home_match:
+                                    value = float(generic_home_match.group(1))
+                                    if 0 <= value <= 100:
+                                        consistency_level = "Alta previsibilidade" if value > 75 else "Média previsibilidade" if value > 50 else "Baixa previsibilidade"
+                                        markdown_result += f"- **{home_team}**: {value}% ({consistency_level})\n"
+                                    else:
+                                        markdown_result += f"- **{home_team}**: Dados de consistência não disponíveis\n"
+                                else:
+                                    markdown_result += f"- **{home_team}**: Dados de consistência não disponíveis\n"
                             
+                            # Adicionar consistência do time visitante
                             if away_consistency_match:
                                 away_consistency = float(away_consistency_match.group(1))
                                 consistency_level = "Alta previsibilidade" if away_consistency > 75 else "Média previsibilidade" if away_consistency > 50 else "Baixa previsibilidade"
                                 markdown_result += f"- **{away_team}**: {away_consistency}% ({consistency_level})\n"
+                            else:
+                                # Procurar qualquer número que possa ser consistência próximo ao nome do time
+                                generic_away_match = re.search(f"{re.escape(away_team)}.*?(\d+\.\d+)%", conf_section, re.IGNORECASE)
+                                if generic_away_match:
+                                    value = float(generic_away_match.group(1))
+                                    if 0 <= value <= 100:
+                                        consistency_level = "Alta previsibilidade" if value > 75 else "Média previsibilidade" if value > 50 else "Baixa previsibilidade"
+                                        markdown_result += f"- **{away_team}**: {value}% ({consistency_level})\n"
+                                    else:
+                                        markdown_result += f"- **{away_team}**: Dados de consistência não disponíveis\n"
+                                else:
+                                    markdown_result += f"- **{away_team}**: Dados de consistência não disponíveis\n"
                             
+                            # Seção de Forma Recente - CORREÇÃO PROBLEMA #2
                             markdown_result += "\n### Forma Recente (últimos 5 jogos)\n"
+                            markdown_result += "_Pontuação baseada nos últimos 5 jogos (vitória=3pts, empate=1pt, derrota=0pts). Máximo possível: 15 pontos._\n\n"
                             
-                            if home_form_match:
-                                home_form = float(home_form_match.group(1))
-                                form_level = "Muito baixa" if home_form < 3 else "Baixa" if home_form < 6 else "Média" if home_form < 9 else "Boa" if home_form < 12 else "Excelente"
-                                markdown_result += f"- **{home_team}**: {home_form}/15 pontos ({form_level})\n"
+                            # Múltiplos padrões para forma recente
+                            form_patterns = [
+                                # Padrão específico com /15
+                                (f"forma (?:recente )?(?:do|de) {re.escape(home_team)}.*?(\d+\.?\d*)/15", f"forma (?:recente )?(?:do|de) {re.escape(away_team)}.*?(\d+\.?\d*)/15"),
+                                # Padrão com pontos em outros formatos
+                                (f"forma (?:recente )?(?:do|de) {re.escape(home_team)}.*?(\d+\.?\d*)(?:[^\d]|$)", f"forma (?:recente )?(?:do|de) {re.escape(away_team)}.*?(\d+\.?\d*)(?:[^\d]|$)"),
+                                # Padrão mencionando baixa/média/alta
+                                (f"{re.escape(home_team)}.*?forma.*(baixa|média|alta|boa|muito baixa|excelente)", f"{re.escape(away_team)}.*?forma.*(baixa|média|alta|boa|muito baixa|excelente)")
+                            ]
                             
-                            if away_form_match:
-                                away_form = float(away_form_match.group(1))
-                                form_level = "Muito baixa" if away_form < 3 else "Baixa" if away_form < 6 else "Média" if away_form < 9 else "Boa" if away_form < 12 else "Excelente"
-                                markdown_result += f"- **{away_team}**: {away_form}/15 pontos ({form_level})\n"
+                            found_home_form = False
+                            found_away_form = False
+                            
+                            # Testar cada padrão
+                            for home_pattern, away_pattern in form_patterns:
+                                if not found_home_form:
+                                    home_form_match = re.search(home_pattern, conf_section, re.IGNORECASE | re.DOTALL)
+                                    if home_form_match:
+                                        found_home_form = True
+                                        if home_form_match.group(1).replace('.', '', 1).isdigit():
+                                            # É um número
+                                            home_form = float(home_form_match.group(1))
+                                            form_level = "Muito baixa" if home_form < 3 else "Baixa" if home_form < 6 else "Média" if home_form < 9 else "Boa" if home_form < 12 else "Excelente"
+                                            markdown_result += f"- **{home_team}**: {home_form}/15 pontos ({form_level})\n"
+                                        else:
+                                            # É uma descrição textual
+                                            form_text = home_form_match.group(1).strip()
+                                            markdown_result += f"- **{home_team}**: Forma {form_text}\n"
+                                
+                                if not found_away_form:
+                                    away_form_match = re.search(away_pattern, conf_section, re.IGNORECASE | re.DOTALL)
+                                    if away_form_match:
+                                        found_away_form = True
+                                        if away_form_match.group(1).replace('.', '', 1).isdigit():
+                                            # É um número
+                                            away_form = float(away_form_match.group(1))
+                                            form_level = "Muito baixa" if away_form < 3 else "Baixa" if away_form < 6 else "Média" if away_form < 9 else "Boa" if away_form < 12 else "Excelente"
+                                            markdown_result += f"- **{away_team}**: {away_form}/15 pontos ({form_level})\n"
+                                        else:
+                                            # É uma descrição textual
+                                            form_text = away_form_match.group(1).strip()
+                                            markdown_result += f"- **{away_team}**: Forma {form_text}\n"
+                            
+                            # Se não encontrou com os padrões acima, buscar qualquer menção a forma
+                            if not found_home_form:
+                                generic_home_form = re.search(f"{re.escape(home_team)}.*?forma.*", conf_section, re.IGNORECASE | re.DOTALL)
+                                if generic_home_form:
+                                    text = generic_home_form.group(0)
+                                    # Limitar o texto até a próxima quebra de linha ou menção ao outro time
+                                    if "\n" in text:
+                                        text = text.split("\n")[0]
+                                    if away_team in text:
+                                        text = text.split(away_team)[0]
+                                    markdown_result += f"- **{home_team}**: {text.split(home_team)[1].strip()}\n"
+                                else:
+                                    markdown_result += f"- **{home_team}**: Forma recente não disponível\n"
+                            
+                            if not found_away_form:
+                                generic_away_form = re.search(f"{re.escape(away_team)}.*?forma.*", conf_section, re.IGNORECASE | re.DOTALL)
+                                if generic_away_form:
+                                    text = generic_away_form.group(0)
+                                    # Limitar o texto até a próxima quebra de linha ou menção ao outro time
+                                    if "\n" in text:
+                                        text = text.split("\n")[0]
+                                    if home_team in text:
+                                        text = text.split(home_team)[0]
+                                    markdown_result += f"- **{away_team}**: {text.split(away_team)[1].strip()}\n"
+                                else:
+                                    markdown_result += f"- **{away_team}**: Forma recente não disponível\n"
+                            
+                            # Adicionar observações
+                            markdown_result += "\n### Observações\n"
+                            
+                            # Extrair observações do texto ou criar automaticamente
+                            observations = []
+                            
+                            # Verificar se há menção explícita a observações
+                            obs_match = re.search(r"observaç[õo]es:?(.*?)(?=###|\Z)", conf_section, re.IGNORECASE | re.DOTALL)
+                            
+                            if obs_match and len(obs_match.group(1).strip()) > 10:
+                                obs_text = obs_match.group(1).strip()
+                                for line in obs_text.split('\n'):
+                                    if line.strip():
+                                        observations.append(line.strip())
+                            
+                            # Se não encontrou observações específicas, buscar sentenças úteis no texto de confiança
+                            if not observations:
+                                sentences = re.findall(r'[^.!?]+[.!?]', conf_section)
+                                for sentence in sentences:
+                                    if len(sentence.strip()) > 15 and any(word in sentence.lower() for word in ['valor', 'vantagem', 'consistência', 'forma', 'significativo', 'previsível']):
+                                        observations.append(f"- {sentence.strip()}")
+                            
+                            # Se ainda não temos observações, criar automaticamente
+                            if not observations:
+                                if opp_matches:
+                                    best_opp = max(opp_matches, key=lambda x: float(x[2].replace('%', '').strip() if x[2].replace('%', '').strip().replace('.', '', 1).isdigit() else 0))
+                                    if len(best_opp) >= 2:
+                                        market = best_opp[0].strip()
+                                        advantage = best_opp[2].strip() if len(best_opp) > 2 else ""
+                                        observations.append(f"- O valor mais significativo está no mercado {market} com {advantage} de vantagem")
+                                else:
+                                    observations.append("- Não foram identificadas vantagens significativas nas odds atuais")
+                            
+                            # Adicionar observações ao markdown
+                            if observations:
+                                for obs in observations:
+                                    if not obs.startswith("-"):
+                                        obs = f"- {obs}"
+                                    markdown_result += f"{obs}\n"
+                            else:
+                                markdown_result += "- Não há observações adicionais para esta partida\n"
                             
                             # 5. EXIBIR O RESULTADO FINAL COMO MARKDOWN
                             st.markdown(markdown_result)
                             
-                            # Registrar uso após análise bem-sucedida
+                            # Registro de uso e cálculo de créditos (mantido igual)
                             num_markets = sum(1 for v in selected_markets.values() if v)
                             
                             # Registro de uso com dados detalhados
@@ -1712,15 +1930,16 @@ def show_main_dashboard():
                             if success:
                                 # Forçar atualização do cache de estatísticas
                                 if hasattr(st.session_state, 'user_stats_cache'):
-                                    del st.session_state.user_stats_cache  # Remover cache para forçar reload
+                                    del st.session_state.user_stats_cache
                                 
                                 # Mostrar mensagem de sucesso com créditos restantes
                                 updated_stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
                                 credits_after = updated_stats['credits_remaining']
                                 st.success(f"{num_markets} créditos foram consumidos. Agora você tem {credits_after} créditos.")
                             else:
-                                st.error("Não foi possível registrar o uso dos créditos. Por favor, tente novamente.")                            
-                            # Registrar uso após análise bem-sucedida
+                                st.error("Não foi possível registrar o uso dos créditos. Por favor, tente novamente.")
+        
+        # Registrar uso após análise bem-sucedida
                             num_markets = sum(1 for v in selected_markets.values() if v)
                             
                             # Registro de uso com dados detalhados
