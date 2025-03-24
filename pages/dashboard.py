@@ -1530,6 +1530,19 @@ def show_main_dashboard():
                             market_section = extract_section(formatted_analysis, "Análise de Mercados Disponíveis")
                             conf_section = extract_section(formatted_analysis, "Nível de Confiança Geral")
                             
+                            # Função para detectar mercados opostos
+                            def get_opposed_markets(market, selection):
+                                """Retorna marcados que não podem coexistir como oportunidades"""
+                                if "Over" in selection:
+                                    return (market, selection.replace("Over", "Under"))
+                                elif "Under" in selection:
+                                    return (market, selection.replace("Under", "Over"))
+                                elif selection == "Sim":
+                                    return (market, "Não")
+                                elif selection == "Não":
+                                    return (market, "Sim")
+                                return None
+                            
                             # NOVO: Identificar oportunidades a partir das probabilidades comparativas
                             automatic_opportunities = []
                             
@@ -1585,6 +1598,20 @@ def show_main_dashboard():
                                                 "advantage": f"+{diff}%"
                                             })
                         
+                            # Verificar se as probabilidades de moneyline somam aproximadamente 100%
+                            all_ml_probs = [p for p in [home_real_prob, draw_real_prob, away_real_prob] if p > 0]
+                            if len(all_ml_probs) > 1:
+                                prob_sum = sum(all_ml_probs)
+                                if abs(prob_sum - 100) > 5:  # Se a diferença for maior que 5%
+                                    # Normalizar as probabilidades
+                                    factor = 100 / prob_sum
+                                    if home_real_prob > 0:
+                                        home_real_prob = round(home_real_prob * factor, 1)
+                                    if draw_real_prob > 0:
+                                        draw_real_prob = round(draw_real_prob * factor, 1)
+                                    if away_real_prob > 0:
+                                        away_real_prob = round(away_real_prob * factor, 1)
+                        
                             # Padrões para over/under
                             for selection in ["Over 2.5", "Under 2.5"]:
                                 real_prob_match = re.search(f"{selection}.*?(\d+\.\d+)%|{selection.lower()}.*?(\d+\.\d+)%", prob_section, re.IGNORECASE)
@@ -1612,6 +1639,21 @@ def show_main_dashboard():
                                                 "advantage": f"+{diff}%"
                                             })
                         
+                            # Verificar e corrigir as probabilidades de Over/Under
+                            if over_2_5_real_prob > 0 and under_2_5_real_prob > 0:
+                                # Se ambas probabilidades estão definidas, elas devem somar aproximadamente 100%
+                                ou_sum = over_2_5_real_prob + under_2_5_real_prob
+                                if abs(ou_sum - 100) > 5:  # Se a diferença for maior que 5%
+                                    # Usar estatísticas do time para derivar as probabilidades
+                                    if "over_2_5_pct" in optimized_data["home_team"]:
+                                        over_2_5_real_prob = optimized_data["home_team"]["over_2_5_pct"]
+                                        under_2_5_real_prob = 100 - over_2_5_real_prob
+                                    # Se só uma das probabilidades está definida, calcular a outra
+                                    elif over_2_5_real_prob > 0 and under_2_5_real_prob == 0:
+                                        under_2_5_real_prob = 100 - over_2_5_real_prob
+                                    elif under_2_5_real_prob > 0 and over_2_5_real_prob == 0:
+                                        over_2_5_real_prob = 100 - under_2_5_real_prob
+                                        
                             # Padrões para ambos marcam
                             for selection in ["Sim", "Não", "Yes", "No"]:
                                 real_prob_match = re.search(f"{selection}.*?(\d+\.\d+)%", prob_section, re.IGNORECASE)
@@ -1638,6 +1680,20 @@ def show_main_dashboard():
                                                 "odds": f"@{odds_val}",
                                                 "advantage": f"+{diff}%"
                                             })
+                        
+                            # Verificar e corrigir as probabilidades de BTTS
+                            if btts_yes_real_prob > 0 and btts_no_real_prob > 0:
+                                btts_sum = btts_yes_real_prob + btts_no_real_prob
+                                if abs(btts_sum - 100) > 5:  # Se a diferença for maior que 5%
+                                    # Usar estatísticas do time para derivar as probabilidades
+                                    if "btts_pct" in optimized_data["home_team"]:
+                                        btts_yes_real_prob = optimized_data["home_team"]["btts_pct"]
+                                        btts_no_real_prob = 100 - btts_yes_real_prob
+                                    # Se só uma das probabilidades está definida, calcular a outra
+                                    elif btts_yes_real_prob > 0 and btts_no_real_prob == 0:
+                                        btts_no_real_prob = 100 - btts_yes_real_prob
+                                    elif btts_no_real_prob > 0 and btts_yes_real_prob == 0:
+                                        btts_yes_real_prob = 100 - btts_no_real_prob
                         
                             # Padrões para chance dupla
                             dc_options = [
@@ -1694,6 +1750,19 @@ def show_main_dashboard():
                                                 "odds": f"@{odds_val}",
                                                 "advantage": f"+{diff}%"
                                             })
+                        
+                            # Verificar e corrigir probabilidades complementares para escanteios
+                            if over_9_5_corners_real_prob > 0 and under_9_5_corners_real_prob > 0:
+                                corners_sum = over_9_5_corners_real_prob + under_9_5_corners_real_prob
+                                if abs(corners_sum - 100) > 5:
+                                    # Se ambas estão definidas mas não somam ~100%
+                                    if "over_9_5_corners_pct" in optimized_data["home_team"]:
+                                        over_9_5_corners_real_prob = optimized_data["home_team"]["over_9_5_corners_pct"]
+                                        under_9_5_corners_real_prob = 100 - over_9_5_corners_real_prob
+                                    elif over_9_5_corners_real_prob > 0:
+                                        under_9_5_corners_real_prob = 100 - over_9_5_corners_real_prob
+                                    elif under_9_5_corners_real_prob > 0:
+                                        over_9_5_corners_real_prob = 100 - under_9_5_corners_real_prob
                             
                             # Padrões para cartões
                             for selection in ["Over 3.5", "Under 3.5"]:
@@ -1721,6 +1790,81 @@ def show_main_dashboard():
                                                 "odds": f"@{odds_val}",
                                                 "advantage": f"+{diff}%"
                                             })
+                        
+                            # Verificar e corrigir probabilidades complementares para cartões
+                            if over_3_5_cards_real_prob > 0 and under_3_5_cards_real_prob > 0:
+                                cards_sum = over_3_5_cards_real_prob + under_3_5_cards_real_prob
+                                if abs(cards_sum - 100) > 5:
+                                    # Se ambas estão definidas mas não somam ~100%
+                                    if "over_3_5_cards_pct" in optimized_data["home_team"]:
+                                        over_3_5_cards_real_prob = optimized_data["home_team"]["over_3_5_cards_pct"]
+                                        under_3_5_cards_real_prob = 100 - over_3_5_cards_real_prob
+                                    elif over_3_5_cards_real_prob > 0:
+                                        under_3_5_cards_real_prob = 100 - over_3_5_cards_real_prob
+                                    elif under_3_5_cards_real_prob > 0:
+                                        over_3_5_cards_real_prob = 100 - under_3_5_cards_real_prob
+                            
+                            # NOVO: Filtrar oportunidades contraditórias
+                            filtered_opportunities = []
+                            already_selected = set()
+                            
+                            for opp in automatic_opportunities:
+                                market = opp["market"]
+                                selection = opp["selection"]
+                                
+                                # Simplificar selection para extrair só Over/Under, Sim/Não (para o caso de outras descrições)
+                                simple_selection = selection
+                                if "Over" in selection:
+                                    simple_selection = "Over"
+                                elif "Under" in selection:
+                                    simple_selection = "Under"
+                                elif selection in ["Sim", "Yes"]:
+                                    simple_selection = "Sim"
+                                elif selection in ["Não", "No"]:
+                                    simple_selection = "Não"
+                                
+                                opposing = get_opposed_markets(market, simple_selection)
+                                key = f"{market}_{simple_selection}"
+                                
+                                # Se o mercado oposto já foi selecionado, verificar qual tem melhor vantagem
+                                if opposing:
+                                    opposing_key = f"{opposing[0]}_{opposing[1]}"
+                                    has_better_opposing = False
+                                    
+                                    for exist_opp in automatic_opportunities:
+                                        exist_market = exist_opp["market"]
+                                        exist_selection = exist_opp["selection"]
+                                        
+                                        # Simplificar selection para comparação
+                                        exist_simple = exist_selection
+                                        if "Over" in exist_selection:
+                                            exist_simple = "Over"
+                                        elif "Under" in exist_selection:
+                                            exist_simple = "Under"
+                                        elif exist_selection in ["Sim", "Yes"]:
+                                            exist_simple = "Sim"
+                                        elif exist_selection in ["Não", "No"]:
+                                            exist_simple = "Não"
+                                        
+                                        if exist_market == opposing[0] and exist_simple == opposing[1]:
+                                            # Comparar vantagens
+                                            existing_adv = float(exist_opp["advantage"].replace("+", "").replace("%", ""))
+                                            current_adv = float(opp["advantage"].replace("+", "").replace("%", ""))
+                                            
+                                            if existing_adv >= current_adv:
+                                                # O oposto já existe e tem vantagem maior ou igual
+                                                has_better_opposing = True
+                                                break
+                                    
+                                    if has_better_opposing:
+                                        continue  # Pular esta oportunidade
+                                
+                                # Adicionar à lista filtrada
+                                filtered_opportunities.append(opp)
+                                already_selected.add(key)
+                            
+                            # Substituir a lista original
+                            automatic_opportunities = filtered_opportunities
                             
                             # 1. CRIAR O MARKDOWN PARA A ANÁLISE
                             markdown_result = f"# 📊 Análise da Partida: {home_team} vs {away_team}\n\n"
@@ -1998,34 +2142,13 @@ def show_main_dashboard():
                             
                             # Garantir que tenhamos os três resultados possíveis
                             ml_options = [
-                                (home_team, None, None),  # (nome, prob_real, odds)
-                                ("Empate", None, None),
-                                (away_team, None, None)
+                                (home_team, home_real_prob, None),  # (nome, prob_real, odds)
+                                ("Empate", draw_real_prob, None),
+                                (away_team, away_real_prob, None)
                             ]
                             
-                            # Procurar probabilidades reais e odds para cada opção
-                            for i, (result, _, _) in enumerate(ml_options):
-                                # Padrões para probabilidades reais
-                                prob_patterns = [
-                                    f"{re.escape(result)}.*?(\d+\.\d+)%",
-                                    f"vitória do {re.escape(result)}.*?(\d+\.\d+)%"
-                                ]
-                                
-                                # Para o empate, adicionar padrões específicos
-                                if result == "Empate":
-                                    prob_patterns = [
-                                        r"[Ee]mpate.*?(\d+\.\d+)%",
-                                        r"[Dd]raw.*?(\d+\.\d+)%"
-                                    ]
-                                
-                                # Buscar probabilidade real
-                                prob_value = None
-                                for pattern in prob_patterns:
-                                    match = re.search(pattern, prob_section, re.IGNORECASE)
-                                    if match:
-                                        prob_value = float(match.group(1))
-                                        break
-                                
+                            # Procurar odds para cada opção
+                            for i, (result, prob_real, _) in enumerate(ml_options):
                                 # Padrões para odds
                                 odds_patterns = [
                                     f"{re.escape(result)}.*?@([0-9.]+)",
@@ -2048,7 +2171,7 @@ def show_main_dashboard():
                                         break
                                 
                                 # Guardar os valores encontrados
-                                ml_options[i] = (result, prob_value, odds_value)
+                                ml_options[i] = (result, prob_real, odds_value)
                             
                             # Adicionar cada resultado à tabela
                             ml_data_added = False
@@ -2081,47 +2204,32 @@ def show_main_dashboard():
                                 markdown_result += "|-----------|------|-----------------|------------|----------|\n"
                                 
                                 # Encontrar probabilidades reais e odds para Over/Under
-                                over_real_prob = None
-                                under_real_prob = None
+                                over_real_prob = over_2_5_real_prob  # Usar valores já extraídos
+                                under_real_prob = under_2_5_real_prob
                                 over_odds_val = None
                                 under_odds_val = None
                                 
-                                # Buscar probabilidades reais com múltiplos padrões
-                                over_patterns = [
-                                    r"[Oo]ver.*?(\d+\.\d+)%", 
-                                    r"[Oo]ver 2.5.*?(\d+\.\d+)%",
-                                    r"Over 2.5 gols.*?(\d+\.\d+)%"
-                                ]
-                                
-                                under_patterns = [
-                                    r"[Uu]nder.*?(\d+\.\d+)%", 
-                                    r"[Uu]nder 2.5.*?(\d+\.\d+)%",
-                                    r"Under 2.5 gols.*?(\d+\.\d+)%"
-                                ]
-                                
-                                # Buscar em todo o texto formatado
-                                for pattern in over_patterns:
-                                    match = re.search(pattern, formatted_analysis, re.IGNORECASE)
-                                    if match:
-                                        over_real_prob = float(match.group(1))
-                                        break
-                                
-                                for pattern in under_patterns:
-                                    match = re.search(pattern, formatted_analysis, re.IGNORECASE)
-                                    if match:
-                                        under_real_prob = float(match.group(1))
-                                        break
-                                
                                 # Buscar odds com múltiplos padrões
-                                for pattern in over_patterns:
-                                    pattern = pattern.replace("%", "@([0-9.]+)")
+                                over_odds_patterns = [
+                                    r"[Oo]ver 2.5.*?@([0-9.]+)",
+                                    r"[Oo]ver 2.5 gols.*?@([0-9.]+)",
+                                    r"[Mm]ais de 2.5.*?@([0-9.]+)"
+                                ]
+                                
+                                under_odds_patterns = [
+                                    r"[Uu]nder 2.5.*?@([0-9.]+)",
+                                    r"[Uu]nder 2.5 gols.*?@([0-9.]+)",
+                                    r"[Mm]enos de 2.5.*?@([0-9.]+)"
+                                ]
+                                
+                                # Buscar odds
+                                for pattern in over_odds_patterns:
                                     match = re.search(pattern, formatted_analysis, re.IGNORECASE)
                                     if match:
                                         over_odds_val = float(match.group(1))
                                         break
                                 
-                                for pattern in under_patterns:
-                                    pattern = pattern.replace("%", "@([0-9.]+)")
+                                for pattern in under_odds_patterns:
                                     match = re.search(pattern, formatted_analysis, re.IGNORECASE)
                                     if match:
                                         under_odds_val = float(match.group(1))
@@ -2131,13 +2239,13 @@ def show_main_dashboard():
                                 ou_data_added = False
                                 
                                 # Over 2.5
-                                if over_real_prob is not None and over_odds_val is not None:
+                                if over_real_prob is not None and over_real_prob > 0 and over_odds_val is not None:
                                     over_implied_prob = round(100 / over_odds_val, 1)
                                     over_diff = round(over_real_prob - over_implied_prob, 1)
                                     over_diff_str = f"+{over_diff}% ✅" if over_diff > 0 else f"{over_diff}% ❌"
                                     markdown_result += f"| Over 2.5 | @{over_odds_val} | {over_implied_prob}% | {over_real_prob}% | {over_diff_str} |\n"
                                     ou_data_added = True
-                                elif over_real_prob is not None:
+                                elif over_real_prob is not None and over_real_prob > 0:
                                     markdown_result += f"| Over 2.5 | - | - | {over_real_prob}% | - |\n"
                                     ou_data_added = True
                                 elif over_odds_val is not None:
@@ -2146,13 +2254,13 @@ def show_main_dashboard():
                                     ou_data_added = True
                                 
                                 # Under 2.5
-                                if under_real_prob is not None and under_odds_val is not None:
+                                if under_real_prob is not None and under_real_prob > 0 and under_odds_val is not None:
                                     under_implied_prob = round(100 / under_odds_val, 1)
                                     under_diff = round(under_real_prob - under_implied_prob, 1)
                                     under_diff_str = f"+{under_diff}% ✅" if under_diff > 0 else f"{under_diff}% ❌"
                                     markdown_result += f"| Under 2.5 | @{under_odds_val} | {under_implied_prob}% | {under_real_prob}% | {under_diff_str} |\n"
                                     ou_data_added = True
-                                elif under_real_prob is not None:
+                                elif under_real_prob is not None and under_real_prob > 0:
                                     markdown_result += f"| Under 2.5 | - | - | {under_real_prob}% | - |\n"
                                     ou_data_added = True
                                 elif under_odds_val is not None:
@@ -2170,45 +2278,13 @@ def show_main_dashboard():
                                 markdown_result += "| Resultado | Odds | Prob. Implícita | Prob. Real | Diferença |\n"
                                 markdown_result += "|-----------|------|-----------------|------------|----------|\n"
                                 
-                                # Encontrar probabilidades reais e odds para BTTS
-                                yes_real_prob = None
-                                no_real_prob = None
+                                # Usar valores já extraídos
+                                yes_real_prob = btts_yes_real_prob
+                                no_real_prob = btts_no_real_prob
                                 yes_odds_val = None
                                 no_odds_val = None
                                 
-                                # Buscar probabilidades reais com múltiplos padrões
-                                btts_yes_patterns = [
-                                    r"Ambos Marcam:? Sim.*?(\d+\.\d+)%",
-                                    r"Ambos Marcam:? [Yy]es.*?(\d+\.\d+)%",
-                                    r"BTTS:? [Yy]es.*?(\d+\.\d+)%",
-                                    r"BTTS:? Sim.*?(\d+\.\d+)%",
-                                    r"Ambas equipes marcam:? Sim.*?(\d+\.\d+)%",
-                                    r"[Ss]im.*?(\d+\.\d+)%.*?[Nn]ão.*?(\d+\.\d+)%"  # Padrão para "Sim: XX.X%" seguido por "Não: XX.X%"
-                                ]
-                                
-                                btts_no_patterns = [
-                                    r"Ambos Marcam:? Não.*?(\d+\.\d+)%",
-                                    r"Ambos Marcam:? [Nn]o.*?(\d+\.\d+)%",
-                                    r"BTTS:? [Nn]o.*?(\d+\.\d+)%",
-                                    r"BTTS:? Não.*?(\d+\.\d+)%",
-                                    r"Ambas equipes marcam:? Não.*?(\d+\.\d+)%",
-                                    r"[Nn]ão.*?(\d+\.\d+)%"  # Padrão para "Não: XX.X%"
-                                ]
-                                
-                                # Buscar em todo o texto formatado
-                                for pattern in btts_yes_patterns:
-                                    match = re.search(pattern, formatted_analysis, re.IGNORECASE)
-                                    if match:
-                                        yes_real_prob = float(match.group(1))
-                                        break
-                                
-                                for pattern in btts_no_patterns:
-                                    match = re.search(pattern, formatted_analysis, re.IGNORECASE)
-                                    if match:
-                                        no_real_prob = float(match.group(1))
-                                        break
-                                
-                                # Buscar odds com múltiplos padrões em todo o texto
+                                # Buscar odds com múltiplos padrões
                                 btts_yes_odds_patterns = [
                                     r"Ambos Marcam:? Sim.*?@([0-9.]+)",
                                     r"Ambos Marcam:? [Yy]es.*?@([0-9.]+)",
@@ -2227,6 +2303,7 @@ def show_main_dashboard():
                                     r"[Nn]ão.*?@([0-9.]+)"
                                 ]
                                 
+                                # Buscar em todo o texto
                                 for pattern in btts_yes_odds_patterns:
                                     match = re.search(pattern, formatted_analysis, re.IGNORECASE)
                                     if match:
@@ -2243,13 +2320,13 @@ def show_main_dashboard():
                                 btts_data_added = False
                                 
                                 # Sim
-                                if yes_real_prob is not None and yes_odds_val is not None:
+                                if yes_real_prob is not None and yes_real_prob > 0 and yes_odds_val is not None:
                                     yes_implied_prob = round(100 / yes_odds_val, 1)
                                     yes_diff = round(yes_real_prob - yes_implied_prob, 1)
                                     yes_diff_str = f"+{yes_diff}% ✅" if yes_diff > 0 else f"{yes_diff}% ❌"
                                     markdown_result += f"| Sim | @{yes_odds_val} | {yes_implied_prob}% | {yes_real_prob}% | {yes_diff_str} |\n"
                                     btts_data_added = True
-                                elif yes_real_prob is not None:
+                                elif yes_real_prob is not None and yes_real_prob > 0:
                                     markdown_result += f"| Sim | - | - | {yes_real_prob}% | - |\n"
                                     btts_data_added = True
                                 elif yes_odds_val is not None:
@@ -2258,13 +2335,13 @@ def show_main_dashboard():
                                     btts_data_added = True
                                 
                                 # Não
-                                if no_real_prob is not None and no_odds_val is not None:
+                                if no_real_prob is not None and no_real_prob > 0 and no_odds_val is not None:
                                     no_implied_prob = round(100 / no_odds_val, 1)
                                     no_diff = round(no_real_prob - no_implied_prob, 1)
                                     no_diff_str = f"+{no_diff}% ✅" if no_diff > 0 else f"{no_diff}% ❌"
                                     markdown_result += f"| Não | @{no_odds_val} | {no_implied_prob}% | {no_real_prob}% | {no_diff_str} |\n"
                                     btts_data_added = True
-                                elif no_real_prob is not None:
+                                elif no_real_prob is not None and no_real_prob > 0:
                                     markdown_result += f"| Não | - | - | {no_real_prob}% | - |\n"
                                     btts_data_added = True
                                 elif no_odds_val is not None:
@@ -2299,10 +2376,11 @@ def show_main_dashboard():
                                         f"Chance Dupla:? {code}.*?(\d+\.\d+)%"
                                     ]
                                     
+                                    real_prob = None
                                     for pattern in dc_prob_patterns:
                                         match = re.search(pattern, formatted_analysis, re.IGNORECASE)
                                         if match:
-                                            dc_pairs[i] = (code, desc, float(match.group(1)), dc_pairs[i][3])
+                                            real_prob = float(match.group(1))
                                             break
                                     
                                     # Padrões específicos para odds
@@ -2313,14 +2391,18 @@ def show_main_dashboard():
                                         f"Chance Dupla:? {code}.*?@([0-9.]+)"
                                     ]
                                     
+                                    odds_val = None
                                     for pattern in dc_odds_patterns:
                                         match = re.search(pattern, formatted_analysis, re.IGNORECASE)
                                         if match:
-                                            dc_pairs[i] = (code, desc, dc_pairs[i][2], float(match.group(1)))
+                                            odds_val = float(match.group(1))
                                             break
+                                    
+                                    # Atualizar o par com os valores encontrados
+                                    dc_pairs[i] = (code, desc, real_prob, odds_val)
                                 
                                 # Busca específica para X2 (padrões especiais)
-                                if dc_pairs[2][2] is None:  # Se não encontrou X2 ainda
+                                if dc_pairs[2][2] is None:  # Se não encontrou prob para X2 ainda
                                     x2_prob_patterns = [
                                         f"{re.escape(away_team)} ou Empate.*?(\d+\.\d+)%",
                                         f"Empate ou {re.escape(away_team)}.*?(\d+\.\d+)%",
@@ -2330,7 +2412,7 @@ def show_main_dashboard():
                                     for pattern in x2_prob_patterns:
                                         match = re.search(pattern, formatted_analysis, re.IGNORECASE)
                                         if match:
-                                            dc_pairs[2] = ("X2", f"Empate ou {away_team}", float(match.group(1)), dc_pairs[2][3])
+                                            dc_pairs[2] = ("X2", dc_pairs[2][1], float(match.group(1)), dc_pairs[2][3])
                                             break
                                 
                                 if dc_pairs[2][3] is None:  # Se não encontrou odds para X2
@@ -2343,20 +2425,30 @@ def show_main_dashboard():
                                     for pattern in x2_odds_patterns:
                                         match = re.search(pattern, formatted_analysis, re.IGNORECASE)
                                         if match:
-                                            dc_pairs[2] = ("X2", f"Empate ou {away_team}", dc_pairs[2][2], float(match.group(1)))
+                                            dc_pairs[2] = ("X2", dc_pairs[2][1], dc_pairs[2][2], float(match.group(1)))
                                             break
+                                
+                                # Calculando probabilidades se faltarem (usando moneyline como base)
+                                if dc_pairs[0][2] is None and home_real_prob > 0 and draw_real_prob > 0:  # 1X
+                                    dc_pairs[0] = (dc_pairs[0][0], dc_pairs[0][1], home_real_prob + draw_real_prob, dc_pairs[0][3])
+                                
+                                if dc_pairs[1][2] is None and home_real_prob > 0 and away_real_prob > 0:  # 12
+                                    dc_pairs[1] = (dc_pairs[1][0], dc_pairs[1][1], home_real_prob + away_real_prob, dc_pairs[1][3])
+                                
+                                if dc_pairs[2][2] is None and draw_real_prob > 0 and away_real_prob > 0:  # X2
+                                    dc_pairs[2] = (dc_pairs[2][0], dc_pairs[2][1], draw_real_prob + away_real_prob, dc_pairs[2][3])
                                 
                                 # Preencher tabela de Chance Dupla
                                 dc_data_added = False
                                 
                                 for code, desc, prob, odds in dc_pairs:
-                                    if prob is not None and odds is not None:
+                                    if prob is not None and prob > 0 and odds is not None:
                                         implied_prob = round(100 / odds, 1)
                                         diff = round(prob - implied_prob, 1)
                                         diff_str = f"+{diff}% ✅" if diff > 0 else f"{diff}% ❌"
                                         markdown_result += f"| {code} ({desc}) | @{odds} | {implied_prob}% | {prob}% | {diff_str} |\n"
                                         dc_data_added = True
-                                    elif prob is not None:  # Temos probabilidade mas não odds
+                                    elif prob is not None and prob > 0:  # Temos probabilidade mas não odds
                                         markdown_result += f"| {code} ({desc}) | - | - | {prob}% | - |\n"
                                         dc_data_added = True
                                     elif odds is not None:  # Temos odds mas não probabilidade
@@ -2374,48 +2466,32 @@ def show_main_dashboard():
                                 markdown_result += "| Resultado | Odds | Prob. Implícita | Prob. Real | Diferença |\n"
                                 markdown_result += "|-----------|------|-----------------|------------|----------|\n"
                                 
-                                # Encontrar probabilidades reais e odds para Escanteios
-                                over_real_prob = None
-                                under_real_prob = None
+                                # Usar valores já extraídos
+                                over_real_prob = over_9_5_corners_real_prob
+                                under_real_prob = under_9_5_corners_real_prob
                                 over_odds_val = None
                                 under_odds_val = None
                                 
-                                # Buscar probabilidades reais com múltiplos padrões
+                                # Buscar odds em todo o texto
                                 over_patterns = [
-                                    r"[Oo]ver 9.5.*?escanteios.*?(\d+\.\d+)%", 
-                                    r"[Oo]ver 9.5.*?corners.*?(\d+\.\d+)%",
-                                    r"[Mm]ais de 9.5.*?escanteios.*?(\d+\.\d+)%"
+                                    r"[Oo]ver 9.5.*?escanteios.*?@([0-9.]+)",
+                                    r"[Oo]ver 9.5.*?corners.*?@([0-9.]+)",
+                                    r"[Mm]ais de 9.5.*?escanteios.*?@([0-9.]+)"
                                 ]
                                 
                                 under_patterns = [
-                                    r"[Uu]nder 9.5.*?escanteios.*?(\d+\.\d+)%", 
-                                    r"[Uu]nder 9.5.*?corners.*?(\d+\.\d+)%",
-                                    r"[Mm]enos de 9.5.*?escanteios.*?(\d+\.\d+)%"
+                                    r"[Uu]nder 9.5.*?escanteios.*?@([0-9.]+)",
+                                    r"[Uu]nder 9.5.*?corners.*?@([0-9.]+)",
+                                    r"[Mm]enos de 9.5.*?escanteios.*?@([0-9.]+)"
                                 ]
                                 
-                                # Buscar em todo o texto formatado
                                 for pattern in over_patterns:
-                                    match = re.search(pattern, formatted_analysis, re.IGNORECASE)
-                                    if match:
-                                        over_real_prob = float(match.group(1))
-                                        break
-                                
-                                for pattern in under_patterns:
-                                    match = re.search(pattern, formatted_analysis, re.IGNORECASE)
-                                    if match:
-                                        under_real_prob = float(match.group(1))
-                                        break
-                                
-                                # Buscar odds em todo o texto
-                                for pattern in over_patterns:
-                                    pattern = pattern.replace("%", "@([0-9.]+)")
                                     match = re.search(pattern, formatted_analysis, re.IGNORECASE)
                                     if match:
                                         over_odds_val = float(match.group(1))
                                         break
                                 
                                 for pattern in under_patterns:
-                                    pattern = pattern.replace("%", "@([0-9.]+)")
                                     match = re.search(pattern, formatted_analysis, re.IGNORECASE)
                                     if match:
                                         under_odds_val = float(match.group(1))
@@ -2425,13 +2501,13 @@ def show_main_dashboard():
                                 corners_data_added = False
                                 
                                 # Over 9.5
-                                if over_real_prob is not None and over_odds_val is not None:
+                                if over_real_prob is not None and over_real_prob > 0 and over_odds_val is not None:
                                     over_implied_prob = round(100 / over_odds_val, 1)
                                     over_diff = round(over_real_prob - over_implied_prob, 1)
                                     over_diff_str = f"+{over_diff}% ✅" if over_diff > 0 else f"{over_diff}% ❌"
                                     markdown_result += f"| Over 9.5 | @{over_odds_val} | {over_implied_prob}% | {over_real_prob}% | {over_diff_str} |\n"
                                     corners_data_added = True
-                                elif over_real_prob is not None:
+                                elif over_real_prob is not None and over_real_prob > 0:
                                     markdown_result += f"| Over 9.5 | - | - | {over_real_prob}% | - |\n"
                                     corners_data_added = True
                                 elif over_odds_val is not None:
@@ -2440,13 +2516,13 @@ def show_main_dashboard():
                                     corners_data_added = True
                                 
                                 # Under 9.5
-                                if under_real_prob is not None and under_odds_val is not None:
+                                if under_real_prob is not None and under_real_prob > 0 and under_odds_val is not None:
                                     under_implied_prob = round(100 / under_odds_val, 1)
                                     under_diff = round(under_real_prob - under_implied_prob, 1)
                                     under_diff_str = f"+{under_diff}% ✅" if under_diff > 0 else f"{under_diff}% ❌"
                                     markdown_result += f"| Under 9.5 | @{under_odds_val} | {under_implied_prob}% | {under_real_prob}% | {under_diff_str} |\n"
                                     corners_data_added = True
-                                elif under_real_prob is not None:
+                                elif under_real_prob is not None and under_real_prob > 0:
                                     markdown_result += f"| Under 9.5 | - | - | {under_real_prob}% | - |\n"
                                     corners_data_added = True
                                 elif under_odds_val is not None:
@@ -2464,48 +2540,32 @@ def show_main_dashboard():
                                 markdown_result += "| Resultado | Odds | Prob. Implícita | Prob. Real | Diferença |\n"
                                 markdown_result += "|-----------|------|-----------------|------------|----------|\n"
                                 
-                                # Encontrar probabilidades reais e odds para Cartões
-                                over_real_prob = None
-                                under_real_prob = None
+                                # Usar valores já extraídos
+                                over_real_prob = over_3_5_cards_real_prob
+                                under_real_prob = under_3_5_cards_real_prob
                                 over_odds_val = None
                                 under_odds_val = None
                                 
-                                # Buscar probabilidades reais com múltiplos padrões
+                                # Buscar odds em todo o texto
                                 over_patterns = [
-                                    r"[Oo]ver 3.5.*?cart[õo]es.*?(\d+\.\d+)%", 
-                                    r"[Oo]ver 3.5.*?cards.*?(\d+\.\d+)%",
-                                    r"[Mm]ais de 3.5.*?cart[õo]es.*?(\d+\.\d+)%"
+                                    r"[Oo]ver 3.5.*?cart[õo]es.*?@([0-9.]+)",
+                                    r"[Oo]ver 3.5.*?cards.*?@([0-9.]+)",
+                                    r"[Mm]ais de 3.5.*?cart[õo]es.*?@([0-9.]+)"
                                 ]
                                 
                                 under_patterns = [
-                                    r"[Uu]nder 3.5.*?cart[õo]es.*?(\d+\.\d+)%", 
-                                    r"[Uu]nder 3.5.*?cards.*?(\d+\.\d+)%",
-                                    r"[Mm]enos de 3.5.*?cart[õo]es.*?(\d+\.\d+)%"
+                                    r"[Uu]nder 3.5.*?cart[õo]es.*?@([0-9.]+)",
+                                    r"[Uu]nder 3.5.*?cards.*?@([0-9.]+)",
+                                    r"[Mm]enos de 3.5.*?cart[õo]es.*?@([0-9.]+)"
                                 ]
                                 
-                                # Buscar em todo o texto formatado
                                 for pattern in over_patterns:
-                                    match = re.search(pattern, formatted_analysis, re.IGNORECASE)
-                                    if match:
-                                        over_real_prob = float(match.group(1))
-                                        break
-                                
-                                for pattern in under_patterns:
-                                    match = re.search(pattern, formatted_analysis, re.IGNORECASE)
-                                    if match:
-                                        under_real_prob = float(match.group(1))
-                                        break
-                                
-                                # Buscar odds em todo o texto
-                                for pattern in over_patterns:
-                                    pattern = pattern.replace("%", "@([0-9.]+)")
                                     match = re.search(pattern, formatted_analysis, re.IGNORECASE)
                                     if match:
                                         over_odds_val = float(match.group(1))
                                         break
                                 
                                 for pattern in under_patterns:
-                                    pattern = pattern.replace("%", "@([0-9.]+)")
                                     match = re.search(pattern, formatted_analysis, re.IGNORECASE)
                                     if match:
                                         under_odds_val = float(match.group(1))
@@ -2515,13 +2575,13 @@ def show_main_dashboard():
                                 cards_data_added = False
                                 
                                 # Over 3.5
-                                if over_real_prob is not None and over_odds_val is not None:
+                                if over_real_prob is not None and over_real_prob > 0 and over_odds_val is not None:
                                     over_implied_prob = round(100 / over_odds_val, 1)
                                     over_diff = round(over_real_prob - over_implied_prob, 1)
                                     over_diff_str = f"+{over_diff}% ✅" if over_diff > 0 else f"{over_diff}% ❌"
                                     markdown_result += f"| Over 3.5 | @{over_odds_val} | {over_implied_prob}% | {over_real_prob}% | {over_diff_str} |\n"
                                     cards_data_added = True
-                                elif over_real_prob is not None:
+                                elif over_real_prob is not None and over_real_prob > 0:
                                     markdown_result += f"| Over 3.5 | - | - | {over_real_prob}% | - |\n"
                                     cards_data_added = True
                                 elif over_odds_val is not None:
@@ -2530,13 +2590,13 @@ def show_main_dashboard():
                                     cards_data_added = True
                                 
                                 # Under 3.5
-                                if under_real_prob is not None and under_odds_val is not None:
+                                if under_real_prob is not None and under_real_prob > 0 and under_odds_val is not None:
                                     under_implied_prob = round(100 / under_odds_val, 1)
                                     under_diff = round(under_real_prob - under_implied_prob, 1)
                                     under_diff_str = f"+{under_diff}% ✅" if under_diff > 0 else f"{under_diff}% ❌"
                                     markdown_result += f"| Under 3.5 | @{under_odds_val} | {under_implied_prob}% | {under_real_prob}% | {under_diff_str} |\n"
                                     cards_data_added = True
-                                elif under_real_prob is not None:
+                                elif under_real_prob is not None and under_real_prob > 0:
                                     markdown_result += f"| Under 3.5 | - | - | {under_real_prob}% | - |\n"
                                     cards_data_added = True
                                 elif under_odds_val is not None:
@@ -2595,8 +2655,7 @@ def show_main_dashboard():
                                 credits_after = updated_stats['credits_remaining']
                                 st.success(f"{num_markets} créditos foram consumidos. Agora você tem {credits_after} créditos.")
                             else:
-                                st.error("Não foi possível registrar o uso dos créditos. Por favor, tente novamente.")
-                
+                                st.error("Não foi possível registrar o uso dos créditos. Por favor, tente novamente.")                
                     except Exception as analysis_error:
                             logger.error(f"Erro durante a análise: {str(analysis_error)}")
                             logger.error(traceback.format_exc())
