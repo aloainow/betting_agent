@@ -1654,19 +1654,46 @@ def show_main_dashboard():
                                     elif under_2_5_real_prob > 0 and over_2_5_real_prob == 0:
                                         over_2_5_real_prob = 100 - under_2_5_real_prob
                                         
-                            # Padrões para ambos marcam
+                           
+                            # Padrões para ambos marcam - versão melhorada
                             for selection in ["Sim", "Não", "Yes", "No"]:
-                                real_prob_match = re.search(f"{selection}.*?(\d+\.\d+)%", prob_section, re.IGNORECASE)
-                                odds_match = re.search(f"{selection}.*?@([0-9.]+)", market_section, re.IGNORECASE)
+                                # Padrões expandidos que cobrem mais formatos possíveis
+                                patterns = [
+                                    f"{selection}.*?(\d+\.\d+)%", 
+                                    f"{selection.lower()}.*?(\d+\.\d+)%",
+                                    f"Ambos Marcam.*?{selection}.*?(\d+\.\d+)%",
+                                    f"BTTS.*?{selection}.*?(\d+\.\d+)%",
+                                    f"ambos marcam.*?{selection.lower()}.*?(\d+\.\d+)%"
+                                ]
                                 
-                                if real_prob_match:
-                                    real_prob = float(real_prob_match.group(1))
-                                    
-                                    # Armazenar probabilidade real para btts
-                                    if selection in ["Sim", "Yes"]:
-                                        btts_yes_real_prob = real_prob
-                                    else:
-                                        btts_no_real_prob = real_prob
+                                found = False
+                                for pattern in patterns:
+                                    real_prob_match = re.search(pattern, prob_section, re.IGNORECASE)
+                                    if real_prob_match:
+                                        real_prob = float(real_prob_match.group(1))
+                                        
+                                        # Armazenar probabilidade real para btts
+                                        if selection in ["Sim", "Yes"]:
+                                            btts_yes_real_prob = real_prob
+                                        else:
+                                            btts_no_real_prob = real_prob
+                                        
+                                        found = True
+                                        break
+                                
+                                # Se não encontrou na seção de probabilidades, busque em todo o texto
+                                if not found:
+                                    for pattern in patterns:
+                                        real_prob_match = re.search(pattern, formatted_analysis, re.IGNORECASE)
+                                        if real_prob_match:
+                                            real_prob = float(real_prob_match.group(1))
+                                            
+                                            if selection in ["Sim", "Yes"]:
+                                                btts_yes_real_prob = real_prob
+                                            else:
+                                                btts_no_real_prob = real_prob
+                                            
+                                            break
                                         
                                     if odds_match:
                                         odds_val = float(odds_match.group(1))
