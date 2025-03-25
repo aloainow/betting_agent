@@ -567,7 +567,6 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
         * Under 3.5: {under_3_5_cards_prob:.1f}%
         * Total esperado de cartões: {total_cards_expected:.1f}
         """
-
         probability_section += f"""
 ### Índices de Confiança
 * Consistência {home_team}: {home_consistency:.1f}%
@@ -583,20 +582,20 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
 """
 
         # 8. INSTRUCTIONS
-# First, prepare a list of selected market names for the instructions
-selected_market_names = []
-if selected_markets.get("money_line", False):
-    selected_market_names.append("Money Line (1X2)")
-if selected_markets.get("chance_dupla", False):
-    selected_market_names.append("Chance Dupla (Double Chance)")
-if selected_markets.get("over_under", False):
-    selected_market_names.append("Over/Under 2.5 Gols")
-if selected_markets.get("ambos_marcam", False):
-    selected_market_names.append("Ambos Marcam (BTTS)")
-if selected_markets.get("escanteios", False):
-    selected_market_names.append("Escanteios (Over/Under 9.5)")
-if selected_markets.get("cartoes", False):
-    selected_market_names.append("Cartões (Over/Under 3.5)")
+        # First, prepare a list of selected market names for the instructions
+        selected_market_names = []
+        if selected_markets.get("money_line", False):
+            selected_market_names.append("Money Line (1X2)")
+        if selected_markets.get("chance_dupla", False):
+            selected_market_names.append("Chance Dupla (Double Chance)")
+        if selected_markets.get("over_under", False):
+            selected_market_names.append("Over/Under 2.5 Gols")
+        if selected_markets.get("ambos_marcam", False):
+            selected_market_names.append("Ambos Marcam (BTTS)")
+        if selected_markets.get("escanteios", False):
+            selected_market_names.append("Escanteios (Over/Under 9.5)")
+        if selected_markets.get("cartoes", False):
+            selected_market_names.append("Cartões (Over/Under 3.5)")
 
 # Join the market names into a string
 selected_markets_str = ", ".join(selected_market_names)
