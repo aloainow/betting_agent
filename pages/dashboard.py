@@ -1490,425 +1490,105 @@ def show_main_dashboard():
                             status.error("Falha ao preparar análise")
                             return
                         
-                        # Etapa 4: Análise GPT
-                        status.info("Realizando análise com IA...")
-                        analysis = analyze_with_gpt(prompt)
-                        if not analysis:
-                            status.error("Falha na análise com IA")
-                            return
-                        
                         # Etapa 5: Mostrar resultado
                         if analysis:
                             # Limpar status
                             status.empty()
                             
-                            # Limpar possíveis tags HTML da resposta
-                            if isinstance(analysis, str):
-                                # Verificar se a análise começa com a tag de div
-                                if "<div class=\"analysis-result\">" in analysis:
-                                    analysis = analysis.replace("<div class=\"analysis-result\">", "")
-                                    if "</div>" in analysis:
-                                        analysis = analysis.replace("</div>", "")
+                            # Log da análise recebida para diagnóstico
+                            logger.info(f"Análise recebida com {len(analysis)} caracteres")
                             
-                            # NOVO: Formatar a resposta para garantir que tenha todas as seções
-                            from utils.ai import format_analysis_response
-                            formatted_analysis = format_analysis_response(analysis, home_team, away_team)
-                            
-                            # Exibir a análise em uma div com largura total
-                            def format_analysis_display(analysis, home_team, away_team, selected_markets):
-                                """
-                                Formata a análise utilizando componentes nativos do Streamlit
-                                extraindo os dados diretamente do texto da análise
-                                
-                                Args:
-                                    analysis (str): O texto da análise do agente de IA
-                                    home_team (str): Nome do time da casa
-                                    away_team (str): Nome do time visitante
-                                    selected_markets (dict): Dicionário com os mercados selecionados
-                                """
-                                import re
-                                import pandas as pd
-                                
-                                # Adicionar CSS para estilização
-                                st.markdown("""
+                            try:
+                                # Exibir a análise usando estilo básico
+                                st.markdown(f'''
                                 <style>
-                                .section-title {
-                                    font-size: 1.5rem;
-                                    font-weight: bold;
+                                .analysis-result {{
+                                    width: 100%;
+                                    padding: 1.5rem;
+                                    background-color: #1e293b;
+                                    color: white;
+                                    border-radius: 0.5rem;
+                                    margin: 1rem 0;
+                                }}
+                                .analysis-result h1, 
+                                .analysis-result h2 {{
                                     color: #fd7014;
+                                    font-size: 1.5rem;
                                     margin-top: 1.5rem;
                                     margin-bottom: 1rem;
-                                }
-                                .positive {
-                                    color: #4ade80;
-                                }
-                                .negative {
-                                    color: #f87171;
-                                }
+                                }}
+                                .analysis-result h3 {{
+                                    color: #fd7014;
+                                    font-size: 1.25rem;
+                                    margin-top: 1.25rem;
+                                    margin-bottom: 0.75rem;
+                                }}
+                                .analysis-result p {{
+                                    margin-bottom: 1rem;
+                                }}
+                                .analysis-result ul, 
+                                .analysis-result ol {{
+                                    margin-left: 1.5rem;
+                                    margin-bottom: 1rem;
+                                }}
+                                .analysis-result strong {{
+                                    color: #f97316;
+                                }}
+                                .analysis-result table {{
+                                    width: 100%;
+                                    border-collapse: collapse;
+                                    margin-bottom: 1rem;
+                                }}
+                                .analysis-result th, 
+                                .analysis-result td {{
+                                    padding: 0.5rem;
+                                    border: 1px solid #4b5563;
+                                }}
+                                .analysis-result th {{
+                                    background-color: #374151;
+                                }}
                                 </style>
-                                """, unsafe_allow_html=True)
+                                <div class="analysis-result">{analysis}</div>
+                                ''', unsafe_allow_html=True)
                                 
-                                # Título principal usando componentes nativos do Streamlit
-                                st.title(f"📊 Análise da Partida")
-                                st.subheader(f"{home_team} vs {away_team}")
-                                st.markdown("---")
+                                # Registrar uso após análise bem-sucedida
+                                num_markets = sum(1 for v in selected_markets.values() if v)
                                 
-                                # DIAGNÓSTICO: Verificar se a análise está presente e não está vazia
-                                if not analysis or not isinstance(analysis, str) or len(analysis.strip()) < 10:
-                                    st.error("A análise está vazia ou inválida.")
-                                    return False
-                                
-                                # Modo de diagnóstico (ative para depuração)
-                                debug_mode = False
-                                if debug_mode:
-                                    with st.expander("Diagnóstico: Texto da análise", expanded=False):
-                                        st.code(analysis)
-                                
-                                # Extrair oportunidades identificadas com diferentes padrões
-                                opportunities = []
-                                
-                                # Padrão 1: Formato comum com "Oportunidades Identificadas:"
-                                opp_section = re.search(r"(?:Oportunidades Identificadas|OPORTUNIDADES IDENTIFICADAS).*?:(.*?)(?:[#*]{1,2}\s*Nível de Confiança|\Z)", analysis, re.DOTALL | re.IGNORECASE)
-                                
-                                # Padrão 2: Formato alternativo com "* Money Line:" direto
-                                if not opp_section:
-                                    opp_section = re.search(r"(?:[#*]{1,2}\s*Money Line|[#*]{1,2}\s*Mercado).*?:(.*?)(?:[#*]{1,2}\s*(?:Nível|Probabilidades)|\Z)", analysis, re.DOTALL | re.IGNORECASE)
-                                
-                                if opp_section:
-                                    opp_text = opp_section.group(1)
-                                    
-                                    # Buscar diferentes padrões de oportunidades
-                                    # Padrão 1: "* **Money Line:** ... (Valor: +7.5%)"
-                                    market_matches = re.finditer(r"[*-]\s*(?:\*\*)?([^:]+?)(?:\*\*)?:.*?(?:Valor|vantagem):?\s*\+?([\d.]+)%", opp_text, re.DOTALL | re.IGNORECASE)
-                                    
-                                    for market_match in market_matches:
-                                        market_name = market_match.group(1).strip()
-                                        advantage = market_match.group(2).strip()
-                                        
-                                        # Procurar a seleção específica
-                                        selection_match = re.search(fr"{re.escape(market_name)}.*?([^:]+?)(?:Real|@)", opp_text, re.DOTALL | re.IGNORECASE)
-                                        selection = selection_match.group(1).strip() if selection_match else ""
-                                        
-                                        # Procurar odds
-                                        odds_match = re.search(fr"{re.escape(market_name)}.*?(@[\d.]+)", opp_text, re.DOTALL | re.IGNORECASE)
-                                        odds = odds_match.group(1) if odds_match else ""
-                                        
-                                        # Determinar estrelas de confiança com base na vantagem
-                                        confidence = "⭐"
-                                        try:
-                                            adv_value = float(advantage)
-                                            if adv_value > 10:
-                                                confidence = "⭐⭐⭐"
-                                            elif adv_value > 5:
-                                                confidence = "⭐⭐"
-                                        except:
-                                            pass
-                                        
-                                        opportunities.append({
-                                            "Mercado": market_name,
-                                            "Seleção": selection,
-                                            "Odds": odds,
-                                            "Vantagem": f"+{advantage}%",
-                                            "Confiança": confidence
-                                        })
-                                
-                                # Seção de oportunidades identificadas
-                                st.markdown("<div class='section-title'>🎯 Oportunidades Identificadas</div>", unsafe_allow_html=True)
-                                
-                                if opportunities:
-                                    opp_df = pd.DataFrame(opportunities)
-                                    st.table(opp_df)
-                                else:
-                                    st.info("Nenhuma oportunidade identificada com vantagem significativa.")
-                                
-                                # Extrair e organizar dados para cada mercado
-                                markets_data = {}
-                                
-                                # Definir nomes de mercado e suas variações possíveis no texto
-                                market_patterns = {
-                                    "money_line": ["Money Line", "Moneyline", "1X2", "Money-Line"],
-                                    "over_under": ["Over/Under", "Over Under", "Over/Under 2.5", "Total de Gols"],
-                                    "chance_dupla": ["Chance Dupla", "Double Chance", "Dupla Chance"],
-                                    "ambos_marcam": ["Ambos Marcam", "BTTS", "Ambas Equipes Marcam"],
-                                    "escanteios": ["Total de Escanteios", "Escanteios", "Corner", "Corners"],
-                                    "cartoes": ["Total de Cartões", "Cartões", "Cards", "Cartoes"]
+                                # Registro de uso com dados detalhados
+                                analysis_data = {
+                                    "league": selected_league,
+                                    "home_team": home_team,
+                                    "away_team": away_team,
+                                    "markets_used": [k for k, v in selected_markets.items() if v]
                                 }
                                 
-                                # Tentar diferentes padrões para a seção de probabilidades
-                                prob_patterns = [
-                                    r"Probabilidades Calculadas.*?(?:REAL|IMPLÍCITA).*?:(.*?)(?:[#*]{1,2}\s*Oportunidades|\Z)",
-                                    r"Comparativo de Probabilidades.*?:(.*?)(?:[#*]{1,2}\s*(?:Oportunidades|Nível)|\Z)",
-                                    r"PROBABILIDADES CALCULADAS.*?:(.*?)(?:[#*]{1,2}\s*(?:OPORTUNIDADES|NÍVEL)|\Z)"
-                                ]
+                                success = st.session_state.user_manager.record_usage(
+                                    st.session_state.email, 
+                                    num_markets,
+                                    analysis_data
+                                )
                                 
-                                prob_section = None
-                                for pattern in prob_patterns:
-                                    prob_match = re.search(pattern, analysis, re.DOTALL | re.IGNORECASE)
-                                    if prob_match:
-                                        prob_section = prob_match
-                                        break
-                                
-                                if prob_section:
-                                    prob_text = prob_section.group(1)
+                                if success:
+                                    # Forçar atualização do cache de estatísticas
+                                    if hasattr(st.session_state, 'user_stats_cache'):
+                                        del st.session_state.user_stats_cache  # Remover cache para forçar reload
                                     
-                                    # Para cada mercado possível
-                                    for market_key, patterns in market_patterns.items():
-                                        # Se o mercado não foi selecionado, pule
-                                        if not selected_markets.get(market_key, False):
-                                            continue
-                                            
-                                        # Procurar por qualquer padrão que corresponda a este mercado
-                                        market_found = False
-                                        for pattern in patterns:
-                                            # Tentar diferentes formatos de cabeçalho de mercado
-                                            market_patterns = [
-                                                fr"[#*]{{1,2}}\s*(?:\*\*)?{re.escape(pattern)}[^:]*?(?:\*\*)?:(.*?)(?=[#*]{{1,2}}\s+|$)",
-                                                fr"{re.escape(pattern)}[^:]*?:(.*?)(?=[#*]{{1,2}}\s+|$)",
-                                                fr"[#*]{{1,2}}\s*{re.escape(pattern)}(.*?)(?=[#*]{{1,2}}\s+|$)"
-                                            ]
-                                            
-                                            for market_pattern in market_patterns:
-                                                market_match = re.search(market_pattern, prob_text, re.DOTALL | re.IGNORECASE)
-                                                if market_match:
-                                                    market_name = pattern
-                                                    market_content = market_match.group(1).strip()
-                                                    
-                                                    # Extrair linhas individuais
-                                                    rows = []
-                                                    
-                                                    # Tentar diferentes padrões para linhas de resultado
-                                                    line_patterns = [
-                                                        r"\*\s+(.*?):\s+Real\s+([\d.]+)%\s+vs\s+Implícita\s+([\d.]+)%",
-                                                        r"\*\s+(.*?):\s+(?:Implícita|Odds)?.*?(@[\d.]+).*?([\d.]+)%.*?([\d.]+)%",
-                                                        r"(?:^|\n)-?\s*([\w\s()]+?)(?::|@)(.*?)(?:Real|Implícita).*?([\d.]+)%.*?([\d.]+)%"
-                                                    ]
-                                                    
-                                                    line_matches = None
-                                                    for line_pattern in line_patterns:
-                                                        matches = list(re.finditer(line_pattern, market_content, re.MULTILINE | re.DOTALL | re.IGNORECASE))
-                                                        if matches:
-                                                            line_matches = matches
-                                                            break
-                                                    
-                                                    if line_matches:
-                                                        for line_match in line_matches:
-                                                            # Adaptar baseado no padrão encontrado
-                                                            if len(line_match.groups()) == 3:  # Primeiro padrão
-                                                                result = line_match.group(1).strip()
-                                                                real_prob = line_match.group(2) + "%"
-                                                                implicit_prob = line_match.group(3) + "%"
-                                                                
-                                                                # Extrair odds de outro lugar
-                                                                odds = ""
-                                                                odds_match = re.search(fr"{re.escape(result)}.*?(@[\d.]+)", analysis, re.DOTALL | re.IGNORECASE)
-                                                                if odds_match:
-                                                                    odds = odds_match.group(1)
-                                                                    
-                                                            elif len(line_match.groups()) == 4:  # Segundo ou terceiro padrão
-                                                                result = line_match.group(1).strip()
-                                                                try:
-                                                                    # Tentar extrair a odds diretamente
-                                                                    odds_test = line_match.group(2).strip()
-                                                                    if '@' in odds_test:
-                                                                        odds = odds_test
-                                                                    else:
-                                                                        odds = "@" + odds_test.replace("@", "")
-                                                                except:
-                                                                    odds = ""
-                                                                    
-                                                                # Tentar determinar qual é real e qual é implícita
-                                                                try:
-                                                                    real_prob = line_match.group(4) + "%"
-                                                                    implicit_prob = line_match.group(3) + "%"
-                                                                except:
-                                                                    continue  # Pular esta linha se não conseguir extrair
-                                                            else:
-                                                                # Formato desconhecido, pular
-                                                                continue
-                                                            
-                                                            # Calcular diferença
-                                                            try:
-                                                                real_val = float(real_prob.replace("%", ""))
-                                                                implicit_val = float(implicit_prob.replace("%", ""))
-                                                                diff = real_val - implicit_val
-                                                                diff_str = f"{diff:+.1f}% {'✅' if diff > 0 else '❌'}"
-                                                            except:
-                                                                diff_str = ""
-                                                            
-                                                            rows.append({
-                                                                "Resultado": result,
-                                                                "Odds": odds,
-                                                                "Prob. Implícita": implicit_prob,
-                                                                "Prob. Real": real_prob,
-                                                                "Diferença": diff_str
-                                                            })
-                                                    
-                                                    if rows:
-                                                        markets_data[market_name] = pd.DataFrame(rows)
-                                                        market_found = True
-                                                        break
-                                            
-                                            if market_found:
-                                                break
-                                
-                                # Seção de comparativo de probabilidades
-                                st.markdown("<div class='section-title'>📈 Comparativo de Probabilidades</div>", unsafe_allow_html=True)
-                                
-                                # Criar abas apenas para os mercados que têm dados disponíveis
-                                tab_names = list(markets_data.keys())
-                                
-                                # Se não houver mercados com dados, mostrar mensagem
-                                if not tab_names:
-                                    st.info("Nenhum dado disponível para os mercados selecionados.")
+                                    # Mostrar mensagem de sucesso com créditos restantes
+                                    updated_stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
+                                    credits_after = updated_stats['credits_remaining']
+                                    st.success(f"{num_markets} créditos foram consumidos. Agora você tem {credits_after} créditos.")
                                 else:
-                                    # Criar abas dinamicamente
-                                    tabs = st.tabs(tab_names)
-                                    
-                                    # Preencher cada aba com dados
-                                    for i, market_name in enumerate(tab_names):
-                                        with tabs[i]:
-                                            st.table(markets_data[market_name])
-                                
-                                # Extrair informações de confiança
-                                conf_patterns = [
-                                    r"Nível de Confiança Geral:\s+(.*?)(?:\*\*|\n)(.*?)(?:\Z|# )",
-                                    r"NÍVEL DE CONFIANÇA.*?:\s*(.*?)(?:\n)(.*?)(?:\Z|# )",
-                                    r"Confiança[^:]*?:\s*(.*?)(?:\n)(.*?)(?:\Z|# )"
-                                ]
-                                
-                                confidence_section = None
-                                for pattern in conf_patterns:
-                                    conf_match = re.search(pattern, analysis, re.DOTALL | re.IGNORECASE)
-                                    if conf_match:
-                                        confidence_section = conf_match
-                                        break
-                                
-                                if confidence_section:
-                                    conf_level = confidence_section.group(1).strip()
-                                    conf_content = confidence_section.group(2).strip()
-                                    
-                                    # Extrair estrelas para o nível de confiança
-                                    stars = ""
-                                    if "⭐" in conf_content or "⭐" in conf_level:
-                                        # Extrair estrelas diretamente
-                                        stars_match = re.search(r"(⭐+)", conf_content + conf_level)
-                                        if stars_match:
-                                            stars = stars_match.group(1)
-                                    
-                                    # Tentar extrair valores de consistência e forma, com diferentes padrões
-                                    home_consistency = ""
-                                    away_consistency = ""
-                                    home_form = ""
-                                    away_form = ""
-                                    
-                                    # Tentar extrair consistência
-                                    consistency_patterns = [
-                                        r"Consistência.*?(\d+\.\d+).*?(\d+\.\d+)",
-                                        r"consistência.*?(\d+[\.,]\d+).*?(\d+[\.,]\d+)",
-                                        r"CD Eldense.*?(\d+[\.,]\d+).*?Burgos CF.*?(\d+[\.,]\d+)"
-                                    ]
-                                    
-                                    for pattern in consistency_patterns:
-                                        consistency_match = re.search(pattern, conf_content, re.DOTALL | re.IGNORECASE)
-                                        if consistency_match:
-                                            home_consistency = consistency_match.group(1).replace(",", ".") + "%"
-                                            away_consistency = consistency_match.group(2).replace(",", ".") + "%"
-                                            break
-                                    
-                                    # Tentar extrair forma recente
-                                    form_patterns = [
-                                        r"[Ff]orma.*?(\d+[\.,]\d+/\d+).*?(\d+[\.,]\d+/\d+)",
-                                        r"pontos.*?(\d+[\.,]\d+/\d+).*?(\d+[\.,]\d+/\d+)",
-                                        r"CD Eldense.*?(\d+[\.,]\d+/\d+).*?Burgos CF.*?(\d+[\.,]\d+/\d+)"
-                                    ]
-                                    
-                                    for pattern in form_patterns:
-                                        form_match = re.search(pattern, conf_content, re.DOTALL | re.IGNORECASE)
-                                        if form_match:
-                                            home_form = form_match.group(1).replace(",", ".")
-                                            away_form = form_match.group(2).replace(",", ".")
-                                            break
-                                    
-                                    # Seção de análise de confiança (apenas se tiver dados extraídos)
-                                    st.markdown("<div class='section-title'>🔍 Análise de Confiança</div>", unsafe_allow_html=True)
-                                    
-                                    # Usar expander para análise de confiança
-                                    with st.expander(f"Nível de Confiança Geral: {conf_level} {stars}", expanded=True):
-                                        if home_consistency and away_consistency:
-                                            st.markdown("### Consistência das Equipes")
-                                            st.markdown(f"• **{home_team}**: {home_consistency}")
-                                            st.markdown(f"• **{away_team}**: {away_consistency}")
+                                    st.error("Não foi possível registrar o uso dos créditos. Por favor, tente novamente.")
                                         
-                                        if home_form and away_form:
-                                            st.markdown("### Forma Recente (últimos 5 jogos)")
-                                            st.markdown(f"• **{home_team}**: {home_form}")
-                                            st.markdown(f"• **{away_team}**: {away_form}")
-                                        
-                                        # Observações - extrair apenas o que for encontrado, sem fallbacks
-                                        observations = []
-                                        
-                                        # Tentar vários padrões para extrair observações
-                                        observation_patterns = [
-                                            r"\*\s+(.*?)(?=\*\s+|$)",
-                                            r"-\s+(.*?)(?=\n|\r|$)",
-                                            r"•\s+(.*?)(?=\n|\r|$)"
-                                        ]
-                                        
-                                        for pattern in observation_patterns:
-                                            obs_matches = re.finditer(pattern, conf_content, re.MULTILINE)
-                                            for obs_match in obs_matches:
-                                                obs_text = obs_match.group(1).strip()
-                                                if len(obs_text) > 10:  # Filtrar para evitar pegar fragmentos
-                                                    observations.append(obs_text)
-                                            
-                                            if observations:
-                                                break
-                                        
-                                        # Se encontrou observações, exibi-las
-                                        if observations:
-                                            st.markdown("### Observações")
-                                            for obs in observations:
-                                                st.markdown(f"• {obs}")
-                                        
-                                        # Se não encontramos dados estruturados, mostrar o texto bruto
-                                        if not (home_consistency or home_form or observations):
-                                            st.markdown(conf_content)
-                                else:
-                                    # Se não encontrou seção de confiança, não mostrar nada (sem fallback)
-                                    st.markdown("<div class='section-title'>🔍 Análise de Confiança</div>", unsafe_allow_html=True)
-                                    st.info("Dados de confiança não encontrados na análise.")
+                            except Exception as display_error:
+                                logger.error(f"Erro ao exibir análise: {str(display_error)}")
+                                logger.error(traceback.format_exc())
+                                st.error(f"Erro ao exibir análise: {str(display_error)}")
                                 
-                                return True                                
-                                
-                            
-                            # Registrar uso após análise bem-sucedida
-                            num_markets = sum(1 for v in selected_markets.values() if v)
-    
-                            
-                            # Registro de uso com dados detalhados
-                            analysis_data = {
-                                "league": selected_league,
-                                "home_team": home_team,
-                                "away_team": away_team,
-                                "markets_used": [k for k, v in selected_markets.items() if v]
-                            }
-                            success = st.session_state.user_manager.record_usage(
-                                st.session_state.email, 
-                                num_markets,
-                                analysis_data
-                            )
-                            
-                            if success:
-                                # Forçar atualização do cache de estatísticas
-                                if hasattr(st.session_state, 'user_stats_cache'):
-                                    del st.session_state.user_stats_cache  # Remover cache para forçar reload
-                                
-                                # Mostrar mensagem de sucesso com créditos restantes
-                                updated_stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
-                                credits_after = updated_stats['credits_remaining']
-                                st.success(f"{num_markets} créditos foram consumidos. Agora você tem {credits_after} créditos.")
-                            else:
-                                st.error("Não foi possível registrar o uso dos créditos. Por favor, tente novamente.")
+                                # Como fallback, exibir texto bruto
+                                st.text_area("Análise (texto bruto):", value=analysis, height=500)
+                        else:
+                            status.error("Não foi possível obter análise do modelo de IA")
                                     
                     except Exception as analysis_error:
                         logger.error(f"Erro durante a análise: {str(analysis_error)}")
