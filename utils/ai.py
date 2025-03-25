@@ -597,46 +597,46 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
         if selected_markets.get("cartoes", False):
             selected_market_names.append("Cartões (Over/Under 3.5)")
 
-# Join the market names into a string
-selected_markets_str = ", ".join(selected_market_names)
-
-instructions = f"""
-# INSTRUÇÕES PARA ANÁLISE
-
-Analise os dados estatísticos fornecidos para identificar valor nas odds.
-Você é um especialista em probabilidades esportivas que utiliza nosso método avançado de Dispersão e Ponderação.
-
-IMPORTANTE: As probabilidades REAIS já foram calculadas para você para os seguintes mercados selecionados e somam exatamente 100% em cada mercado:
-{selected_markets_str}
-
-Todas as probabilidades reais estão na seção "PROBABILIDADES CALCULADAS".
-
-VOCÊ DEVE responder EXATAMENTE no formato abaixo:
-
-# Análise da Partida
-## {home_team} x {away_team}
-
-# Análise de Mercados Disponíveis:
-[Resumo detalhado APENAS dos mercados selecionados ({selected_markets_str}) com suas odds e probabilidades implícitas]
-
-# Probabilidades Calculadas (REAL vs IMPLÍCITA):
-[Compare as probabilidades REAIS calculadas com as probabilidades IMPLÍCITAS nas odds APENAS para os mercados selecionados ({selected_markets_str})]
-
-# Oportunidades Identificadas:
-[Liste cada mercado onde você encontrou valor/edge, mostrando a porcentagem de vantagem]
-- Considere valor quando a probabilidade real for pelo menos 2% maior que a implícita
-
-# Nível de Confiança Geral: [Baixo/Médio/Alto]
-[Explique o nível de confiança, incluindo uma explicação clara sobre:
-- O que significa "consistência" (a previsibilidade do desempenho do time)
-- O que significam os valores de forma (X.X/15) - explicando que são pontos dos últimos 5 jogos
-- Como esses fatores influenciam sua confiança na análise]
-
-ATENÇÃO: Ao explicar o nível de confiança, sempre esclareça que:
-- Consistência é uma medida (%) que indica quão previsível é o desempenho da equipe
-- Forma (X.X/15) representa a pontuação dos últimos 5 jogos (vitória=3pts, empate=1pt, derrota=0pts)
-- Valores mais altos em ambas métricas aumentam a confiança na previsão
-"""
+        # Join the market names into a string
+        selected_markets_str = ", ".join(selected_market_names)
+        
+        instructions = f"""
+        # INSTRUÇÕES PARA ANÁLISE
+        
+        Analise os dados estatísticos fornecidos para identificar valor nas odds.
+        Você é um especialista em probabilidades esportivas que utiliza nosso método avançado de Dispersão e Ponderação.
+        
+        IMPORTANTE: As probabilidades REAIS já foram calculadas para você para os seguintes mercados selecionados e somam exatamente 100% em cada mercado:
+        {selected_markets_str}
+        
+        Todas as probabilidades reais estão na seção "PROBABILIDADES CALCULADAS".
+        
+        VOCÊ DEVE responder EXATAMENTE no formato abaixo:
+        
+        # Análise da Partida
+        ## {home_team} x {away_team}
+        
+        # Análise de Mercados Disponíveis:
+        [Resumo detalhado APENAS dos mercados selecionados ({selected_markets_str}) com suas odds e probabilidades implícitas]
+        
+        # Probabilidades Calculadas (REAL vs IMPLÍCITA):
+        [Compare as probabilidades REAIS calculadas com as probabilidades IMPLÍCITAS nas odds APENAS para os mercados selecionados ({selected_markets_str})]
+        
+        # Oportunidades Identificadas:
+        [Liste cada mercado onde você encontrou valor/edge, mostrando a porcentagem de vantagem]
+        - Considere valor quando a probabilidade real for pelo menos 2% maior que a implícita
+        
+        # Nível de Confiança Geral: [Baixo/Médio/Alto]
+        [Explique o nível de confiança, incluindo uma explicação clara sobre:
+        - O que significa "consistência" (a previsibilidade do desempenho do time)
+        - O que significam os valores de forma (X.X/15) - explicando que são pontos dos últimos 5 jogos
+        - Como esses fatores influenciam sua confiança na análise]
+        
+        ATENÇÃO: Ao explicar o nível de confiança, sempre esclareça que:
+        - Consistência é uma medida (%) que indica quão previsível é o desempenho da equipe
+        - Forma (X.X/15) representa a pontuação dos últimos 5 jogos (vitória=3pts, empate=1pt, derrota=0pts)
+        - Valores mais altos em ambas métricas aumentam a confiança na previsão
+        """
 
         # Adicionar aviso quando utilizamos o modelo de fallback
         if not has_stats_data:
