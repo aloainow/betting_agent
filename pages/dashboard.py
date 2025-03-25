@@ -1515,7 +1515,7 @@ def show_main_dashboard():
                             formatted_analysis = format_analysis_response(analysis, home_team, away_team)
                             
                             # Exibir a análise em uma div com largura total
-                            def format_analysis_display(analysis, home_team, away_team, selected_markets):
+                          def format_analysis_display(analysis, home_team, away_team, selected_markets):
                                 """
                                 Formata a análise utilizando componentes nativos do Streamlit
                                 extraindo os dados diretamente do texto da análise
@@ -1553,55 +1553,71 @@ def show_main_dashboard():
                                 st.subheader(f"{home_team} vs {away_team}")
                                 st.markdown("---")
                                 
-                                # Extrair oportunidades identificadas
+                                # DIAGNÓSTICO: Verificar se a análise está presente e não está vazia
+                                if not analysis or not isinstance(analysis, str) or len(analysis.strip()) < 10:
+                                    st.error("A análise está vazia ou inválida.")
+                                    return False
+                                
+                                # Modo de diagnóstico (ative para depuração)
+                                debug_mode = False
+                                if debug_mode:
+                                    with st.expander("Diagnóstico: Texto da análise", expanded=False):
+                                        st.code(analysis)
+                                
+                                # Extrair oportunidades identificadas com diferentes padrões
                                 opportunities = []
-                                opp_section = re.search(r"\*\*Oportunidades Identificadas:\*\*(.*?)(?:\*\*Nível de Confiança|$)", analysis, re.DOTALL)
+                                
+                                # Padrão 1: Formato comum com "Oportunidades Identificadas:"
+                                opp_section = re.search(r"(?:Oportunidades Identificadas|OPORTUNIDADES IDENTIFICADAS).*?:(.*?)(?:[#*]{1,2}\s*Nível de Confiança|\Z)", analysis, re.DOTALL | re.IGNORECASE)
+                                
+                                # Padrão 2: Formato alternativo com "* Money Line:" direto
+                                if not opp_section:
+                                    opp_section = re.search(r"(?:[#*]{1,2}\s*Money Line|[#*]{1,2}\s*Mercado).*?:(.*?)(?:[#*]{1,2}\s*(?:Nível|Probabilidades)|\Z)", analysis, re.DOTALL | re.IGNORECASE)
                                 
                                 if opp_section:
                                     opp_text = opp_section.group(1)
-                                    # Extrair cada mercado com oportunidade
-                                    market_matches = re.finditer(r"\*\s+\*\*([^:]+):\*\*(.*?)(?=\*\s+\*\*|$)", opp_text, re.DOTALL)
+                                    
+                                    # Buscar diferentes padrões de oportunidades
+                                    # Padrão 1: "* **Money Line:** ... (Valor: +7.5%)"
+                                    market_matches = re.finditer(r"[*-]\s*(?:\*\*)?([^:]+?)(?:\*\*)?:.*?(?:Valor|vantagem):?\s*\+?([\d.]+)%", opp_text, re.DOTALL | re.IGNORECASE)
                                     
                                     for market_match in market_matches:
                                         market_name = market_match.group(1).strip()
-                                        market_content = market_match.group(2).strip()
+                                        advantage = market_match.group(2).strip()
                                         
-                                        # Extrair seleções dentro deste mercado
-                                        selection_matches = re.finditer(r"\*\s+(.*?):\s+Real\s+([\d.]+)%\s+vs\s+Implícita\s+([\d.]+)%\s+\(Valor:\s+\+([\d.]+)%\)", market_content)
+                                        # Procurar a seleção específica
+                                        selection_match = re.search(fr"{re.escape(market_name)}.*?([^:]+?)(?:Real|@)", opp_text, re.DOTALL | re.IGNORECASE)
+                                        selection = selection_match.group(1).strip() if selection_match else ""
                                         
-                                        for selection_match in selection_matches:
-                                            selection = selection_match.group(1).strip()
-                                            real_prob = selection_match.group(2)
-                                            implicit_prob = selection_match.group(3)
-                                            advantage = selection_match.group(4)
-                                            
-                                            # Extrair odds da seção de análise de mercados
-                                            odds = "@0.00"  # Valor padrão
-                                            odds_match = re.search(f"{re.escape(selection)}:\\s+(@[\\d.]+)", analysis)
-                                            if odds_match:
-                                                odds = odds_match.group(1)
-                                            
-                                            # Determinar estrelas de confiança com base na vantagem
-                                            confidence = "⭐"
-                                            if float(advantage) > 10:
+                                        # Procurar odds
+                                        odds_match = re.search(fr"{re.escape(market_name)}.*?(@[\d.]+)", opp_text, re.DOTALL | re.IGNORECASE)
+                                        odds = odds_match.group(1) if odds_match else ""
+                                        
+                                        # Determinar estrelas de confiança com base na vantagem
+                                        confidence = "⭐"
+                                        try:
+                                            adv_value = float(advantage)
+                                            if adv_value > 10:
                                                 confidence = "⭐⭐⭐"
-                                            elif float(advantage) > 5:
+                                            elif adv_value > 5:
                                                 confidence = "⭐⭐"
-                                            
-                                            opportunities.append({
-                                                "Mercado": market_name,
-                                                "Seleção": selection,
-                                                "Odds": odds,
-                                                "Vantagem": f"+{advantage}%",
-                                                "Confiança": confidence
-                                            })
+                                        except:
+                                            pass
+                                        
+                                        opportunities.append({
+                                            "Mercado": market_name,
+                                            "Seleção": selection,
+                                            "Odds": odds,
+                                            "Vantagem": f"+{advantage}%",
+                                            "Confiança": confidence
+                                        })
                                 
                                 # Seção de oportunidades identificadas
                                 st.markdown("<div class='section-title'>🎯 Oportunidades Identificadas</div>", unsafe_allow_html=True)
                                 
                                 if opportunities:
                                     opp_df = pd.DataFrame(opportunities)
-                                    st.table(opp_df)  # Sem índice
+                                    st.table(opp_df)
                                 else:
                                     st.info("Nenhuma oportunidade identificada com vantagem significativa.")
                                 
@@ -1610,16 +1626,27 @@ def show_main_dashboard():
                                 
                                 # Definir nomes de mercado e suas variações possíveis no texto
                                 market_patterns = {
-                                    "money_line": ["Money Line", "Moneyline", "1X2"],
-                                    "over_under": ["Over/Under", "Over/Under 2.5", "Over/Under 2.5 Gols"],
-                                    "chance_dupla": ["Chance Dupla", "Double Chance"],
-                                    "ambos_marcam": ["Ambos Marcam", "BTTS"],
-                                    "escanteios": ["Total de Escanteios", "Escanteios", "Corner"],
-                                    "cartoes": ["Total de Cartões", "Cartões", "Cards"]
+                                    "money_line": ["Money Line", "Moneyline", "1X2", "Money-Line"],
+                                    "over_under": ["Over/Under", "Over Under", "Over/Under 2.5", "Total de Gols"],
+                                    "chance_dupla": ["Chance Dupla", "Double Chance", "Dupla Chance"],
+                                    "ambos_marcam": ["Ambos Marcam", "BTTS", "Ambas Equipes Marcam"],
+                                    "escanteios": ["Total de Escanteios", "Escanteios", "Corner", "Corners"],
+                                    "cartoes": ["Total de Cartões", "Cartões", "Cards", "Cartoes"]
                                 }
                                 
-                                # Seção de probabilidades
-                                prob_section = re.search(r"\*\*Probabilidades Calculadas \(REAL vs IMPLÍCITA\):\*\*(.*?)(?:\*\*Oportunidades|$)", analysis, re.DOTALL)
+                                # Tentar diferentes padrões para a seção de probabilidades
+                                prob_patterns = [
+                                    r"Probabilidades Calculadas.*?(?:REAL|IMPLÍCITA).*?:(.*?)(?:[#*]{1,2}\s*Oportunidades|\Z)",
+                                    r"Comparativo de Probabilidades.*?:(.*?)(?:[#*]{1,2}\s*(?:Oportunidades|Nível)|\Z)",
+                                    r"PROBABILIDADES CALCULADAS.*?:(.*?)(?:[#*]{1,2}\s*(?:OPORTUNIDADES|NÍVEL)|\Z)"
+                                ]
+                                
+                                prob_section = None
+                                for pattern in prob_patterns:
+                                    prob_match = re.search(pattern, analysis, re.DOTALL | re.IGNORECASE)
+                                    if prob_match:
+                                        prob_section = prob_match
+                                        break
                                 
                                 if prob_section:
                                     prob_text = prob_section.group(1)
@@ -1631,48 +1658,97 @@ def show_main_dashboard():
                                             continue
                                             
                                         # Procurar por qualquer padrão que corresponda a este mercado
+                                        market_found = False
                                         for pattern in patterns:
-                                            market_match = re.search(f"\*\s+\*\*({re.escape(pattern)}[^:]*?):\*\*(.*?)(?=\*\s+\*\*|$)", prob_text, re.DOTALL)
-                                            if market_match:
-                                                market_name = market_match.group(1).strip()
-                                                market_content = market_match.group(2).strip()
-                                                
-                                                # Extrair linhas individuais
-                                                rows = []
-                                                
-                                                line_matches = re.finditer(r"\*\s+(.*?):\s+Real\s+([\d.]+)%\s+vs\s+Implícita\s+([\d.]+)%", market_content)
-                                                for line_match in line_matches:
-                                                    result = line_match.group(1).strip()
-                                                    real_prob = line_match.group(2) + "%"
-                                                    implicit_prob = line_match.group(3) + "%"
+                                            # Tentar diferentes formatos de cabeçalho de mercado
+                                            market_patterns = [
+                                                fr"[#*]{{1,2}}\s*(?:\*\*)?{re.escape(pattern)}[^:]*?(?:\*\*)?:(.*?)(?=[#*]{{1,2}}\s+|$)",
+                                                fr"{re.escape(pattern)}[^:]*?:(.*?)(?=[#*]{{1,2}}\s+|$)",
+                                                fr"[#*]{{1,2}}\s*{re.escape(pattern)}(.*?)(?=[#*]{{1,2}}\s+|$)"
+                                            ]
+                                            
+                                            for market_pattern in market_patterns:
+                                                market_match = re.search(market_pattern, prob_text, re.DOTALL | re.IGNORECASE)
+                                                if market_match:
+                                                    market_name = pattern
+                                                    market_content = market_match.group(1).strip()
                                                     
-                                                    # Extrair odds
-                                                    odds = "@0.00"
-                                                    odds_match = re.search(f"{re.escape(result)}:\\s+(@[\\d.]+)", analysis)
-                                                    if odds_match:
-                                                        odds = odds_match.group(1)
+                                                    # Extrair linhas individuais
+                                                    rows = []
                                                     
-                                                    # Calcular diferença
-                                                    try:
-                                                        real_val = float(line_match.group(2))
-                                                        implicit_val = float(line_match.group(3))
-                                                        diff = real_val - implicit_val
-                                                        diff_str = f"{diff:+.1f}% {'✅' if diff > 0 else '❌'}"
-                                                    except:
-                                                        diff_str = "N/A"
+                                                    # Tentar diferentes padrões para linhas de resultado
+                                                    line_patterns = [
+                                                        r"\*\s+(.*?):\s+Real\s+([\d.]+)%\s+vs\s+Implícita\s+([\d.]+)%",
+                                                        r"\*\s+(.*?):\s+(?:Implícita|Odds)?.*?(@[\d.]+).*?([\d.]+)%.*?([\d.]+)%",
+                                                        r"(?:^|\n)-?\s*([\w\s()]+?)(?::|@)(.*?)(?:Real|Implícita).*?([\d.]+)%.*?([\d.]+)%"
+                                                    ]
                                                     
-                                                    rows.append({
-                                                        "Resultado": result,
-                                                        "Odds": odds,
-                                                        "Prob. Implícita": implicit_prob,
-                                                        "Prob. Real": real_prob,
-                                                        "Diferença": diff_str
-                                                    })
-                                                
-                                                if rows:
-                                                    markets_data[market_name] = pd.DataFrame(rows)
-                                                
-                                                # Uma vez que encontramos um padrão correspondente, podemos sair do loop interno
+                                                    line_matches = None
+                                                    for line_pattern in line_patterns:
+                                                        matches = list(re.finditer(line_pattern, market_content, re.MULTILINE | re.DOTALL | re.IGNORECASE))
+                                                        if matches:
+                                                            line_matches = matches
+                                                            break
+                                                    
+                                                    if line_matches:
+                                                        for line_match in line_matches:
+                                                            # Adaptar baseado no padrão encontrado
+                                                            if len(line_match.groups()) == 3:  # Primeiro padrão
+                                                                result = line_match.group(1).strip()
+                                                                real_prob = line_match.group(2) + "%"
+                                                                implicit_prob = line_match.group(3) + "%"
+                                                                
+                                                                # Extrair odds de outro lugar
+                                                                odds = ""
+                                                                odds_match = re.search(fr"{re.escape(result)}.*?(@[\d.]+)", analysis, re.DOTALL | re.IGNORECASE)
+                                                                if odds_match:
+                                                                    odds = odds_match.group(1)
+                                                                    
+                                                            elif len(line_match.groups()) == 4:  # Segundo ou terceiro padrão
+                                                                result = line_match.group(1).strip()
+                                                                try:
+                                                                    # Tentar extrair a odds diretamente
+                                                                    odds_test = line_match.group(2).strip()
+                                                                    if '@' in odds_test:
+                                                                        odds = odds_test
+                                                                    else:
+                                                                        odds = "@" + odds_test.replace("@", "")
+                                                                except:
+                                                                    odds = ""
+                                                                    
+                                                                # Tentar determinar qual é real e qual é implícita
+                                                                try:
+                                                                    real_prob = line_match.group(4) + "%"
+                                                                    implicit_prob = line_match.group(3) + "%"
+                                                                except:
+                                                                    continue  # Pular esta linha se não conseguir extrair
+                                                            else:
+                                                                # Formato desconhecido, pular
+                                                                continue
+                                                            
+                                                            # Calcular diferença
+                                                            try:
+                                                                real_val = float(real_prob.replace("%", ""))
+                                                                implicit_val = float(implicit_prob.replace("%", ""))
+                                                                diff = real_val - implicit_val
+                                                                diff_str = f"{diff:+.1f}% {'✅' if diff > 0 else '❌'}"
+                                                            except:
+                                                                diff_str = ""
+                                                            
+                                                            rows.append({
+                                                                "Resultado": result,
+                                                                "Odds": odds,
+                                                                "Prob. Implícita": implicit_prob,
+                                                                "Prob. Real": real_prob,
+                                                                "Diferença": diff_str
+                                                            })
+                                                    
+                                                    if rows:
+                                                        markets_data[market_name] = pd.DataFrame(rows)
+                                                        market_found = True
+                                                        break
+                                            
+                                            if market_found:
                                                 break
                                 
                                 # Seção de comparativo de probabilidades
@@ -1694,99 +1770,115 @@ def show_main_dashboard():
                                             st.table(markets_data[market_name])
                                 
                                 # Extrair informações de confiança
-                                confidence_section = re.search(r"\*\*Nível de Confiança Geral:\s+(.*?)\*\*(.*?)$", analysis, re.DOTALL)
+                                conf_patterns = [
+                                    r"Nível de Confiança Geral:\s+(.*?)(?:\*\*|\n)(.*?)(?:\Z|# )",
+                                    r"NÍVEL DE CONFIANÇA.*?:\s*(.*?)(?:\n)(.*?)(?:\Z|# )",
+                                    r"Confiança[^:]*?:\s*(.*?)(?:\n)(.*?)(?:\Z|# )"
+                                ]
+                                
+                                confidence_section = None
+                                for pattern in conf_patterns:
+                                    conf_match = re.search(pattern, analysis, re.DOTALL | re.IGNORECASE)
+                                    if conf_match:
+                                        confidence_section = conf_match
+                                        break
                                 
                                 if confidence_section:
                                     conf_level = confidence_section.group(1).strip()
                                     conf_content = confidence_section.group(2).strip()
                                     
                                     # Extrair estrelas para o nível de confiança
-                                    stars = "⭐"
-                                    if "Médio" in conf_level:
-                                        stars = "⭐⭐⭐"
-                                    elif "Alto" in conf_level:
-                                        stars = "⭐⭐⭐⭐⭐"
-                                    elif "Baixo" in conf_level:
-                                        stars = "⭐"
+                                    stars = ""
+                                    if "⭐" in conf_content or "⭐" in conf_level:
+                                        # Extrair estrelas diretamente
+                                        stars_match = re.search(r"(⭐+)", conf_content + conf_level)
+                                        if stars_match:
+                                            stars = stars_match.group(1)
                                     
-                                    # Extrair valores de consistência
-                                    home_consistency = "N/A"
-                                    away_consistency = "N/A"
+                                    # Tentar extrair valores de consistência e forma, com diferentes padrões
+                                    home_consistency = ""
+                                    away_consistency = ""
+                                    home_form = ""
+                                    away_form = ""
                                     
-                                    consistency_match = re.search(r"Consistência.*?(\d+\.\d+).*?(\d+\.\d+)", conf_content, re.DOTALL)
-                                    if consistency_match:
-                                        home_consistency = consistency_match.group(1) + "%"
-                                        away_consistency = consistency_match.group(2) + "%"
+                                    # Tentar extrair consistência
+                                    consistency_patterns = [
+                                        r"Consistência.*?(\d+\.\d+).*?(\d+\.\d+)",
+                                        r"consistência.*?(\d+[\.,]\d+).*?(\d+[\.,]\d+)",
+                                        r"CD Eldense.*?(\d+[\.,]\d+).*?Burgos CF.*?(\d+[\.,]\d+)"
+                                    ]
                                     
-                                    # Extrair forma recente
-                                    home_form = "N/A"
-                                    away_form = "N/A"
+                                    for pattern in consistency_patterns:
+                                        consistency_match = re.search(pattern, conf_content, re.DOTALL | re.IGNORECASE)
+                                        if consistency_match:
+                                            home_consistency = consistency_match.group(1).replace(",", ".") + "%"
+                                            away_consistency = consistency_match.group(2).replace(",", ".") + "%"
+                                            break
                                     
-                                    form_match = re.search(r"Forma.*?(\d+\.\d+/\d+).*?(\d+\.\d+/\d+)", conf_content, re.DOTALL)
-                                    if form_match:
-                                        home_form = form_match.group(1)
-                                        away_form = form_match.group(2)
+                                    # Tentar extrair forma recente
+                                    form_patterns = [
+                                        r"[Ff]orma.*?(\d+[\.,]\d+/\d+).*?(\d+[\.,]\d+/\d+)",
+                                        r"pontos.*?(\d+[\.,]\d+/\d+).*?(\d+[\.,]\d+/\d+)",
+                                        r"CD Eldense.*?(\d+[\.,]\d+/\d+).*?Burgos CF.*?(\d+[\.,]\d+/\d+)"
+                                    ]
                                     
-                                    # Seção de análise de confiança
+                                    for pattern in form_patterns:
+                                        form_match = re.search(pattern, conf_content, re.DOTALL | re.IGNORECASE)
+                                        if form_match:
+                                            home_form = form_match.group(1).replace(",", ".")
+                                            away_form = form_match.group(2).replace(",", ".")
+                                            break
+                                    
+                                    # Seção de análise de confiança (apenas se tiver dados extraídos)
                                     st.markdown("<div class='section-title'>🔍 Análise de Confiança</div>", unsafe_allow_html=True)
                                     
                                     # Usar expander para análise de confiança
                                     with st.expander(f"Nível de Confiança Geral: {conf_level} {stars}", expanded=True):
-                                        # Consistência
-                                        st.markdown("### Consistência das Equipes")
-                                        st.markdown(f"• **{home_team}**: {home_consistency} (Alta previsibilidade)")
-                                        st.markdown(f"• **{away_team}**: {away_consistency} (Média previsibilidade)")
+                                        if home_consistency and away_consistency:
+                                            st.markdown("### Consistência das Equipes")
+                                            st.markdown(f"• **{home_team}**: {home_consistency}")
+                                            st.markdown(f"• **{away_team}**: {away_consistency}")
                                         
-                                        # Forma
-                                        st.markdown("### Forma Recente (últimos 5 jogos)")
-                                        st.markdown(f"• **{home_team}**: {home_form} pontos (Muito baixa)")
-                                        st.markdown(f"• **{away_team}**: {away_form} pontos (Muito baixa)")
+                                        if home_form and away_form:
+                                            st.markdown("### Forma Recente (últimos 5 jogos)")
+                                            st.markdown(f"• **{home_team}**: {home_form}")
+                                            st.markdown(f"• **{away_team}**: {away_form}")
                                         
-                                        # Observações
-                                        st.markdown("### Observações")
-                                        
-                                        # Extrair observações
+                                        # Observações - extrair apenas o que for encontrado, sem fallbacks
                                         observations = []
-                                        obs_matches = re.finditer(r"\*\s+(.*?)(?=\*\s+|$)", conf_content)
-                                        for obs_match in obs_matches:
-                                            obs_text = obs_match.group(1).strip()
-                                            if len(obs_text) > 5:  # Filtrar para evitar pegar asteriscos aleatórios
-                                                observations.append(obs_text)
                                         
-                                        if not observations:
-                                            # Tentar extrair de outras maneiras
-                                            bullet_matches = re.finditer(r"-\s+(.*?)(?=\n|\r|$)", conf_content)
-                                            for bullet_match in bullet_matches:
-                                                obs_text = bullet_match.group(1).strip()
-                                                if len(obs_text) > 5:
+                                        # Tentar vários padrões para extrair observações
+                                        observation_patterns = [
+                                            r"\*\s+(.*?)(?=\*\s+|$)",
+                                            r"-\s+(.*?)(?=\n|\r|$)",
+                                            r"•\s+(.*?)(?=\n|\r|$)"
+                                        ]
+                                        
+                                        for pattern in observation_patterns:
+                                            obs_matches = re.finditer(pattern, conf_content, re.MULTILINE)
+                                            for obs_match in obs_matches:
+                                                obs_text = obs_match.group(1).strip()
+                                                if len(obs_text) > 10:  # Filtrar para evitar pegar fragmentos
                                                     observations.append(obs_text)
+                                            
+                                            if observations:
+                                                break
                                         
-                                        # Se ainda não temos observações, tentar uma abordagem mais direta
-                                        if not observations:
-                                            # Dividir o texto em linhas e procurar por linhas substantivas
-                                            lines = conf_content.split('\n')
-                                            for line in lines:
-                                                clean_line = line.strip()
-                                                if clean_line and len(clean_line) > 15 and not clean_line.startswith('*') and not clean_line.startswith('#'):
-                                                    observations.append(clean_line)
+                                        # Se encontrou observações, exibi-las
+                                        if observations:
+                                            st.markdown("### Observações")
+                                            for obs in observations:
+                                                st.markdown(f"• {obs}")
                                         
-                                        # Se ainda não temos observações, mostrar o conteúdo bruto
-                                        if not observations:
-                                            observations = [conf_content.strip()]
-                                        
-                                        for obs in observations:
-                                            st.markdown(f"• {obs}")
+                                        # Se não encontramos dados estruturados, mostrar o texto bruto
+                                        if not (home_consistency or home_form or observations):
+                                            st.markdown(conf_content)
+                                else:
+                                    # Se não encontrou seção de confiança, não mostrar nada (sem fallback)
+                                    st.markdown("<div class='section-title'>🔍 Análise de Confiança</div>", unsafe_allow_html=True)
+                                    st.info("Dados de confiança não encontrados na análise.")
                                 
-                                return True
-                            
-                            # Na parte onde você exibe os resultados da análise:
-                            if analysis:
-                                # Limpar status
-                                status.empty()
-                                
-                                # Chamar a função de formatação passando os mercados selecionados
-                                format_analysis_display(analysis, home_team, away_team, selected_markets)
-                                
+                                return True                                
                                 # Registrar uso após análise bem-sucedida
                                 num_markets = sum(1 for v in selected_markets.values() if v)
     
