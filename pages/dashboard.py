@@ -1490,77 +1490,73 @@ def show_main_dashboard():
                             status.error("Falha ao preparar análise")
                             return
                         
-                       # Etapa 4: Análise GPT
+                        # Etapa 4: Análise GPT
                         status.info("Realizando análise com IA...")
-                        # Supondo que você está usando uma linha como esta:
-                        result_analysis = analyze_with_gpt(prompt)  # ou outro nome de variável
-                        if not result_analysis:
+                        analysis = analyze_with_gpt(prompt)
+                        if not analysis:
                             status.error("Falha na análise com IA")
                             return
                         
                         # Etapa 5: Mostrar resultado
-                        if analysis:  # Use 'analysis' se for esse o nome da sua variável
+                        if analysis:
                             # Limpar status
                             status.empty()
                             
-                            # Aqui você pode ter o processamento original ou não
-                            # Se você estava usando format_analysis_response, mantenha:
+                            # Limpar possíveis tags HTML da resposta
+                            if isinstance(analysis, str):
+                                # Verificar se a análise começa com a tag de div
+                                if "<div class=\"analysis-result\">" in analysis:
+                                    analysis = analysis.replace("<div class=\"analysis-result\">", "")
+                                    if "</div>" in analysis:
+                                        analysis = analysis.replace("</div>", "")
+                            
+                            # NOVO: Formatar a resposta para garantir que tenha todas as seções
                             from utils.ai import format_analysis_response
                             formatted_analysis = format_analysis_response(analysis, home_team, away_team)
                             
-                            # Exibir a análise usando estilo melhorado
+                            # Exibir a análise em uma div com largura total
                             st.markdown(f'''
                             <style>
                             .analysis-result {{
-                                width: 100%;
-                                padding: 1.5rem;
-                                background-color: #1e293b;
-                                color: white;
-                                border-radius: 0.5rem;
+                                width: 100% !important;
+                                max-width: 100% !important;
+                                padding: 2rem !important;
+                                background-color: #575760;
+                                border-radius: 8px;
+                                border: 1px solid #6b6b74;
                                 margin: 1rem 0;
                             }}
+                            
+                            /* Estilos para deixar o cabeçalho mais bonito */
                             .analysis-result h1, 
-                            .analysis-result h2 {{
+                            .analysis-result h2,
+                            .analysis-result h3 {{
                                 color: #fd7014;
-                                font-size: 1.5rem;
                                 margin-top: 1.5rem;
                                 margin-bottom: 1rem;
                             }}
-                            .analysis-result h3 {{
-                                color: #fd7014;
-                                font-size: 1.25rem;
-                                margin-top: 1.25rem;
-                                margin-bottom: 0.75rem;
-                            }}
+                            
+                            /* Estilos para parágrafos */
                             .analysis-result p {{
                                 margin-bottom: 1rem;
+                                line-height: 1.5;
                             }}
+                            
+                            /* Estilos para listas */
                             .analysis-result ul, 
                             .analysis-result ol {{
                                 margin-left: 1.5rem;
                                 margin-bottom: 1rem;
                             }}
+                            
+                            /* Oportunidades destacadas */
                             .analysis-result strong {{
-                                color: #f97316;
-                            }}
-                            .analysis-result table {{
-                                width: 100%;
-                                border-collapse: collapse;
-                                margin-bottom: 1rem;
-                            }}
-                            .analysis-result th, 
-                            .analysis-result td {{
-                                padding: 0.5rem;
-                                border: 1px solid #4b5563;
-                            }}
-                            .analysis-result th {{
-                                background-color: #374151;
+                                color: #fd7014;
                             }}
                             </style>
                             <div class="analysis-result">{formatted_analysis}</div>
                             ''', unsafe_allow_html=True)
-    
-                                
+                            
                             # Registrar uso após análise bem-sucedida
                             num_markets = sum(1 for v in selected_markets.values() if v)
                             
@@ -1571,7 +1567,6 @@ def show_main_dashboard():
                                 "away_team": away_team,
                                 "markets_used": [k for k, v in selected_markets.items() if v]
                             }
-                            
                             success = st.session_state.user_manager.record_usage(
                                 st.session_state.email, 
                                 num_markets,
@@ -1590,44 +1585,34 @@ def show_main_dashboard():
                             else:
                                 st.error("Não foi possível registrar o uso dos créditos. Por favor, tente novamente.")
                                     
-                        except Exception as display_error:
-                            logger.error(f"Erro ao exibir análise: {str(display_error)}")
-                            logger.error(traceback.format_exc())
-                            st.error(f"Erro ao exibir análise: {str(display_error)}")
-                            
-                            # Como fallback, exibir texto bruto
-                            st.text_area("Análise (texto bruto):", value=result_analysis, height=500)
-                    else:
-                        status.error("Não foi possível obter análise do modelo de IA")
-                                
-                except Exception as analysis_error:
-                    logger.error(f"Erro durante a análise: {str(analysis_error)}")
-                    logger.error(traceback.format_exc())
-                    status.error(f"Erro durante a análise: {str(analysis_error)}")
-                    if st.session_state.debug_mode:
-                        st.code(traceback.format_exc())
-        except Exception as button_error:
-            logger.error(f"Erro no botão de análise: {str(button_error)}")
+                    except Exception as analysis_error:
+                        logger.error(f"Erro durante a análise: {str(analysis_error)}")
+                        logger.error(traceback.format_exc())
+                        status.error(f"Erro durante a análise: {str(analysis_error)}")
+                        if st.session_state.debug_mode:
+                            st.code(traceback.format_exc())
+            except Exception as button_error:
+                logger.error(f"Erro no botão de análise: {str(button_error)}")
+                logger.error(traceback.format_exc())
+                st.error(f"Erro no botão de análise: {str(button_error)}")
+                if st.session_state.debug_mode:
+                    st.code(traceback.format_exc())
+                    
+        except Exception as content_error:
+            logger.error(f"Erro fatal no conteúdo principal: {str(content_error)}")
             logger.error(traceback.format_exc())
-            st.error(f"Erro no botão de análise: {str(button_error)}")
+            st.error("Erro ao carregar o conteúdo principal. Detalhes no log.")
+            st.error(f"Detalhes: {str(content_error)}")
             if st.session_state.debug_mode:
                 st.code(traceback.format_exc())
-                
-    except Exception as content_error:
-        logger.error(f"Erro fatal no conteúdo principal: {str(content_error)}")
+            
+    except Exception as e:
+        logger.error(f"Erro crítico ao exibir painel principal: {str(e)}")
         logger.error(traceback.format_exc())
-        st.error("Erro ao carregar o conteúdo principal. Detalhes no log.")
-        st.error(f"Detalhes: {str(content_error)}")
+        st.error("Erro ao carregar o painel principal. Por favor, tente novamente.")
+        st.error(f"Erro: {str(e)}")
         if st.session_state.debug_mode:
             st.code(traceback.format_exc())
-        
-except Exception as e:
-    logger.error(f"Erro crítico ao exibir painel principal: {str(e)}")
-    logger.error(traceback.format_exc())
-    st.error("Erro ao carregar o painel principal. Por favor, tente novamente.")
-    st.error(f"Erro: {str(e)}")
-    if st.session_state.debug_mode:
-        st.code(traceback.format_exc())
 
 # Função auxiliar para extração de dados avançada
 def extract_direct_team_stats(source, target, team_type):
