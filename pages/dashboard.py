@@ -1879,8 +1879,10 @@ def show_main_dashboard():
                                     st.info("Dados de confiança não encontrados na análise.")
                                 
                                 return True                                
-                                # Registrar uso após análise bem-sucedida
-                                num_markets = sum(1 for v in selected_markets.values() if v)
+                                
+                            
+                            # Registrar uso após análise bem-sucedida
+                            num_markets = sum(1 for v in selected_markets.values() if v)
     
                             
                             # Registro de uso com dados detalhados
