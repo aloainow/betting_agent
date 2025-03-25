@@ -491,82 +491,82 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
         away_draw_prob = away_win_prob + draw_prob
         home_away_prob = home_win_prob + away_win_prob
         
-# 6. PROBABILITY SECTION
-if not has_stats_data:
-    prob_title = "PROBABILIDADES CALCULADAS (MODELO DE FALLBACK)"
-    prob_explanation = """
-### Observação Importante
-Devido à falta de dados estatísticos suficientes, estas probabilidades são aproximações 
-baseadas em um modelo simplificado e podem não refletir com precisão as chances reais."""
-else:
-    prob_title = "PROBABILIDADES CALCULADAS (MÉTODO DE DISPERSÃO E PONDERAÇÃO)"
-    prob_explanation = """
-### Metodologia
-As probabilidades foram calculadas usando nossa metodologia de dispersão e ponderação com:
-- Forma recente: 35%
-- Estatísticas de equipe: 25%
-- Posição na tabela: 20%
-- Métricas de criação: 20%"""
-    
-# Start building the probability section
-probability_section = f"""
-# {prob_title}
-{prob_explanation}
-"""
-
-# Only include Money Line if selected
-if selected_markets.get("money_line", False):
-    probability_section += f"""
-### Moneyline (1X2)
-* {home_team}: {home_win_prob}%
-* Empate: {draw_prob}%
-* {away_team}: {away_win_prob}%
-* Total: {home_win_prob + draw_prob + away_win_prob}%
-"""
-
-# Only include Double Chance if selected
-if selected_markets.get("chance_dupla", False):
-    probability_section += f"""
-### Chance Dupla (Double Chance)
-* {home_team} ou Empate: {home_draw_prob:.1f}%
-* {away_team} ou Empate: {away_draw_prob:.1f}%
-* {home_team} ou {away_team}: {home_away_prob:.1f}%
-"""
-
-# Only include Over/Under if selected
-if selected_markets.get("over_under", False):
-    probability_section += f"""
-### Over/Under 2.5 Gols
-* Over 2.5: {over_2_5_prob:.1f}%
-* Under 2.5: {under_2_5_prob:.1f}%
-* Total esperado de gols: {total_expected_goals:.2f}
-"""
-
-# Only include BTTS if selected
-if selected_markets.get("ambos_marcam", False):
-    probability_section += f"""
-### Ambos Marcam (BTTS)
-* Sim: {btts_yes_prob:.1f}%
-* Não: {btts_no_prob:.1f}%
-"""
-
-# Only include Corners (Escanteios) if selected
-if selected_markets.get("escanteios", False):
-    probability_section += f"""
-### Escanteios (Over/Under 9.5)
-* Over 9.5: {over_9_5_corners_prob:.1f}%
-* Under 9.5: {under_9_5_corners_prob:.1f}%
-* Total esperado de escanteios: {total_corners_expected:.1f}
-"""
-
-# Only include Cards (Cartões) if selected
-if selected_markets.get("cartoes", False):
-    probability_section += f"""
-### Cartões (Over/Under 3.5)
-* Over 3.5: {over_3_5_cards_prob:.1f}%
-* Under 3.5: {under_3_5_cards_prob:.1f}%
-* Total esperado de cartões: {total_cards_expected:.1f}
-"""
+        # 6. PROBABILITY SECTION
+        if not has_stats_data:
+            prob_title = "PROBABILIDADES CALCULADAS (MODELO DE FALLBACK)"
+            prob_explanation = """
+        ### Observação Importante
+        Devido à falta de dados estatísticos suficientes, estas probabilidades são aproximações 
+        baseadas em um modelo simplificado e podem não refletir com precisão as chances reais."""
+        else:
+            prob_title = "PROBABILIDADES CALCULADAS (MÉTODO DE DISPERSÃO E PONDERAÇÃO)"
+            prob_explanation = """
+        ### Metodologia
+        As probabilidades foram calculadas usando nossa metodologia de dispersão e ponderação com:
+        - Forma recente: 35%
+        - Estatísticas de equipe: 25%
+        - Posição na tabela: 20%
+        - Métricas de criação: 20%"""
+            
+        # Start building the probability section
+        probability_section = f"""
+        # {prob_title}
+        {prob_explanation}
+        """
+        
+        # Only include Money Line if selected
+        if selected_markets.get("money_line", False):
+            probability_section += f"""
+        ### Moneyline (1X2)
+        * {home_team}: {home_win_prob}%
+        * Empate: {draw_prob}%
+        * {away_team}: {away_win_prob}%
+        * Total: {home_win_prob + draw_prob + away_win_prob}%
+        """
+        
+        # Only include Double Chance if selected
+        if selected_markets.get("chance_dupla", False):
+            probability_section += f"""
+        ### Chance Dupla (Double Chance)
+        * {home_team} ou Empate: {home_draw_prob:.1f}%
+        * {away_team} ou Empate: {away_draw_prob:.1f}%
+        * {home_team} ou {away_team}: {home_away_prob:.1f}%
+        """
+        
+        # Only include Over/Under if selected
+        if selected_markets.get("over_under", False):
+            probability_section += f"""
+        ### Over/Under 2.5 Gols
+        * Over 2.5: {over_2_5_prob:.1f}%
+        * Under 2.5: {under_2_5_prob:.1f}%
+        * Total esperado de gols: {total_expected_goals:.2f}
+        """
+        
+        # Only include BTTS if selected
+        if selected_markets.get("ambos_marcam", False):
+            probability_section += f"""
+        ### Ambos Marcam (BTTS)
+        * Sim: {btts_yes_prob:.1f}%
+        * Não: {btts_no_prob:.1f}%
+        """
+        
+        # Only include Corners (Escanteios) if selected
+        if selected_markets.get("escanteios", False):
+            probability_section += f"""
+        ### Escanteios (Over/Under 9.5)
+        * Over 9.5: {over_9_5_corners_prob:.1f}%
+        * Under 9.5: {under_9_5_corners_prob:.1f}%
+        * Total esperado de escanteios: {total_corners_expected:.1f}
+        """
+        
+        # Only include Cards (Cartões) if selected
+        if selected_markets.get("cartoes", False):
+            probability_section += f"""
+        ### Cartões (Over/Under 3.5)
+        * Over 3.5: {over_3_5_cards_prob:.1f}%
+        * Under 3.5: {under_3_5_cards_prob:.1f}%
+        * Total esperado de cartões: {total_cards_expected:.1f}
+        """
 
         probability_section += f"""
 ### Índices de Confiança
