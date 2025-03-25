@@ -1490,66 +1490,76 @@ def show_main_dashboard():
                             status.error("Falha ao preparar análise")
                             return
                         
+                       # Etapa 4: Análise GPT
+                        status.info("Realizando análise com IA...")
+                        # Supondo que você está usando uma linha como esta:
+                        result_analysis = analyze_with_gpt(prompt)  # ou outro nome de variável
+                        if not result_analysis:
+                            status.error("Falha na análise com IA")
+                            return
+                        
                         # Etapa 5: Mostrar resultado
-                        if analysis:
+                        if analysis:  # Use 'analysis' se for esse o nome da sua variável
                             # Limpar status
                             status.empty()
                             
-                            # Log da análise recebida para diagnóstico
-                            logger.info(f"Análise recebida com {len(analysis)} caracteres")
+                            # Aqui você pode ter o processamento original ou não
+                            # Se você estava usando format_analysis_response, mantenha:
+                            from utils.ai import format_analysis_response
+                            formatted_analysis = format_analysis_response(analysis, home_team, away_team)
                             
-                            try:
-                                # Exibir a análise usando estilo básico
-                                st.markdown(f'''
-                                <style>
-                                .analysis-result {{
-                                    width: 100%;
-                                    padding: 1.5rem;
-                                    background-color: #1e293b;
-                                    color: white;
-                                    border-radius: 0.5rem;
-                                    margin: 1rem 0;
-                                }}
-                                .analysis-result h1, 
-                                .analysis-result h2 {{
-                                    color: #fd7014;
-                                    font-size: 1.5rem;
-                                    margin-top: 1.5rem;
-                                    margin-bottom: 1rem;
-                                }}
-                                .analysis-result h3 {{
-                                    color: #fd7014;
-                                    font-size: 1.25rem;
-                                    margin-top: 1.25rem;
-                                    margin-bottom: 0.75rem;
-                                }}
-                                .analysis-result p {{
-                                    margin-bottom: 1rem;
-                                }}
-                                .analysis-result ul, 
-                                .analysis-result ol {{
-                                    margin-left: 1.5rem;
-                                    margin-bottom: 1rem;
-                                }}
-                                .analysis-result strong {{
-                                    color: #f97316;
-                                }}
-                                .analysis-result table {{
-                                    width: 100%;
-                                    border-collapse: collapse;
-                                    margin-bottom: 1rem;
-                                }}
-                                .analysis-result th, 
-                                .analysis-result td {{
-                                    padding: 0.5rem;
-                                    border: 1px solid #4b5563;
-                                }}
-                                .analysis-result th {{
-                                    background-color: #374151;
-                                }}
-                                </style>
-                                <div class="analysis-result">{analysis}</div>
-                                ''', unsafe_allow_html=True)
+                            # Exibir a análise usando estilo melhorado
+                            st.markdown(f'''
+                            <style>
+                            .analysis-result {{
+                                width: 100%;
+                                padding: 1.5rem;
+                                background-color: #1e293b;
+                                color: white;
+                                border-radius: 0.5rem;
+                                margin: 1rem 0;
+                            }}
+                            .analysis-result h1, 
+                            .analysis-result h2 {{
+                                color: #fd7014;
+                                font-size: 1.5rem;
+                                margin-top: 1.5rem;
+                                margin-bottom: 1rem;
+                            }}
+                            .analysis-result h3 {{
+                                color: #fd7014;
+                                font-size: 1.25rem;
+                                margin-top: 1.25rem;
+                                margin-bottom: 0.75rem;
+                            }}
+                            .analysis-result p {{
+                                margin-bottom: 1rem;
+                            }}
+                            .analysis-result ul, 
+                            .analysis-result ol {{
+                                margin-left: 1.5rem;
+                                margin-bottom: 1rem;
+                            }}
+                            .analysis-result strong {{
+                                color: #f97316;
+                            }}
+                            .analysis-result table {{
+                                width: 100%;
+                                border-collapse: collapse;
+                                margin-bottom: 1rem;
+                            }}
+                            .analysis-result th, 
+                            .analysis-result td {{
+                                padding: 0.5rem;
+                                border: 1px solid #4b5563;
+                            }}
+                            .analysis-result th {{
+                                background-color: #374151;
+                            }}
+                            </style>
+                            <div class="analysis-result">{formatted_analysis}</div>
+                            ''', unsafe_allow_html=True)
+    
                                 
                                 # Registrar uso após análise bem-sucedida
                                 num_markets = sum(1 for v in selected_markets.values() if v)
@@ -1586,7 +1596,7 @@ def show_main_dashboard():
                                 st.error(f"Erro ao exibir análise: {str(display_error)}")
                                 
                                 # Como fallback, exibir texto bruto
-                                st.text_area("Análise (texto bruto):", value=analysis, height=500)
+                                st.text_area("Análise (texto bruto):", value=result_analysis, height=500)
                         else:
                             status.error("Não foi possível obter análise do modelo de IA")
                                     
