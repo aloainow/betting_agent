@@ -1515,7 +1515,7 @@ def show_main_dashboard():
                             formatted_analysis = format_analysis_response(analysis, home_team, away_team)
                             
                             # Exibir a análise em uma div com largura total
-                          def format_analysis_display(analysis, home_team, away_team, selected_markets):
+                            def format_analysis_display(analysis, home_team, away_team, selected_markets):
                                 """
                                 Formata a análise utilizando componentes nativos do Streamlit
                                 extraindo os dados diretamente do texto da análise
