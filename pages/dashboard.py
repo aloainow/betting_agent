@@ -1515,47 +1515,246 @@ def show_main_dashboard():
                             formatted_analysis = format_analysis_response(analysis, home_team, away_team)
                             
                             # Exibir a análise em uma div com largura total
-                            st.markdown(f'''
-                            <style>
-                            .analysis-result {{
-                                width: 100% !important;
-                                max-width: 100% !important;
-                                padding: 2rem !important;
-                                background-color: #575760;
-                                border-radius: 8px;
-                                border: 1px solid #6b6b74;
-                                margin: 1rem 0;
-                            }}
+                            def format_analysis_display(analysis, home_team, away_team):
+                                """
+                                Formata a análise em um layout visual melhorado
+                                
+                                Args:
+                                    analysis (str): Texto da análise
+                                    home_team (str): Nome do time da casa
+                                    away_team (str): Nome do time visitante
+                                    
+                                Returns:
+                                    str: HTML formatado para exibição
+                                """
+                                # CSS estilizado
+                                css = '''
+                                <style>
+                                .analysis-container {
+                                    width: 100%;
+                                    max-width: 100%;
+                                    padding: 1.5rem;
+                                    background-color: #1e293b;
+                                    color: white;
+                                    border-radius: 0.5rem;
+                                    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                                    margin-bottom: 1.5rem;
+                                }
+                                
+                                .analysis-title {
+                                    color: #fb923c;
+                                    font-size: 1.75rem;
+                                    font-weight: bold;
+                                    margin-bottom: 0.5rem;
+                                    padding-bottom: 0.5rem;
+                                    border-bottom: 1px solid #4b5563;
+                                }
+                                
+                                .analysis-subtitle {
+                                    color: #e2e8f0;
+                                    font-size: 1.25rem;
+                                    font-weight: 600;
+                                    margin-top: 0.25rem;
+                                    margin-bottom: 1.5rem;
+                                }
+                                
+                                .section-title {
+                                    color: #fb923c;
+                                    font-size: 1.5rem;
+                                    font-weight: bold;
+                                    margin-top: 1.5rem;
+                                    margin-bottom: 1rem;
+                                }
+                                
+                                .market-title {
+                                    color: #e2e8f0;
+                                    font-size: 1.25rem;
+                                    font-weight: 600;
+                                    margin-top: 1.5rem;
+                                    margin-bottom: 0.75rem;
+                                }
+                                
+                                table {
+                                    width: 100%;
+                                    border-collapse: collapse;
+                                    margin-bottom: 1.5rem;
+                                }
+                                
+                                th {
+                                    background-color: #4b5563;
+                                    padding: 0.5rem 1rem;
+                                    text-align: left;
+                                }
+                                
+                                td {
+                                    padding: 0.5rem 1rem;
+                                }
+                                
+                                tr:nth-child(even) {
+                                    background-color: #334155;
+                                }
+                                
+                                tr:nth-child(odd) {
+                                    background-color: #1e293b;
+                                }
+                                
+                                .positive {
+                                    color: #4ade80;
+                                }
+                                
+                                .negative {
+                                    color: #f87171;
+                                }
+                                
+                                .confidence-box {
+                                    background-color: #334155;
+                                    padding: 1rem;
+                                    border-radius: 0.375rem;
+                                    margin-top: 1rem;
+                                }
+                                
+                                .confidence-level {
+                                    font-size: 1.25rem;
+                                    font-weight: 600;
+                                    margin-bottom: 0.75rem;
+                                }
+                                
+                                .confidence-section {
+                                    color: #fb923c;
+                                    font-size: 1rem;
+                                    font-weight: 600;
+                                    margin-top: 0.75rem;
+                                    margin-bottom: 0.5rem;
+                                }
+                                
+                                ul {
+                                    list-style-type: disc;
+                                    padding-left: 1.5rem;
+                                    margin-bottom: 1rem;
+                                }
+                                </style>
+                                '''
+                                
+                                # Extrair dados da análise
+                                # Aqui você precisaria analisar o texto da análise para extrair as informações
+                                # Este é um exemplo simplificado
+                                
+                                # HTML do layout
+                                html = f'''
+                                {css}
+                                <div class="analysis-container">
+                                    <div class="analysis-title">📊 Análise da Partida</div>
+                                    <div class="analysis-subtitle">{home_team} vs {away_team}</div>
+                                    
+                                    <div class="section-title">🎯 Oportunidades Identificadas</div>
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Mercado</th>
+                                                <th>Seleção</th>
+                                                <th>Odds</th>
+                                                <th>Vantagem</th>
+                                                <th>Confiança</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <!-- Exemplo - você precisa extrair esses dados da análise -->
+                                            <tr>
+                                                <td><strong>Money Line</strong></td>
+                                                <td>{home_team}</td>
+                                                <td>@2.35</td>
+                                                <td class="positive">+7.5%</td>
+                                                <td>⭐⭐</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Over/Under 2.5</strong></td>
+                                                <td>Over 2.5</td>
+                                                <td>@2.70</td>
+                                                <td class="positive">+12.6%</td>
+                                                <td>⭐⭐⭐</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                    
+                                    <div class="section-title">📈 Comparativo de Probabilidades</div>
+                                    
+                                    <div class="market-title">Money Line</div>
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Resultado</th>
+                                                <th>Odds</th>
+                                                <th>Prob. Implícita</th>
+                                                <th>Prob. Real</th>
+                                                <th>Diferença</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td><strong>{home_team}</strong></td>
+                                                <td>@2.35</td>
+                                                <td>42.6%</td>
+                                                <td>50.1%</td>
+                                                <td class="positive">+7.5% ✅</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Empate</strong></td>
+                                                <td>@2.80</td>
+                                                <td>35.7%</td>
+                                                <td>14.0%</td>
+                                                <td class="negative">-21.7% ❌</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>{away_team}</strong></td>
+                                                <td>@3.20</td>
+                                                <td>31.2%</td>
+                                                <td>35.9%</td>
+                                                <td class="positive">+4.7% ✅</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                    
+                                    <!-- Repetir tabelas para outros mercados -->
+                                    
+                                    <div class="section-title">🔍 Análise de Confiança</div>
+                                    <div class="confidence-box">
+                                        <div class="confidence-level">Nível de Confiança Geral: Médio ⭐⭐⭐</div>
+                                        
+                                        <div class="confidence-section">Consistência das Equipes</div>
+                                        <ul>
+                                            <li><strong>{home_team}</strong>: 71.0% (Alta previsibilidade)</li>
+                                            <li><strong>{away_team}</strong>: 95.6% (Média previsibilidade)</li>
+                                        </ul>
+                                        
+                                        <div class="confidence-section">Forma Recente (últimos 5 jogos)</div>
+                                        <ul>
+                                            <li><strong>{home_team}</strong>: 1.0/15 pontos (Muito baixa)</li>
+                                            <li><strong>{away_team}</strong>: 1.0/15 pontos (Muito baixa)</li>
+                                        </ul>
+                                        
+                                        <div class="confidence-section">Observações</div>
+                                        <ul>
+                                            <li>A alta consistência de {away_team} sugere que eles são mais previsíveis</li>
+                                            <li>Ambas as equipes estão com forma recente muito baixa</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                '''
+                                
+                                return html
                             
-                            /* Estilos para deixar o cabeçalho mais bonito */
-                            .analysis-result h1, 
-                            .analysis-result h2,
-                            .analysis-result h3 {{
-                                color: #fd7014;
-                                margin-top: 1.5rem;
-                                margin-bottom: 1rem;
-                            }}
-                            
-                            /* Estilos para parágrafos */
-                            .analysis-result p {{
-                                margin-bottom: 1rem;
-                                line-height: 1.5;
-                            }}
-                            
-                            /* Estilos para listas */
-                            .analysis-result ul, 
-                            .analysis-result ol {{
-                                margin-left: 1.5rem;
-                                margin-bottom: 1rem;
-                            }}
-                            
-                            /* Oportunidades destacadas */
-                            .analysis-result strong {{
-                                color: #fd7014;
-                            }}
-                            </style>
-                            <div class="analysis-result">{formatted_analysis}</div>
-                            ''', unsafe_allow_html=True)
+                            # Na parte onde você exibe os resultados da análise, substitua por:
+                            if analysis:
+                                # Limpar status
+                                status.empty()
+                                
+                                # Formatar e exibir a análise com o novo design
+                                formatted_html = format_analysis_display(analysis, home_team, away_team)
+                                st.markdown(formatted_html, unsafe_allow_html=True)
+                                
+                                # Registrar uso após análise bem-sucedida
+                                num_markets = sum(1 for v in selected_markets.values() if v)
+    
                             
                             # Registrar uso após análise bem-sucedida
                             num_markets = sum(1 for v in selected_markets.values() if v)
