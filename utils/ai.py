@@ -492,62 +492,80 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
         home_away_prob = home_win_prob + away_win_prob
         
 # 6. PROBABILITY SECTION
-        if not has_stats_data:
-            prob_title = "PROBABILIDADES CALCULADAS (MODELO DE FALLBACK)"
-            prob_explanation = """
+if not has_stats_data:
+    prob_title = "PROBABILIDADES CALCULADAS (MODELO DE FALLBACK)"
+    prob_explanation = """
 ### Observação Importante
 Devido à falta de dados estatísticos suficientes, estas probabilidades são aproximações 
 baseadas em um modelo simplificado e podem não refletir com precisão as chances reais."""
-        else:
-            prob_title = "PROBABILIDADES CALCULADAS (MÉTODO DE DISPERSÃO E PONDERAÇÃO)"
-            prob_explanation = """
+else:
+    prob_title = "PROBABILIDADES CALCULADAS (MÉTODO DE DISPERSÃO E PONDERAÇÃO)"
+    prob_explanation = """
 ### Metodologia
 As probabilidades foram calculadas usando nossa metodologia de dispersão e ponderação com:
 - Forma recente: 35%
 - Estatísticas de equipe: 25%
 - Posição na tabela: 20%
 - Métricas de criação: 20%"""
-            
-        probability_section = f"""
+    
+# Start building the probability section
+probability_section = f"""
 # {prob_title}
 {prob_explanation}
+"""
 
+# Only include Money Line if selected
+if selected_markets.get("money_line", False):
+    probability_section += f"""
 ### Moneyline (1X2)
 * {home_team}: {home_win_prob}%
 * Empate: {draw_prob}%
 * {away_team}: {away_win_prob}%
 * Total: {home_win_prob + draw_prob + away_win_prob}%
+"""
 
+# Only include Double Chance if selected
+if selected_markets.get("chance_dupla", False):
+    probability_section += f"""
 ### Chance Dupla (Double Chance)
 * {home_team} ou Empate: {home_draw_prob:.1f}%
 * {away_team} ou Empate: {away_draw_prob:.1f}%
 * {home_team} ou {away_team}: {home_away_prob:.1f}%
+"""
 
+# Only include Over/Under if selected
+if selected_markets.get("over_under", False):
+    probability_section += f"""
 ### Over/Under 2.5 Gols
 * Over 2.5: {over_2_5_prob:.1f}%
 * Under 2.5: {under_2_5_prob:.1f}%
 * Total esperado de gols: {total_expected_goals:.2f}
+"""
 
+# Only include BTTS if selected
+if selected_markets.get("ambos_marcam", False):
+    probability_section += f"""
 ### Ambos Marcam (BTTS)
 * Sim: {btts_yes_prob:.1f}%
 * Não: {btts_no_prob:.1f}%
 """
-        # Adicionar seção de cartões se selecionado
-        if selected_markets.get("cartoes"):
-            probability_section += f"""
-### Cartões (Over/Under 3.5)
-* Over 3.5: {over_3_5_cards_prob:.1f}%
-* Under 3.5: {under_3_5_cards_prob:.1f}%
-* Total esperado de cartões: {total_cards_expected:.1f}
-"""
 
-        # Adicionar seção de escanteios se selecionado
-        if selected_markets.get("escanteios"):
-            probability_section += f"""
+# Only include Corners (Escanteios) if selected
+if selected_markets.get("escanteios", False):
+    probability_section += f"""
 ### Escanteios (Over/Under 9.5)
 * Over 9.5: {over_9_5_corners_prob:.1f}%
 * Under 9.5: {under_9_5_corners_prob:.1f}%
 * Total esperado de escanteios: {total_corners_expected:.1f}
+"""
+
+# Only include Cards (Cartões) if selected
+if selected_markets.get("cartoes", False):
+    probability_section += f"""
+### Cartões (Over/Under 3.5)
+* Over 3.5: {over_3_5_cards_prob:.1f}%
+* Under 3.5: {under_3_5_cards_prob:.1f}%
+* Total esperado de cartões: {total_cards_expected:.1f}
 """
 
         probability_section += f"""
@@ -565,13 +583,33 @@ As probabilidades foram calculadas usando nossa metodologia de dispersão e pond
 """
 
         # 8. INSTRUCTIONS
-        instructions = f"""
+# First, prepare a list of selected market names for the instructions
+selected_market_names = []
+if selected_markets.get("money_line", False):
+    selected_market_names.append("Money Line (1X2)")
+if selected_markets.get("chance_dupla", False):
+    selected_market_names.append("Chance Dupla (Double Chance)")
+if selected_markets.get("over_under", False):
+    selected_market_names.append("Over/Under 2.5 Gols")
+if selected_markets.get("ambos_marcam", False):
+    selected_market_names.append("Ambos Marcam (BTTS)")
+if selected_markets.get("escanteios", False):
+    selected_market_names.append("Escanteios (Over/Under 9.5)")
+if selected_markets.get("cartoes", False):
+    selected_market_names.append("Cartões (Over/Under 3.5)")
+
+# Join the market names into a string
+selected_markets_str = ", ".join(selected_market_names)
+
+instructions = f"""
 # INSTRUÇÕES PARA ANÁLISE
 
 Analise os dados estatísticos fornecidos para identificar valor nas odds.
 Você é um especialista em probabilidades esportivas que utiliza nosso método avançado de Dispersão e Ponderação.
 
-IMPORTANTE: As probabilidades REAIS já foram calculadas para você para TODOS os mercados selecionados e somam exatamente 100% em cada mercado.
+IMPORTANTE: As probabilidades REAIS já foram calculadas para você para os seguintes mercados selecionados e somam exatamente 100% em cada mercado:
+{selected_markets_str}
+
 Todas as probabilidades reais estão na seção "PROBABILIDADES CALCULADAS".
 
 VOCÊ DEVE responder EXATAMENTE no formato abaixo:
@@ -580,10 +618,10 @@ VOCÊ DEVE responder EXATAMENTE no formato abaixo:
 ## {home_team} x {away_team}
 
 # Análise de Mercados Disponíveis:
-[Resumo detalhado de cada mercado com suas odds e probabilidades implícitas]
+[Resumo detalhado APENAS dos mercados selecionados ({selected_markets_str}) com suas odds e probabilidades implícitas]
 
 # Probabilidades Calculadas (REAL vs IMPLÍCITA):
-[Compare as probabilidades REAIS calculadas com as probabilidades IMPLÍCITAS nas odds para TODOS os mercados selecionados]
+[Compare as probabilidades REAIS calculadas com as probabilidades IMPLÍCITAS nas odds APENAS para os mercados selecionados ({selected_markets_str})]
 
 # Oportunidades Identificadas:
 [Liste cada mercado onde você encontrou valor/edge, mostrando a porcentagem de vantagem]
@@ -613,13 +651,24 @@ e recomende cautela nas decisões baseadas nesta análise.
         # Compile the final prompt
         sections = [
             fundamental_stats,
-            result_stats,
-            goals_stats,
-            other_stats,
-            probability_section,
-            markets_info,
-            instructions
         ]
+        
+        # Only include result stats if moneyline or double chance are selected
+        if selected_markets.get("money_line") or selected_markets.get("chance_dupla"):
+            sections.append(result_stats)
+        
+        # Only include goals stats if over/under or btts are selected
+        if selected_markets.get("over_under") or selected_markets.get("ambos_marcam"):
+            sections.append(goals_stats)
+        
+        # Only include other stats if relevant markets are selected
+        if other_stats and (selected_markets.get("escanteios") or selected_markets.get("cartoes")):
+            sections.append(other_stats)
+        
+        # Always include probability section and markets info
+        sections.append(probability_section)
+        sections.append(markets_info)
+        sections.append(instructions)
         
         full_prompt = "\n".join([s for s in sections if s])
         logger.info(f"Prompt prepared successfully for {home_team} vs {away_team}")
