@@ -65,7 +65,143 @@ def get_openai_client():
         logger.error(f"Erro não tratado em get_openai_client: {str(e)}")
         return None
 
-# Add to utils/ai.py
+# Função auxiliar para extrair linhas de over/under das odds fornecidas
+def extract_overunder_lines(odds_data, market_type="gols"):
+    """
+    Extrai as linhas de over/under disponíveis para o mercado especificado
+    
+    Args:
+        odds_data (str): String contendo as odds em formato texto
+        market_type (str): Tipo de mercado ("gols", "escanteios", "cartoes")
+        
+    Returns:
+        list: Lista de linhas (valores float) disponíveis para o mercado
+    """
+    import re
+    
+    # Definir padrões de busca baseados no tipo de mercado
+    if market_type == "gols":
+        pattern = r'(?:Over|Under)\s+(\d+(?:\.\d+)?)\s+[Gg]ols?'
+    elif market_type == "escanteios":
+        pattern = r'(?:Over|Under)\s+(\d+(?:\.\d+)?)\s+(?:[Ee]scanteios?|[Cc]orners?)'
+    elif market_type == "cartoes":
+        pattern = r'(?:Over|Under)\s+(\d+(?:\.\d+)?)\s+(?:[Cc]art[õoea][eo]s?)'
+    else:
+        return [2.5]  # Valor padrão para gols
+    
+    # Encontrar todas as correspondências do padrão
+    matches = re.findall(pattern, odds_data)
+    
+    # Converter para float e remover duplicatas
+    lines = sorted(set([float(match) for match in matches if match]))
+    
+    # Se não encontrar linhas, retornar valores padrão
+    if not lines:
+        if market_type == "gols":
+            return [2.5]
+        elif market_type == "escanteios":
+            return [9.5]
+        elif market_type == "cartoes":
+            return [3.5]
+    
+    return lines
+
+# Função para calcular probabilidade de over/under para uma linha específica
+def calculate_overunder_probability(expected_value, line, market_type="gols"):
+    """
+    Calcula a probabilidade de over/under para uma linha específica
+    
+    Args:
+        expected_value (float): Valor esperado (médio) de gols/escanteios/cartões
+        line (float): Linha de over/under para calcular a probabilidade
+        market_type (str): Tipo de mercado para ajustar parâmetros
+        
+    Returns:
+        tuple: (prob_over, prob_under) em porcentagem
+    """
+    import math
+    
+    # Ajustar parâmetros da curva logística baseado no tipo de mercado
+    if market_type == "gols":
+        steepness = 1.5
+    elif market_type == "escanteios":
+        steepness = 0.8
+    elif market_type == "cartoes":
+        steepness = 1.2
+    else:
+        steepness = 1.5
+    
+    # Usar uma função logística para mapear valores esperados para probabilidades
+    over_prob = 1 / (1 + math.exp(-steepness * (expected_value - line)))
+    under_prob = 1 - over_prob
+    
+    # Converter para porcentagem
+    over_prob_pct = over_prob * 100
+    under_prob_pct = under_prob * 100
+    
+    return (over_prob_pct, under_prob_pct)
+
+# Função para mapear parâmetros de mercado para exibição
+def get_market_display_info(selected_markets, odds_data):
+    """
+    Extrai informações de exibição para todos os mercados selecionados
+    
+    Args:
+        selected_markets (dict): Mercados selecionados pelo usuário
+        odds_data (str): String contendo as odds em formato texto
+        
+    Returns:
+        dict: Dicionário com informações de exibição para cada mercado
+    """
+    # Inicializar resultado
+    market_info = {}
+    
+    # Processar Over/Under de Gols
+    if selected_markets.get("over_under", False):
+        gol_lines = extract_overunder_lines(odds_data, "gols")
+        market_info["over_under_gols"] = {
+            "lines": gol_lines,
+            "display_name": "Over/Under Gols",
+            "primary_line": gol_lines[0] if gol_lines else 2.5
+        }
+    
+    # Processar Escanteios
+    if selected_markets.get("escanteios", False):
+        corner_lines = extract_overunder_lines(odds_data, "escanteios")
+        market_info["escanteios"] = {
+            "lines": corner_lines,
+            "display_name": "Escanteios",
+            "primary_line": corner_lines[0] if corner_lines else 9.5
+        }
+    
+    # Processar Cartões
+    if selected_markets.get("cartoes", False):
+        card_lines = extract_overunder_lines(odds_data, "cartoes")
+        market_info["cartoes"] = {
+            "lines": card_lines,
+            "display_name": "Cartões",
+            "primary_line": card_lines[0] if card_lines else 3.5
+        }
+    
+    # Processar Money Line
+    if selected_markets.get("money_line", False):
+        market_info["money_line"] = {
+            "display_name": "Money Line (1X2)"
+        }
+    
+    # Processar Chance Dupla
+    if selected_markets.get("chance_dupla", False):
+        market_info["chance_dupla"] = {
+            "display_name": "Chance Dupla (Double Chance)"
+        }
+    
+    # Processar Ambos Marcam
+    if selected_markets.get("ambos_marcam", False):
+        market_info["ambos_marcam"] = {
+            "display_name": "Ambos Marcam (BTTS)"
+        }
+    
+    return market_info
 
 def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_data, selected_markets):
     """
@@ -406,38 +542,56 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
             home_consistency = 50
             away_consistency = 50
         
-        # 2. Over/Under 2.5 Goals
-        # Use a combination of team goal stats and xG
-        home_expected_goals = home.get('xg_for_avg_overall', 0) if home.get('xg_for_avg_overall', 0) > 0 else home.get('goals_per_game', 0)
-        away_expected_goals = away.get('xg_for_avg_overall', 0) if away.get('xg_for_avg_overall', 0) > 0 else away.get('goals_per_game', 0)
-        
-        # Consider defensive strength
-        home_expected_conceded = away_expected_goals * (home.get('conceded_per_game', 0) / 1.5) if home.get('conceded_per_game', 0) > 0 else away_expected_goals * 0.8
-        away_expected_conceded = home_expected_goals * (away.get('conceded_per_game', 0) / 1.5) if away.get('conceded_per_game', 0) > 0 else home_expected_goals * 0.8
-        
-        # Total expected goals
-        total_expected_goals = home_expected_conceded + away_expected_conceded
-        
-        # Poisson distribution can be approximated with a logistic function for this purpose
-        over_2_5_prob = 1 / (1 + math.exp(-1.5 * (total_expected_goals - 2.5))) * 100
-        under_2_5_prob = 100 - over_2_5_prob
-        
-        # 3. Both Teams To Score (BTTS)
-        # Use home and away scoring probability
-        home_scoring_prob = 1 - (1 / (1 + math.exp(home_expected_goals - 0.5)))
-        away_scoring_prob = 1 - (1 / (1 + math.exp(away_expected_goals - 0.5)))
-        
-        # BTTS probability is the product of both teams scoring
-        btts_yes_prob = home_scoring_prob * away_scoring_prob * 100
-        btts_no_prob = 100 - btts_yes_prob
-        
-        # 4. Escanteios
-        # Inicializar valores para evitar erros quando o mercado não está selecionado
-        over_9_5_corners_prob = 0
-        under_9_5_corners_prob = 0
+        # Extrair informações de todos os mercados
+        market_display_info = get_market_display_info(selected_markets, odds_data)
+
+        # 2. Over/Under Gols - Agora dinâmico para qualquer linha
+        over_under_probs = {}
+        if selected_markets.get("over_under", False):
+            # Use a combinação de estatísticas de time e xG
+            home_expected_goals = home.get('xg_for_avg_overall', 0) if home.get('xg_for_avg_overall', 0) > 0 else home.get('goals_per_game', 0)
+            away_expected_goals = away.get('xg_for_avg_overall', 0) if away.get('xg_for_avg_overall', 0) > 0 else away.get('goals_per_game', 0)
+            
+            # Considerar força defensiva
+            home_expected_conceded = away_expected_goals * (home.get('conceded_per_game', 0) / 1.5) if home.get('conceded_per_game', 0) > 0 else away_expected_goals * 0.8
+            away_expected_conceded = home_expected_goals * (away.get('conceded_per_game', 0) / 1.5) if away.get('conceded_per_game', 0) > 0 else home_expected_goals * 0.8
+            
+            # Total esperado de gols
+            total_expected_goals = home_expected_conceded + away_expected_conceded
+            
+            # Calcular para cada linha encontrada
+            if "over_under_gols" in market_display_info:
+                gol_lines = market_display_info["over_under_gols"]["lines"]
+                for line in gol_lines:
+                    over_prob, under_prob = calculate_overunder_probability(total_expected_goals, line, "gols")
+                    over_under_probs[line] = {
+                        "over": over_prob,
+                        "under": under_prob
+                    }
+            else:
+                # Fallback para 2.5 se não encontrar linhas
+                over_prob, under_prob = calculate_overunder_probability(total_expected_goals, 2.5, "gols")
+                over_under_probs[2.5] = {
+                    "over": over_prob,
+                    "under": under_prob
+                }
+
+        # 3. Both Teams To Score (BTTS) - Não precisa mudança, pois é binário
+        btts_yes_prob = 0
+        btts_no_prob = 0
+        if selected_markets.get("ambos_marcam", False):
+            # Usar probabilidade de marcação de cada time
+            home_scoring_prob = 1 - (1 / (1 + math.exp(home_expected_goals - 0.5)))
+            away_scoring_prob = 1 - (1 / (1 + math.exp(away_expected_goals - 0.5)))
+            
+            # Probabilidade BTTS é o produto das probabilidades de ambos marcarem
+            btts_yes_prob = home_scoring_prob * away_scoring_prob * 100
+            btts_no_prob = 100 - btts_yes_prob
+
+        # 4. Escanteios - Agora dinâmico para qualquer linha
+        corners_probs = {}
         total_corners_expected = 0
-        
-        if selected_markets.get("escanteios"):
+        if selected_markets.get("escanteios", False):
             # Calcular expectativa de escanteios
             home_corners_avg = home.get("cornersAVG_overall", 0) or home.get("corners_per_game", 0) / 2
             away_corners_avg = away.get("cornersAVG_overall", 0) or away.get("corners_per_game", 0) / 2
@@ -452,18 +606,27 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
             # Total esperado de escanteios
             total_corners_expected = home_corners_expected + away_corners_expected
             
-            # Calcular probabilidade para over/under 9.5 escanteios
-            # Usando uma função logística para mapear o número esperado para uma probabilidade
-            over_9_5_corners_prob = 1 / (1 + math.exp(-0.8 * (total_corners_expected - 9.5))) * 100
-            under_9_5_corners_prob = 100 - over_9_5_corners_prob
-        
-        # 5. Cartões
-        # Inicializar valores para evitar erros quando o mercado não está selecionado
-        over_3_5_cards_prob = 0
-        under_3_5_cards_prob = 0
+            # Calcular para cada linha encontrada
+            if "escanteios" in market_display_info:
+                corner_lines = market_display_info["escanteios"]["lines"]
+                for line in corner_lines:
+                    over_prob, under_prob = calculate_overunder_probability(total_corners_expected, line, "escanteios")
+                    corners_probs[line] = {
+                        "over": over_prob,
+                        "under": under_prob
+                    }
+            else:
+                # Fallback para 9.5 se não encontrar linhas
+                over_prob, under_prob = calculate_overunder_probability(total_corners_expected, 9.5, "escanteios")
+                corners_probs[9.5] = {
+                    "over": over_prob,
+                    "under": under_prob
+                }
+
+        # 5. Cartões - Agora dinâmico para qualquer linha
+        cards_probs = {}
         total_cards_expected = 0
-        
-        if selected_markets.get("cartoes"):
+        if selected_markets.get("cartoes", False):
             # Calcular expectativa de cartões
             home_cards_avg = home.get("cards_per_game", 0)
             away_cards_avg = away.get("cards_per_game", 0)
@@ -481,92 +644,123 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
             if h2h_cards_avg > 0:
                 total_cards_expected = (total_cards_expected * 0.7) + (h2h_cards_avg * 0.3)
             
-            # Calcular probabilidade para over/under 3.5 cartões
-            # Usando uma função logística para mapear o número esperado para uma probabilidade
-            over_3_5_cards_prob = 1 / (1 + math.exp(-1.2 * (total_cards_expected - 3.5))) * 100
-            under_3_5_cards_prob = 100 - over_3_5_cards_prob
-        
+            # Calcular para cada linha encontrada
+            if "cartoes" in market_display_info:
+                card_lines = market_display_info["cartoes"]["lines"]
+                for line in card_lines:
+                    over_prob, under_prob = calculate_overunder_probability(total_cards_expected, line, "cartoes")
+                    cards_probs[line] = {
+                        "over": over_prob,
+                        "under": under_prob
+                    }
+            else:
+                # Fallback para 3.5 se não encontrar linhas
+                over_prob, under_prob = calculate_overunder_probability(total_cards_expected, 3.5, "cartoes")
+                cards_probs[3.5] = {
+                    "over": over_prob,
+                    "under": under_prob
+                }
+
         # 6. Chance Dupla (Double Chance)
         home_draw_prob = home_win_prob + draw_prob
         away_draw_prob = away_win_prob + draw_prob
         home_away_prob = home_win_prob + away_win_prob
         
-        # 6. PROBABILITY SECTION
+        # PROBABILITY SECTION
         if not has_stats_data:
             prob_title = "PROBABILIDADES CALCULADAS (MODELO DE FALLBACK)"
             prob_explanation = """
-        ### Observação Importante
-        Devido à falta de dados estatísticos suficientes, estas probabilidades são aproximações 
-        baseadas em um modelo simplificado e podem não refletir com precisão as chances reais."""
+### Observação Importante
+Devido à falta de dados estatísticos suficientes, estas probabilidades são aproximações 
+baseadas em um modelo simplificado e podem não refletir com precisão as chances reais."""
         else:
             prob_title = "PROBABILIDADES CALCULADAS (MÉTODO DE DISPERSÃO E PONDERAÇÃO)"
             prob_explanation = """
-        ### Metodologia
-        As probabilidades foram calculadas usando nossa metodologia de dispersão e ponderação com:
-        - Forma recente: 35%
-        - Estatísticas de equipe: 25%
-        - Posição na tabela: 20%
-        - Métricas de criação: 20%"""
-            
+### Metodologia
+As probabilidades foram calculadas usando nossa metodologia de dispersão e ponderação com:
+- Forma recente: 35%
+- Estatísticas de equipe: 25%
+- Posição na tabela: 20%
+- Métricas de criação: 20%"""
+
         # Start building the probability section
         probability_section = f"""
-        # {prob_title}
-        {prob_explanation}
-        """
-        
+# {prob_title}
+{prob_explanation}
+"""
+
         # Only include Money Line if selected
         if selected_markets.get("money_line", False):
             probability_section += f"""
-        ### Moneyline (1X2)
-        * {home_team}: {home_win_prob}%
-        * Empate: {draw_prob}%
-        * {away_team}: {away_win_prob}%
-        * Total: {home_win_prob + draw_prob + away_win_prob}%
-        """
-        
+### Moneyline (1X2)
+* {home_team}: {home_win_prob}%
+* Empate: {draw_prob}%
+* {away_team}: {away_win_prob}%
+* Total: {home_win_prob + draw_prob + away_win_prob}%
+"""
+
         # Only include Double Chance if selected
         if selected_markets.get("chance_dupla", False):
             probability_section += f"""
-        ### Chance Dupla (Double Chance)
-        * {home_team} ou Empate: {home_draw_prob:.1f}%
-        * {away_team} ou Empate: {away_draw_prob:.1f}%
-        * {home_team} ou {away_team}: {home_away_prob:.1f}%
-        """
-        
-        # Only include Over/Under if selected
+### Chance Dupla (Double Chance)
+* {home_team} ou Empate (1X): {home_draw_prob:.1f}%
+* {home_team} ou {away_team} (12): {home_away_prob:.1f}%
+* {away_team} ou Empate (X2): {away_draw_prob:.1f}%
+"""
+
+        # Only include Over/Under if selected - AGORA COM SUPORTE A MÚLTIPLAS LINHAS
         if selected_markets.get("over_under", False):
             probability_section += f"""
-        ### Over/Under 2.5 Gols
-        * Over 2.5: {over_2_5_prob:.1f}%
-        * Under 2.5: {under_2_5_prob:.1f}%
-        * Total esperado de gols: {total_expected_goals:.2f}
-        """
-        
+### Over/Under Gols
+"""
+            # Adicionar probabilidades para cada linha
+            for line in sorted(over_under_probs.keys()):
+                probability_section += f"""
+* Over {line}: {over_under_probs[line]['over']:.1f}%
+* Under {line}: {over_under_probs[line]['under']:.1f}%
+"""
+            probability_section += f"""
+* Total esperado de gols: {total_expected_goals:.2f}
+"""
+
         # Only include BTTS if selected
         if selected_markets.get("ambos_marcam", False):
             probability_section += f"""
-        ### Ambos Marcam (BTTS)
-        * Sim: {btts_yes_prob:.1f}%
-        * Não: {btts_no_prob:.1f}%
-        """
-        
-        # Only include Corners (Escanteios) if selected
+### Ambos Marcam (BTTS)
+* Sim: {btts_yes_prob:.1f}%
+* Não: {btts_no_prob:.1f}%
+"""
+
+        # Only include Corners (Escanteios) if selected - AGORA COM SUPORTE A MÚLTIPLAS LINHAS
         if selected_markets.get("escanteios", False):
             probability_section += f"""
-        ### Escanteios (Over/Under 9.5)
-        * Over 9.5: {over_9_5_corners_prob:.1f}%
-        * Under 9.5: {under_9_5_corners_prob:.1f}%
-        * Total esperado de escanteios: {total_corners_expected:.1f}
-        """
-        
-        # Only include Cards (Cartões) if selected
+### Escanteios
+"""
+            # Adicionar probabilidades para cada linha
+            for line in sorted(corners_probs.keys()):
+                probability_section += f"""
+* Over {line}: {corners_probs[line]['over']:.1f}%
+* Under {line}: {corners_probs[line]['under']:.1f}%
+"""
+            probability_section += f"""
+* Total esperado de escanteios: {total_corners_expected:.1f}
+"""
+
+        # Only include Cards (Cartões) if selected - AGORA COM SUPORTE A MÚLTIPLAS LINHAS
         if selected_markets.get("cartoes", False):
             probability_section += f"""
-        ### Cartões (Over/Under 3.5)
-        * Over 3.5: {over_3_5_cards_prob:.1f}%
-        * Under 3.5: {under_3_5_cards_prob:.1f}%
-        * Total esperado de cartões: {total_cards_expected:.1f}
-        """
+### Cartões
+"""
+            # Adicionar probabilidades para cada linha
+            for line in sorted(cards_probs.keys()):
+                probability_section += f"""
+* Over {line}: {cards_probs[line]['over']:.1f}%
+* Under {line}: {cards_probs[line]['under']:.1f}%
+"""
+            probability_section += f"""
+* Total esperado de cartões: {total_cards_expected:.1f}
+"""
+
         probability_section += f"""
 ### Índices de Confiança
 * Consistência {home_team}: {home_consistency:.1f}%
@@ -582,24 +776,41 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
 """
 
         # 8. INSTRUCTIONS
-        # First, prepare a list of selected market names for the instructions
+        # Preparar informações de exibição para as instruções
+        over_under_lines = []
+        if "over_under_gols" in market_display_info:
+            for line in market_display_info["over_under_gols"]["lines"]:
+                over_under_lines.append(f"Over/Under {line} Gols")
+        
+        corner_lines = []
+        if "escanteios" in market_display_info:
+            for line in market_display_info["escanteios"]["lines"]:
+                corner_lines.append(f"Over/Under {line} Escanteios")
+        
+        card_lines = []
+        if "cartoes" in market_display_info:
+            for line in market_display_info["cartoes"]["lines"]:
+                card_lines.append(f"Over/Under {line} Cartões")
+        
+        # Preparar lista completa de mercados para as instruções
         selected_market_names = []
         if selected_markets.get("money_line", False):
             selected_market_names.append("Money Line (1X2)")
         if selected_markets.get("chance_dupla", False):
             selected_market_names.append("Chance Dupla (Double Chance)")
-        if selected_markets.get("over_under", False):
-            selected_market_names.append("Over/Under 2.5 Gols")
+        if over_under_lines:
+            selected_market_names.extend(over_under_lines)
         if selected_markets.get("ambos_marcam", False):
             selected_market_names.append("Ambos Marcam (BTTS)")
-        if selected_markets.get("escanteios", False):
-            selected_market_names.append("Escanteios (Over/Under 9.5)")
-        if selected_markets.get("cartoes", False):
-            selected_market_names.append("Cartões (Over/Under 3.5)")
-
+        if corner_lines:
+            selected_market_names.extend(corner_lines)
+        if card_lines:
+            selected_market_names.extend(card_lines)
+        
         # Join the market names into a string
         selected_markets_str = ", ".join(selected_market_names)
         
+        # Gerar instruções adaptadas
         instructions = f"""
 # INSTRUÇÕES PARA ANÁLISE
 
@@ -610,6 +821,24 @@ IMPORTANTE: As probabilidades REAIS já foram calculadas para você para os segu
 {selected_markets_str}
 
 Todas as probabilidades reais estão na seção "PROBABILIDADES CALCULADAS".
+
+VOCÊ DEVE ORGANIZAR SUA RESPOSTA COM ESTAS REGRAS ESTRITAS:
+
+1. Organizar mercados em categorias SEPARADAS e EXPLÍCITAS:
+   - Money Line (1X2)
+   - Chance Dupla (Double Chance)
+   - Over/Under Gols (NUNCA misturar com escanteios ou cartões)
+   - Ambos Marcam (BTTS)
+   - Escanteios (específico para Corners, SEMPRE separado de gols)
+   - Cartões (específico para Cards, SEMPRE separado de gols)
+
+2. Na seção de probabilidades calculadas, criar tabelas SEPARADAS para CADA tipo de mercado:
+   - Uma tabela para Money Line (1X2)
+   - Uma tabela para Chance Dupla
+   - Uma tabela para Over/Under Gols (apenas gols, com as linhas específicas)
+   - Uma tabela para Ambos Marcam
+   - Uma tabela para Escanteios (apenas escanteios, com as linhas específicas)
+   - Uma tabela para Cartões (apenas cartões, com as linhas específicas)
 
 VOCÊ DEVE responder EXATAMENTE no formato abaixo:
 
@@ -734,6 +963,7 @@ Responda com EXATAMENTE este formato:
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
 [Explicação com consistência e forma]
 """
+
 def analyze_with_gpt(prompt):
     try:
         client = get_openai_client()
@@ -766,95 +996,15 @@ def analyze_with_gpt(prompt):
         st.error(f"Erro inesperado: {str(e)}")
         return None
 
-# Função auxiliar para calcular probabilidades reais
-def calculate_real_prob(home_xg, away_xg, home_games, away_games):
-    """Calcula probabilidades reais com handling melhorado para valores inválidos"""
-    try:
-        # Tratar valores não numéricos
-        try:
-            home_xg = float(home_xg) if home_xg != 'N/A' else 0
-            away_xg = float(away_xg) if away_xg != 'N/A' else 0
-            home_games = float(home_games) if home_games != 'N/A' else 1
-            away_games = float(away_games) if away_games != 'N/A' else 1
-        except (ValueError, TypeError):
-            # Fallback para caso não consiga converter
-            logger.warning("Falha ao converter valores para cálculo de probabilidade")
-            return None
-            
-        # Calcular xG por jogo
-        home_xg_per_game = home_xg / home_games if home_games > 0 else 0
-        away_xg_per_game = away_xg / away_games if away_games > 0 else 0
-        
-        # Se não temos xG válidos, não podemos calcular probabilidades
-        if home_xg_per_game == 0 and away_xg_per_game == 0:
-            return None
-            
-        # Ajuste baseado em home advantage
-        home_advantage = 1.1
-        adjusted_home_xg = home_xg_per_game * home_advantage
-        
-        # Calcular probabilidades
-        total_xg = adjusted_home_xg + away_xg_per_game
-        if total_xg == 0:
-            return None
-            
-        home_prob = (adjusted_home_xg / total_xg) * 100
-        away_prob = (away_xg_per_game / total_xg) * 100
-        
-        # Ajustar probs para somar 100%
-        total_prob = home_prob + away_prob
-        if total_prob > 100:
-            factor = 100 / total_prob
-            home_prob *= factor
-            away_prob *= factor
-        
-        draw_prob = 100 - (home_prob + away_prob)
-        
-        # Ajustar para valores realistas
-        if draw_prob < 5:
-            draw_prob = 5
-            excess = (home_prob + away_prob + draw_prob) - 100
-            home_prob -= excess * (home_prob / (home_prob + away_prob))
-            away_prob -= excess * (away_prob / (home_prob + away_prob))
-        
-        return {
-            'home': home_prob,
-            'draw': draw_prob,
-            'away': away_prob
-        }
-    except Exception as e:
-        logger.error(f"Erro no cálculo de probabilidades: {str(e)}")
-        return None        # Função para verificar a qualidade dos dados estatísticos
-def check_data_quality(stats_dict):
-    """Verifica se há dados estatísticos significativos"""
-    if not stats_dict:
-        return False
-        
-    # Contar valores não-zero
-    non_zero_values = 0
-    total_values = 0
-    
-    for key, value in stats_dict.items():
-        if isinstance(value, (int, float)) and key not in ['id']:
-            total_values += 1
-            if value != 0:
-                non_zero_values += 1
-    
-    # Se temos pelo menos alguns valores não-zero, considerar ok
-    if total_values > 0:
-        quality = non_zero_values / total_values
-        logger.info(f"Qualidade dos dados: {quality:.2f} ({non_zero_values}/{total_values} valores não-zero)")
-        return quality > 0.1  # Pelo menos 10% dos valores são não-zero
-    
-    return False
-
-# Add this new function to utils/ai.py
-
 def format_analysis_response(analysis_text, home_team, away_team):
     """
-    Constrói uma análise limpa em formato texto puro com detecção dinâmica de mercados Over/Under.
+    Constrói uma análise limpa em formato texto puro com detecção melhorada de mercados.
     """
     import re  # Adicionando regex para detecção de padrões
+    import logging
+    
+    logger = logging.getLogger("valueHunter.ai")
+    logger.info(f"Formatando resposta da análise para {home_team} vs {away_team}")
     
     # Remover tags HTML e caracteres problemáticos
     for tag in ["<div", "</div", "<span", "</span", "class=", "id=", "style="]:
@@ -876,258 +1026,173 @@ def format_analysis_response(analysis_text, home_team, away_team):
     consistency_info = ""
     form_info = ""
     influence_info = ""
+
+    # Função auxiliar para categorizar o tipo de mercado com base no texto
+    def determine_market_type(table_name, table_content):
+        """
+        Determina o tipo de mercado com base no nome da tabela e seu conteúdo
+        """
+        if ("Money" in table_name or "1X2" in table_name or 
+            "Casa" in table_content or "Empate" in table_content or
+            home_team in table_content or away_team in table_content):
+            return "Money Line (1X2)"
+            
+        elif ("Dupla" in table_name or "1X" in table_content or 
+              "12" in table_content or "X2" in table_content):
+            return "Chance Dupla"
+            
+        elif ("Ambos" in table_name or "BTTS" in table_name or 
+              ("Sim" in table_content and "Não" in table_content)):
+            return "Ambos Marcam"
+            
+        elif ("Escanteio" in table_name.lower() or "Corner" in table_name or 
+              "escanteio" in table_content.lower() or "corner" in table_content.lower()):
+            return "Escanteios"
+            
+        elif ("Cartão" in table_name or "Cartões" in table_name or 
+              "cartão" in table_content.lower() or "cartões" in table_content.lower()):
+            return "Cartões"
+            
+        elif "Over" in table_content or "Under" in table_content:
+            # Verificar contexto para determinar tipo de over/under
+            if any(f"{n}.5" in table_content for n in [8, 9, 10, 11, 12]):
+                return "Escanteios"
+            elif any(f"{n}.5" in table_content for n in [3, 4, 5, 6]):
+                if "cartão" in table_content.lower() or "cartões" in table_content.lower():
+                    return "Cartões"
+                # Pode ser gols ou cartões, verificar contexto
+                for line in table_content.split("\n"):
+                    if "cartão" in line.lower() or "cartões" in line.lower():
+                        return "Cartões"
+            
+            # Se não encontrou escanteios ou cartões, assume que é gols
+            return "Over/Under Gols"
+        
+        # Padrão para caso não consiga identificar
+        return "Outros"
     
-    # Detectar padrões de Over/Under com regex
+    # Padrões melhorados para detecção
     over_under_pattern = re.compile(r'(?:Over|Under)\s+(\d+(?:\.\d+)?)')
     
     # Extrair e categorizar mercados disponíveis
-    if "MERCADOS DISPONÍVEIS" in analysis_text or "Análise de Mercados" in analysis_text:
+    markets_section = ""
+    if "MERCADOS DISPONÍVEIS" in analysis_text:
         try:
             markets_section = analysis_text.split("MERCADOS DISPONÍVEIS")[1].split("PROBABILIDADES")[0]
-            lines = markets_section.strip().split("\n")
+        except:
+            try:
+                markets_section = analysis_text.split("ANÁLISE DE MERCADOS DISPONÍVEIS")[1].split("PROBABILIDADES CALCULADAS")[0]
+            except:
+                logger.warning("Não foi possível extrair seção de mercados disponíveis")
+    elif "Análise de Mercados" in analysis_text:
+        try:
+            markets_section = analysis_text.split("Análise de Mercados")[1].split("Probabilidades")[0]
+        except:
+            logger.warning("Não foi possível extrair seção de mercados disponíveis (alternativo)")
+    
+    if markets_section:
+        lines = markets_section.strip().split("\n")
+        
+        # Pré-processamento para identificar seções específicas
+        current_section = None
+        for i, line in enumerate(lines):
+            line = line.strip()
             
-            for line in lines:
-                line = line.strip().replace("•", "").replace("-", "").strip()
-                if not line or "@" not in line:
-                    continue
+            # Detectar cabeçalhos de seção
+            if line.startswith("[") and line.endswith("]"):
+                current_section = line[1:-1]  # Remover colchetes
+                continue
                 
-                # Categorizar cada mercado
-                if line.startswith(("Casa", home_team)) or ("Empate" in line and "@" in line) or line.startswith(("Fora", away_team)):
-                    market_categories["Money Line (1X2)"].append("• " + line)
-                elif "1X" in line or "12" in line or "X2" in line:
-                    market_categories["Chance Dupla"].append("• " + line)
-                elif "Over" in line or "Under" in line:
-                    # Detectar dinamicamente Over/Under para diferentes mercados
-                    if "escanteio" in line.lower() or "corner" in line.lower():
-                        market_categories["Escanteios"].append("• " + line)
-                    elif "cartão" in line.lower() or "cartões" in line.lower() or "card" in line.lower():
-                        market_categories["Cartões"].append("• " + line)
-                    else:
-                        # Assumimos que é Over/Under de gols se não especificar outro mercado
-                        market_categories["Over/Under Gols"].append("• " + line)
-                elif ("Sim" in line and "@" in line) or ("Não" in line and "@" in line) or "BTTS" in line:
-                    market_categories["Ambos Marcam"].append("• " + line)
-                elif "escanteio" in line.lower() or "corner" in line.lower():
-                    market_categories["Escanteios"].append("• " + line)
-                elif "cartão" in line.lower() or "cartões" in line.lower() or "card" in line.lower():
-                    market_categories["Cartões"].append("• " + line)
-                # Caso não consiga categorizar, coloca no Money Line como fallback
-                elif "@" in line:
-                    market_categories["Money Line (1X2)"].append("• " + line)
-        except Exception as e:
-            print(f"Erro ao categorizar mercados: {str(e)}")
+            # Limpar linha
+            clean_line = line.replace("•", "").replace("-", "").strip()
+            if not clean_line or "@" not in clean_line:
+                continue
+            
+            # Se temos uma seção definida, usamos ela
+            if current_section and current_section in market_categories:
+                market_categories[current_section].append("• " + clean_line)
+                continue
+            
+            # Categorização baseada no conteúdo da linha
+            if "escanteio" in clean_line.lower() or "corner" in clean_line.lower():
+                market_categories["Escanteios"].append("• " + clean_line)
+            elif "cartão" in clean_line.lower() or "cartões" in clean_line.lower() or "card" in clean_line.lower():
+                market_categories["Cartões"].append("• " + clean_line)
+            elif "1X" in clean_line or "12" in clean_line or "X2" in clean_line or "Dupla" in clean_line:
+                market_categories["Chance Dupla"].append("• " + clean_line)
+            elif ("Sim" in clean_line and "@" in clean_line) or ("Não" in clean_line and "@" in clean_line) or "BTTS" in clean_line:
+                market_categories["Ambos Marcam"].append("• " + clean_line)
+            elif clean_line.startswith(("Casa", home_team)) or ("Empate" in clean_line) or clean_line.startswith(("Fora", away_team)):
+                market_categories["Money Line (1X2)"].append("• " + clean_line)
+            elif "Over" in clean_line or "Under" in clean_line:
+                # Verificar contexto para over/under
+                if "escanteio" in clean_line.lower() or "corner" in clean_line.lower():
+                    market_categories["Escanteios"].append("• " + clean_line)
+                elif "cartão" in clean_line.lower() or "cartões" in clean_line.lower() or "card" in clean_line.lower():
+                    market_categories["Cartões"].append("• " + clean_line)
+                else:
+                    market_categories["Over/Under Gols"].append("• " + clean_line)
+            else:
+                # Caso não consiga categorizar
+                market_categories["Money Line (1X2)"].append("• " + clean_line)
     
     # Extrair todas as probabilidades
-    try:
-        if "PROBABILIDADES CALCULADAS" in analysis_text:
+    probs_section = ""
+    if "PROBABILIDADES CALCULADAS" in analysis_text:
+        try:
             probs_section = analysis_text.split("PROBABILIDADES CALCULADAS")[1].split("OPORTUNIDADES")[0]
-            
-            # Procurar por padrões de tabelas ou dados para cada tipo de mercado
-            # 1. Money Line (1X2)
-            if "Casa" in probs_section or home_team in probs_section:
-                all_probabilities["Money Line (1X2)"] = {}
-                options = ["Casa", "Empate", "Fora"]
+        except:
+            logger.warning("Não foi possível extrair seção de probabilidades calculadas")
+    
+    if probs_section:
+        # Detectar e separar tabelas de probabilidades
+        tables = re.split(r'\[([^]]+)\]', probs_section)
+        
+        # Processar tabelas
+        for i in range(1, len(tables), 2):
+            if i+1 < len(tables):
+                table_name = tables[i].strip()
+                table_content = tables[i+1].strip()
                 
-                for option in options:
-                    if option in probs_section:
-                        real_prob = "N/A"
-                        impl_prob = "N/A"
-                        # Buscar percentuais depois do nome do mercado
-                        parts = []
-                        try:
-                            parts = probs_section.split(option)[1].split("\n")[0].split()
-                            for part in parts:
-                                if "%" in part:
-                                    if real_prob == "N/A":
-                                        real_prob = part.strip()
-                                    else:
-                                        impl_prob = part.strip()
-                        except:
-                            pass
+                # Detectar o tipo de mercado para cada tabela
+                market_type = determine_market_type(table_name, table_content)
+                
+                # Se identificamos o tipo de mercado, vamos processar a tabela
+                if market_type:
+                    all_probabilities[market_type] = {}
+                    
+                    # Extrair linhas da tabela
+                    table_rows = re.findall(r'│([^│]+)│([^│]+)│([^│]+)│', table_content)
+                    
+                    for row in table_rows:
+                        # Ignorar cabeçalho
+                        if "MERCADO" in row[0] or "────" in row[0]:
+                            continue
+                            
+                        option = row[0].strip()
+                        real_prob = row[1].strip()
+                        impl_prob = row[2].strip()
                         
-                        all_probabilities["Money Line (1X2)"][option] = {
+                        all_probabilities[market_type][option] = {
                             "real": real_prob,
                             "implicit": impl_prob
                         }
-            
-            # 2. Chance Dupla
-            if "1X" in probs_section or "12" in probs_section or "X2" in probs_section or "Dupla" in probs_section:
-                all_probabilities["Chance Dupla"] = {}
-                dc_options = ["1X", "12", "X2"]
-                
-                for option in dc_options:
-                    if option in probs_section:
-                        real_prob = "N/A"
-                        impl_prob = "N/A"
-                        try:
-                            parts = probs_section.split(option)[1].split("\n")[0].split()
-                            for part in parts:
-                                if "%" in part:
-                                    if real_prob == "N/A":
-                                        real_prob = part.strip()
-                                    else:
-                                        impl_prob = part.strip()
-                        except:
-                            pass
-                        
-                        all_probabilities["Chance Dupla"][option] = {
-                            "real": real_prob,
-                            "implicit": impl_prob
-                        }
-            
-            # 3. Over/Under Gols (DINÂMICO)
-            # Encontrar todos os padrões de Over/Under no texto
-            ou_matches = over_under_pattern.finditer(probs_section)
-            ou_values = set()
-            
-            for match in ou_matches:
-                # Verificar se é sobre gols (não escanteios ou cartões)
-                context = probs_section[max(0, match.start()-20):min(len(probs_section), match.end()+20)]
-                if "escanteio" not in context.lower() and "corner" not in context.lower() and \
-                   "cartão" not in context.lower() and "card" not in context.lower():
-                    ou_values.add(match.group())
-            
-            if ou_values:
-                all_probabilities["Over/Under Gols"] = {}
-                
-                for option in ou_values:
-                    if option in probs_section:
-                        real_prob = "N/A"
-                        impl_prob = "N/A"
-                        try:
-                            parts = probs_section.split(option)[1].split("\n")[0].split()
-                            for part in parts:
-                                if "%" in part:
-                                    if real_prob == "N/A":
-                                        real_prob = part.strip()
-                                    else:
-                                        impl_prob = part.strip()
-                        except:
-                            pass
-                        
-                        all_probabilities["Over/Under Gols"][option] = {
-                            "real": real_prob,
-                            "implicit": impl_prob
-                        }
-            
-            # 4. Ambos Marcam (BTTS)
-            if "Sim" in probs_section or "Não" in probs_section or "BTTS" in probs_section:
-                all_probabilities["Ambos Marcam"] = {}
-                btts_options = ["Sim", "Não"]
-                
-                for option in btts_options:
-                    if option in probs_section:
-                        real_prob = "N/A"
-                        impl_prob = "N/A"
-                        try:
-                            parts = probs_section.split(option)[1].split("\n")[0].split()
-                            for part in parts:
-                                if "%" in part:
-                                    if real_prob == "N/A":
-                                        real_prob = part.strip()
-                                    else:
-                                        impl_prob = part.strip()
-                        except:
-                            pass
-                        
-                        all_probabilities["Ambos Marcam"][option] = {
-                            "real": real_prob,
-                            "implicit": impl_prob
-                        }
-            
-            # 5. Escanteios (DINÂMICO)
-            corners_matches = re.finditer(r'(?:Over|Under)\s+(\d+(?:\.\d+)?)[^\n]*(?:escanteio|corner)', probs_section, re.IGNORECASE)
-            corners_values = set()
-            
-            for match in corners_matches:
-                corners_values.add(match.group(0).split()[0] + " " + match.group(1))
-            
-            if "Escanteios" in probs_section or corners_values:
-                all_probabilities["Escanteios"] = {}
-                
-                if not corners_values:
-                    # Tenta encontrar qualquer padrão Over/Under em seção relacionada a escanteios
-                    if "Escanteios" in probs_section:
-                        escanteios_section = probs_section.split("Escanteios")[1].split("\n\n")[0]
-                        corners_matches = over_under_pattern.finditer(escanteios_section)
-                        for match in corners_matches:
-                            corners_values.add(match.group())
-                
-                for option in corners_values:
-                    if option in probs_section:
-                        real_prob = "N/A"
-                        impl_prob = "N/A"
-                        try:
-                            parts = probs_section.split(option)[1].split("\n")[0].split()
-                            for part in parts:
-                                if "%" in part:
-                                    if real_prob == "N/A":
-                                        real_prob = part.strip()
-                                    else:
-                                        impl_prob = part.strip()
-                        except:
-                            pass
-                        
-                        all_probabilities["Escanteios"][option] = {
-                            "real": real_prob,
-                            "implicit": impl_prob
-                        }
-            
-            # 6. Cartões (DINÂMICO)
-            cards_matches = re.finditer(r'(?:Over|Under)\s+(\d+(?:\.\d+)?)[^\n]*(?:cartão|cartões|card)', probs_section, re.IGNORECASE)
-            cards_values = set()
-            
-            for match in cards_matches:
-                cards_values.add(match.group(0).split()[0] + " " + match.group(1))
-            
-            if "Cartões" in probs_section or cards_values:
-                all_probabilities["Cartões"] = {}
-                
-                if not cards_values:
-                    # Tenta encontrar qualquer padrão Over/Under em seção relacionada a cartões
-                    if "Cartões" in probs_section:
-                        cartoes_section = probs_section.split("Cartões")[1].split("\n\n")[0]
-                        cards_matches = over_under_pattern.finditer(cartoes_section)
-                        for match in cards_matches:
-                            cards_values.add(match.group())
-                
-                for option in cards_values:
-                    if option in probs_section:
-                        real_prob = "N/A"
-                        impl_prob = "N/A"
-                        try:
-                            parts = probs_section.split(option)[1].split("\n")[0].split()
-                            for part in parts:
-                                if "%" in part:
-                                    if real_prob == "N/A":
-                                        real_prob = part.strip()
-                                    else:
-                                        impl_prob = part.strip()
-                        except:
-                            pass
-                        
-                        all_probabilities["Cartões"][option] = {
-                            "real": real_prob,
-                            "implicit": impl_prob
-                        }
-    except Exception as e:
-        print(f"Erro ao extrair probabilidades: {str(e)}")
     
     # Extrair oportunidades identificadas
-    try:
-        if "OPORTUNIDADES IDENTIFICADAS" in analysis_text:
+    if "OPORTUNIDADES IDENTIFICADAS" in analysis_text:
+        try:
             opps_section = analysis_text.split("OPORTUNIDADES IDENTIFICADAS")[1].split("NÍVEL DE CONFIANÇA")[0]
             
             for line in opps_section.strip().split("\n"):
                 line = line.strip().replace("•", "").replace("-", "").replace("▔", "").strip()
                 if line and len(line) > 5:
                     opportunities.append("• " + line)
-    except:
-        pass
+        except:
+            logger.warning("Erro ao extrair oportunidades identificadas")
     
     # Extrair nível de confiança e componentes
-    try:
-        if "NÍVEL DE CONFIANÇA" in analysis_text:
+    if "NÍVEL DE CONFIANÇA" in analysis_text:
+        try:
             conf_section = analysis_text.split("NÍVEL DE CONFIANÇA")[1]
             
             # Extrair o nível (Baixo/Médio/Alto)
@@ -1148,8 +1213,8 @@ def format_analysis_response(analysis_text, home_team, away_team):
                 if "©" in influence_parts:
                     influence_parts = influence_parts.split("©")[0]
                 influence_info = influence_parts.strip().replace(":", "").replace("**", "").replace("►", "")
-    except:
-        pass
+        except:
+            logger.warning("Erro ao extrair nível de confiança")
     
     # Construir o relatório limpo e organizado
     clean_report = f"""
@@ -1232,6 +1297,90 @@ def format_analysis_response(analysis_text, home_team, away_team):
     
     return clean_report
     
+# Função auxiliar para calcular probabilidades reais
+def calculate_real_prob(home_xg, away_xg, home_games, away_games):
+    """Calcula probabilidades reais com handling melhorado para valores inválidos"""
+    try:
+        # Tratar valores não numéricos
+        try:
+            home_xg = float(home_xg) if home_xg != 'N/A' else 0
+            away_xg = float(away_xg) if away_xg != 'N/A' else 0
+            home_games = float(home_games) if home_games != 'N/A' else 1
+            away_games = float(away_games) if away_games != 'N/A' else 1
+        except (ValueError, TypeError):
+            # Fallback para caso não consiga converter
+            logger.warning("Falha ao converter valores para cálculo de probabilidade")
+            return None
+            
+        # Calcular xG por jogo
+        home_xg_per_game = home_xg / home_games if home_games > 0 else 0
+        away_xg_per_game = away_xg / away_games if away_games > 0 else 0
+        
+        # Se não temos xG válidos, não podemos calcular probabilidades
+        if home_xg_per_game == 0 and away_xg_per_game == 0:
+            return None
+            
+        # Ajuste baseado em home advantage
+        home_advantage = 1.1
+        adjusted_home_xg = home_xg_per_game * home_advantage
+        
+        # Calcular probabilidades
+        total_xg = adjusted_home_xg + away_xg_per_game
+        if total_xg == 0:
+            return None
+            
+        home_prob = (adjusted_home_xg / total_xg) * 100
+        away_prob = (away_xg_per_game / total_xg) * 100
+        
+        # Ajustar probs para somar 100%
+        total_prob = home_prob + away_prob
+        if total_prob > 100:
+            factor = 100 / total_prob
+            home_prob *= factor
+            away_prob *= factor
+        
+        draw_prob = 100 - (home_prob + away_prob)
+        
+        # Ajustar para valores realistas
+        if draw_prob < 5:
+            draw_prob = 5
+            excess = (home_prob + away_prob + draw_prob) - 100
+            home_prob -= excess * (home_prob / (home_prob + away_prob))
+            away_prob -= excess * (away_prob / (home_prob + away_prob))
+        
+        return {
+            'home': home_prob,
+            'draw': draw_prob,
+            'away': away_prob
+        }
+    except Exception as e:
+        logger.error(f"Erro no cálculo de probabilidades: {str(e)}")
+        return None
+
+# Função para verificar a qualidade dos dados estatísticos
+def check_data_quality(stats_dict):
+    """Verifica se há dados estatísticos significativos"""
+    if not stats_dict:
+        return False
+        
+    # Contar valores não-zero
+    non_zero_values = 0
+    total_values = 0
+    
+    for key, value in stats_dict.items():
+        if isinstance(value, (int, float)) and key not in ['id']:
+            total_values += 1
+            if value != 0:
+                non_zero_values += 1
+    
+    # Se temos pelo menos alguns valores não-zero, considerar ok
+    if total_values > 0:
+        quality = non_zero_values / total_values
+        logger.info(f"Qualidade dos dados: {quality:.2f} ({non_zero_values}/{total_values} valores não-zero)")
+        return quality > 0.1  # Pelo menos 10% dos valores são não-zero
+    
+    return False
+
 def format_enhanced_prompt(complete_analysis, home_team, away_team, odds_data, selected_markets):
     """
     Função aprimorada para formatar prompt de análise multi-mercados
