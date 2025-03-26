@@ -1199,7 +1199,7 @@ def show_main_dashboard():
                             formatted_analysis = format_analysis_response(analysis, home_team, away_team)
                             
                             # Exibir a análise em uma div com largura total
-                            st.markdown(f'''
+                            st.text(f'''
                             <style>
                             .analysis-result {{
                                 width: 100% !important;
