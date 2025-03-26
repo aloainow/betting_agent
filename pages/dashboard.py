@@ -1198,48 +1198,8 @@ def show_main_dashboard():
                             from utils.ai import format_analysis_response
                             formatted_analysis = format_analysis_response(analysis, home_team, away_team)
                             
-                            # Exibir a análise em uma div com largura total
-                            st.text(f'''
-                            <style>
-                            .analysis-result {{
-                                width: 100% !important;
-                                max-width: 100% !important;
-                                padding: 2rem !important;
-                                background-color: #575760;
-                                border-radius: 8px;
-                                border: 1px solid #6b6b74;
-                                margin: 1rem 0;
-                            }}
-                            
-                            /* Estilos para deixar o cabeçalho mais bonito */
-                            .analysis-result h1, 
-                            .analysis-result h2,
-                            .analysis-result h3 {{
-                                color: #fd7014;
-                                margin-top: 1.5rem;
-                                margin-bottom: 1rem;
-                            }}
-                            
-                            /* Estilos para parágrafos */
-                            .analysis-result p {{
-                                margin-bottom: 1rem;
-                                line-height: 1.5;
-                            }}
-                            
-                            /* Estilos para listas */
-                            .analysis-result ul, 
-                            .analysis-result ol {{
-                                margin-left: 1.5rem;
-                                margin-bottom: 1rem;
-                            }}
-                            
-                            /* Oportunidades destacadas */
-                            .analysis-result strong {{
-                                color: #fd7014;
-                            }}
-                            </style>
-                            <div class="analysis-result">{formatted_analysis}</div>
-                            ''', unsafe_allow_html=True)
+                            # Substitua todo o bloco atual por:
+                            st.code(formatted_analysis, language=None)
                             
                             # Registrar uso após análise bem-sucedida
                             num_markets = sum(1 for v in selected_markets.values() if v)
