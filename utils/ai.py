@@ -852,7 +852,7 @@ def check_data_quality(stats_dict):
 
 def format_analysis_response(analysis_text, home_team, away_team):
     """
-    Garante que a resposta da análise seja formatada corretamente com o novo layout estético.
+    Formata a resposta de análise em texto puro com boa diagramação usando caracteres ASCII.
     
     Args:
         analysis_text (str): Resposta bruta da análise da IA
@@ -860,77 +860,64 @@ def format_analysis_response(analysis_text, home_team, away_team):
         away_team (str): Nome do time visitante
         
     Returns:
-        str: Análise formatada corretamente
+        str: Análise formatada corretamente em texto puro
     """
-    # Verificar se a análise já tem o novo cabeçalho estético
-    if "# 📊 ANÁLISE DE PARTIDA 📊" in analysis_text:
-        return analysis_text
-        
-    # Verificar se a análise tem o formato antigo
-    if "# Análise da Partida" in analysis_text:
-        # Converter do formato antigo para o novo formato estético
-        try:
-            # Extrair as seções do formato antigo
-            title_section = ""
-            if "# Análise da Partida" in analysis_text:
-                title_parts = analysis_text.split("# Análise da Partida")[1].split("#")[0].strip()
-                title_section = f"## ⚽ {home_team} 🆚 {away_team} ⚽"
-            
-            market_section = ""
-            if "# Análise de Mercados Disponíveis:" in analysis_text:
-                market_section = analysis_text.split("# Análise de Mercados Disponíveis:")[1].split("#")[0].strip()
-            
-            prob_section = ""
-            if "# Probabilidades Calculadas" in analysis_text:
-                prob_section = analysis_text.split("# Probabilidades Calculadas")[1].split("#")[0].strip()
-            
-            opp_section = ""
-            if "# Oportunidades Identificadas" in analysis_text:
-                opp_section = analysis_text.split("# Oportunidades Identificadas")[1].split("#")[0].strip()
-            
-            conf_section = ""
-            if "# Nível de Confiança" in analysis_text:
-                conf_parts = analysis_text.split("# Nível de Confiança")[1]
-                if "#" in conf_parts:
-                    conf_section = conf_parts.split("#")[0].strip()
-                else:
-                    conf_section = conf_parts.strip()
-            
-            # Montar no novo formato estético
-            new_format = f"""
-# 📊 ANÁLISE DE PARTIDA 📊
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-## ⚽ {home_team} 🆚 {away_team} ⚽
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-### 📈 ANÁLISE DE MERCADOS DISPONÍVEIS
-▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-{market_section}
-
-### 🔄 PROBABILIDADES CALCULADAS
-▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-{prob_section}
-
-### 💰 OPORTUNIDADES IDENTIFICADAS
-▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-{opp_section}
-
-### 🎯 NÍVEL DE CONFIANÇA GERAL: {conf_section}
-▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                © RELATÓRIO DE ANÁLISE ESPORTIVA
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-"""
-            return new_format
-        except Exception as e:
-            # Se houver erro na conversão, continuar com o fallback
-            pass
+    # Remover quaisquer tags HTML que possam ter vazado
+    analysis_text = analysis_text.replace("<div", "").replace("</div", "").replace("class=", "")
     
-    # Criar uma versão no novo formato estético com mensagens de fallback
-    new_format = f"""
+    # Verificar se a análise já parece estar no formato desejado
+    if "📊 ANÁLISE DE PARTIDA 📊" in analysis_text and "PROBABILIDADES CALCULADAS" in analysis_text:
+        # Limpar possíveis problemas de formatação, mas manter o conteúdo
+        clean_text = analysis_text
+        
+        # Verificar se a tabela de probabilidades está bem formatada
+        if "│" not in analysis_text or "┌─" not in analysis_text:
+            # Extrair dados de probabilidades para reformatar a tabela
+            try:
+                probs_section = ""
+                if "PROBABILIDADES CALCULADAS" in analysis_text:
+                    probs_parts = analysis_text.split("PROBABILIDADES CALCULADAS")[1].split("OPORTUNIDADES IDENTIFICADAS")[0]
+                    
+                    # Detectar formato simples e converter para tabela ASCII
+                    if "Casa" in probs_parts and "Empate" in probs_parts and "Fora" in probs_parts:
+                        # Criar tabela ASCII formatada
+                        probs_table = """
+┌────────────┬────────────┬────────────┐
+│  MERCADO   │  REAL (%)  │ IMPLÍCITA  │
+├────────────┼────────────┼────────────┤"""
+                        
+                        # Extrair probabilidades (simplificado - implementação real precisaria de regex ou parsing mais cuidadoso)
+                        for market in ["Casa", "Empate", "Fora"]:
+                            if market in probs_parts:
+                                real_prob = "N/A"
+                                impl_prob = "N/A"
+                                
+                                # Exemplo simplificado de extração - uma implementação real seria mais robusta
+                                if f"{market}:" in probs_parts:
+                                    market_parts = probs_parts.split(f"{market}:")[1].split("\n")[0]
+                                    if "%" in market_parts:
+                                        real_prob = market_parts.split("%")[0].strip() + "%"
+                                    if "Implícita" in market_parts:
+                                        impl_parts = market_parts.split("Implícita:")[1]
+                                        if "%" in impl_parts:
+                                            impl_prob = impl_parts.split("%")[0].strip() + "%"
+                                
+                                probs_table += f"""
+│  {market.ljust(8)} │ {real_prob.center(10)} │ {impl_prob.center(10)} │"""
+                        
+                        probs_table += """
+└────────────┴────────────┴────────────┘"""
+                        
+                        # Substituir a seção de probabilidades pela tabela formatada
+                        clean_text = clean_text.split("PROBABILIDADES CALCULADAS")[0] + "🔄 PROBABILIDADES CALCULADAS\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n" + probs_table + "\n\n" + "💰 OPORTUNIDADES IDENTIFICADAS\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n" + analysis_text.split("OPORTUNIDADES IDENTIFICADAS")[1]
+            except:
+                # Se houver erro no parsing, manter o texto original
+                pass
+        
+        return clean_text
+    
+    # Criar uma resposta formatada do zero
+    formatted_analysis = f"""
 # 📊 ANÁLISE DE PARTIDA 📊
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -940,25 +927,116 @@ def format_analysis_response(analysis_text, home_team, away_team):
 
 ### 📈 ANÁLISE DE MERCADOS DISPONÍVEIS
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-Análise não disponível. O modelo não gerou uma resposta no formato esperado.
-
-### 🔄 PROBABILIDADES CALCULADAS
+"""
+    
+    # Tentar extrair as seções da análise original
+    try:
+        if "# Análise de Mercados Disponíveis:" in analysis_text:
+            markets_section = analysis_text.split("# Análise de Mercados Disponíveis:")[1].split("#")[0].strip()
+            formatted_analysis += markets_section + "\n\n"
+        else:
+            formatted_analysis += "Informações de mercados não disponíveis na resposta original.\n\n"
+        
+        formatted_analysis += """### 🔄 PROBABILIDADES CALCULADAS
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-Probabilidades não disponíveis. Verifique se há dados estatísticos suficientes.
-
-### 💰 OPORTUNIDADES IDENTIFICADAS
+┌────────────┬────────────┬────────────┐
+│  MERCADO   │  REAL (%)  │ IMPLÍCITA  │
+├────────────┼────────────┼────────────┤
+"""
+        
+        # Extrair probabilidades se disponíveis
+        if "# Probabilidades Calculadas" in analysis_text:
+            probs_section = analysis_text.split("# Probabilidades Calculadas")[1].split("#")[0].strip()
+            
+            # Procurar probabilidades específicas (exemplo simplificado)
+            for market, keyword in [("Casa", "Casa"), ("Empate", "Empate"), ("Fora", "Fora")]:
+                real_prob = "N/A"
+                impl_prob = "N/A"
+                
+                if keyword in probs_section:
+                    line = [l for l in probs_section.split("\n") if keyword in l]
+                    if line:
+                        line = line[0]
+                        # Tentar extrair valores (muito simplificado)
+                        parts = line.split()
+                        for i, part in enumerate(parts):
+                            if "%" in part:
+                                if real_prob == "N/A":
+                                    real_prob = part
+                                else:
+                                    impl_prob = part
+                
+                formatted_analysis += f"│  {market.ljust(8)} │ {real_prob.center(10)} │ {impl_prob.center(10)} │\n"
+        else:
+            formatted_analysis += "│     N/A    │     N/A    │     N/A    │\n"
+        
+        formatted_analysis += "└────────────┴────────────┴────────────┘\n\n"
+        
+        formatted_analysis += """### 💰 OPORTUNIDADES IDENTIFICADAS
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-Nenhuma oportunidade identificada com os dados disponíveis.
-
-### 🎯 NÍVEL DE CONFIANÇA GERAL: Baixo
+"""
+        
+        # Extrair oportunidades
+        if "# Oportunidades Identificadas" in analysis_text:
+            opps_section = analysis_text.split("# Oportunidades Identificadas:")[1].split("#")[0].strip()
+            formatted_analysis += opps_section + "\n\n"
+        else:
+            formatted_analysis += "Nenhuma oportunidade identificada na resposta original.\n\n"
+        
+        # Extrair nível de confiança
+        confidence = "Baixo"
+        confidence_text = ""
+        
+        if "# Nível de Confiança" in analysis_text:
+            conf_parts = analysis_text.split("# Nível de Confiança")[1]
+            if ":" in conf_parts:
+                confidence = conf_parts.split(":")[1].split("\n")[0].strip()
+                confidence_text = conf_parts
+        
+        formatted_analysis += f"""### 🎯 NÍVEL DE CONFIANÇA GERAL: {confidence}
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-A análise tem baixa confiança devido à falta de informações ou ao formato inesperado da resposta.
+"""
+        
+        if confidence_text:
+            formatted_analysis += confidence_text.strip() + "\n\n"
+        else:
+            formatted_analysis += """
+  ► CONSISTÊNCIA: Medida (%) que indica quão previsível é o desempenho da equipe
+  
+  ► FORMA: Pontuação dos últimos 5 jogos (0.0/15)
+     • Vitória = 3 pontos
+     • Empate = 1 ponto
+     • Derrota = 0 pontos
+  
+  ► INFLUÊNCIA: Estes fatores não puderam ser analisados adequadamente.
+
+"""
+        
+        formatted_analysis += """━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                © RELATÓRIO DE ANÁLISE ESPORTIVA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"""
+    except:
+        # Se algo der errado, retorna um formato base simples
+        formatted_analysis = f"""
+# 📊 ANÁLISE DE PARTIDA 📊
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+## ⚽ {home_team} 🆚 {away_team} ⚽
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+### 📈 ANÁLISE DE MERCADOS DISPONÍVEIS
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+A análise original não pôde ser formatada corretamente.
+Por favor, verifique a resposta original para mais detalhes.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
                 © RELATÓRIO DE ANÁLISE ESPORTIVA
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
-    return new_format
+    
+    return formatted_analysis
 def format_enhanced_prompt(complete_analysis, home_team, away_team, odds_data, selected_markets):
     """
     Função aprimorada para formatar prompt de análise multi-mercados
