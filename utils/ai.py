@@ -601,64 +601,67 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
         selected_markets_str = ", ".join(selected_market_names)
         
         instructions = f"""
-        # INSTRUÇÕES PARA ANÁLISE
-        
-        Analise os dados estatísticos fornecidos para identificar valor nas odds.
-        Você é um especialista em probabilidades esportivas que utiliza nosso método avançado de Dispersão e Ponderação.
-        
-        IMPORTANTE: As probabilidades REAIS já foram calculadas para você para os seguintes mercados selecionados e somam exatamente 100% em cada mercado:
-        {selected_markets_str}
-        
-        Todas as probabilidades reais estão na seção "PROBABILIDADES CALCULADAS".
-        
-        VOCÊ DEVE responder EXATAMENTE no formato abaixo:
-        
-                # 📊 ANÁLISE DE PARTIDA 📊
-        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        
-        ## ⚽ {home_team} 🆚 {away_team} ⚽
-        
-        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        
-        ### 📈 ANÁLISE DE MERCADOS DISPONÍVEIS
-        ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-        [Resumo detalhado APENAS dos mercados selecionados ({selected_markets_str}) 
-        com suas odds e probabilidades implícitas]
-        
-        ### 🔄 PROBABILIDADES CALCULADAS
-        ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-           ┌────────────┬────────────┬────────────┐
-           │  MERCADO   │  REAL (%)  │ IMPLÍCITA  │
-           └────────────┴────────────┴────────────┘
-        [Compare as probabilidades REAIS calculadas com as probabilidades 
-        IMPLÍCITAS nas odds APENAS para os mercados selecionados ({selected_markets_str})]
-        
-        ### 💰 OPORTUNIDADES IDENTIFICADAS
-        ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-        [Liste cada mercado onde você encontrou valor/edge, mostrando a 
-        porcentagem de vantagem]
-        - Considere valor quando a probabilidade real for pelo menos 2% maior que a implícita
-        
-        ### 🎯 NÍVEL DE CONFIANÇA GERAL: [Baixo/Médio/Alto]
-        ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-        [Explique o nível de confiança, incluindo uma explicação clara sobre:]
-        
-          ► CONSISTÊNCIA: Medida (%) que indica quão previsível é o desempenho da equipe
-          
-          ► FORMA: Pontuação dos últimos 5 jogos (X.X/15)
-             • Vitória = 3 pontos
-             • Empate = 1 ponto
-             • Derrota = 0 pontos
-          
-          ► INFLUÊNCIA: Como esses fatores influenciam a confiança na análise
-        
-        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                        © RELATÓRIO DE ANÁLISE ESPORTIVA
-        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# INSTRUÇÕES PARA ANÁLISE
+
+Analise os dados estatísticos fornecidos para identificar valor nas odds.
+Você é um especialista em probabilidades esportivas que utiliza nosso método avançado de Dispersão e Ponderação.
+
+IMPORTANTE: As probabilidades REAIS já foram calculadas para você para os seguintes mercados selecionados e somam exatamente 100% em cada mercado:
+{selected_markets_str}
+
+Todas as probabilidades reais estão na seção "PROBABILIDADES CALCULADAS".
+
+VOCÊ DEVE responder EXATAMENTE no formato abaixo:
+
+# 📊 ANÁLISE DE PARTIDA 📊
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+## ⚽ {home_team} 🆚 {away_team} ⚽
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+### 📈 ANÁLISE DE MERCADOS DISPONÍVEIS
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+[Resumo detalhado APENAS dos mercados selecionados ({selected_markets_str}) 
+com suas odds e probabilidades implícitas]
+
+### 🔄 PROBABILIDADES CALCULADAS
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+   ┌────────────┬────────────┬────────────┐
+   │  MERCADO   │  REAL (%)  │ IMPLÍCITA  │
+   └────────────┴────────────┴────────────┘
+[Compare as probabilidades REAIS calculadas com as probabilidades 
+IMPLÍCITAS nas odds APENAS para os mercados selecionados ({selected_markets_str})]
+
+### 💰 OPORTUNIDADES IDENTIFICADAS
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+[Liste cada mercado onde você encontrou valor/edge, mostrando a 
+porcentagem de vantagem]
+- Considere valor quando a probabilidade real for pelo menos 2% maior que a implícita
+
+### 🎯 NÍVEL DE CONFIANÇA GERAL: [Baixo/Médio/Alto]
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+[Explique o nível de confiança, incluindo uma explicação clara sobre:]
+
+  ► CONSISTÊNCIA: Medida (%) que indica quão previsível é o desempenho da equipe
+  
+  ► FORMA: Pontuação dos últimos 5 jogos (X.X/15)
+     • Vitória = 3 pontos
+     • Empate = 1 ponto
+     • Derrota = 0 pontos
+  
+  ► INFLUÊNCIA: Como esses fatores influenciam a confiança na análise
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                © RELATÓRIO DE ANÁLISE ESPORTIVA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"""
 
         # Adicionar aviso quando utilizamos o modelo de fallback
         if not has_stats_data:
             instructions += """
+ATENÇÃO: Os dados estatísticos para esta partida são limitados. Use apenas as informações disponíveis e seja claro quando não houver dados suficientes para uma análise completa.
+"""
         
         # Compile the final prompt
         sections = [
@@ -708,20 +711,28 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
 Analise as odds e identifique oportunidades de valor.
 Responda com EXATAMENTE este formato:
 
-# Análise da Partida
-## {home_team} x {away_team}
+# 📊 ANÁLISE DE PARTIDA 📊
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-# Análise de Mercados Disponíveis:
-[Resumo detalhado das odds]
+## ⚽ {home_team} 🆚 {away_team} ⚽
 
-# Probabilidades Calculadas (REAL vs IMPLÍCITA):
-[Comparação lado a lado de probabilidades reais e implícitas]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-# Oportunidades Identificadas:
-[Lista de oportunidades com edge percentual]
+### 📈 ANÁLISE DE MERCADOS DISPONÍVEIS
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+[Resumo detalhado dos mercados com odds]
 
-# Nível de Confiança Geral: [Baixo/Médio/Alto]
-[Explique o que significa 'consistência' e 'forma (X.X/15)' ao justificar o nível de confiança]
+### 🔄 PROBABILIDADES CALCULADAS
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+[Comparação de probabilidades]
+
+### 💰 OPORTUNIDADES IDENTIFICADAS
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+[Lista de oportunidades]
+
+### 🎯 NÍVEL DE CONFIANÇA GERAL: [Baixo/Médio/Alto]
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+[Explicação com consistência e forma]
 """
 def analyze_with_gpt(prompt):
     try:
@@ -1217,7 +1228,7 @@ def calculate_advanced_probabilities(home_team, away_team, league_table=None):
         max_xg = max(home_xg, away_xg, 60)  # 60 gols é benchmark máximo
         
         # Calcular scores ofensivos e defensivos
-        home_offensive = (home_xg / max_xg) * 0.6 + (home_goals_per_game / 3) * 0.4
+        home_offensive = (home_xg / max(max_xg, 1)) * 0.6 + (home_goals_per_game / 3) * 0.4
         home_defensive = (1 - min(1, home_xga / max_xg)) * 0.6 + (1 - min(1, home_conceded_per_game / 3)) * 0.4
         
         away_offensive = (away_xg / max_xg) * 0.6 + (away_goals_per_game / 3) * 0.4
@@ -1361,4 +1372,5 @@ def calculate_advanced_probabilities(home_team, away_team, league_table=None):
         logger.error(f"Erro no cálculo avançado de probabilidades: {str(e)}")
         import traceback
         logger.error(traceback.format_exc())
-        # Não usamos fallback, então retornamos None em caso de erro
+        # Retornamos None em caso de erro
+        return None
