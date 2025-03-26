@@ -356,17 +356,23 @@ def extract_text_without_parentheses(text):
 
 def display_formatted_analysis(analysis_data):
     """
-    Exibe a análise formatada usando componentes Streamlit
+    Exibe a análise formatada usando componentes Streamlit com estilos melhorados
     
     Args:
         analysis_data (dict): Dados estruturados da análise
     """
     try:
+        # Aplicar estilos CSS personalizados
+        apply_custom_styles()
+        
+        # Container para toda a análise
+        st.markdown('<div class="analysis-container">', unsafe_allow_html=True)
+        
         # Título da análise
         if analysis_data["title"]:
-            st.markdown(f"# 📊 Análise da Partida: {analysis_data['title']}")
+            st.markdown(f'<h1 class="analysis-title">📊 Análise da Partida: {analysis_data["title"]}</h1>', unsafe_allow_html=True)
         else:
-            st.markdown("# 📊 Análise da Partida")
+            st.markdown('<h1 class="analysis-title">📊 Análise da Partida</h1>', unsafe_allow_html=True)
         
         # Oportunidades identificadas
         st.markdown("## 🎯 Oportunidades Identificadas")
@@ -461,33 +467,66 @@ def display_formatted_analysis(analysis_data):
         # Nível de confiança geral
         confidence_level = analysis_data["confidence"].get("level", "Médio")
         stars = "⭐" * get_confidence_stars(confidence_level)
-        st.markdown(f"**Nível de Confiança Geral: {confidence_level}** {stars}")
+        st.markdown(f'<div class="confidence-stars">**Nível de Confiança Geral: {confidence_level}** {stars}</div>', unsafe_allow_html=True)
         
         # Consistência das equipes
         if analysis_data["confidence"]["teams_consistency"]:
             st.markdown("### Consistência das Equipes")
+            
+            # Criar dataframe para exibição tabular das consistências
+            consistency_data = []
             for team, consistency in analysis_data["confidence"]["teams_consistency"].items():
                 consistency_desc = get_consistency_description(consistency)
-                st.markdown(f"- **{team}**: {consistency:.1f}% ({consistency_desc})")
+                consistency_data.append({
+                    "Equipe": team,
+                    "Consistência": f"{consistency:.1f}%",
+                    "Previsibilidade": consistency_desc
+                })
+            
+            if consistency_data:
+                st.dataframe(
+                    pd.DataFrame(consistency_data),
+                    hide_index=True,
+                    use_container_width=True
+                )
         
         # Forma recente
         if analysis_data["confidence"]["recent_form"]:
             st.markdown("### Forma Recente (últimos 5 jogos)")
+            
+            # Criar dataframe para exibição tabular da forma
+            form_data = []
             for team, form in analysis_data["confidence"]["recent_form"].items():
                 form_desc = get_form_description(form)
-                st.markdown(f"- **{team}**: {form:.1f}/15 pontos ({form_desc})")
+                form_data.append({
+                    "Equipe": team,
+                    "Pontos": f"{form:.1f}/15",
+                    "Avaliação": form_desc
+                })
+            
+            if form_data:
+                st.dataframe(
+                    pd.DataFrame(form_data),
+                    hide_index=True,
+                    use_container_width=True
+                )
         
         # Observações
         if analysis_data["confidence"]["observations"]:
             st.markdown("### Observações")
             for obs in analysis_data["confidence"]["observations"]:
-                st.markdown(f"- {obs}")
+                # Verificar se já começa com marcador de lista
+                if not (obs.startswith('-') or obs.startswith('*')):
+                    obs = f"- {obs}"
+                st.markdown(obs)
+        
+        # Fechar container
+        st.markdown('</div>', unsafe_allow_html=True)
     
     except Exception as e:
         st.error(f"Erro ao exibir análise formatada: {str(e)}")
         import traceback
         st.error(traceback.format_exc())
-
 def get_confidence_stars(level):
     """Retorna o número de estrelas baseado no nível de confiança"""
     mapping = {
