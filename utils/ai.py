@@ -852,8 +852,10 @@ def check_data_quality(stats_dict):
 
 def format_analysis_response(analysis_text, home_team, away_team):
     """
-    Constrói uma análise limpa em formato texto puro com todos os mercados organizados por categorias.
+    Constrói uma análise limpa em formato texto puro com detecção dinâmica de mercados Over/Under.
     """
+    import re  # Adicionando regex para detecção de padrões
+    
     # Remover tags HTML e caracteres problemáticos
     for tag in ["<div", "</div", "<span", "</span", "class=", "id=", "style="]:
         analysis_text = analysis_text.replace(tag, "")
@@ -862,7 +864,7 @@ def format_analysis_response(analysis_text, home_team, away_team):
     market_categories = {
         "Money Line (1X2)": [],
         "Chance Dupla": [],
-        "Over/Under 2.5": [],
+        "Over/Under Gols": [],
         "Ambos Marcam": [],
         "Escanteios": [],
         "Cartões": []
@@ -874,6 +876,9 @@ def format_analysis_response(analysis_text, home_team, away_team):
     consistency_info = ""
     form_info = ""
     influence_info = ""
+    
+    # Detectar padrões de Over/Under com regex
+    over_under_pattern = re.compile(r'(?:Over|Under)\s+(\d+(?:\.\d+)?)')
     
     # Extrair e categorizar mercados disponíveis
     if "MERCADOS DISPONÍVEIS" in analysis_text or "Análise de Mercados" in analysis_text:
@@ -891,13 +896,20 @@ def format_analysis_response(analysis_text, home_team, away_team):
                     market_categories["Money Line (1X2)"].append("• " + line)
                 elif "1X" in line or "12" in line or "X2" in line:
                     market_categories["Chance Dupla"].append("• " + line)
-                elif ("Over" in line and "2.5" in line) or ("Under" in line and "2.5" in line):
-                    market_categories["Over/Under 2.5"].append("• " + line)
-                elif ("Sim" in line and "@" in line) or ("Não" in line and "@" in line):
+                elif "Over" in line or "Under" in line:
+                    # Detectar dinamicamente Over/Under para diferentes mercados
+                    if "escanteio" in line.lower() or "corner" in line.lower():
+                        market_categories["Escanteios"].append("• " + line)
+                    elif "cartão" in line.lower() or "cartões" in line.lower() or "card" in line.lower():
+                        market_categories["Cartões"].append("• " + line)
+                    else:
+                        # Assumimos que é Over/Under de gols se não especificar outro mercado
+                        market_categories["Over/Under Gols"].append("• " + line)
+                elif ("Sim" in line and "@" in line) or ("Não" in line and "@" in line) or "BTTS" in line:
                     market_categories["Ambos Marcam"].append("• " + line)
-                elif ("Over" in line and "9.5" in line) or ("Under" in line and "9.5" in line) or ("Escanteios" in line):
+                elif "escanteio" in line.lower() or "corner" in line.lower():
                     market_categories["Escanteios"].append("• " + line)
-                elif ("Over" in line and "3.5" in line) or ("Under" in line and "3.5" in line) or ("Cartões" in line):
+                elif "cartão" in line.lower() or "cartões" in line.lower() or "card" in line.lower():
                     market_categories["Cartões"].append("• " + line)
                 # Caso não consiga categorizar, coloca no Money Line como fallback
                 elif "@" in line:
@@ -963,12 +975,22 @@ def format_analysis_response(analysis_text, home_team, away_team):
                             "implicit": impl_prob
                         }
             
-            # 3. Over/Under 2.5
-            if "Over 2.5" in probs_section or "Under 2.5" in probs_section:
-                all_probabilities["Over/Under 2.5"] = {}
-                ou_options = ["Over 2.5", "Under 2.5"]
+            # 3. Over/Under Gols (DINÂMICO)
+            # Encontrar todos os padrões de Over/Under no texto
+            ou_matches = over_under_pattern.finditer(probs_section)
+            ou_values = set()
+            
+            for match in ou_matches:
+                # Verificar se é sobre gols (não escanteios ou cartões)
+                context = probs_section[max(0, match.start()-20):min(len(probs_section), match.end()+20)]
+                if "escanteio" not in context.lower() and "corner" not in context.lower() and \
+                   "cartão" not in context.lower() and "card" not in context.lower():
+                    ou_values.add(match.group())
+            
+            if ou_values:
+                all_probabilities["Over/Under Gols"] = {}
                 
-                for option in ou_options:
+                for option in ou_values:
                     if option in probs_section:
                         real_prob = "N/A"
                         impl_prob = "N/A"
@@ -983,7 +1005,7 @@ def format_analysis_response(analysis_text, home_team, away_team):
                         except:
                             pass
                         
-                        all_probabilities["Over/Under 2.5"][option] = {
+                        all_probabilities["Over/Under Gols"][option] = {
                             "real": real_prob,
                             "implicit": impl_prob
                         }
@@ -1013,12 +1035,25 @@ def format_analysis_response(analysis_text, home_team, away_team):
                             "implicit": impl_prob
                         }
             
-            # 5. Escanteios
-            if "Escanteios" in probs_section or ("Over" in probs_section and "9.5" in probs_section):
+            # 5. Escanteios (DINÂMICO)
+            corners_matches = re.finditer(r'(?:Over|Under)\s+(\d+(?:\.\d+)?)[^\n]*(?:escanteio|corner)', probs_section, re.IGNORECASE)
+            corners_values = set()
+            
+            for match in corners_matches:
+                corners_values.add(match.group(0).split()[0] + " " + match.group(1))
+            
+            if "Escanteios" in probs_section or corners_values:
                 all_probabilities["Escanteios"] = {}
-                corners_options = ["Over 9.5", "Under 9.5"]
                 
-                for option in corners_options:
+                if not corners_values:
+                    # Tenta encontrar qualquer padrão Over/Under em seção relacionada a escanteios
+                    if "Escanteios" in probs_section:
+                        escanteios_section = probs_section.split("Escanteios")[1].split("\n\n")[0]
+                        corners_matches = over_under_pattern.finditer(escanteios_section)
+                        for match in corners_matches:
+                            corners_values.add(match.group())
+                
+                for option in corners_values:
                     if option in probs_section:
                         real_prob = "N/A"
                         impl_prob = "N/A"
@@ -1038,12 +1073,25 @@ def format_analysis_response(analysis_text, home_team, away_team):
                             "implicit": impl_prob
                         }
             
-            # 6. Cartões
-            if "Cartões" in probs_section or ("Over" in probs_section and "3.5" in probs_section):
+            # 6. Cartões (DINÂMICO)
+            cards_matches = re.finditer(r'(?:Over|Under)\s+(\d+(?:\.\d+)?)[^\n]*(?:cartão|cartões|card)', probs_section, re.IGNORECASE)
+            cards_values = set()
+            
+            for match in cards_matches:
+                cards_values.add(match.group(0).split()[0] + " " + match.group(1))
+            
+            if "Cartões" in probs_section or cards_values:
                 all_probabilities["Cartões"] = {}
-                cards_options = ["Over 3.5", "Under 3.5"]
                 
-                for option in cards_options:
+                if not cards_values:
+                    # Tenta encontrar qualquer padrão Over/Under em seção relacionada a cartões
+                    if "Cartões" in probs_section:
+                        cartoes_section = probs_section.split("Cartões")[1].split("\n\n")[0]
+                        cards_matches = over_under_pattern.finditer(cartoes_section)
+                        for match in cards_matches:
+                            cards_values.add(match.group())
+                
+                for option in cards_values:
                     if option in probs_section:
                         real_prob = "N/A"
                         impl_prob = "N/A"
@@ -1179,10 +1227,11 @@ def format_analysis_response(analysis_text, home_team, away_team):
 ► INFLUÊNCIA: {influence_info}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                © RELATÓRIO DE ANÁLISE ESPORTIVA
+     © RELATÓRIO VALUE HUNTER DE ANÁLISE ESPORTIVA
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
     
     return clean_report
+    
 def format_enhanced_prompt(complete_analysis, home_team, away_team, odds_data, selected_markets):
     """
     Função aprimorada para formatar prompt de análise multi-mercados
