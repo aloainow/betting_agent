@@ -8,6 +8,7 @@ import streamlit as st
 from utils.core import show_valuehunter_logo, go_to_login, update_purchase_button, DATA_DIR
 from utils.data import parse_team_stats, get_odds_data, format_prompt
 from utils.ai import analyze_with_gpt, format_enhanced_prompt, format_highly_optimized_prompt
+from utils.ai import format_analysis_response, format_analysis_response_html
 
 # Configuração de logging
 logger = logging.getLogger("valueHunter.dashboard")
@@ -1194,51 +1195,280 @@ def show_main_dashboard():
                                     if "</div>" in analysis:
                                         analysis = analysis.replace("</div>", "")
                             
-                            # NOVO: Formatar a resposta para garantir que tenha todas as seções
-                            from utils.ai import format_analysis_response
-                            formatted_analysis = format_analysis_response(analysis, home_team, away_team)
+                            # Garantir que temos a estrutura básica
+                            formatted_analysis_text = format_analysis_response(analysis, home_team, away_team)
                             
-                            # Exibir a análise em uma div com largura total
+                            # Converter para HTML bonito
+                            formatted_html = format_analysis_response_html(formatted_analysis_text, home_team, away_team)
+                            
+                            # Exibir o HTML com estilo aprimorado
                             st.markdown(f'''
                             <style>
+                            /* CSS aprimorado para análise de partidas */
                             .analysis-result {{
                                 width: 100% !important;
                                 max-width: 100% !important;
-                                padding: 2rem !important;
-                                background-color: #575760;
+                                padding: 0 !important;
+                                border-radius: 10px;
+                                overflow: hidden;
+                                margin: 2rem 0;
+                                font-family: 'Inter', 'Roboto', sans-serif;
+                                box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+                                background-color: #2a2a35;
+                                border: none !important;
+                            }}
+                            
+                            /* Cabeçalho da partida */
+                            .match-header {{
+                                background: linear-gradient(135deg, #233374 0%, #242c46 100%);
+                                padding: 2rem;
+                                text-align: center;
+                                position: relative;
+                            }}
+                            
+                            .match-header h1 {{
+                                font-size: 2.2rem;
+                                font-weight: 700;
+                                color: white;
+                                margin: 0;
+                                text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+                            }}
+                            
+                            .match-header .vs {{
+                                font-size: 1.8rem;
+                                color: #fd7014;
+                                margin: 0 0.8rem;
+                                font-weight: 600;
+                            }}
+                            
+                            /* Seções de análise */
+                            .analysis-section {{
+                                padding: 1.8rem 2rem;
+                                border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+                                transition: all 0.3s ease;
+                            }}
+                            
+                            .analysis-section:last-child {{
+                                border-bottom: none;
+                            }}
+                            
+                            .analysis-section h2 {{
+                                font-size: 1.5rem;
+                                color: #fd7014;
+                                margin: 0 0 1.2rem 0;
+                                display: flex;
+                                align-items: center;
+                                gap: 0.5rem;
+                                font-weight: 600;
+                            }}
+                            
+                            .section-content {{
+                                animation: fadeIn 0.5s ease;
+                            }}
+                            
+                            /* Seção de mercados */
+                            .markets {{
+                                background-color: #2a2a35;
+                            }}
+                            
+                            .markets-list {{
+                                list-style: none;
+                                padding: 0;
+                                margin: 0;
+                                display: grid;
+                                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+                                gap: 1rem;
+                            }}
+                            
+                            .markets-list li {{
+                                background-color: #353442;
+                                padding: 1.2rem;
                                 border-radius: 8px;
-                                border: 1px solid #6b6b74;
-                                margin: 1rem 0;
+                                display: flex;
+                                flex-direction: column;
+                                box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+                                transition: transform 0.2s ease, box-shadow 0.2s ease;
                             }}
                             
-                            /* Estilos para deixar o cabeçalho mais bonito */
-                            .analysis-result h1, 
-                            .analysis-result h2,
-                            .analysis-result h3 {{
+                            .markets-list li:hover {{
+                                transform: translateY(-2px);
+                                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+                            }}
+                            
+                            .market-name {{
+                                font-weight: 500;
+                                margin-bottom: 0.5rem;
+                                color: #e6e6e8;
+                            }}
+                            
+                            .odds-info {{
+                                font-weight: 700;
                                 color: #fd7014;
-                                margin-top: 1.5rem;
-                                margin-bottom: 1rem;
+                                font-size: 1.1rem;
                             }}
                             
-                            /* Estilos para parágrafos */
-                            .analysis-result p {{
-                                margin-bottom: 1rem;
+                            /* Seção de probabilidades */
+                            .probabilities {{
+                                background-color: #242c46;
+                            }}
+                            
+                            .probabilities-list {{
+                                list-style: none;
+                                padding: 0;
+                                margin: 0;
+                                display: grid;
+                                grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+                                gap: 1rem;
+                            }}
+                            
+                            .probabilities-list li {{
+                                background-color: #2a3558;
+                                padding: 1.2rem;
+                                border-radius: 8px;
                                 line-height: 1.5;
+                                box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+                                transition: transform 0.2s ease, box-shadow 0.2s ease;
                             }}
                             
-                            /* Estilos para listas */
-                            .analysis-result ul, 
-                            .analysis-result ol {{
-                                margin-left: 1.5rem;
-                                margin-bottom: 1rem;
+                            .probabilities-list li:hover {{
+                                transform: translateY(-2px);
+                                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
                             }}
                             
-                            /* Oportunidades destacadas */
-                            .analysis-result strong {{
-                                color: #fd7014;
+                            .team-name {{
+                                font-weight: 600;
+                                display: block;
+                                margin-bottom: 0.4rem;
+                                color: #e6e6e8;
+                            }}
+                            
+                            .positive-value {{
+                                color: #4caf50;
+                                font-weight: 700;
+                            }}
+                            
+                            .negative-value {{
+                                color: #f44336;
+                                font-weight: 700;
+                            }}
+                            
+                            .implicit {{
+                                color: #aaaaaa;
+                            }}
+                            
+                            /* Seção de oportunidades */
+                            .opportunities {{
+                                background-color: #2a2a35;
+                            }}
+                            
+                            .opportunities-list {{
+                                list-style: none;
+                                padding: 0;
+                                margin: 0;
+                                display: flex;
+                                flex-direction: column;
+                                gap: 1rem;
+                            }}
+                            
+                            .opportunities-list li {{
+                                background-color: #353442;
+                                padding: 1.2rem;
+                                border-radius: 8px;
+                                border-left: 4px solid #fd7014;
+                                line-height: 1.5;
+                                box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+                                transition: transform 0.2s ease, box-shadow 0.2s ease;
+                            }}
+                            
+                            .opportunities-list li:hover {{
+                                transform: translateY(-2px);
+                                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+                            }}
+                            
+                            .opportunities-list .strong-value {{
+                                border-left: 4px solid #4caf50;
+                            }}
+                            
+                            .opportunities-list .moderate-value {{
+                                border-left: 4px solid #ffc107;
+                            }}
+                            
+                            .no-opportunities {{
+                                padding: 1.2rem;
+                                background-color: #353442;
+                                border-radius: 8px;
+                                font-style: italic;
+                                opacity: 0.7;
+                            }}
+                            
+                            /* Seção de confiança */
+                            .confidence {{
+                                background-color: #242c46;
+                            }}
+                            
+                            .confidence.alto {{
+                                border-left: 5px solid #4caf50;
+                            }}
+                            
+                            .confidence.médio {{
+                                border-left: 5px solid #ffc107;
+                            }}
+                            
+                            .confidence.baixo {{
+                                border-left: 5px solid #f44336;
+                            }}
+                            
+                            .confidence-level {{
+                                font-weight: 700;
+                            }}
+                            
+                            .confidence-factors {{
+                                list-style: none;
+                                padding: 0;
+                                margin: 0;
+                                display: flex;
+                                flex-direction: column;
+                                gap: 0.8rem;
+                            }}
+                            
+                            .confidence-factors li {{
+                                background-color: #2a3558;
+                                padding: 1.2rem;
+                                border-radius: 8px;
+                                line-height: 1.6;
+                                box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+                            }}
+                            
+                            /* Animações */
+                            @keyframes fadeIn {{
+                                from {{ opacity: 0; transform: translateY(10px); }}
+                                to {{ opacity: 1; transform: translateY(0); }}
+                            }}
+                            
+                            /* Responsividade para mobile */
+                            @media (max-width: 768px) {{
+                                .match-header h1 {{
+                                    font-size: 1.6rem;
+                                }}
+                                
+                                .match-header .vs {{
+                                    font-size: 1.4rem;
+                                }}
+                                
+                                .markets-list, .probabilities-list {{
+                                    grid-template-columns: 1fr;
+                                }}
+                                
+                                .analysis-section {{
+                                    padding: 1.2rem;
+                                }}
+                                
+                                .analysis-section h2 {{
+                                    font-size: 1.3rem;
+                                }}
                             }}
                             </style>
-                            <div class="analysis-result">{formatted_analysis}</div>
+                            <div class="analysis-result">{formatted_html}</div>
                             ''', unsafe_allow_html=True)
                             
                             # Registrar uso após análise bem-sucedida
