@@ -613,30 +613,48 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
         
         VOCÊ DEVE responder EXATAMENTE no formato abaixo:
         
-        # Análise da Partida
-        ## {home_team} x {away_team}
+                # 📊 ANÁLISE DE PARTIDA 📊
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         
-        # Análise de Mercados Disponíveis:
-        [Resumo detalhado APENAS dos mercados selecionados ({selected_markets_str}) com suas odds e probabilidades implícitas]
+        ## ⚽ {home_team} 🆚 {away_team} ⚽
         
-        # Probabilidades Calculadas (REAL vs IMPLÍCITA):
-        [Compare as probabilidades REAIS calculadas com as probabilidades IMPLÍCITAS nas odds APENAS para os mercados selecionados ({selected_markets_str})]
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         
-        # Oportunidades Identificadas:
-        [Liste cada mercado onde você encontrou valor/edge, mostrando a porcentagem de vantagem]
+        ### 📈 ANÁLISE DE MERCADOS DISPONÍVEIS
+        ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+        [Resumo detalhado APENAS dos mercados selecionados ({selected_markets_str}) 
+        com suas odds e probabilidades implícitas]
+        
+        ### 🔄 PROBABILIDADES CALCULADAS
+        ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+           ┌────────────┬────────────┬────────────┐
+           │  MERCADO   │  REAL (%)  │ IMPLÍCITA  │
+           └────────────┴────────────┴────────────┘
+        [Compare as probabilidades REAIS calculadas com as probabilidades 
+        IMPLÍCITAS nas odds APENAS para os mercados selecionados ({selected_markets_str})]
+        
+        ### 💰 OPORTUNIDADES IDENTIFICADAS
+        ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+        [Liste cada mercado onde você encontrou valor/edge, mostrando a 
+        porcentagem de vantagem]
         - Considere valor quando a probabilidade real for pelo menos 2% maior que a implícita
         
-        # Nível de Confiança Geral: [Baixo/Médio/Alto]
-        [Explique o nível de confiança, incluindo uma explicação clara sobre:
-        - O que significa "consistência" (a previsibilidade do desempenho do time)
-        - O que significam os valores de forma (X.X/15) - explicando que são pontos dos últimos 5 jogos
-        - Como esses fatores influenciam sua confiança na análise]
+        ### 🎯 NÍVEL DE CONFIANÇA GERAL: [Baixo/Médio/Alto]
+        ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+        [Explique o nível de confiança, incluindo uma explicação clara sobre:]
         
-        ATENÇÃO: Ao explicar o nível de confiança, sempre esclareça que:
-        - Consistência é uma medida (%) que indica quão previsível é o desempenho da equipe
-        - Forma (X.X/15) representa a pontuação dos últimos 5 jogos (vitória=3pts, empate=1pt, derrota=0pts)
-        - Valores mais altos em ambas métricas aumentam a confiança na previsão
-        """
+          ► CONSISTÊNCIA: Medida (%) que indica quão previsível é o desempenho da equipe
+          
+          ► FORMA: Pontuação dos últimos 5 jogos (X.X/15)
+             • Vitória = 3 pontos
+             • Empate = 1 ponto
+             • Derrota = 0 pontos
+          
+          ► INFLUÊNCIA: Como esses fatores influenciam a confiança na análise
+        
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                        © RELATÓRIO DE ANÁLISE ESPORTIVA
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
         # Adicionar aviso quando utilizamos o modelo de fallback
         if not has_stats_data:
