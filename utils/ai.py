@@ -1350,3 +1350,242 @@ def calculate_advanced_probabilities(home_team, away_team, league_table=None):
         logger.error(traceback.format_exc())
         # Não usamos fallback, então retornamos None em caso de erro
         return None
+def format_analysis_response_html(analysis_text, home_team, away_team):
+    """
+    Formata a análise em HTML atraente e responsivo.
+    
+    Args:
+        analysis_text (str): Análise bruta do IA
+        home_team (str): Nome do time da casa
+        away_team (str): Nome do time visitante
+        
+    Returns:
+        str: Análise formatada em HTML
+    """
+    # Parsear o texto da análise em seções
+    sections = {}
+    current_section = None
+    current_content = []
+    
+    # Dividir o texto em linhas e analisar as seções
+    for line in analysis_text.split('\n'):
+        line = line.strip()
+        if not line:
+            continue
+            
+        if line.startswith('# '):
+            # Se estávamos coletando conteúdo para uma seção anterior, salve-o
+            if current_section:
+                sections[current_section] = '\n'.join(current_content)
+                current_content = []
+            
+            # Iniciar nova seção
+            current_section = line[2:].strip()
+        else:
+            current_content.append(line)
+    
+    # Salvar a última seção
+    if current_section and current_content:
+        sections[current_section] = '\n'.join(current_content)
+    
+    # Começar a construir o HTML
+    html = f"""
+    <div class="match-header">
+        <h1>{home_team} <span class="vs">vs</span> {away_team}</h1>
+    </div>
+    """
+    
+    # Adicionar seção de mercados disponíveis
+    if "Análise de Mercados Disponíveis" in sections:
+        html += f"""
+        <div class="analysis-section markets">
+            <h2>📊 Mercados Disponíveis</h2>
+            <div class="section-content">
+                {format_markets_section(sections["Análise de Mercados Disponíveis"])}
+            </div>
+        </div>
+        """
+    
+    # Adicionar seção de probabilidades
+    if "Probabilidades Calculadas (REAL vs IMPLÍCITA)" in sections:
+        html += f"""
+        <div class="analysis-section probabilities">
+            <h2>🎯 Probabilidades Calculadas</h2>
+            <div class="section-content">
+                {format_probabilities_section(sections["Probabilidades Calculadas (REAL vs IMPLÍCITA)"])}
+            </div>
+        </div>
+        """
+    
+    # Adicionar seção de oportunidades
+    if "Oportunidades Identificadas" in sections:
+        html += f"""
+        <div class="analysis-section opportunities">
+            <h2>💰 Oportunidades Identificadas</h2>
+            <div class="section-content">
+                {format_opportunities_section(sections["Oportunidades Identificadas"])}
+            </div>
+        </div>
+        """
+    
+    # Adicionar seção de confiança
+    confidence_title = next((s for s in sections.keys() if s.startswith("Nível de Confiança Geral")), None)
+    if confidence_title:
+        confidence_level = confidence_title.split(":")[-1].strip() if ":" in confidence_title else "Médio"
+        confidence_class = confidence_level.lower()
+        confidence_icon = get_confidence_icon(confidence_level)
+        
+        html += f"""
+        <div class="analysis-section confidence {confidence_class}">
+            <h2>{confidence_icon} Nível de Confiança: <span class="confidence-level">{confidence_level}</span></h2>
+            <div class="section-content">
+                {format_confidence_section(sections[confidence_title])}
+            </div>
+        </div>
+        """
+    
+    return html
+
+def format_markets_section(content):
+    """Formata a seção de mercados com HTML adequado"""
+    lines = content.split('\n')
+    html = "<ul class='markets-list'>"
+    
+    for line in lines:
+        if line.startswith('*'):
+            # Extrair informação do mercado
+            market_info = line[1:].strip()
+            # Verificar se tem informação de odds
+            if '@' in market_info:
+                parts = market_info.split('@')
+                market_name = parts[0].strip()
+                odds_info = '@' + parts[1].strip()
+                html += f"<li><span class='market-name'>{market_name}</span> <span class='odds-info'>{odds_info}</span></li>"
+            else:
+                html += f"<li>{market_info}</li>"
+    
+    html += "</ul>"
+    return html
+
+def format_probabilities_section(content):
+    """Formata a seção de probabilidades com HTML adequado"""
+    lines = content.split('\n')
+    html = "<ul class='probabilities-list'>"
+    
+    for line in lines:
+        if line.startswith('*'):
+            # Extrair informação de probabilidade
+            prob_info = line[1:].strip()
+            if 'Real' in prob_info and 'Implícita' in prob_info:
+                parts = prob_info.split(':')
+                team = parts[0].strip()
+                values = parts[1].strip()
+                
+                # Extrair os valores numéricos para comparação
+                real_pct = extract_percentage(values, 'Real')
+                impl_pct = extract_percentage(values, 'Implícita')
+                
+                # Determinar se o valor real é maior (verde) ou menor (vermelho) que o implícito
+                value_class = 'positive-value' if real_pct > impl_pct else 'negative-value'
+                
+                html += f"""
+                <li>
+                    <span class='team-name'>{team}:</span> 
+                    <span class='{value_class}'>Real {real_pct}%</span> vs 
+                    <span class='implicit'>Implícita {impl_pct}%</span>
+                </li>
+                """
+            else:
+                html += f"<li>{prob_info}</li>"
+    
+    html += "</ul>"
+    return html
+
+def extract_percentage(text, prefix):
+    """Extrai valor percentual de texto como 'Real 45.2% vs Implícita 40.1%'"""
+    try:
+        # Encontrar o padrão 'prefix X%'
+        import re
+        pattern = rf"{prefix}\s+(\d+\.\d+|\d+)%"
+        match = re.search(pattern, text)
+        if match:
+            return float(match.group(1))
+        return 0
+    except:
+        return 0
+
+def format_opportunities_section(content):
+    """Formata a seção de oportunidades com HTML adequado"""
+    lines = content.split('\n')
+    
+    # Verificar se há oportunidades reais
+    real_opportunities = [line for line in lines if line.startswith('*') and 'valor' in line.lower()]
+    
+    if not real_opportunities:
+        return "<p class='no-opportunities'>Nenhuma oportunidade significativa identificada.</p>"
+    
+    html = "<ul class='opportunities-list'>"
+    
+    for line in lines:
+        if line.startswith('*'):
+            # Extrair informação de oportunidade
+            opp_info = line[1:].strip()
+            
+            # Tentar extrair o percentual de valor
+            import re
+            value_match = re.search(r'valor\s+de\s+(\d+\.\d+|\d+)%', opp_info, re.IGNORECASE)
+            
+            if value_match:
+                value_pct = float(value_match.group(1))
+                # Destacar valores mais fortes
+                value_class = 'strong-value' if value_pct >= 5 else 'moderate-value'
+                
+                # Dividir em nome do time e análise
+                team_end = opp_info.find(':')
+                if team_end > 0:
+                    team = opp_info[:team_end].strip()
+                    analysis = opp_info[team_end+1:].strip()
+                    html += f"""
+                    <li class='{value_class}'>
+                        <span class='team-name'>{team}:</span>
+                        <span class='analysis'>{analysis}</span>
+                    </li>
+                    """
+                else:
+                    html += f"<li class='{value_class}'>{opp_info}</li>"
+            else:
+                html += f"<li>{opp_info}</li>"
+    
+    html += "</ul>"
+    return html
+
+def format_confidence_section(content):
+    """Formata a seção de confiança com HTML adequado"""
+    # Verificar se há marcadores de lista
+    if '*' in content:
+        factors = content.split('*')
+        factors = [f.strip() for f in factors if f.strip()]
+        
+        html = "<ul class='confidence-factors'>"
+        for factor in factors:
+            html += f"<li>{factor}</li>"
+        html += "</ul>"
+        return html
+    else:
+        # Retornar como parágrafos se não houver marcadores
+        paragraphs = content.split('\n\n')
+        html = ""
+        for p in paragraphs:
+            if p.strip():
+                html += f"<p>{p.strip()}</p>"
+        return html
+
+def get_confidence_icon(confidence_level):
+    """Retorna o ícone apropriado para o nível de confiança"""
+    confidence_level = confidence_level.lower()
+    if 'alto' in confidence_level:
+        return "🟢"  # Círculo verde para alto
+    elif 'médio' in confidence_level:
+        return "🟡"  # Círculo amarelo para médio
+    else:
+        return "🔴"  # Círculo vermelho para baixo
