@@ -8,6 +8,7 @@ import streamlit as st
 from utils.core import show_valuehunter_logo, go_to_login, update_purchase_button, DATA_DIR
 from utils.data import parse_team_stats, get_odds_data, format_prompt
 from utils.ai import analyze_with_gpt, format_enhanced_prompt, format_highly_optimized_prompt
+from analysis_formatter import parse_analysis_response, display_formatted_analysis
 
 # Configuração de logging
 logger = logging.getLogger("valueHunter.dashboard")
@@ -1180,7 +1181,6 @@ def show_main_dashboard():
                         if not analysis:
                             status.error("Falha na análise com IA")
                             return
-                        
                         # Etapa 5: Mostrar resultado
                         if analysis:
                             # Limpar status
@@ -1198,51 +1198,18 @@ def show_main_dashboard():
                             from utils.ai import format_analysis_response
                             formatted_analysis = format_analysis_response(analysis, home_team, away_team)
                             
-                            # Exibir a análise em uma div com largura total
-                            st.markdown(f'''
-                            <style>
-                            .analysis-result {{
-                                width: 100% !important;
-                                max-width: 100% !important;
-                                padding: 2rem !important;
-                                background-color: #575760;
-                                border-radius: 8px;
-                                border: 1px solid #6b6b74;
-                                margin: 1rem 0;
-                            }}
+                            # NOVO: Aplicar estilos e exibir a visualização formatada
+                            apply_custom_styles()
                             
-                            /* Estilos para deixar o cabeçalho mais bonito */
-                            .analysis-result h1, 
-                            .analysis-result h2,
-                            .analysis-result h3 {{
-                                color: #fd7014;
-                                margin-top: 1.5rem;
-                                margin-bottom: 1rem;
-                            }}
+                            # Extrair dados estruturados da análise
+                            analysis_data = parse_analysis_response(formatted_analysis)
                             
-                            /* Estilos para parágrafos */
-                            .analysis-result p {{
-                                margin-bottom: 1rem;
-                                line-height: 1.5;
-                            }}
-                            
-                            /* Estilos para listas */
-                            .analysis-result ul, 
-                            .analysis-result ol {{
-                                margin-left: 1.5rem;
-                                margin-bottom: 1rem;
-                            }}
-                            
-                            /* Oportunidades destacadas */
-                            .analysis-result strong {{
-                                color: #fd7014;
-                            }}
-                            </style>
-                            <div class="analysis-result">{formatted_analysis}</div>
-                            ''', unsafe_allow_html=True)
+                            # Exibir análise estruturada
+                            display_formatted_analysis(analysis_data)
                             
                             # Registrar uso após análise bem-sucedida
                             num_markets = sum(1 for v in selected_markets.values() if v)
+    
                             
                             # Registro de uso com dados detalhados
                             analysis_data = {
@@ -1478,3 +1445,56 @@ def transform_api_data(stats_data, home_team, away_team, selected_markets):
         }
         
         return result
+def apply_custom_styles():
+    """Aplica estilos CSS customizados para a visualização de análise"""
+    st.markdown("""
+    <style>
+    /* Estilos para a visualização de análise de partidas */
+    .analysis-container {
+        padding: 1.5rem;
+        background-color: #1c1c24;
+        border-radius: 8px;
+        border: 1px solid #31313a;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 2rem;
+        color: #f0f0f8;
+    }
+    
+    .analysis-title {
+        color: #fd7014;
+        margin-bottom: 1.5rem;
+        font-size: 1.8rem;
+        border-bottom: 1px solid #353542;
+        padding-bottom: 0.5rem;
+    }
+    
+    /* Estilos para tabelas do Streamlit */
+    [data-testid="stTable"] table,
+    [data-testid="stDataFrame"] table {
+        background-color: #242430 !important;
+    }
+    
+    [data-testid="stTable"] th,
+    [data-testid="stDataFrame"] th {
+        background-color: #31313a !important;
+        color: #fd7014 !important;
+        font-weight: bold !important;
+    }
+    
+    [data-testid="stTable"] td,
+    [data-testid="stDataFrame"] td {
+        background-color: transparent !important;
+    }
+    
+    /* Ajuste para estrelas de confiança */
+    .confidence-stars {
+        color: #fd7014;
+        letter-spacing: 2px;
+    }
+    
+    /* Ajuste para cabeçalhos */
+    h1, h2, h3, h4, h5 {
+        color: #fd7014 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
