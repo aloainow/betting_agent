@@ -852,8 +852,7 @@ def check_data_quality(stats_dict):
 
 def format_analysis_response(analysis_text, home_team, away_team):
     """
-    Garante que a resposta da análise seja formatada corretamente com todas as seções necessárias,
-    sem adicionar dados artificiais.
+    Garante que a resposta da análise seja formatada corretamente com o novo layout estético.
     
     Args:
         analysis_text (str): Resposta bruta da análise da IA
@@ -863,55 +862,103 @@ def format_analysis_response(analysis_text, home_team, away_team):
     Returns:
         str: Análise formatada corretamente
     """
-    # Verificar se a análise já tem os cabeçalhos de seção adequados
-    if "# Análise da Partida" in analysis_text and "# Probabilidades Calculadas" in analysis_text:
+    # Verificar se a análise já tem o novo cabeçalho estético
+    if "# 📊 ANÁLISE DE PARTIDA 📊" in analysis_text:
         return analysis_text
         
-    # Se não estiver formatada corretamente, reestruturar
-    formatted_sections = []
+    # Verificar se a análise tem o formato antigo
+    if "# Análise da Partida" in analysis_text:
+        # Converter do formato antigo para o novo formato estético
+        try:
+            # Extrair as seções do formato antigo
+            title_section = ""
+            if "# Análise da Partida" in analysis_text:
+                title_parts = analysis_text.split("# Análise da Partida")[1].split("#")[0].strip()
+                title_section = f"## ⚽ {home_team} 🆚 {away_team} ⚽"
+            
+            market_section = ""
+            if "# Análise de Mercados Disponíveis:" in analysis_text:
+                market_section = analysis_text.split("# Análise de Mercados Disponíveis:")[1].split("#")[0].strip()
+            
+            prob_section = ""
+            if "# Probabilidades Calculadas" in analysis_text:
+                prob_section = analysis_text.split("# Probabilidades Calculadas")[1].split("#")[0].strip()
+            
+            opp_section = ""
+            if "# Oportunidades Identificadas" in analysis_text:
+                opp_section = analysis_text.split("# Oportunidades Identificadas")[1].split("#")[0].strip()
+            
+            conf_section = ""
+            if "# Nível de Confiança" in analysis_text:
+                conf_parts = analysis_text.split("# Nível de Confiança")[1]
+                if "#" in conf_parts:
+                    conf_section = conf_parts.split("#")[0].strip()
+                else:
+                    conf_section = conf_parts.strip()
+            
+            # Montar no novo formato estético
+            new_format = f"""
+# 📊 ANÁLISE DE PARTIDA 📊
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+## ⚽ {home_team} 🆚 {away_team} ⚽
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+### 📈 ANÁLISE DE MERCADOS DISPONÍVEIS
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+{market_section}
+
+### 🔄 PROBABILIDADES CALCULADAS
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+{prob_section}
+
+### 💰 OPORTUNIDADES IDENTIFICADAS
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+{opp_section}
+
+### 🎯 NÍVEL DE CONFIANÇA GERAL: {conf_section}
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                © RELATÓRIO DE ANÁLISE ESPORTIVA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"""
+            return new_format
+        except Exception as e:
+            # Se houver erro na conversão, continuar com o fallback
+            pass
     
-    # Adicionar seção de título
-    formatted_sections.append(f"# Análise da Partida\n## {home_team} x {away_team}\n")
-    
-    # Procurar seção de mercados ou criá-la
-    if "# Análise de Mercados Disponíveis:" in analysis_text:
-        # Encontrar a seção e seu conteúdo
-        market_section = analysis_text.split("# Análise de Mercados Disponíveis:")[1]
-        if "#" in market_section:
-            market_section = market_section.split("#")[0]
-        formatted_sections.append(f"# Análise de Mercados Disponíveis:\n{market_section.strip()}\n")
-    else:
-        formatted_sections.append("# Análise de Mercados Disponíveis:\nNão foi possível estruturar uma análise detalhada dos mercados a partir do texto.\n")
-    
-    # Procurar seção de probabilidades ou criá-la
-    if "# Probabilidades Calculadas" in analysis_text:
-        prob_section = analysis_text.split("# Probabilidades Calculadas")[1]
-        if "#" in prob_section:
-            prob_section = prob_section.split("#")[0]
-        formatted_sections.append(f"# Probabilidades Calculadas (REAL vs IMPLÍCITA):\n{prob_section.strip()}\n")
-    else:
-        formatted_sections.append("# Probabilidades Calculadas (REAL vs IMPLÍCITA):\nNão há dados estatísticos suficientes para calcular probabilidades reais.\n")
-    
-    # Procurar seção de oportunidades ou criá-la
-    if "# Oportunidades Identificadas" in analysis_text:
-        opp_section = analysis_text.split("# Oportunidades Identificadas")[1]
-        if "#" in opp_section:
-            opp_section = opp_section.split("#")[0]
-        formatted_sections.append(f"# Oportunidades Identificadas:\n{opp_section.strip()}\n")
-    else:
-        formatted_sections.append("# Oportunidades Identificadas:\nNão há dados suficientes para identificar oportunidades claras.\n")
-    
-    # Procurar seção de nível de confiança ou criá-la
-    if "# Nível de Confiança" in analysis_text:
-        conf_section = analysis_text.split("# Nível de Confiança")[1]
-        if "#" in conf_section:
-            conf_section = conf_section.split("#")[0]
-        formatted_sections.append(f"# Nível de Confiança Geral: {conf_section.strip()}\n")
-    else:
-        formatted_sections.append("# Nível de Confiança Geral: Baixo\nDevido à limitação de dados estatísticos disponíveis, o nível de confiança é baixo.\n")
-    
-    # Combinar todas as seções
-    return "\n".join(formatted_sections)
+    # Criar uma versão no novo formato estético com mensagens de fallback
+    new_format = f"""
+# 📊 ANÁLISE DE PARTIDA 📊
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+## ⚽ {home_team} 🆚 {away_team} ⚽
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+### 📈 ANÁLISE DE MERCADOS DISPONÍVEIS
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+Análise não disponível. O modelo não gerou uma resposta no formato esperado.
+
+### 🔄 PROBABILIDADES CALCULADAS
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+Probabilidades não disponíveis. Verifique se há dados estatísticos suficientes.
+
+### 💰 OPORTUNIDADES IDENTIFICADAS
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+Nenhuma oportunidade identificada com os dados disponíveis.
+
+### 🎯 NÍVEL DE CONFIANÇA GERAL: Baixo
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+A análise tem baixa confiança devido à falta de informações ou ao formato inesperado da resposta.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                © RELATÓRIO DE ANÁLISE ESPORTIVA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"""
+    return new_format
 def format_enhanced_prompt(complete_analysis, home_team, away_team, odds_data, selected_markets):
     """
     Função aprimorada para formatar prompt de análise multi-mercados
