@@ -660,10 +660,10 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
         if not has_stats_data:
             instructions += """
 
-⚠️ IMPORTANTE: Devido à limitação de dados estatísticos, as probabilidades calculadas são baseadas 
-em um modelo de fallback e devem ser consideradas aproximações. Mencione isto claramente na sua análise 
-e recomende cautela nas decisões baseadas nesta análise.
-"""
+        ⚠️ IMPORTANTE: Devido à limitação de dados estatísticos, as probabilidades calculadas são baseadas 
+        em um modelo de fallback e devem ser consideradas aproximações. Mencione isto claramente na sua análise 
+        e recomende cautela nas decisões baseadas nesta análise.
+        """
 
         # Compile the final prompt
         sections = [
