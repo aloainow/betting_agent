@@ -852,191 +852,197 @@ def check_data_quality(stats_dict):
 
 def format_analysis_response(analysis_text, home_team, away_team):
     """
-    Formata a resposta de análise em texto puro com boa diagramação usando caracteres ASCII.
+    Constrói uma análise totalmente limpa em formato texto puro, 
+    extraindo apenas os dados necessários da resposta original.
     
     Args:
-        analysis_text (str): Resposta bruta da análise da IA
+        analysis_text (str): Texto da análise do GPT
         home_team (str): Nome do time da casa
         away_team (str): Nome do time visitante
-        
+    
     Returns:
-        str: Análise formatada corretamente em texto puro
+        str: Texto formatado limpo sem qualquer HTML ou caracteres estranhos
     """
-    # Remover quaisquer tags HTML que possam ter vazado
-    analysis_text = analysis_text.replace("<div", "").replace("</div", "").replace("class=", "")
+    # Remover todas as tags HTML e outros caracteres problemáticos
+    for tag in ["<div", "</div", "<span", "</span", "class=", "id=", "style=", "#"]:
+        analysis_text = analysis_text.replace(tag, "")
     
-    # Verificar se a análise já parece estar no formato desejado
-    if "📊 ANÁLISE DE PARTIDA 📊" in analysis_text and "PROBABILIDADES CALCULADAS" in analysis_text:
-        # Limpar possíveis problemas de formatação, mas manter o conteúdo
-        clean_text = analysis_text
-        
-        # Verificar se a tabela de probabilidades está bem formatada
-        if "│" not in analysis_text or "┌─" not in analysis_text:
-            # Extrair dados de probabilidades para reformatar a tabela
-            try:
-                probs_section = ""
-                if "PROBABILIDADES CALCULADAS" in analysis_text:
-                    probs_parts = analysis_text.split("PROBABILIDADES CALCULADAS")[1].split("OPORTUNIDADES IDENTIFICADAS")[0]
-                    
-                    # Detectar formato simples e converter para tabela ASCII
-                    if "Casa" in probs_parts and "Empate" in probs_parts and "Fora" in probs_parts:
-                        # Criar tabela ASCII formatada
-                        probs_table = """
-┌────────────┬────────────┬────────────┐
-│  MERCADO   │  REAL (%)  │ IMPLÍCITA  │
-├────────────┼────────────┼────────────┤"""
-                        
-                        # Extrair probabilidades (simplificado - implementação real precisaria de regex ou parsing mais cuidadoso)
-                        for market in ["Casa", "Empate", "Fora"]:
-                            if market in probs_parts:
-                                real_prob = "N/A"
-                                impl_prob = "N/A"
-                                
-                                # Exemplo simplificado de extração - uma implementação real seria mais robusta
-                                if f"{market}:" in probs_parts:
-                                    market_parts = probs_parts.split(f"{market}:")[1].split("\n")[0]
-                                    if "%" in market_parts:
-                                        real_prob = market_parts.split("%")[0].strip() + "%"
-                                    if "Implícita" in market_parts:
-                                        impl_parts = market_parts.split("Implícita:")[1]
-                                        if "%" in impl_parts:
-                                            impl_prob = impl_parts.split("%")[0].strip() + "%"
-                                
-                                probs_table += f"""
-│  {market.ljust(8)} │ {real_prob.center(10)} │ {impl_prob.center(10)} │"""
-                        
-                        probs_table += """
-└────────────┴────────────┴────────────┘"""
-                        
-                        # Substituir a seção de probabilidades pela tabela formatada
-                        clean_text = clean_text.split("PROBABILIDADES CALCULADAS")[0] + "🔄 PROBABILIDADES CALCULADAS\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n" + probs_table + "\n\n" + "💰 OPORTUNIDADES IDENTIFICADAS\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n" + analysis_text.split("OPORTUNIDADES IDENTIFICADAS")[1]
-            except:
-                # Se houver erro no parsing, manter o texto original
-                pass
-        
-        return clean_text
+    # Extrair informações relevantes da análise
+    markets_info = []
+    probabilities = {}
+    opportunities = []
+    confidence_level = "Não disponível"
+    consistency_info = ""
+    form_info = ""
+    influence_info = ""
     
-    # Criar uma resposta formatada do zero
-    formatted_analysis = f"""
-# 📊 ANÁLISE DE PARTIDA 📊
+    # Tentar extrair mercados disponíveis
+    if "MERCADOS DISPONÍVEIS" in analysis_text or "Análise de Mercados" in analysis_text:
+        sections = analysis_text.split("OPORTUNIDADES")
+        if len(sections) > 1:
+            markets_section = sections[0].split("MERCADOS DISPONÍVEIS")
+            if len(markets_section) > 1:
+                for line in markets_section[1].strip().split("\n"):
+                    line = line.strip()
+                    if line and ("Casa" in line or "Empate" in line or "Fora" in line) and "@" in line:
+                        markets_info.append(line)
+    
+    # Tentar extrair probabilidades
+    if "PROBABILIDADES CALCULADAS" in analysis_text or "Probabilidades Calculadas" in analysis_text:
+        sections = analysis_text.split("OPORTUNIDADES")
+        if len(sections) > 0:
+            prob_section = sections[0].split("PROBABILIDADES CALCULADAS")
+            if len(prob_section) > 1:
+                prob_text = prob_section[1]
+                
+                # Extrair probabilidades Casa/Empate/Fora
+                for market in ["Casa", "Empate", "Fora"]:
+                    if market in prob_text:
+                        # Procurar percentuais próximos ao nome do mercado
+                        parts = prob_text.split(market)[1].split("\n")[0].split()
+                        real_prob = "N/A"
+                        impl_prob = "N/A"
+                        
+                        for part in parts:
+                            if "%" in part and real_prob == "N/A":
+                                real_prob = part.strip()
+                            elif "%" in part:
+                                impl_prob = part.strip()
+                        
+                        probabilities[market] = {
+                            "real": real_prob,
+                            "implicit": impl_prob
+                        }
+    
+    # Tentar extrair oportunidades
+    if "OPORTUNIDADES IDENTIFICADAS" in analysis_text or "Oportunidades Identificadas" in analysis_text:
+        sections = analysis_text.split("OPORTUNIDADES IDENTIFICADAS")
+        if len(sections) > 1:
+            opp_section = sections[1].split("NÍVEL DE CONFIANÇA")[0]
+            for line in opp_section.strip().split("\n"):
+                line = line.strip()
+                if line and any(market in line for market in ["Casa", "Empate", "Fora"]):
+                    opportunities.append(line)
+    
+    # Tentar extrair nível de confiança
+    if "NÍVEL DE CONFIANÇA" in analysis_text or "Nível de Confiança" in analysis_text:
+        sections = analysis_text.split("NÍVEL DE CONFIANÇA")
+        if len(sections) > 1:
+            conf_section = sections[1]
+            
+            # Extrair o nível (Baixo/Médio/Alto)
+            if ":" in conf_section:
+                confidence_level = conf_section.split(":")[1].split("\n")[0].strip()
+            elif "Baixo" in conf_section[:50]:
+                confidence_level = "Baixo"
+            elif "Médio" in conf_section[:50]:
+                confidence_level = "Médio"
+            elif "Alto" in conf_section[:50]:
+                confidence_level = "Alto"
+            
+            # Extrair outros detalhes
+            if "CONSISTÊNCIA" in conf_section:
+                consistency_parts = conf_section.split("CONSISTÊNCIA")[1].split("FORMA")[0]
+                consistency_info = consistency_parts.strip()
+            
+            if "FORMA" in conf_section:
+                form_parts = conf_section.split("FORMA")[1].split("INFLUÊNCIA")[0]
+                form_info = form_parts.strip()
+            
+            if "INFLUÊNCIA" in conf_section:
+                influence_parts = conf_section.split("INFLUÊNCIA")[1]
+                if "©" in influence_parts:
+                    influence_parts = influence_parts.split("©")[0]
+                influence_info = influence_parts.strip()
+    
+    # Construir o relatório limpo
+    clean_report = f"""
+📊 ANÁLISE DE PARTIDA 📊
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-## ⚽ {home_team} 🆚 {away_team} ⚽
+⚽ {home_team} 🆚 {away_team} ⚽
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-### 📈 ANÁLISE DE MERCADOS DISPONÍVEIS
+📈 ANÁLISE DE MERCADOS DISPONÍVEIS
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
 """
     
-    # Tentar extrair as seções da análise original
-    try:
-        if "# Análise de Mercados Disponíveis:" in analysis_text:
-            markets_section = analysis_text.split("# Análise de Mercados Disponíveis:")[1].split("#")[0].strip()
-            formatted_analysis += markets_section + "\n\n"
-        else:
-            formatted_analysis += "Informações de mercados não disponíveis na resposta original.\n\n"
-        
-        formatted_analysis += """### 🔄 PROBABILIDADES CALCULADAS
+    # Adicionar mercados disponíveis
+    if markets_info:
+        for market in markets_info:
+            clean_report += f"• {market}\n"
+    else:
+        clean_report += "Informações de mercados não disponíveis.\n"
+    
+    clean_report += f"""
+🔄 PROBABILIDADES CALCULADAS
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
 ┌────────────┬────────────┬────────────┐
 │  MERCADO   │  REAL (%)  │ IMPLÍCITA  │
 ├────────────┼────────────┼────────────┤
 """
-        
-        # Extrair probabilidades se disponíveis
-        if "# Probabilidades Calculadas" in analysis_text:
-            probs_section = analysis_text.split("# Probabilidades Calculadas")[1].split("#")[0].strip()
-            
-            # Procurar probabilidades específicas (exemplo simplificado)
-            for market, keyword in [("Casa", "Casa"), ("Empate", "Empate"), ("Fora", "Fora")]:
-                real_prob = "N/A"
-                impl_prob = "N/A"
-                
-                if keyword in probs_section:
-                    line = [l for l in probs_section.split("\n") if keyword in l]
-                    if line:
-                        line = line[0]
-                        # Tentar extrair valores (muito simplificado)
-                        parts = line.split()
-                        for i, part in enumerate(parts):
-                            if "%" in part:
-                                if real_prob == "N/A":
-                                    real_prob = part
-                                else:
-                                    impl_prob = part
-                
-                formatted_analysis += f"│  {market.ljust(8)} │ {real_prob.center(10)} │ {impl_prob.center(10)} │\n"
-        else:
-            formatted_analysis += "│     N/A    │     N/A    │     N/A    │\n"
-        
-        formatted_analysis += "└────────────┴────────────┴────────────┘\n\n"
-        
-        formatted_analysis += """### 💰 OPORTUNIDADES IDENTIFICADAS
+    
+    # Adicionar probabilidades em formato de tabela
+    if probabilities:
+        for market in ["Casa", "Empate", "Fora"]:
+            if market in probabilities:
+                real = probabilities[market]["real"]
+                impl = probabilities[market]["implicit"]
+                clean_report += f"│  {market.ljust(8)} │ {real.center(10)} │ {impl.center(10)} │\n"
+            else:
+                clean_report += f"│  {market.ljust(8)} │ {'N/A'.center(10)} │ {'N/A'.center(10)} │\n"
+    else:
+        for market in ["Casa", "Empate", "Fora"]:
+            clean_report += f"│  {market.ljust(8)} │ {'N/A'.center(10)} │ {'N/A'.center(10)} │\n"
+    
+    clean_report += "└────────────┴────────────┴────────────┘\n\n"
+    
+    clean_report += f"""
+💰 OPORTUNIDADES IDENTIFICADAS
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-"""
-        
-        # Extrair oportunidades
-        if "# Oportunidades Identificadas" in analysis_text:
-            opps_section = analysis_text.split("# Oportunidades Identificadas:")[1].split("#")[0].strip()
-            formatted_analysis += opps_section + "\n\n"
-        else:
-            formatted_analysis += "Nenhuma oportunidade identificada na resposta original.\n\n"
-        
-        # Extrair nível de confiança
-        confidence = "Baixo"
-        confidence_text = ""
-        
-        if "# Nível de Confiança" in analysis_text:
-            conf_parts = analysis_text.split("# Nível de Confiança")[1]
-            if ":" in conf_parts:
-                confidence = conf_parts.split(":")[1].split("\n")[0].strip()
-                confidence_text = conf_parts
-        
-        formatted_analysis += f"""### 🎯 NÍVEL DE CONFIANÇA GERAL: {confidence}
-▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-"""
-        
-        if confidence_text:
-            formatted_analysis += confidence_text.strip() + "\n\n"
-        else:
-            formatted_analysis += """
-  ► CONSISTÊNCIA: Medida (%) que indica quão previsível é o desempenho da equipe
-  
-  ► FORMA: Pontuação dos últimos 5 jogos (0.0/15)
-     • Vitória = 3 pontos
-     • Empate = 1 ponto
-     • Derrota = 0 pontos
-  
-  ► INFLUÊNCIA: Estes fatores não puderam ser analisados adequadamente.
-
-"""
-        
-        formatted_analysis += """━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                © RELATÓRIO DE ANÁLISE ESPORTIVA
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-"""
-    except:
-        # Se algo der errado, retorna um formato base simples
-        formatted_analysis = f"""
-# 📊 ANÁLISE DE PARTIDA 📊
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-## ⚽ {home_team} 🆚 {away_team} ⚽
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-### 📈 ANÁLISE DE MERCADOS DISPONÍVEIS
-▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-A análise original não pôde ser formatada corretamente.
-Por favor, verifique a resposta original para mais detalhes.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                © RELATÓRIO DE ANÁLISE ESPORTIVA
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
     
-    return formatted_analysis
+    # Adicionar oportunidades
+    if opportunities:
+        for opp in opportunities:
+            clean_report += f"• {opp}\n"
+    else:
+        clean_report += "Nenhuma oportunidade de valor identificada.\n"
+    
+    clean_report += f"""
+🎯 NÍVEL DE CONFIANÇA GERAL: {confidence_level}
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+
+► CONSISTÊNCIA: """
+    
+    if consistency_info:
+        clean_report += f"{consistency_info}\n\n"
+    else:
+        clean_report += "Medida (%) que indica quão previsível é o desempenho da equipe.\n\n"
+    
+    clean_report += "► FORMA: "
+    
+    if form_info:
+        clean_report += f"{form_info}\n\n"
+    else:
+        clean_report += """Pontuação dos últimos 5 jogos (X.X/15)
+   • Vitória = 3 pontos
+   • Empate = 1 ponto
+   • Derrota = 0 pontos\n\n"""
+    
+    clean_report += "► INFLUÊNCIA: "
+    
+    if influence_info:
+        clean_report += f"{influence_info}\n\n"
+    else:
+        clean_report += "Como a consistência e forma influenciam a confiança na análise.\n\n"
+    
+    clean_report += """━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                © RELATÓRIO DE ANÁLISE ESPORTIVA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
+    
+    return clean_report
 def format_enhanced_prompt(complete_analysis, home_team, away_team, odds_data, selected_markets):
     """
     Função aprimorada para formatar prompt de análise multi-mercados
