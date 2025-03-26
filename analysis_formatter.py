@@ -5,6 +5,28 @@ import logging
 
 logger = logging.getLogger("valueHunter.analysis_display")
 
+
+# Adicione esta função no início do arquivo, após as importações
+def apply_custom_styles():
+    """Aplica estilos CSS customizados para a visualização de análise"""
+    import streamlit as st
+    
+    st.markdown("""
+    <style>
+    /* Estilos para a visualização de análise de partidas */
+    .analysis-container {
+        padding: 1.5rem;
+        background-color: #1c1c24;
+        border-radius: 8px;
+        border: 1px solid #31313a;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 2rem;
+        color: #f0f0f8;
+    }
+    
+    /* Outros estilos conforme fornecidos acima... */
+    </style>
+    """, unsafe_allow_html=True)
 def parse_analysis_response(analysis_text):
     """
     Extrai dados estruturados da resposta textual da IA
