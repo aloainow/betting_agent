@@ -852,191 +852,258 @@ def check_data_quality(stats_dict):
 
 def format_analysis_response(analysis_text, home_team, away_team):
     """
-    Constrói uma análise totalmente limpa em formato texto puro,
-    extraindo todos os mercados selecionados da resposta original.
+    Constrói uma análise limpa em formato texto puro com todos os mercados organizados por categorias.
     """
     # Remover tags HTML e caracteres problemáticos
     for tag in ["<div", "</div", "<span", "</span", "class=", "id=", "style="]:
         analysis_text = analysis_text.replace(tag, "")
     
     # Extrair informações relevantes
-    markets_info = []
-    all_probabilities = {}  # Mudança para armazenar todos os tipos de mercado
+    market_categories = {
+        "Money Line (1X2)": [],
+        "Chance Dupla": [],
+        "Over/Under 2.5": [],
+        "Ambos Marcam": [],
+        "Escanteios": [],
+        "Cartões": []
+    }
+    
+    all_probabilities = {}
     opportunities = []
     confidence_level = "Não disponível"
+    consistency_info = ""
+    form_info = ""
+    influence_info = ""
     
-    # Extrair mercados disponíveis
+    # Extrair e categorizar mercados disponíveis
     if "MERCADOS DISPONÍVEIS" in analysis_text or "Análise de Mercados" in analysis_text:
         try:
             markets_section = analysis_text.split("MERCADOS DISPONÍVEIS")[1].split("PROBABILIDADES")[0]
-            for line in markets_section.strip().split("\n"):
-                line = line.strip().replace("•", "").strip()
-                if line and "@" in line:
-                    markets_info.append("• " + line)
-        except:
-            pass
+            lines = markets_section.strip().split("\n")
+            
+            for line in lines:
+                line = line.strip().replace("•", "").replace("-", "").strip()
+                if not line or "@" not in line:
+                    continue
+                
+                # Categorizar cada mercado
+                if line.startswith(("Casa", home_team)) or ("Empate" in line and "@" in line) or line.startswith(("Fora", away_team)):
+                    market_categories["Money Line (1X2)"].append("• " + line)
+                elif "1X" in line or "12" in line or "X2" in line:
+                    market_categories["Chance Dupla"].append("• " + line)
+                elif ("Over" in line and "2.5" in line) or ("Under" in line and "2.5" in line):
+                    market_categories["Over/Under 2.5"].append("• " + line)
+                elif ("Sim" in line and "@" in line) or ("Não" in line and "@" in line):
+                    market_categories["Ambos Marcam"].append("• " + line)
+                elif ("Over" in line and "9.5" in line) or ("Under" in line and "9.5" in line) or ("Escanteios" in line):
+                    market_categories["Escanteios"].append("• " + line)
+                elif ("Over" in line and "3.5" in line) or ("Under" in line and "3.5" in line) or ("Cartões" in line):
+                    market_categories["Cartões"].append("• " + line)
+                # Caso não consiga categorizar, coloca no Money Line como fallback
+                elif "@" in line:
+                    market_categories["Money Line (1X2)"].append("• " + line)
+        except Exception as e:
+            print(f"Erro ao categorizar mercados: {str(e)}")
     
-    # Extrair todas as probabilidades (incluindo outros mercados além do Money Line)
-    if "PROBABILIDADES CALCULADAS" in analysis_text:
-        try:
+    # Extrair todas as probabilidades
+    try:
+        if "PROBABILIDADES CALCULADAS" in analysis_text:
             probs_section = analysis_text.split("PROBABILIDADES CALCULADAS")[1].split("OPORTUNIDADES")[0]
             
-            # Identificar tipos de mercado presentes (Money Line, Over/Under, BTTS, etc.)
-            market_types = []
-            if "Money" in probs_section or "1X2" in probs_section or "Casa" in probs_section:
-                market_types.append("Money Line")
-            if "Over" in probs_section and "2.5" in probs_section:
-                market_types.append("Over/Under 2.5")
-            if "Ambos" in probs_section or "BTTS" in probs_section:
-                market_types.append("Ambos Marcam")
-            if "Escanteios" in probs_section or "Corner" in probs_section:
-                market_types.append("Escanteios")
-            if "Cartões" in probs_section or "Card" in probs_section:
-                market_types.append("Cartões")
+            # Procurar por padrões de tabelas ou dados para cada tipo de mercado
+            # 1. Money Line (1X2)
+            if "Casa" in probs_section or home_team in probs_section:
+                all_probabilities["Money Line (1X2)"] = {}
+                options = ["Casa", "Empate", "Fora"]
+                
+                for option in options:
+                    if option in probs_section:
+                        real_prob = "N/A"
+                        impl_prob = "N/A"
+                        # Buscar percentuais depois do nome do mercado
+                        parts = []
+                        try:
+                            parts = probs_section.split(option)[1].split("\n")[0].split()
+                            for part in parts:
+                                if "%" in part:
+                                    if real_prob == "N/A":
+                                        real_prob = part.strip()
+                                    else:
+                                        impl_prob = part.strip()
+                        except:
+                            pass
+                        
+                        all_probabilities["Money Line (1X2)"][option] = {
+                            "real": real_prob,
+                            "implicit": impl_prob
+                        }
             
-            # Para cada tipo de mercado, extrair suas probabilidades
-            for market_type in market_types:
-                # Tentar encontrar a seção específica para este tipo de mercado
-                market_section = ""
-                if market_type == "Money Line":
-                    # O mercado Money Line geralmente menciona Casa/Empate/Fora
-                    if "Casa" in probs_section and "Empate" in probs_section and "Fora" in probs_section:
-                        all_probabilities[market_type] = {
-                            "Casa": {"real": "N/A", "implicit": "N/A"},
-                            "Empate": {"real": "N/A", "implicit": "N/A"},
-                            "Fora": {"real": "N/A", "implicit": "N/A"}
-                        }
-                        
-                        # Extrair probabilidades para Casa/Empate/Fora
-                        for option in ["Casa", "Empate", "Fora"]:
-                            if option in probs_section:
-                                parts = probs_section.split(option)[1].split("\n")[0].split()
-                                for part in parts:
-                                    if "%" in part:
-                                        if all_probabilities[market_type][option]["real"] == "N/A":
-                                            all_probabilities[market_type][option]["real"] = part.strip()
-                                        else:
-                                            all_probabilities[market_type][option]["implicit"] = part.strip()
+            # 2. Chance Dupla
+            if "1X" in probs_section or "12" in probs_section or "X2" in probs_section or "Dupla" in probs_section:
+                all_probabilities["Chance Dupla"] = {}
+                dc_options = ["1X", "12", "X2"]
                 
-                elif market_type == "Over/Under 2.5":
-                    # Mercado Over/Under
-                    if "Over 2.5" in probs_section:
-                        all_probabilities[market_type] = {
-                            "Over 2.5": {"real": "N/A", "implicit": "N/A"},
-                            "Under 2.5": {"real": "N/A", "implicit": "N/A"}
-                        }
+                for option in dc_options:
+                    if option in probs_section:
+                        real_prob = "N/A"
+                        impl_prob = "N/A"
+                        try:
+                            parts = probs_section.split(option)[1].split("\n")[0].split()
+                            for part in parts:
+                                if "%" in part:
+                                    if real_prob == "N/A":
+                                        real_prob = part.strip()
+                                    else:
+                                        impl_prob = part.strip()
+                        except:
+                            pass
                         
-                        # Extrair probabilidades
-                        for option in ["Over 2.5", "Under 2.5"]:
-                            if option in probs_section:
-                                parts = probs_section.split(option)[1].split("\n")[0].split()
-                                for part in parts:
-                                    if "%" in part:
-                                        if all_probabilities[market_type][option]["real"] == "N/A":
-                                            all_probabilities[market_type][option]["real"] = part.strip()
-                                        else:
-                                            all_probabilities[market_type][option]["implicit"] = part.strip()
+                        all_probabilities["Chance Dupla"][option] = {
+                            "real": real_prob,
+                            "implicit": impl_prob
+                        }
+            
+            # 3. Over/Under 2.5
+            if "Over 2.5" in probs_section or "Under 2.5" in probs_section:
+                all_probabilities["Over/Under 2.5"] = {}
+                ou_options = ["Over 2.5", "Under 2.5"]
                 
-                elif market_type == "Ambos Marcam":
-                    # Mercado Ambos Marcam (BTTS)
-                    if ("Sim" in probs_section and "Não" in probs_section) or ("Yes" in probs_section and "No" in probs_section):
-                        all_probabilities[market_type] = {
-                            "Sim": {"real": "N/A", "implicit": "N/A"},
-                            "Não": {"real": "N/A", "implicit": "N/A"}
-                        }
+                for option in ou_options:
+                    if option in probs_section:
+                        real_prob = "N/A"
+                        impl_prob = "N/A"
+                        try:
+                            parts = probs_section.split(option)[1].split("\n")[0].split()
+                            for part in parts:
+                                if "%" in part:
+                                    if real_prob == "N/A":
+                                        real_prob = part.strip()
+                                    else:
+                                        impl_prob = part.strip()
+                        except:
+                            pass
                         
-                        # Extrair probabilidades
-                        for option in ["Sim", "Não"]:
-                            if option in probs_section:
-                                parts = probs_section.split(option)[1].split("\n")[0].split()
-                                for part in parts:
-                                    if "%" in part:
-                                        if all_probabilities[market_type][option]["real"] == "N/A":
-                                            all_probabilities[market_type][option]["real"] = part.strip()
-                                        else:
-                                            all_probabilities[market_type][option]["implicit"] = part.strip()
+                        all_probabilities["Over/Under 2.5"][option] = {
+                            "real": real_prob,
+                            "implicit": impl_prob
+                        }
+            
+            # 4. Ambos Marcam (BTTS)
+            if "Sim" in probs_section or "Não" in probs_section or "BTTS" in probs_section:
+                all_probabilities["Ambos Marcam"] = {}
+                btts_options = ["Sim", "Não"]
                 
-                elif market_type == "Escanteios":
-                    # Mercado Escanteios
-                    if "Over 9.5" in probs_section:
-                        all_probabilities[market_type] = {
-                            "Over 9.5": {"real": "N/A", "implicit": "N/A"},
-                            "Under 9.5": {"real": "N/A", "implicit": "N/A"}
-                        }
+                for option in btts_options:
+                    if option in probs_section:
+                        real_prob = "N/A"
+                        impl_prob = "N/A"
+                        try:
+                            parts = probs_section.split(option)[1].split("\n")[0].split()
+                            for part in parts:
+                                if "%" in part:
+                                    if real_prob == "N/A":
+                                        real_prob = part.strip()
+                                    else:
+                                        impl_prob = part.strip()
+                        except:
+                            pass
                         
-                        # Extrair probabilidades
-                        for option in ["Over 9.5", "Under 9.5"]:
-                            if option in probs_section:
-                                parts = probs_section.split(option)[1].split("\n")[0].split()
-                                for part in parts:
-                                    if "%" in part:
-                                        if all_probabilities[market_type][option]["real"] == "N/A":
-                                            all_probabilities[market_type][option]["real"] = part.strip()
-                                        else:
-                                            all_probabilities[market_type][option]["implicit"] = part.strip()
+                        all_probabilities["Ambos Marcam"][option] = {
+                            "real": real_prob,
+                            "implicit": impl_prob
+                        }
+            
+            # 5. Escanteios
+            if "Escanteios" in probs_section or ("Over" in probs_section and "9.5" in probs_section):
+                all_probabilities["Escanteios"] = {}
+                corners_options = ["Over 9.5", "Under 9.5"]
                 
-                elif market_type == "Cartões":
-                    # Mercado Cartões
-                    if "Over 3.5" in probs_section:
-                        all_probabilities[market_type] = {
-                            "Over 3.5": {"real": "N/A", "implicit": "N/A"},
-                            "Under 3.5": {"real": "N/A", "implicit": "N/A"}
-                        }
+                for option in corners_options:
+                    if option in probs_section:
+                        real_prob = "N/A"
+                        impl_prob = "N/A"
+                        try:
+                            parts = probs_section.split(option)[1].split("\n")[0].split()
+                            for part in parts:
+                                if "%" in part:
+                                    if real_prob == "N/A":
+                                        real_prob = part.strip()
+                                    else:
+                                        impl_prob = part.strip()
+                        except:
+                            pass
                         
-                        # Extrair probabilidades
-                        for option in ["Over 3.5", "Under 3.5"]:
-                            if option in probs_section:
-                                parts = probs_section.split(option)[1].split("\n")[0].split()
-                                for part in parts:
-                                    if "%" in part:
-                                        if all_probabilities[market_type][option]["real"] == "N/A":
-                                            all_probabilities[market_type][option]["real"] = part.strip()
-                                        else:
-                                            all_probabilities[market_type][option]["implicit"] = part.strip()
-        except Exception as e:
-            print(f"Erro ao extrair probabilidades: {str(e)}")
+                        all_probabilities["Escanteios"][option] = {
+                            "real": real_prob,
+                            "implicit": impl_prob
+                        }
+            
+            # 6. Cartões
+            if "Cartões" in probs_section or ("Over" in probs_section and "3.5" in probs_section):
+                all_probabilities["Cartões"] = {}
+                cards_options = ["Over 3.5", "Under 3.5"]
+                
+                for option in cards_options:
+                    if option in probs_section:
+                        real_prob = "N/A"
+                        impl_prob = "N/A"
+                        try:
+                            parts = probs_section.split(option)[1].split("\n")[0].split()
+                            for part in parts:
+                                if "%" in part:
+                                    if real_prob == "N/A":
+                                        real_prob = part.strip()
+                                    else:
+                                        impl_prob = part.strip()
+                        except:
+                            pass
+                        
+                        all_probabilities["Cartões"][option] = {
+                            "real": real_prob,
+                            "implicit": impl_prob
+                        }
+    except Exception as e:
+        print(f"Erro ao extrair probabilidades: {str(e)}")
     
     # Extrair oportunidades identificadas
-    if "OPORTUNIDADES IDENTIFICADAS" in analysis_text:
-        try:
+    try:
+        if "OPORTUNIDADES IDENTIFICADAS" in analysis_text:
             opps_section = analysis_text.split("OPORTUNIDADES IDENTIFICADAS")[1].split("NÍVEL DE CONFIANÇA")[0]
+            
             for line in opps_section.strip().split("\n"):
-                line = line.strip()
+                line = line.strip().replace("•", "").replace("-", "").replace("▔", "").strip()
                 if line and len(line) > 5:
-                    opportunities.append("• " + line.strip().replace("•", "").replace("**", "").strip())
-        except:
-            pass
+                    opportunities.append("• " + line)
+    except:
+        pass
     
     # Extrair nível de confiança e componentes
-    if "NÍVEL DE CONFIANÇA" in analysis_text:
-        try:
+    try:
+        if "NÍVEL DE CONFIANÇA" in analysis_text:
             conf_section = analysis_text.split("NÍVEL DE CONFIANÇA")[1]
             
             # Extrair o nível (Baixo/Médio/Alto)
-            if ":" in conf_section[:50]:  # Verificar apenas no início
+            if ":" in conf_section[:50]:
                 confidence_level = conf_section.split(":")[1].split("\n")[0].strip().replace("**", "")
             
-            # Extrair componentes
-            consistency_info = ""
+            # Extrair componentes (remover caracteres extras)
             if "CONSISTÊNCIA" in conf_section:
                 consistency_parts = conf_section.split("CONSISTÊNCIA")[1].split("FORMA")[0]
-                consistency_info = consistency_parts.strip().replace(":**", "").replace("**", "")
+                consistency_info = consistency_parts.strip().replace(":", "").replace("**", "").replace("►", "")
             
-            form_info = ""
             if "FORMA" in conf_section:
                 form_parts = conf_section.split("FORMA")[1].split("INFLUÊNCIA")[0]
-                form_info = form_parts.strip().replace(":**", "").replace("**", "")
+                form_info = form_parts.strip().replace(":", "").replace("**", "").replace("►", "")
             
-            influence_info = ""
             if "INFLUÊNCIA" in conf_section:
                 influence_parts = conf_section.split("INFLUÊNCIA")[1]
                 if "©" in influence_parts:
                     influence_parts = influence_parts.split("©")[0]
-                influence_info = influence_parts.strip().replace(":**", "").replace("**", "")
-        except:
-            pass
+                influence_info = influence_parts.strip().replace(":", "").replace("**", "").replace("►", "")
+    except:
+        pass
     
-    # Construir o relatório limpo
+    # Construir o relatório limpo e organizado
     clean_report = f"""
 📊 ANÁLISE DE PARTIDA 📊
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1046,35 +1113,47 @@ def format_analysis_response(analysis_text, home_team, away_team):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 📈 ANÁLISE DE MERCADOS DISPONÍVEIS
-▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-"""
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔"""
     
-    # Adicionar mercados disponíveis
-    if markets_info:
-        for market in markets_info:
-            clean_report += f"{market}\n"
-    else:
-        clean_report += "Informações de mercados não disponíveis.\n"
+    # Adicionar mercados organizados por categoria
+    any_markets = False
+    for category, markets in market_categories.items():
+        if markets:
+            any_markets = True
+            clean_report += f"\n\n[{category}]"
+            for market in markets:
+                clean_report += f"\n{market}"
+    
+    if not any_markets:
+        clean_report += "\nInformações de mercados não disponíveis."
     
     clean_report += f"""
+
 🔄 PROBABILIDADES CALCULADAS
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔"""
     
-    # Adicionar tabelas para todos os tipos de mercado
-    for market_type, options in all_probabilities.items():
-        clean_report += f"""
+    # Adicionar tabelas de probabilidades organizadas por tipo de mercado
+    any_probs = False
+    for category, options in all_probabilities.items():
+        if options:
+            any_probs = True
+            clean_report += f"""
 
-[{market_type}]
+[{category}]
 ┌────────────┬────────────┬────────────┐
 │  MERCADO   │  REAL (%)  │ IMPLÍCITA  │
 ├────────────┼────────────┼────────────┤"""
-        
-        for option, probs in options.items():
-            clean_report += f"""
-│  {option.ljust(8)} │ {probs['real'].center(10)} │ {probs['implicit'].center(10)} │"""
-        
-        clean_report += """
+            
+            for option, probs in options.items():
+                option_display = option if len(option) <= 8 else option[:7] + "."
+                clean_report += f"""
+│  {option_display.ljust(8)} │ {probs['real'].center(10)} │ {probs['implicit'].center(10)} │"""
+            
+            clean_report += """
 └────────────┴────────────┴────────────┘"""
+    
+    if not any_probs:
+        clean_report += "\nProbabilidades não disponíveis para análise."
     
     clean_report += f"""
 
@@ -1082,7 +1161,7 @@ def format_analysis_response(analysis_text, home_team, away_team):
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
 """
     
-    # Adicionar oportunidades
+    # Adicionar oportunidades limpas
     if opportunities:
         for opp in opportunities:
             clean_report += f"{opp}\n"
