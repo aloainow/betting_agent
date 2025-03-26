@@ -1367,6 +1367,9 @@ def format_analysis_response_html(analysis_text, home_team, away_team):
     current_section = None
     current_content = []
     
+    # Debug log para verificar o texto de entrada
+    print(f"Analysis text to format: {analysis_text[:100]}...")
+    
     # Dividir o texto em linhas e analisar as seções
     for line in analysis_text.split('\n'):
         line = line.strip()
@@ -1387,6 +1390,9 @@ def format_analysis_response_html(analysis_text, home_team, away_team):
     # Salvar a última seção
     if current_section and current_content:
         sections[current_section] = '\n'.join(current_content)
+    
+    # Log das seções encontradas
+    print(f"Sections found: {list(sections.keys())}")
     
     # Começar a construir o HTML
     html = f"""
@@ -1561,24 +1567,33 @@ def format_opportunities_section(content):
 
 def format_confidence_section(content):
     """Formata a seção de confiança com HTML adequado"""
-    # Verificar se há marcadores de lista
-    if '*' in content:
-        factors = content.split('*')
-        factors = [f.strip() for f in factors if f.strip()]
-        
-        html = "<ul class='confidence-factors'>"
-        for factor in factors:
-            html += f"<li>{factor}</li>"
-        html += "</ul>"
-        return html
-    else:
-        # Retornar como parágrafos se não houver marcadores
-        paragraphs = content.split('\n\n')
-        html = ""
-        for p in paragraphs:
-            if p.strip():
-                html += f"<p>{p.strip()}</p>"
-        return html
+    # Dividir por linhas para processar cada item
+    lines = content.split('\n')
+    html = "<ul class='confidence-factors'>"
+    
+    current_item = ""
+    for line in lines:
+        line = line.strip()
+        if line.startswith('*') or line.startswith('-'):
+            # Se já temos um item acumulado, adicionar à lista
+            if current_item:
+                html += f"<li>{current_item}</li>"
+                current_item = ""
+            # Iniciar novo item removendo o marcador
+            current_item = line[1:].strip()
+        elif line and current_item:
+            # Continuar item atual
+            current_item += " " + line
+        elif line and not current_item:
+            # Novo parágrafo fora de lista
+            html += f"<li>{line}</li>"
+    
+    # Adicionar o último item se existir
+    if current_item:
+        html += f"<li>{current_item}</li>"
+    
+    html += "</ul>"
+    return html
 
 def get_confidence_icon(confidence_level):
     """Retorna o ícone apropriado para o nível de confiança"""
