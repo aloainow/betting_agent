@@ -1447,6 +1447,8 @@ def transform_api_data(stats_data, home_team, away_team, selected_markets):
         return result
 def apply_custom_styles():
     """Aplica estilos CSS customizados para a visualização de análise"""
+    import streamlit as st
+    
     st.markdown("""
     <style>
     /* Estilos para a visualização de análise de partidas */
@@ -1495,6 +1497,49 @@ def apply_custom_styles():
     /* Ajuste para cabeçalhos */
     h1, h2, h3, h4, h5 {
         color: #fd7014 !important;
+    }
+    
+    /* Melhorando o visual das tabelas */
+    .dataframe {
+        border-collapse: collapse;
+        width: 100%;
+        margin: 1rem 0;
+    }
+    
+    .dataframe th {
+        text-align: left;
+        padding: 8px 16px;
+        border-bottom: 2px solid #353542;
+    }
+    
+    .dataframe td {
+        padding: 8px 16px;
+        border-bottom: 1px solid #353542;
+    }
+    
+    /* Estilo para valores positivos e negativos */
+    .positive-value {
+        color: #4CAF50 !important;
+        font-weight: bold;
+    }
+    
+    .negative-value {
+        color: #F44336 !important;
+        font-weight: bold;
+    }
+    
+    /* Estilo para cartões */
+    .info-card {
+        background-color: #292933;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border-left: 4px solid #fd7014;
+    }
+    
+    /* Estilo para markdown */
+    p, li {
+        color: #f0f0f8;
     }
     </style>
     """, unsafe_allow_html=True)
