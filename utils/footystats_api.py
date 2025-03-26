@@ -670,12 +670,12 @@ def retrieve_available_leagues(force_refresh=False):
     
     # Mapeamento básico com ligas mais comuns
     fallback_leagues = {
-        "Premier League (England)": 1625,
-        "La Liga (Spain)": 1869,
-        "Serie A (Italy)": 1870,
-        "Bundesliga (Germany)": 1871,
-        "Ligue 1 (France)": 1872,
-        "Champions League (Europe)": 1873
+        "Premier League (England)": 12325,
+        "La Liga (Spain)": 12316,
+        "Serie A (Italy)": 12530,
+        "Bundesliga (Germany)": 12529,
+        "Ligue 1 (France)": 12337,
+        "Champions League (Europe)": 12321
     }
     
     # Atualizar mapeamentos globais
