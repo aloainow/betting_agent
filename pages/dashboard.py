@@ -8,6 +8,7 @@ import streamlit as st
 from utils.core import show_valuehunter_logo, go_to_login, update_purchase_button, DATA_DIR
 from utils.data import parse_team_stats, get_odds_data, format_prompt
 from utils.ai import analyze_with_gpt, format_enhanced_prompt, format_highly_optimized_prompt
+from utils.ai import analyze_with_gpt, format_enhanced_prompt, format_highly_optimized_prompt, calculate_advanced_probabilities
 
 # Configuração de logging
 logger = logging.getLogger("valueHunter.dashboard")
@@ -1166,17 +1167,33 @@ def show_main_dashboard():
                         # Etapa 2: Processar os dados para análise
                         status.info("Processando dados estatísticos...")
                         
-                        # Etapa 3: Formatar prompt usando os dados otimizados
+                        # Etapa 3: Formatar prompt e extrair probabilidades
                         status.info("Preparando análise...")
+                        from utils.ai import format_highly_optimized_prompt, calculate_advanced_probabilities
+                        
+                        # Primeiro calculamos as probabilidades
+                        original_probabilities = calculate_advanced_probabilities(
+                            stats_data["home_team"], 
+                            stats_data["away_team"]
+                        )
+                        
+                        # Depois geramos o prompt com essas probabilidades
                         prompt = format_highly_optimized_prompt(stats_data, home_team, away_team, odds_data, selected_markets)
                         
                         if not prompt:
                             status.error("Falha ao preparar análise")
                             return
                         
-                        # Etapa 4: Análise GPT
+                        # Etapa 4: Análise GPT com probabilidades originais
                         status.info("Realizando análise com IA...")
-                        analysis = analyze_with_gpt(prompt)
+                        analysis = analyze_with_gpt(
+                            prompt,
+                            original_probabilites=original_probabilities,
+                            selected_markets=selected_markets,
+                            home_team=home_team,
+                            away_team=away_team
+                        )
+                        
                         if not analysis:
                             status.error("Falha na análise com IA")
                             return
@@ -1194,12 +1211,8 @@ def show_main_dashboard():
                                     if "</div>" in analysis:
                                         analysis = analysis.replace("</div>", "")
                             
-                            # NOVO: Formatar a resposta para garantir que tenha todas as seções
-                            from utils.ai import format_analysis_response
-                            formatted_analysis = format_analysis_response(analysis, home_team, away_team)
-                            
-                            # Substitua todo o bloco atual por:
-                            st.code(formatted_analysis, language=None)
+                            # Exibir o resultado formatado
+                            st.code(analysis, language=None)
                             
                             # Registrar uso após análise bem-sucedida
                             num_markets = sum(1 for v in selected_markets.values() if v)
