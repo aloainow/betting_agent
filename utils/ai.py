@@ -964,7 +964,7 @@ Responda com EXATAMENTE este formato:
 [Explicação com consistência e forma]
 """
 
-def analyze_with_gpt(prompt):
+def analyze_with_gpt(prompt, original_probabilites=None, selected_markets=None, home_team=None, away_team=None):
     try:
         client = get_openai_client()
         if not client:
@@ -986,7 +986,20 @@ def analyze_with_gpt(prompt):
                 timeout=60  # Timeout de 60 segundos
             )
             logger.info("Resposta recebida do GPT com sucesso")
-            return response.choices[0].message.content
+            
+            # Se temos as probabilidades originais, aplicar a formatação melhorada
+            response_text = response.choices[0].message.content
+            if original_probabilites and home_team and away_team:
+                logger.info("Aplicando formatação avançada com injeção de probabilidades originais")
+                response_text = format_analysis_response(
+                    response_text, 
+                    home_team, 
+                    away_team, 
+                    selected_markets, 
+                    original_probabilites
+                )
+                
+            return response_text
     except OpenAIError as e:
         logger.error(f"Erro na API OpenAI: {str(e)}")
         st.error(f"Erro na API OpenAI: {str(e)}")
@@ -995,12 +1008,18 @@ def analyze_with_gpt(prompt):
         logger.error(f"Erro inesperado: {str(e)}")
         st.error(f"Erro inesperado: {str(e)}")
         return None
-
 # Substitua a função format_analysis_response atual por esta versão mais robusta:
 
-def format_analysis_response(analysis_text, home_team, away_team):
+def format_analysis_response(analysis_text, home_team, away_team, selected_markets=None, original_probabilities=None):
     """
-    Constrói uma análise limpa com separação forçada de mercados e garantia de exibição de probabilidades.
+    Constrói uma análise limpa com INSERÇÃO FORÇADA das probabilidades originais
+    
+    Args:
+        analysis_text: Texto da análise do GPT
+        home_team: Nome do time da casa
+        away_team: Nome do time visitante
+        selected_markets: Dicionário com os mercados selecionados pelo usuário
+        original_probabilities: Probabilidades originais calculadas
     """
     import re
     import logging
@@ -1286,8 +1305,8 @@ def format_analysis_response(analysis_text, home_team, away_team):
                             
                             if market_type:
                                 # Encontrar probabilidades mencionadas
-                                real_match = re.search(r'Real\s+(\d+\.?\d*)%', line)
-                                impl_match = re.search(r'Implícita\s+(\d+\.?\d*)%', line)
+                                real_match = re.search(r'Real[:]?\s+(\d+\.?\d*)%', line)
+                                impl_match = re.search(r'Implícita[:]?\s+(\d+\.?\d*)%', line)
                                 
                                 if real_match and impl_match:
                                     real_prob = real_match.group(1) + "%"
@@ -1356,7 +1375,105 @@ def format_analysis_response(analysis_text, home_team, away_team):
         except Exception as e:
             logger.warning(f"Erro ao extrair nível de confiança: {str(e)}")
     
-    # PARTE 5: CONSTRUÇÃO DO RELATÓRIO FINAL FORMATADO
+    # PARTE 5: INSERIR PROBABILIDADES ORIGINAIS CALCULADAS SE DISPONÍVEIS
+    # =================================================================
+    # Esta é a principal modificação: inserir as probabilidades originais forçadamente
+    if original_probabilities:
+        logger.info("Inserindo probabilidades originais calculadas forçadamente")
+        
+        # Converter probabilidades originais para o formato necessário
+        formatted_probs = {}
+        
+        # 1. Money Line (1X2)
+        if "moneyline" in original_probabilities:
+            formatted_probs["Money Line (1X2)"] = {
+                "Casa": {"real": f"{original_probabilities['moneyline']['home_win']:.1f}%", "implicit": "N/A"},
+                "Empate": {"real": f"{original_probabilities['moneyline']['draw']:.1f}%", "implicit": "N/A"},
+                "Fora": {"real": f"{original_probabilities['moneyline']['away_win']:.1f}%", "implicit": "N/A"}
+            }
+        
+        # 2. Chance Dupla (Double Chance)
+        if "double_chance" in original_probabilities:
+            formatted_probs["Chance Dupla"] = {
+                "1X": {"real": f"{original_probabilities['double_chance']['home_or_draw']:.1f}%", "implicit": "N/A"},
+                "12": {"real": f"{original_probabilities['double_chance']['home_or_away']:.1f}%", "implicit": "N/A"},
+                "X2": {"real": f"{original_probabilities['double_chance']['away_or_draw']:.1f}%", "implicit": "N/A"}
+            }
+        
+        # 3. Over/Under
+        if "over_under" in original_probabilities:
+            formatted_probs["Over/Under Gols"] = {
+                "Over 2.5": {"real": f"{original_probabilities['over_under']['over_2_5']:.1f}%", "implicit": "N/A"},
+                "Under 2.5": {"real": f"{original_probabilities['over_under']['under_2_5']:.1f}%", "implicit": "N/A"}
+            }
+        
+        # 4. BTTS
+        if "btts" in original_probabilities:
+            formatted_probs["Ambos Marcam"] = {
+                "Sim": {"real": f"{original_probabilities['btts']['yes']:.1f}%", "implicit": "N/A"},
+                "Não": {"real": f"{original_probabilities['btts']['no']:.1f}%", "implicit": "N/A"}
+            }
+        
+        # 5. Cantos
+        if "corners" in original_probabilities:
+            formatted_probs["Escanteios"] = {
+                "Over 9.5": {"real": f"{original_probabilities['corners']['over_9_5']:.1f}%", "implicit": "N/A"},
+                "Under 9.5": {"real": f"{original_probabilities['corners']['under_9_5']:.1f}%", "implicit": "N/A"}
+            }
+        
+        # 6. Cartões
+        if "cards" in original_probabilities:
+            formatted_probs["Cartões"] = {
+                "Over 3.5": {"real": f"{original_probabilities['cards']['over_3_5']:.1f}%", "implicit": "N/A"},
+                "Under 3.5": {"real": f"{original_probabilities['cards']['under_3_5']:.1f}%", "implicit": "N/A"}
+            }
+        
+        # Adicionar probabilidades implícitas das odds
+        # Percorrer cada mercado como Money Line (1X2)
+        for category, markets in market_categories.items():
+            if category in formatted_probs:
+                # Extrair probabilidades implícitas dos mercados listados
+                for market_line in markets:
+                    # Extrair o nome da opção e a odds implícita
+                    parts = market_line.split("@")
+                    if len(parts) >= 2:
+                        option_text = parts[0].replace("•", "").strip()
+                        # Extrair probabilidade implícita se estiver no formato (XX.X%)
+                        impl_match = re.search(r'\(Implícita:\s*(\d+\.?\d*)%\)', market_line)
+                        if impl_match:
+                            impl_prob = impl_match.group(1) + "%"
+                            
+                            # Identificar a opção correta no dicionário
+                            for opt in formatted_probs[category]:
+                                # Verificar se a opção atual contém o nome da opção no texto
+                                if opt.lower() in option_text.lower() or any(term.lower() in option_text.lower() for term in opt.lower().split()):
+                                    formatted_probs[category][opt]["implicit"] = impl_prob
+                                    break
+                            
+                            # Tratamento especial para casa/fora
+                            if "casa" in option_text.lower() and "Casa" in formatted_probs[category]:
+                                formatted_probs[category]["Casa"]["implicit"] = impl_prob
+                            elif "fora" in option_text.lower() and "Fora" in formatted_probs[category]:
+                                formatted_probs[category]["Fora"]["implicit"] = impl_prob
+                            elif home_team in option_text and "Casa" in formatted_probs[category]:
+                                formatted_probs[category]["Casa"]["implicit"] = impl_prob
+                            elif away_team in option_text and "Fora" in formatted_probs[category]:
+                                formatted_probs[category]["Fora"]["implicit"] = impl_prob
+        
+        # Substituir ou juntar com as probabilidades extraídas da resposta
+        for category, options in formatted_probs.items():
+            if category not in all_probabilities or len(all_probabilities[category]) == 0:
+                # Se não tiver probabilidades para esta categoria, usar as originais
+                all_probabilities[category] = options
+            else:
+                # Se já tiver, verificar se há informações faltantes
+                for option, probs in options.items():
+                    if option not in all_probabilities[category]:
+                        all_probabilities[category][option] = probs
+                    elif "real" not in all_probabilities[category][option] or all_probabilities[category][option]["real"] == "N/A":
+                        all_probabilities[category][option]["real"] = probs["real"]
+    
+    # PARTE 6: CONSTRUÇÃO DO RELATÓRIO FINAL FORMATADO
     # ==============================================
     clean_report = f"""
 📊 ANÁLISE DE PARTIDA 📊
@@ -1405,82 +1522,6 @@ def format_analysis_response(analysis_text, home_team, away_team):
             
             clean_report += """
 └────────────┴────────────┴────────────┘"""
-    
-    # Forçar exibição de probabilidades de oportunidades se não houver tabelas
-    if not any_probs and opportunities:
-        # Extrair probabilidades das oportunidades
-        from_opportunities = {}
-        
-        for opp in opportunities:
-            try:
-                # Identificar o mercado
-                market_type = None
-                for category in ["Money Line (1X2)", "Chance Dupla", "Over/Under Gols", "Ambos Marcam", "Escanteios", "Cartões"]:
-                    if category.lower() in opp.lower():
-                        market_type = category
-                        break
-                
-                if not market_type:
-                    if "Money Line" in opp or "1X2" in opp or any(term in opp for term in [f"{home_team} Vitória", f"{away_team} Vitória", "Empate", "Casa", "Fora"]):
-                        market_type = "Money Line (1X2)"
-                    elif "Dupla" in opp or "1X" in opp or "12" in opp or "X2" in opp:
-                        market_type = "Chance Dupla"
-                    elif "Escanteio" in opp.lower() or "Corner" in opp.lower():
-                        market_type = "Escanteios"
-                    elif "Cartão" in opp.lower() or "Cartões" in opp.lower():
-                        market_type = "Cartões"
-                    elif "BTTS" in opp or "Ambos Marcam" in opp or ("Sim" in opp and "Não" not in opp) or ("Não" in opp and "Sim" not in opp):
-                        market_type = "Ambos Marcam"
-                    elif "Over" in opp or "Under" in opp:
-                        if "Escanteio" in opp.lower() or "Corner" in opp.lower():
-                            market_type = "Escanteios"
-                        elif "Cartão" in opp.lower() or "Cartões" in opp.lower():
-                            market_type = "Cartões"
-                        else:
-                            market_type = "Over/Under Gols"
-                
-                if market_type:
-                    # Encontrar probabilidades mencionadas
-                    real_match = re.search(r'Real\s+(\d+\.?\d*)%', opp)
-                    impl_match = re.search(r'Implícita\s+(\d+\.?\d*)%', opp)
-                    
-                    if real_match and impl_match:
-                        real_prob = real_match.group(1) + "%"
-                        impl_prob = impl_match.group(1) + "%"
-                        
-                        # Extrair o nome da opção/mercado
-                        option_match = re.search(r'^\•\s+\*\*([^:]+):', opp)
-                        option = option_match.group(1).strip() if option_match else "Desconhecido"
-                        
-                        # Armazenar
-                        if market_type not in from_opportunities:
-                            from_opportunities[market_type] = {}
-                        
-                        from_opportunities[market_type][option] = {
-                            "real": real_prob,
-                            "implicit": impl_prob
-                        }
-            except Exception as e:
-                logger.warning(f"Erro ao extrair probabilidade de oportunidade: {str(e)}")
-        
-        # Adicionar ao relatório
-        for category, options in from_opportunities.items():
-            if options:
-                clean_report += f"""
-
-[{category}]
-┌────────────┬────────────┬────────────┐
-│  MERCADO   │  REAL (%)  │ IMPLÍCITA  │
-├────────────┼────────────┼────────────┤"""
-                
-                for option, probs in options.items():
-                    option_display = option if len(option) <= 8 else option[:7] + "."
-                    clean_report += f"""
-│  {option_display.ljust(8)} │ {probs['real'].center(10)} │ {probs['implicit'].center(10)} │"""
-                
-                clean_report += """
-└────────────┴────────────┴────────────┘"""
-                any_probs = True
     
     if not any_probs:
         clean_report += "\nProbabilidades não disponíveis para análise."
