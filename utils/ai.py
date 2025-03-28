@@ -2050,8 +2050,11 @@ NÍVEL DE CONFIANÇA GERAL: {confidence_level}
     if not any_probs:
         clean_report += "\nProbabilidades não disponíveis para análise."
 
-💰OPORTUNIDADES IDENTIFICADAS
-▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔"""
+    clean_report += f"""
+
+💰 OPORTUNIDADES IDENTIFICADAS
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+"""
     
     # Adicionar oportunidades limpas
     if opportunities:
@@ -2073,8 +2076,8 @@ NÍVEL DE CONFIANÇA GERAL: {confidence_level}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
      © RELATÓRIO VALUE HUNTER DE ANÁLISE ESPORTIVA
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
-    
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━""" 
+
     return clean_report
     
 # Função auxiliar para calcular probabilidades reais
