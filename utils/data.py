@@ -958,8 +958,8 @@ def get_odds_data(selected_markets):
 - Fora: @{odds_data['away']:.2f} (Implícita: {(100/odds_data['away']):.1f}%)""")
 
         # Over/Under
-        if selected_markets.get("over_under", False):
-            st.markdown("### Over/Under")
+        if selected_markets.get("gols", False):
+            st.markdown("### Total de Gols")
             col1, col2, col3 = st.columns(3)
             with col1:
                 odds_data["goals_line"] = st.number_input("Linha", min_value=0.5, value=2.5, step=0.5, format="%.1f", key="goals_line")
