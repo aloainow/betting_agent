@@ -1011,6 +1011,182 @@ def analyze_with_gpt(prompt, original_probabilites=None, selected_markets=None, 
         st.error(f"Erro inesperado: {str(e)}")
         return None
 
+# Correções para eliminar duplicação nas tabelas e remover marcadores duplos
+
+# 1. Correção para prevenir duplicação de linhas nas tabelas
+def corrigir_formatacao_tabelas(category, options):
+    """
+    Corrige a formatação das tabelas de probabilidades para evitar duplicação
+    e truncamento nas linhas.
+    
+    Args:
+        category (str): O nome da categoria/mercado
+        options (dict): Opções e probabilidades para o mercado
+    
+    Returns:
+        str: Código HTML da tabela formatada corretamente
+    """
+    table_html = f"""
+[{category}]
+┌────────────┬────────────┬────────────┐
+│  MERCADO   │  REAL (%)  │ IMPLÍCITA  │
+├────────────┼────────────┼────────────┤"""
+    
+    # Processar cada opção sem duplicação
+    processed_options = set()
+    for option, probs in options.items():
+        # Prevenir duplicação usando um set para rastrear opções processadas
+        option_key = option.lower().strip()
+        if option_key in processed_options:
+            continue
+            
+        processed_options.add(option_key)
+        
+        # Garantir que o nome da opção seja exibido completamente
+        option_display = option
+        if len(option) > 8:
+            # Truncar mantendo a parte mais significativa
+            if "Over" in option or "Under" in option:
+                parts = option.split()
+                if len(parts) >= 2:
+                    option_display = f"{parts[0]} {parts[1]}"
+            else:
+                option_display = option[:7] + "."
+                
+        # Garantir que as probabilidades estejam formatadas corretamente
+        real_prob = probs.get('real', 'N/A')
+        impl_prob = probs.get('implicit', 'N/A')
+        
+        # Adicionar a linha na tabela
+        table_html += f"""
+│  {option_display.ljust(8)} │ {str(real_prob).center(10)} │ {str(impl_prob).center(10)} │"""
+    
+    # Fechar a tabela
+    table_html += """
+└────────────┴────────────┴────────────┘"""
+    
+    return table_html
+
+# 2. Correção para remover marcadores duplicados nos mercados
+def limpar_marcadores_mercados(market_line):
+    """
+    Remove duplicação de marcadores (•) em linhas de mercado.
+    
+    Args:
+        market_line (str): Linha de mercado original
+        
+    Returns:
+        str: Linha de mercado corrigida
+    """
+    # Remover duplicação de marcadores
+    clean_line = market_line.replace("• •", "•").replace("••", "•")
+    
+    # Garantir consistência no formato
+    if not clean_line.startswith("•"):
+        clean_line = "• " + clean_line.lstrip("- ")
+    
+    # Remover espaços extras
+    clean_line = " ".join(clean_line.split())
+    
+    return clean_line
+
+# Implementação melhorada da função que formata os mercados
+def formatar_mercados_disponiveis(market_categories):
+    """
+    Formata os mercados disponíveis com categorias separadas
+    e sem duplicação de marcadores.
+    
+    Args:
+        market_categories (dict): Categorias e seus mercados correspondentes
+        
+    Returns:
+        str: HTML formatado dos mercados
+    """
+    mercados_html = """
+ANÁLISE DE MERCADOS DISPONÍVEIS
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔"""
+    
+    has_mercados = False
+    
+    # Adicionar cada categoria separadamente
+    for category, markets in market_categories.items():
+        if markets and len(markets) > 0:
+            has_mercados = True
+            mercados_html += f"\n\n[{category}]"
+            
+            # Processamento para evitar duplicação de mercados
+            seen_markets = set()
+            for market in markets:
+                clean_market = limpar_marcadores_mercados(market)
+                
+                # Extração para verificar duplicação
+                market_text = clean_market.split('@')[0].strip() if '@' in clean_market else clean_market
+                if market_text not in seen_markets:
+                    mercados_html += f"\n{clean_market}"
+                    seen_markets.add(market_text)
+    
+    if not has_mercados:
+        mercados_html += "\nInformações de mercados não disponíveis."
+    
+    return mercados_html
+
+# 3. Correção do problema com as tabelas de Over/Under, Escanteios e Cartões
+def processar_mercado_dynamico(original_probabilities, market_type, selected_line, default_key_prefix):
+    """
+    Processa mercados dinâmicos (Over/Under, Escanteios, Cartões) para gerar probabilidades
+    para a linha selecionada sem duplicação.
+    
+    Args:
+        original_probabilities (dict): Probabilidades originais calculadas
+        market_type (str): Tipo de mercado ('over_under', 'corners', 'cards')
+        selected_line (float): Linha selecionada para o mercado (2.5, 9.5, 3.5, etc.)
+        default_key_prefix (str): Prefixo para as chaves padrão ('over_2_5', 'over_9_5', etc.)
+        
+    Returns:
+        dict: Probabilidades calculadas para a linha específica
+    """
+    import math
+    
+    # Verificar se temos o valor esperado para cálculo dinâmico
+    expected_key = {
+        'over_under': 'expected_goals',
+        'corners': 'expected_corners',
+        'cards': 'expected_cards'
+    }.get(market_type)
+    
+    # Ajustar steepness com base no tipo de mercado
+    steepness = {
+        'over_under': 1.5,
+        'corners': 0.8,
+        'cards': 1.2
+    }.get(market_type, 1.0)
+    
+    # Se temos o valor esperado, calcular dinamicamente para a linha específica
+    if expected_key and expected_key in original_probabilities[market_type]:
+        total_expected = original_probabilities[market_type][expected_key]
+        
+        # Função genérica para calcular probabilidades over/under
+        def calculate_probs(expected, line, steep):
+            over_prob = 1 / (1 + math.exp(-steep * (expected - line)))
+            return over_prob * 100, (1-over_prob) * 100
+        
+        over_prob, under_prob = calculate_probs(total_expected, selected_line, steepness)
+        
+        return {
+            f"Over {selected_line}": {"real": f"{over_prob:.1f}%", "implicit": "N/A"},
+            f"Under {selected_line}": {"real": f"{under_prob:.1f}%", "implicit": "N/A"}
+        }
+    else:
+        # Usar valores padrão com a linha específica
+        over_key = f"over_{default_key_prefix}"
+        under_key = f"under_{default_key_prefix}"
+        
+        return {
+            f"Over {selected_line}": {"real": f"{original_probabilities[market_type][over_key]:.1f}%", "implicit": "N/A"},
+            f"Under {selected_line}": {"real": f"{original_probabilities[market_type][under_key]:.1f}%", "implicit": "N/A"}
+        }
+
+
 def format_analysis_response(analysis_text, home_team, away_team, selected_markets=None, original_probabilities=None):
     """
     Constrói uma análise limpa com INSERÇÃO FORÇADA das probabilidades originais - SEM EMOJIS
@@ -1573,33 +1749,32 @@ PROBABILIDADES CALCULADAS
                     except ValueError:
                         pass
             
-        # Se temos o valor total esperado, podemos calcular as probabilidades para linhas não-padrão
-        if "expected_goals" in original_probabilities["over_under"]:
-            import math
-            total_expected = original_probabilities["over_under"]["expected_goals"]
-            
-            # Função simplificada para calcular over/under para a linha específica
-            def calculate_over_under(expected, line):
-                # Usar curva logística como aproximação
-                steepness = 1.5
-                over_prob = 1 / (1 + math.exp(-steepness * (expected - line)))
-                return over_prob * 100, (1-over_prob) * 100
-            
-            over_prob, under_prob = calculate_over_under(total_expected, selected_line)
-            
-            formatted_probs["Over/Under Gols"] = {
-                f"Over {selected_line}": {"real": f"{over_prob:.1f}%", "implicit": "N/A"},
-                f"Under {selected_line}": {"real": f"{under_prob:.1f}%", "implicit": "N/A"}
-            }
-        else:
-            # Se não temos os dados para calcular linhas não-padrão,
-            # apenas mostramos as probabilidades padrão (2.5) mas com a linha correta
-            formatted_probs["Over/Under Gols"] = {
-                f"Over {selected_line}": {"real": f"{original_probabilities['over_under']['over_2_5']:.1f}%", "implicit": "N/A"},
-                f"Under {selected_line}": {"real": f"{original_probabilities['over_under']['under_2_5']:.1f}%", "implicit": "N/A"}
-            }
-
-    
+            # Se temos o valor total esperado, podemos calcular as probabilidades para linhas não-padrão
+            if "expected_goals" in original_probabilities["over_under"]:
+                import math
+                total_expected = original_probabilities["over_under"]["expected_goals"]
+                
+                # Função simplificada para calcular over/under para a linha específica
+                def calculate_over_under(expected, line):
+                    # Usar curva logística como aproximação
+                    steepness = 1.5
+                    over_prob = 1 / (1 + math.exp(-steepness * (expected - line)))
+                    return over_prob * 100, (1-over_prob) * 100
+                
+                over_prob, under_prob = calculate_over_under(total_expected, selected_line)
+                
+                formatted_probs["Over/Under Gols"] = {
+                    f"Over {selected_line}": {"real": f"{over_prob:.1f}%", "implicit": "N/A"},
+                    f"Under {selected_line}": {"real": f"{under_prob:.1f}%", "implicit": "N/A"}
+                }
+            else:
+                # Se não temos os dados para calcular linhas não-padrão,
+                # apenas mostramos as probabilidades padrão (2.5) mas com a linha correta
+                formatted_probs["Over/Under Gols"] = {
+                    f"Over {selected_line}": {"real": f"{original_probabilities['over_under']['over_2_5']:.1f}%", "implicit": "N/A"},
+                    f"Under {selected_line}": {"real": f"{original_probabilities['over_under']['under_2_5']:.1f}%", "implicit": "N/A"}
+                }
+        
         # 4. BTTS
         if selected_markets.get('ambos_marcam', False) and "btts" in original_probabilities:
             formatted_probs["Ambos Marcam"] = {
@@ -1620,31 +1795,31 @@ PROBABILIDADES CALCULADAS
                         break
                     except ValueError:
                         pass
+            
+            # Calcular probabilidades para a linha específica
+            if "expected_corners" in original_probabilities["corners"]:
+                import math
+                total_expected = original_probabilities["corners"]["expected_corners"]
+                
+                # Função para calcular over/under, ajustada para escanteios
+                def calculate_corners_over_under(expected, line):
+                    steepness = 0.8  # Menos inclinado para escanteios
+                    over_prob = 1 / (1 + math.exp(-steepness * (expected - line)))
+                    return over_prob * 100, (1-over_prob) * 100
+                
+                over_prob, under_prob = calculate_corners_over_under(total_expected, selected_line)
+                
+                formatted_probs["Escanteios"] = {
+                    f"Over {selected_line}": {"real": f"{over_prob:.1f}%", "implicit": "N/A"},
+                    f"Under {selected_line}": {"real": f"{under_prob:.1f}%", "implicit": "N/A"}
+                }
+            else:
+                # Usar valores padrão
+                formatted_probs["Escanteios"] = {
+                    f"Over {selected_line}": {"real": f"{original_probabilities['corners']['over_9_5']:.1f}%", "implicit": "N/A"},
+                    f"Under {selected_line}": {"real": f"{original_probabilities['corners']['under_9_5']:.1f}%", "implicit": "N/A"}
+                }
         
-        # Calcular probabilidades para a linha específica
-        if "expected_corners" in original_probabilities["corners"]:
-            import math
-            total_expected = original_probabilities["corners"]["expected_corners"]
-            
-            # Função para calcular over/under, ajustada para escanteios
-            def calculate_corners_over_under(expected, line):
-                steepness = 0.8  # Menos inclinado para escanteios
-                over_prob = 1 / (1 + math.exp(-steepness * (expected - line)))
-                return over_prob * 100, (1-over_prob) * 100
-            
-            over_prob, under_prob = calculate_corners_over_under(total_expected, selected_line)
-            
-            formatted_probs["Escanteios"] = {
-                f"Over {selected_line}": {"real": f"{over_prob:.1f}%", "implicit": "N/A"},
-                f"Under {selected_line}": {"real": f"{under_prob:.1f}%", "implicit": "N/A"}
-            }
-        else:
-            # Usar valores padrão
-            formatted_probs["Escanteios"] = {
-                f"Over {selected_line}": {"real": f"{original_probabilities['corners']['over_9_5']:.1f}%", "implicit": "N/A"},
-                f"Under {selected_line}": {"real": f"{original_probabilities['corners']['under_9_5']:.1f}%", "implicit": "N/A"}
-            }
-    
         # 6. Cartões
         if selected_markets.get('cartoes', False) and "cards" in original_probabilities:
             # Identificar qual linha o usuário selecionou
@@ -1681,8 +1856,7 @@ PROBABILIDADES CALCULADAS
                 formatted_probs["Cartoes"] = {
                     f"Over {selected_line}": {"real": f"{original_probabilities['cards']['over_3_5']:.1f}%", "implicit": "N/A"},
                     f"Under {selected_line}": {"real": f"{original_probabilities['cards']['under_3_5']:.1f}%", "implicit": "N/A"}
-                }
-            
+                }            
         # Adicionar probabilidades implícitas das odds
         for category, markets in market_categories.items():
             if category in formatted_probs:
