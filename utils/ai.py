@@ -547,7 +547,7 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
 
         # 2. Over/Under Gols - Agora dinâmico para qualquer linha
         over_under_probs = {}
-        if selected_markets.get("over_under", False):
+        if selected_markets.get("gols", False):
             # Use a combinação de estatísticas de time e xG
             home_expected_goals = home.get('xg_for_avg_overall', 0) if home.get('xg_for_avg_overall', 0) > 0 else home.get('goals_per_game', 0)
             away_expected_goals = away.get('xg_for_avg_overall', 0) if away.get('xg_for_avg_overall', 0) > 0 else away.get('goals_per_game', 0)
@@ -902,7 +902,7 @@ ATENÇÃO: Os dados estatísticos para esta partida são limitados. Use apenas a
             sections.append(result_stats)
         
         # Only include goals stats if over/under or btts are selected
-        if selected_markets.get("over_under") or selected_markets.get("ambos_marcam"):
+        if selected_markets.get("gols") or selected_markets.get("ambos_marcam"):
             sections.append(goals_stats)
         
         # Only include other stats if relevant markets are selected
@@ -1964,7 +1964,7 @@ PROBABILIDADES CALCULADAS
     market_mapping = {
         "Money Line (1X2)": "money_line",
         "Chance Dupla": "chance_dupla",
-        "Total de Gols": "over_under",
+        "Total de Gols": "gols",
         "Ambos Marcam": "ambos_marcam",
         "Total de Escanteios": "escanteios",
         "Total de Cartões": "cartoes"
@@ -2946,7 +2946,7 @@ def calculate_advanced_probabilities(home_team, away_team, league_table=None):
         draw_prob = (adjusted_draw / total) * 100
         away_win_prob = (adjusted_away_win / total) * 100
         
-        # 2. Over/Under
+        # 2. Gols
         expected_goals_home = home_offensive * 2.5  # Potencial máximo de 2.5 gols
         expected_goals_away = away_offensive * 2.0  # Potencial máximo de 2.0 gols
         
@@ -3000,7 +3000,7 @@ def calculate_advanced_probabilities(home_team, away_team, league_table=None):
                 "away_or_draw": away_win_prob + draw_prob,
                 "home_or_away": home_win_prob + away_win_prob
             },
-            "over_under": {
+            "gols": {
                 "over_2_5": over_2_5_prob * 100,
                 "under_2_5": (1 - over_2_5_prob) * 100,
                 "expected_goals": total_expected_goals
