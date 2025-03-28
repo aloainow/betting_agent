@@ -2040,7 +2040,7 @@ NÍVEL DE CONFIANÇA GERAL: {confidence_level}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
      © RELATÓRIO VALUE HUNTER DE ANÁLISE ESPORTIVA
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━""" 
-return clean_report
+    return clean_report
     
 def determine_market_type(table_name, table_content):
         """
