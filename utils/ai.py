@@ -1560,7 +1560,7 @@ PROBABILIDADES CALCULADAS
             }
         
         # 3. Over/Under
-       if selected_markets.get('over_under', False) and "over_under" in original_probabilities:
+        if selected_markets.get('over_under', False) and "over_under" in original_probabilities:
             # Identificar qual linha o usuário selecionou, examinando os mercados disponíveis
             selected_line = 2.5  # Linha padrão
             
@@ -1573,33 +1573,33 @@ PROBABILIDADES CALCULADAS
                     except ValueError:
                         pass
             
-            # Se temos o valor total esperado, podemos calcular as probabilidades para linhas não-padrão
-            if "expected_goals" in original_probabilities["over_under"]:
-                import math
-                total_expected = original_probabilities["over_under"]["expected_goals"]
-                
-                # Função simplificada para calcular over/under para a linha específica
-                def calculate_over_under(expected, line):
-                    # Usar curva logística como aproximação
-                    steepness = 1.5
-                    over_prob = 1 / (1 + math.exp(-steepness * (expected - line)))
-                    return over_prob * 100, (1-over_prob) * 100
-                
-                over_prob, under_prob = calculate_over_under(total_expected, selected_line)
-                
-                formatted_probs["Over/Under Gols"] = {
-                    f"Over {selected_line}": {"real": f"{over_prob:.1f}%", "implicit": "N/A"},
-                    f"Under {selected_line}": {"real": f"{under_prob:.1f}%", "implicit": "N/A"}
-                }
-            else:
-                # Se não temos os dados para calcular linhas não-padrão,
-                # apenas mostramos as probabilidades padrão (2.5) mas com a linha correta
-                formatted_probs["Over/Under Gols"] = {
-                    f"Over {selected_line}": {"real": f"{original_probabilities['over_under']['over_2_5']:.1f}%", "implicit": "N/A"},
-                    f"Under {selected_line}": {"real": f"{original_probabilities['over_under']['under_2_5']:.1f}%", "implicit": "N/A"}
-                }
+        # Se temos o valor total esperado, podemos calcular as probabilidades para linhas não-padrão
+        if "expected_goals" in original_probabilities["over_under"]:
+            import math
+            total_expected = original_probabilities["over_under"]["expected_goals"]
+            
+            # Função simplificada para calcular over/under para a linha específica
+            def calculate_over_under(expected, line):
+                # Usar curva logística como aproximação
+                steepness = 1.5
+                over_prob = 1 / (1 + math.exp(-steepness * (expected - line)))
+                return over_prob * 100, (1-over_prob) * 100
+            
+            over_prob, under_prob = calculate_over_under(total_expected, selected_line)
+            
+            formatted_probs["Over/Under Gols"] = {
+                f"Over {selected_line}": {"real": f"{over_prob:.1f}%", "implicit": "N/A"},
+                f"Under {selected_line}": {"real": f"{under_prob:.1f}%", "implicit": "N/A"}
+            }
+        else:
+            # Se não temos os dados para calcular linhas não-padrão,
+            # apenas mostramos as probabilidades padrão (2.5) mas com a linha correta
+            formatted_probs["Over/Under Gols"] = {
+                f"Over {selected_line}": {"real": f"{original_probabilities['over_under']['over_2_5']:.1f}%", "implicit": "N/A"},
+                f"Under {selected_line}": {"real": f"{original_probabilities['over_under']['under_2_5']:.1f}%", "implicit": "N/A"}
+            }
 
-        
+    
         # 4. BTTS
         if selected_markets.get('ambos_marcam', False) and "btts" in original_probabilities:
             formatted_probs["Ambos Marcam"] = {
@@ -1620,31 +1620,31 @@ PROBABILIDADES CALCULADAS
                         break
                     except ValueError:
                         pass
-            
-            # Calcular probabilidades para a linha específica
-            if "expected_corners" in original_probabilities["corners"]:
-                import math
-                total_expected = original_probabilities["corners"]["expected_corners"]
-                
-                # Função para calcular over/under, ajustada para escanteios
-                def calculate_corners_over_under(expected, line):
-                    steepness = 0.8  # Menos inclinado para escanteios
-                    over_prob = 1 / (1 + math.exp(-steepness * (expected - line)))
-                    return over_prob * 100, (1-over_prob) * 100
-                
-                over_prob, under_prob = calculate_corners_over_under(total_expected, selected_line)
-                
-                formatted_probs["Escanteios"] = {
-                    f"Over {selected_line}": {"real": f"{over_prob:.1f}%", "implicit": "N/A"},
-                    f"Under {selected_line}": {"real": f"{under_prob:.1f}%", "implicit": "N/A"}
-                }
-            else:
-                # Usar valores padrão
-                formatted_probs["Escanteios"] = {
-                    f"Over {selected_line}": {"real": f"{original_probabilities['corners']['over_9_5']:.1f}%", "implicit": "N/A"},
-                    f"Under {selected_line}": {"real": f"{original_probabilities['corners']['under_9_5']:.1f}%", "implicit": "N/A"}
-                }
         
+        # Calcular probabilidades para a linha específica
+        if "expected_corners" in original_probabilities["corners"]:
+            import math
+            total_expected = original_probabilities["corners"]["expected_corners"]
+            
+            # Função para calcular over/under, ajustada para escanteios
+            def calculate_corners_over_under(expected, line):
+                steepness = 0.8  # Menos inclinado para escanteios
+                over_prob = 1 / (1 + math.exp(-steepness * (expected - line)))
+                return over_prob * 100, (1-over_prob) * 100
+            
+            over_prob, under_prob = calculate_corners_over_under(total_expected, selected_line)
+            
+            formatted_probs["Escanteios"] = {
+                f"Over {selected_line}": {"real": f"{over_prob:.1f}%", "implicit": "N/A"},
+                f"Under {selected_line}": {"real": f"{under_prob:.1f}%", "implicit": "N/A"}
+            }
+        else:
+            # Usar valores padrão
+            formatted_probs["Escanteios"] = {
+                f"Over {selected_line}": {"real": f"{original_probabilities['corners']['over_9_5']:.1f}%", "implicit": "N/A"},
+                f"Under {selected_line}": {"real": f"{original_probabilities['corners']['under_9_5']:.1f}%", "implicit": "N/A"}
+            }
+    
         # 6. Cartões
         if selected_markets.get('cartoes', False) and "cards" in original_probabilities:
             # Identificar qual linha o usuário selecionou
