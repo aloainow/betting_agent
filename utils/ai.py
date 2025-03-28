@@ -1185,7 +1185,149 @@ def processar_mercado_dynamico(original_probabilities, market_type, selected_lin
             f"Over {selected_line}": {"real": f"{original_probabilities[market_type][over_key]:.1f}%", "implicit": "N/A"},
             f"Under {selected_line}": {"real": f"{original_probabilities[market_type][under_key]:.1f}%", "implicit": "N/A"}
         }
+# Atualizar a função que gera as probabilidades originais
+def gerar_probabilidades_originais(original_probabilities):
+    """
+    Gera o dicionário de probabilidades formatadas a partir das probabilidades originais
+    usando nomes de mercado mais claros e consistentes.
+    
+    Args:
+        original_probabilities (dict): Probabilidades originais calculadas
+        
+    Returns:
+        dict: Dicionário formatado de probabilidades
+    """
+    formatted_probs = {}
+    
+    # 1. Money Line (1X2)
+    if "moneyline" in original_probabilities:
+        formatted_probs["Money Line (1X2)"] = {
+            "Casa": {"real": f"{original_probabilities['moneyline']['home_win']:.1f}%", "implicit": "N/A"},
+            "Empate": {"real": f"{original_probabilities['moneyline']['draw']:.1f}%", "implicit": "N/A"},
+            "Fora": {"real": f"{original_probabilities['moneyline']['away_win']:.1f}%", "implicit": "N/A"}
+        }
+    
+    # 2. Chance Dupla (Double Chance)
+    if "double_chance" in original_probabilities:
+        formatted_probs["Chance Dupla"] = {
+            "1X": {"real": f"{original_probabilities['double_chance']['home_or_draw']:.1f}%", "implicit": "N/A"},
+            "12": {"real": f"{original_probabilities['double_chance']['home_or_away']:.1f}%", "implicit": "N/A"},
+            "X2": {"real": f"{original_probabilities['double_chance']['away_or_draw']:.1f}%", "implicit": "N/A"}
+        }
+    
+    # 3. Total de Gols (antigo Over/Under)
+    if "over_under" in original_probabilities:
+        formatted_probs["Total de Gols"] = {
+            "Over 2.5": {"real": f"{original_probabilities['over_under']['over_2_5']:.1f}%", "implicit": "N/A"},
+            "Under 2.5": {"real": f"{original_probabilities['over_under']['under_2_5']:.1f}%", "implicit": "N/A"}
+        }
+    
+    # 4. Ambos Marcam
+    if "btts" in original_probabilities:
+        formatted_probs["Ambos Marcam"] = {
+            "Sim": {"real": f"{original_probabilities['btts']['yes']:.1f}%", "implicit": "N/A"},
+            "Não": {"real": f"{original_probabilities['btts']['no']:.1f}%", "implicit": "N/A"}
+        }
+    
+    # 5. Total de Escanteios (antigo Escanteios)
+    if "corners" in original_probabilities:
+        formatted_probs["Total de Escanteios"] = {
+            "Over 9.5": {"real": f"{original_probabilities['corners']['over_9_5']:.1f}%", "implicit": "N/A"},
+            "Under 9.5": {"real": f"{original_probabilities['corners']['under_9_5']:.1f}%", "implicit": "N/A"}
+        }
+    
+    # 6. Total de Cartões (antigo Cartões)
+    if "cards" in original_probabilities:
+        formatted_probs["Total de Cartões"] = {
+            "Over 3.5": {"real": f"{original_probabilities['cards']['over_3_5']:.1f}%", "implicit": "N/A"},
+            "Under 3.5": {"real": f"{original_probabilities['cards']['under_3_5']:.1f}%", "implicit": "N/A"}
+        }
+    
+    return formatted_probs
 
+# Função auxiliar para categorizar mercados para exibição
+def categorizar_mercado(mercado_texto):
+    """
+    Categoriza um mercado com base no seu texto para garantir
+    que seja atribuído à categoria correta.
+    
+    Args:
+        mercado_texto (str): Texto do mercado
+        
+    Returns:
+        str: Nome da categoria
+    """
+    texto_lower = mercado_texto.lower()
+    
+    # Verificar o tipo de mercado
+    if "casa" in texto_lower or "empate" in texto_lower or "fora" in texto_lower or "1x2" in texto_lower:
+        return "Money Line (1X2)"
+    elif "1x" in texto_lower or "12" in texto_lower or "x2" in texto_lower or "dupla" in texto_lower:
+        return "Chance Dupla"
+    elif "over" in texto_lower or "under" in texto_lower:
+        if "escanteio" in texto_lower or "corner" in texto_lower or any(str(n) in texto_lower for n in [8, 9, 10, 11, 12]):
+            return "Total de Escanteios"
+        elif "cartão" in texto_lower or "cartoes" in texto_lower or "card" in texto_lower or any(str(n) in texto_lower for n in [3, 4, 5, 6]):
+            return "Total de Cartões"
+        else:
+            return "Total de Gols"
+    elif "ambos" in texto_lower or "btts" in texto_lower or ("sim" in texto_lower and "não" in texto_lower):
+        return "Ambos Marcam"
+    
+    # Fallback para categoria indefinida
+    return "Outros"
+
+# Coletando e organizando todos os mercados sem duplicação
+def coletar_mercados_organizados(odd_lines, selected_markets):
+    """
+    Coleta e organiza todos os mercados em categorias apropriadas,
+    removendo duplicações e garantindo formatação consistente.
+    
+    Args:
+        odd_lines (list): Linhas de odds do input do usuário
+        selected_markets (dict): Mercados selecionados pelo usuário
+        
+    Returns:
+        dict: Mercados organizados por categoria
+    """
+    organized_markets = {
+        "Money Line (1X2)": [],
+        "Chance Dupla": [],
+        "Total de Gols": [],
+        "Ambos Marcam": [],
+        "Total de Escanteios": [],
+        "Total de Cartões": []
+    }
+    
+    # Mapeamento inverso para verificar mercados selecionados
+    inverse_mapping = {v: k for k, v in market_mapping.items()}
+    
+    # Processar cada linha de odds
+    for line in odd_lines:
+        # Limpar formatação da linha
+        clean_line = limpar_marcadores_mercados(line)
+        
+        # Categorizar o mercado
+        category = categorizar_mercado(clean_line)
+        
+        # Verificar se esta categoria está nos mercados selecionados
+        market_key = None
+        for cat, key in market_mapping.items():
+            if cat == category:
+                market_key = key
+                break
+        
+        # Adicionar apenas se o mercado estiver selecionado
+        if market_key and selected_markets.get(market_key, False):
+            # Verificar duplicação
+            market_text = clean_line.split('@')[0].strip() if '@' in clean_line else clean_line
+            
+            # Evitar duplicação dentro da mesma categoria
+            existing_items = [item.split('@')[0].strip() for item in organized_markets[category]]
+            if market_text not in existing_items:
+                organized_markets[category].append(clean_line)
+    
+    return organized_markets
 
 def format_analysis_response(analysis_text, home_team, away_team, selected_markets=None, original_probabilities=None):
     """
@@ -1682,13 +1824,13 @@ PROBABILIDADES CALCULADAS
     
     # Mapeamento entre categorias e mercados selecionados
     market_mapping = {
-        "Money Line (1X2)": "money_line",
-        "Chance Dupla": "chance_dupla",
-        "Over/Under Gols": "over_under",
-        "Ambos Marcam": "ambos_marcam",
-        "Escanteios": "escanteios",
-        "Cartões": "cartoes"
-    }
+    "Money Line (1X2)": "money_line",
+    "Chance Dupla": "chance_dupla",
+    "Total de Gols": "over_under",  # Novo nome para Over/Under
+    "Ambos Marcam": "ambos_marcam",
+    "Total de Escanteios": "escanteios",  # Novo nome para Escanteios
+    "Total de Cartões": "cartoes"  # Novo nome para Cartões
+}
     
     # Adicionar tabelas de probabilidades APENAS para mercados selecionados
     any_probs = False
