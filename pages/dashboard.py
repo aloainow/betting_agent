@@ -1211,8 +1211,18 @@ def show_main_dashboard():
                                     if "</div>" in analysis:
                                         analysis = analysis.replace("</div>", "")
                             
+                            # IMPORTANTE: Aplicar formatação avançada para garantir filtragem por mercados selecionados
+                            from utils.ai import format_analysis_response
+                            formatted_analysis = format_analysis_response(
+                                analysis,
+                                home_team,
+                                away_team,
+                                selected_markets=selected_markets,
+                                original_probabilities=original_probabilities
+                            )
+                            
                             # Exibir o resultado formatado
-                            st.code(analysis, language=None)
+                            st.code(formatted_analysis, language=None)
                             
                             # Registrar uso após análise bem-sucedida
                             num_markets = sum(1 for v in selected_markets.values() if v)
