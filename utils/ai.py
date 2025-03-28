@@ -185,9 +185,9 @@ def get_market_display_info(selected_markets, odds_data):
     # Processar Over/Under de Gols
     if selected_markets.get("over_under", False):
         gol_lines = extract_overunder_lines(odds_data, "gols")
-        market_info["over_under_gols"] = {
+        market_info["gols"] = {
             "lines": gol_lines,
-            "display_name": "Over/Under Gols",
+            "display_name": "Gols",
             "primary_line": gol_lines[0] if gol_lines else 2.5
         }
     
@@ -1276,12 +1276,6 @@ def categorizar_mercado(mercado_texto):
     """
     Categoriza um mercado com base no seu texto para garantir
     que seja atribuído à categoria correta.
-    
-    Args:
-        mercado_texto (str): Texto do mercado
-        
-    Returns:
-        str: Nome da categoria
     """
     texto_lower = mercado_texto.lower()
     
@@ -1290,19 +1284,42 @@ def categorizar_mercado(mercado_texto):
         return "Money Line (1X2)"
     elif "1x" in texto_lower or "12" in texto_lower or "x2" in texto_lower or "dupla" in texto_lower:
         return "Chance Dupla"
-    elif "over" in texto_lower or "under" in texto_lower:
-        if "escanteio" in texto_lower or "corner" in texto_lower or any(str(n) in texto_lower for n in [8, 9, 10, 11, 12]):
-            return "Total de Escanteios"
-        elif "cartão" in texto_lower or "cartoes" in texto_lower or "card" in texto_lower or any(str(n) in texto_lower for n in [3, 4, 5, 6]):
-            return "Total de Cartões"
-        else:
-            return "Total de Gols"
     elif "ambos" in texto_lower or "btts" in texto_lower or ("sim" in texto_lower and "não" in texto_lower):
         return "Ambos Marcam"
+    elif "over" in texto_lower or "under" in texto_lower:
+        # Primeiro verificar menções explícitas ao tipo de mercado
+        if "gol" in texto_lower:
+            return "Total de Gols"
+        elif "escanteio" in texto_lower or "corner" in texto_lower:
+            return "Total de Escanteios"
+        elif "cartão" in texto_lower or "cartoes" in texto_lower or "card" in texto_lower:
+            return "Total de Cartões"
+        
+        # Se não há menção explícita, verificar o valor da linha
+        linha_match = re.search(r'(\d+\.?\d*)', texto_lower)
+        if linha_match:
+            try:
+                linha = float(linha_match.group(1))
+                
+                # Categorizar com base no valor típico da linha
+                if linha <= 4.5:  # Valores típicos de gols
+                    return "Total de Gols"
+                elif linha >= 7.5 and linha <= 13.5:  # Valores típicos de escanteios
+                    return "Total de Escanteios"
+                elif linha >= 2.5 and linha <= 6.5:  # Valores típicos de cartões
+                    # Em caso de sobreposição com gols (2.5-4.5), verificar contexto adicional
+                    if any(termo in texto_lower for termo in ["cartão", "cartões", "amarelo", "vermelho", "card"]):
+                        return "Total de Cartões"
+                    else:
+                        return "Total de Gols"  # Padrão para linhas baixas
+            except ValueError:
+                pass
+        
+        # Padrão para Over/Under sem contexto específico
+        return "Total de Gols"
     
-    # Fallback para categoria indefinida
+    # Categorias padrão para outros casos
     return "Outros"
-
 # Coletando e organizando todos os mercados sem duplicação
 def coletar_mercados_organizados(odd_lines, selected_markets):
     """
@@ -1393,72 +1410,46 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
     consistency_info = ""
     form_info = ""
     influence_info = ""
-    
     # PARTE 1: EXTRAÇÃO DOS MERCADOS DISPONÍVEIS
-    # ==========================================
-    markets_section = ""
-    market_section_found = False
+markets_section = ""
+if "ANÁLISE DE MERCADOS DISPONÍVEIS" in analysis_text:
+    # Obter a seção de mercados
+    markets_section = analysis_text.split("ANÁLISE DE MERCADOS DISPONÍVEIS")[1].split("PROBABILIDADES CALCULADAS")[0]
     
-    # Tentar diferentes padrões para encontrar a seção de mercados
-    if "ANÁLISE DE MERCADOS DISPONÍVEIS" in analysis_text:
-        try:
-            markets_section = analysis_text.split("ANÁLISE DE MERCADOS DISPONÍVEIS")[1].split("PROBABILIDADES CALCULADAS")[0]
-            market_section_found = True
-        except:
-            logger.warning("Falha ao extrair seção de mercados após encontrar o cabeçalho")
+    # Inicializar categorias de mercado
+    market_categories = {
+        "Money Line (1X2)": [],
+        "Chance Dupla": [],
+        "Total de Gols": [],
+        "Ambos Marcam": [],
+        "Total de Escanteios": [],
+        "Total de Cartões": []
+    }
     
-    if not market_section_found and "Análise de Mercados" in analysis_text:
-        try:
-            markets_section = analysis_text.split("Análise de Mercados")[1].split("Probabilidades")[0]
-            market_section_found = True
-        except:
-            logger.warning("Falha ao extrair seção de mercados (alternativo)")
-    
-    # Forçar separação de mercados baseada em padrões específicos
-    if market_section_found:
-        lines = markets_section.strip().split("\n")
+    # Processar linhas
+    current_section = None
+    for line in markets_section.strip().split("\n"):
+        line = line.strip()
         
-        # Classificadores mais específicos para cada tipo de mercado
-        money_line_items = []
-        chance_dupla_items = []
-        total_gols_items = []
-        ambos_marcam_items = []
-        total_escanteios_items = []
-        total_cartoes_items = []
-        
-        current_section = None
-        for line in lines:
-            line = line.strip()
+        # Detectar cabeçalhos de seção
+        if line.startswith("[") and line.endswith("]"):
+            current_section = line[1:-1]
+            continue
             
-            # Detectar cabeçalhos de seção
-            if line.startswith("[") and line.endswith("]"):
-                section_name = line[1:-1].lower()
-                
-                if "1x2" in section_name or "money" in section_name:
-                    current_section = "money_line"
-                elif "dupla" in section_name or "chance" in section_name:
-                    current_section = "chance_dupla"
-                elif "gol" in section_name:
-                    current_section = "total_gols"
-                elif "btts" in section_name or "ambos" in section_name or "marcam" in section_name:
-                    current_section = "ambos_marcam"
-                elif "escanteio" in section_name or "corner" in section_name:
-                    current_section = "total_escanteios"
-                elif "cartão" in section_name or "cartões" in section_name or "card" in section_name:
-                    current_section = "total_cartoes"
-                else:
-                    current_section = None
-                
-                continue
-                
-            # Pular linhas vazias ou sem odds
-            if not line or "@" not in line:
-                continue
+        # Processar linha de mercado
+        if "@" in line:
+            # Limpar formatação
+            clean_line = limpar_marcadores_mercados(line)
             
-            # Remover marcadores duplicados e limpar a linha
-            clean_line = line.replace("• •", "•").replace("••", "•").strip()
-            if not clean_line.startswith("•"):
-                clean_line = "• " + clean_line
+            # Categorizar o mercado
+            if current_section and current_section in market_categories:
+                category = current_section
+            else:
+                category = categorizar_mercado(clean_line)
+                
+            # Adicionar à categoria apropriada
+            if category in market_categories:
+                market_categories[category].append("• " + clean_line)
             
             # FORÇAR CLASSIFICAÇÃO com base no conteúdo da linha
             classified = False
@@ -1873,7 +1864,7 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
             category_map = {
                 "money_line": "Money Line (1X2)",
                 "chance_dupla": "Chance Dupla",
-                "over_under": "Total de Gols",
+                "gols": "Total de Gols",
                 "ambos_marcam": "Ambos Marcam", 
                 "escanteios": "Total de Escanteios",
                 "cartoes": "Total de Cartões"
@@ -2613,7 +2604,7 @@ def format_enhanced_prompt(complete_analysis, home_team, away_team, odds_data, s
 
     # 3. ESTATÍSTICAS PARA MERCADOS DE GOLS (Over/Under, Ambos Marcam)
     goals_stats = ""
-    if any(m in selected_markets for m in ["over_under", "ambos_marcam"]):
+    if any(m in selected_markets for m in ["gols", "ambos_marcam"]):
         goals_stats = f"""
 # ESTATÍSTICAS PARA MERCADOS DE GOLS
 
@@ -2690,7 +2681,7 @@ def format_enhanced_prompt(complete_analysis, home_team, away_team, odds_data, s
     1. Você DEVE separar 100% dos mercados em suas categorias ESPECÍFICAS e PRÓPRIAS:
        - Money Line (1X2): Apenas 1 (Casa), X (Empate), 2 (Fora)
        - Chance Dupla: Apenas 1X, 12, X2
-       - Over/Under Gols: Apenas mercados de gols, NUNCA misture com escanteios ou cartões
+       -  Gols: Apenas mercados de gols, NUNCA misture com escanteios ou cartões
        - Ambos Marcam (BTTS): Apenas Sim/Não para ambas equipes marcarem
        - Escanteios: Apenas mercados de escanteios/corners, SEMPRE separado dos gols
        - Cartões: Apenas mercados de cartões, SEMPRE separado dos gols
@@ -2729,7 +2720,7 @@ def format_enhanced_prompt(complete_analysis, home_team, away_team, odds_data, s
     [Chance Dupla]
     • Informações sobre o mercado de chance dupla com odds e probabilidades implícitas
     
-    [Over/Under Gols]
+    [Gols]
     • Informações SOMENTE sobre gols (NUNCA misture com escanteios ou cartões)
     
     [Ambos Marcam]
