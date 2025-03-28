@@ -2050,9 +2050,8 @@ NÍVEL DE CONFIANÇA GERAL: {confidence_level}
     if not any_probs:
         clean_report += "\nProbabilidades não disponíveis para análise."
 
-💰 OPORTUNIDADES IDENTIFICADAS
-▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-"""
+💰OPORTUNIDADES IDENTIFICADAS
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔"""
     
     # Adicionar oportunidades limpas
     if opportunities:
