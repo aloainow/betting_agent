@@ -79,21 +79,48 @@ def extract_overunder_lines(odds_data, market_type="gols"):
     """
     import re
     
-    # Definir padrões de busca baseados no tipo de mercado
+    # Primeiro, busca padrões específicos com palavras de contexto
     if market_type == "gols":
-        pattern = r'(?:Over|Under)\s+(\d+(?:\.\d+)?)\s+[Gg]ols?'
+        specific_pattern = r'(?:Over|Under)\s+(\d+(?:\.\d+)?)\s+[Gg]ols?'
+        lines = re.findall(specific_pattern, odds_data)
+        
+        # Se não encontrar linhas com a palavra "gol", buscar linhas típicas de gols (0.5, 1.5, 2.5, 3.5, 4.5)
+        if not lines:
+            # Padrão mais genérico para Over/Under sem a palavra gols
+            general_pattern = r'(?:Over|Under)\s+(\d+(?:\.\d+)?)'
+            all_lines = re.findall(general_pattern, odds_data)
+            # Filtrar linhas típicas de gols
+            lines = [line for line in all_lines if float(line) in [0.5, 1.5, 2.5, 3.5, 4.5]]
+        
     elif market_type == "escanteios":
-        pattern = r'(?:Over|Under)\s+(\d+(?:\.\d+)?)\s+(?:[Ee]scanteios?|[Cc]orners?)'
+        specific_pattern = r'(?:Over|Under)\s+(\d+(?:\.\d+)?)\s+(?:[Ee]scanteios?|[Cc]orners?)'
+        lines = re.findall(specific_pattern, odds_data)
+        
+        # Se não encontrar linhas explícitas, buscar linhas típicas de escanteios (8.5, 9.5, 10.5, 11.5, 12.5)
+        if not lines:
+            general_pattern = r'(?:Over|Under)\s+(\d+(?:\.\d+)?)'
+            all_lines = re.findall(general_pattern, odds_data)
+            # Filtrar linhas típicas de escanteios
+            lines = [line for line in all_lines if float(line) >= 7.5 and float(line) <= 13.5]
+            
     elif market_type == "cartoes":
-        pattern = r'(?:Over|Under)\s+(\d+(?:\.\d+)?)\s+(?:[Cc]art[õoea][eo]s?)'
+        specific_pattern = r'(?:Over|Under)\s+(\d+(?:\.\d+)?)\s+(?:[Cc]art[õoea][eo]s?)'
+        lines = re.findall(specific_pattern, odds_data)
+        
+        # Se não encontrar linhas explícitas, buscar linhas típicas de cartões (3.5, 4.5, 5.5)
+        if not lines:
+            general_pattern = r'(?:Over|Under)\s+(\d+(?:\.\d+)?)'
+            all_lines = re.findall(general_pattern, odds_data)
+            # Filtrar linhas típicas de cartões
+            lines = [line for line in all_lines if float(line) >= 2.5 and float(line) <= 6.5]
     else:
         return [2.5]  # Valor padrão para gols
     
-    # Encontrar todas as correspondências do padrão
-    matches = re.findall(pattern, odds_data)
-    
     # Converter para float e remover duplicatas
-    lines = sorted(set([float(match) for match in matches if match]))
+    try:
+        lines = sorted(set([float(match) for match in lines if match]))
+    except (ValueError, TypeError):
+        lines = []
     
     # Se não encontrar linhas, retornar valores padrão
     if not lines:
@@ -105,7 +132,6 @@ def extract_overunder_lines(odds_data, market_type="gols"):
             return [3.5]
     
     return lines
-
 # Função para calcular probabilidade de over/under para uma linha específica
 def calculate_overunder_probability(expected_value, line, market_type="gols"):
     """
