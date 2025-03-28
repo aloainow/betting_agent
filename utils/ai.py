@@ -547,7 +547,7 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
 
         # 2. Over/Under Gols - Agora dinâmico para qualquer linha
         over_under_probs = {}
-        if selected_markets.get("gols", False):
+        if selected_markets.get("gols", False) or selected_markets.get("over_under", False):
             # Use a combinação de estatísticas de time e xG
             home_expected_goals = home.get('xg_for_avg_overall', 0) if home.get('xg_for_avg_overall', 0) > 0 else home.get('goals_per_game', 0)
             away_expected_goals = away.get('xg_for_avg_overall', 0) if away.get('xg_for_avg_overall', 0) > 0 else away.get('goals_per_game', 0)
