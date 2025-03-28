@@ -2448,7 +2448,7 @@ NÍVEL DE CONFIANÇA GERAL: {confidence_level}
      © RELATÓRIO VALUE HUNTER DE ANÁLISE ESPORTIVA
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━""" 
 
-    return clean_report
+        return clean_report
     
 # Função auxiliar para calcular probabilidades reais
 def calculate_real_prob(home_xg, away_xg, home_games, away_games):
