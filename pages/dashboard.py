@@ -1074,7 +1074,7 @@ def show_main_dashboard():
                     with col1:
                         selected_markets = {
                             "money_line": st.checkbox("Money Line (1X2)", value=True, key='ml'),
-                            "over_under": st.checkbox("Over/Under", key='ou'),
+                            "over_under": st.checkbox("Total de Gols", key='ou'),
                             "chance_dupla": st.checkbox("Chance Dupla", key='cd')
                         }
                     with col2:
