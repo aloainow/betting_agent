@@ -1416,198 +1416,49 @@ def format_analysis_response(
     consistency_info = ""
     form_info = ""
     influence_info = ""
+    
     # PARTE 1: EXTRAÇÃO DOS MERCADOS DISPONÍVEIS
+    markets_section = ""
+    if "ANÁLISE DE MERCADOS DISPONÍVEIS" in analysis_text:
+        # Obter a seção de mercados
+        markets_section = analysis_text.split("ANÁLISE DE MERCADOS DISPONÍVEIS")[1].split(
+            "PROBABILIDADES CALCULADAS"
+        )[0]
 
+        # Inicializar categorias de mercado
+        market_categories = {
+            "Money Line (1X2)": [],
+            "Chance Dupla": [],
+            "Total de Gols": [],
+            "Ambos Marcam": [],
+            "Total de Escanteios": [],
+            "Total de Cartões": [],
+        }
 
-markets_section = ""
-if "ANÁLISE DE MERCADOS DISPONÍVEIS" in analysis_text:
-    # Obter a seção de mercados
-    markets_section = analysis_text.split("ANÁLISE DE MERCADOS DISPONÍVEIS")[1].split(
-        "PROBABILIDADES CALCULADAS"
-    )[0]
+        # Processar linhas
+        current_section = None
+        for line in markets_section.strip().split("\n"):
+            line = line.strip()
 
-    # Inicializar categorias de mercado
-    market_categories = {
-        "Money Line (1X2)": [],
-        "Chance Dupla": [],
-        "Total de Gols": [],
-        "Ambos Marcam": [],
-        "Total de Escanteios": [],
-        "Total de Cartões": [],
-    }
+            # Detectar cabeçalhos de seção
+            if line.startswith("[") and line.endswith("]"):
+                current_section = line[1:-1]
+                continue
 
-    # Processar linhas
-    current_section = None
-    for line in markets_section.strip().split("\n"):
-        line = line.strip()
+            # Processar linha de mercado
+            if "@" in line:
+                # Limpar formatação
+                clean_line = limpar_marcadores_mercados(line)
 
-        # Detectar cabeçalhos de seção
-        if line.startswith("[") and line.endswith("]"):
-            current_section = line[1:-1]
-            continue
+                # Categorizar o mercado
+                if current_section and current_section in market_categories:
+                    category = current_section
+                else:
+                    category = categorizar_mercado(clean_line)
 
-        # Processar linha de mercado
-        if "@" in line:
-            # Limpar formatação
-            clean_line = limpar_marcadores_mercados(line)
-
-            # Categorizar o mercado
-            if current_section and current_section in market_categories:
-                category = current_section
-            else:
-                category = categorizar_mercado(clean_line)
-
-            # Adicionar à categoria apropriada
-            if category in market_categories:
-                market_categories[category].append("• " + clean_line)
-
-            # FORÇAR CLASSIFICAÇÃO com base no conteúdo da linha
-            classified = False
-
-            # 1. Money Line - verificamos primeiro porque é o mais específico
-            if (home_team in line or "Casa" in line) and "@" in line:
-                money_line_items.append(clean_line)
-                classified = True
-            elif (
-                "Empate" in line
-                and "@" in line
-                and "X2" not in line
-                and "1X" not in line
-            ):
-                money_line_items.append(clean_line)
-                classified = True
-            elif (
-                (away_team in line or "Fora" in line)
-                and "@" in line
-                and "X2" not in line
-                and "12" not in line
-            ):
-                money_line_items.append(clean_line)
-                classified = True
-
-            # 2. Chance Dupla - verificar padrões específicos
-            elif ("1X" in line or "X1" in line) and "@" in line:
-                chance_dupla_items.append(clean_line)
-                classified = True
-            elif ("12" in line or "21" in line) and "@" in line:
-                chance_dupla_items.append(clean_line)
-                classified = True
-            elif ("X2" in line or "2X" in line) and "@" in line:
-                chance_dupla_items.append(clean_line)
-                classified = True
-            elif "Dupla" in line and "@" in line:
-                chance_dupla_items.append(clean_line)
-                classified = True
-
-            # 3. Ambos Marcam (BTTS) - procurar padrões específicos
-            elif "Sim" in line and "@" in line and "BTTS" in line:
-                ambos_marcam_items.append(clean_line)
-                classified = True
-            elif "Não" in line and "@" in line and "BTTS" in line:
-                ambos_marcam_items.append(clean_line)
-                classified = True
-            elif "Ambos" in line and "marcam" in line.lower() and "@" in line:
-                ambos_marcam_items.append(clean_line)
-                classified = True
-            elif (
-                "Sim" in line
-                and "@" in line
-                and any("Não" in l and "@" in l for l in lines)
-            ):
-                # Se há um "Sim" e um "Não" como opções, provavelmente é BTTS
-                if not any(
-                    "over" in line.lower() or "under" in line.lower() for l in [line]
-                ):
-                    ambos_marcam_items.append(clean_line)
-                    classified = True
-            elif (
-                "Não" in line
-                and "@" in line
-                and any("Sim" in l and "@" in l for l in lines)
-            ):
-                # Par do caso acima
-                if not any(
-                    "over" in line.lower() or "under" in line.lower() for l in [line]
-                ):
-                    ambos_marcam_items.append(clean_line)
-                    classified = True
-
-            # 4. Total de Escanteios - verificação explícita
-            elif "escanteio" in line.lower() or "corner" in line.lower():
-                total_escanteios_items.append(clean_line)
-                classified = True
-            elif "over" in line.lower() and any(
-                str(n) in line for n in [8, 9, 10, 11, 12]
-            ):
-                # Linhas típicas de escanteios são Over/Under 8.5, 9.5, 10.5, etc.
-                total_escanteios_items.append(clean_line)
-                classified = True
-            elif "under" in line.lower() and any(
-                str(n) in line for n in [8, 9, 10, 11, 12]
-            ):
-                total_escanteios_items.append(clean_line)
-                classified = True
-
-            # 5. Total de Cartões - verificação explícita
-            elif (
-                "cartão" in line.lower()
-                or "cartões" in line.lower()
-                or "card" in line.lower()
-            ):
-                total_cartoes_items.append(clean_line)
-                classified = True
-            elif "over" in line.lower() and any(str(n) in line for n in [3, 4, 5, 6]):
-                # Linhas típicas de cartões são Over/Under 3.5, 4.5, 5.5, etc.
-                total_cartoes_items.append(clean_line)
-                classified = True
-            elif "under" in line.lower() and any(str(n) in line for n in [3, 4, 5, 6]):
-                total_cartoes_items.append(clean_line)
-                classified = True
-
-            # 6. Total de Gols - qualquer over/under que não seja escanteios ou cartões
-            elif ("over" in line.lower() or "under" in line.lower()) and "@" in line:
-                # Verificar se menciona explicitamente gols
-                if "gol" in line.lower():
-                    total_gols_items.append(clean_line)
-                    classified = True
-                # Verificar as linhas típicas de gols 0.5, 1.5, 2.5, 3.5, 4.5
-                elif any(f"{n}.5" in line for n in [0, 1, 2, 3, 4]):
-                    # Se não for um mercado explícito de cartões ou escanteios
-                    if not any(
-                        termo in line.lower()
-                        for termo in [
-                            "cartão",
-                            "cartões",
-                            "card",
-                            "escanteio",
-                            "corner",
-                        ]
-                    ):
-                        total_gols_items.append(clean_line)
-                        classified = True
-
-            # Se não foi classificado por nenhum dos critérios específicos, usar a seção atual
-            if not classified and current_section:
-                if current_section == "money_line":
-                    money_line_items.append(clean_line)
-                elif current_section == "chance_dupla":
-                    chance_dupla_items.append(clean_line)
-                elif current_section == "total_gols":
-                    total_gols_items.append(clean_line)
-                elif current_section == "ambos_marcam":
-                    ambos_marcam_items.append(clean_line)
-                elif current_section == "total_escanteios":
-                    total_escanteios_items.append(clean_line)
-                elif current_section == "total_cartoes":
-                    total_cartoes_items.append(clean_line)
-
-        # Atribuir os itens classificados às categorias corretas
-        market_categories["Money Line (1X2)"] = money_line_items
-        market_categories["Chance Dupla"] = chance_dupla_items
-        market_categories["Total de Gols"] = total_gols_items
-        market_categories["Ambos Marcam"] = ambos_marcam_items
-        market_categories["Total de Escanteios"] = total_escanteios_items
-        market_categories["Total de Cartões"] = total_cartoes_items
+                # Adicionar à categoria apropriada
+                if category in market_categories:
+                    market_categories[category].append("• " + clean_line)
 
     # PARTE 2: EXTRAÇÃO DE PROBABILIDADES
     # ===================================
@@ -2087,14 +1938,14 @@ if "ANÁLISE DE MERCADOS DISPONÍVEIS" in analysis_text:
                             category_name
                         ]
 
-        # PARTE 6: PREPARAR E CORRIGIR OPORTUNIDADES IDENTIFICADAS
-        # ====================================================
-        corrected_opportunities = []
+    # PARTE 6: PREPARAR E CORRIGIR OPORTUNIDADES IDENTIFICADAS
+    # ====================================================
+    corrected_opportunities = []
 
-        # Corrigir linhas das oportunidades para usar as linhas corretas de over/under
-        for opportunity in opportunities:
-            # Verificar se menciona uma linha incorreta
-            corrected_opp = opportunity
+    # Corrigir linhas das oportunidades para usar as linhas corretas de over/under
+    for opportunity in opportunities:
+        # Verificar se menciona uma linha incorreta
+        corrected_opp = opportunity
 
         # Corrigir linhas de gols
         if "Gols" in opportunity or "gols" in opportunity:
@@ -2219,7 +2070,7 @@ PROBABILIDADES CALCULADAS
         "Total de Cartões": "cartoes",
     }
 
-    # Adicionar tabelas de probabilidades APENAS para mercados selecionados
+     # Adicionar tabelas de probabilidades APENAS para mercados selecionados
     any_probs = False
     for category, options in all_probabilities.items():
         # Verificar se este mercado foi selecionado pelo usuário
@@ -2275,7 +2126,7 @@ NÍVEL DE CONFIANÇA GERAL: {confidence_level}
      © RELATÓRIO VALUE HUNTER DE ANÁLISE ESPORTIVA
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
 
-return clean_report
+    return clean_report
     
 def determine_market_type(table_name, table_content):
     """
