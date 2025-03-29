@@ -1042,6 +1042,16 @@ def analyze_with_gpt(prompt, original_probabilites=None, selected_markets=None, 
                     original_probabilities=original_probabilites
                 )
                 
+                # NOVO: Verificar mercados selecionados e forçar Total de Gols se necessário
+                if selected_markets and (selected_markets.get("gols", False) or selected_markets.get("over_under", False)):
+                    logger.info("Verificando se o mercado Total de Gols está presente")
+                    response_text = force_display_total_goals(
+                        response_text,
+                        home_team,
+                        away_team,
+                        original_probabilites
+                    )
+                
             return response_text
     except OpenAIError as e:
         logger.error(f"Erro na API OpenAI: {str(e)}")
@@ -1051,9 +1061,6 @@ def analyze_with_gpt(prompt, original_probabilites=None, selected_markets=None, 
         logger.error(f"Erro inesperado: {str(e)}")
         st.error(f"Erro inesperado: {str(e)}")
         return None
-
-# Correções para eliminar duplicação nas tabelas e remover marcadores duplos
-
 # 1. Correção para prevenir duplicação de linhas nas tabelas
 def corrigir_formatacao_tabelas(category, options):
     """
@@ -3084,3 +3091,57 @@ def calculate_advanced_probabilities(home_team, away_team, league_table=None):
         logger.error(traceback.format_exc())
         # Retornamos None em caso de erro
         return None
+def force_display_total_goals(analysis_text, home_team, away_team, original_probabilities):
+    """
+    Função para forçar a exibição do mercado Total de Gols
+    independentemente de outros mapeamentos ou processamentos.
+    
+    Args:
+        analysis_text: Texto da análise original
+        home_team: Nome do time da casa
+        away_team: Nome do time visitante
+        original_probabilities: Dicionário com probabilidades originais
+        
+    Returns:
+        str: Texto da análise com o mercado Total de Gols forçadamente incluído
+    """
+    import logging
+    logger = logging.getLogger("valueHunter.ai")
+    
+    # Verificar se já temos a seção de Total de Gols
+    if "[Total de Gols]" in analysis_text and "Over 2.5" in analysis_text:
+        logger.info("Mercado Total de Gols já está presente na análise")
+        return analysis_text
+    
+    # Verificar se temos probabilidades para Total de Gols
+    if not original_probabilities or "over_under" not in original_probabilities:
+        logger.warning("Probabilidades para Total de Gols não disponíveis")
+        return analysis_text
+    
+    # Extrair probabilidades do over/under
+    over_prob = original_probabilities["over_under"].get("over_2_5", 0)
+    under_prob = original_probabilities["over_under"].get("under_2_5", 0)
+    
+    # Criar tabela de probabilidades para Total de Gols
+    goals_table = f"""
+
+[Total de Gols]
+┌────────────┬────────────┬────────────┐
+│  MERCADO   │  REAL (%)  │ IMPLÍCITA  │
+├────────────┼────────────┼────────────┤
+│  Over 2.5 │  {over_prob:.1f}%   │    N/A     │
+│  Under 2. │  {under_prob:.1f}%   │    N/A     │
+└────────────┴────────────┴────────────┘"""
+    
+    # Encontrar a posição onde inserir
+    if "PROBABILIDADES CALCULADAS" in analysis_text:
+        # Dividir o texto
+        parts = analysis_text.split("OPORTUNIDADES IDENTIFICADAS")
+        if len(parts) == 2:
+            # Inserir a tabela de Total de Gols antes das OPORTUNIDADES
+            new_text = parts[0] + goals_table + "\n\nOPORTUNIDADES IDENTIFICADAS" + parts[1]
+            logger.info("Mercado Total de Gols forçadamente adicionado à análise")
+            return new_text
+    
+    # Retornar o texto original caso não consiga modificar
+    return analysis_text
