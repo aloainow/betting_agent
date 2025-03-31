@@ -1541,7 +1541,6 @@ def format_analysis_response(
                             "real": real_prob,
                             "implicit": impl_prob,
                         }
-
     # PARTE 3: EXTRAÇÃO DE OPORTUNIDADES IDENTIFICADAS
     # ===============================================
     if "OPORTUNIDADES IDENTIFICADAS" in analysis_text:
@@ -1617,7 +1616,6 @@ def format_analysis_response(
             logger.warning(f"Erro ao extrair nível de confiança: {str(e)}")
 
     # PARTE 5: FORÇAR INSERÇÃO DAS PROBABILIDADES ORIGINAIS PARA TODOS OS MERCADOS SELECIONADOS
-    # ======================================================================================
     
     # Usar o mapeamento global definido no início do arquivo
     market_key_mapping = {
@@ -1629,6 +1627,9 @@ def format_analysis_response(
         "escanteios": "Total de Escanteios",
         "cartoes": "Total de Cartões",
     }
+    
+    # Mapeamento inverso para lookups
+    INVERSE_MARKET_MAPPING = {v: k for k, v in market_key_mapping.items()}
     
     # Se temos probabilidades originais calculadas, inserir forçadamente
     if original_probabilities:
@@ -1669,7 +1670,6 @@ def format_analysis_response(
             }
 
         # 3. Total de Gols (Over/Under)
-        # Esta parte é importante - garantir que estamos usando o mercado correto
         if "over_under" in original_probabilities:
             formatted_probs["Total de Gols"] = {
                 "Over 2.5": {
@@ -1729,11 +1729,13 @@ def format_analysis_response(
                     if len(parts) >= 2:
                         option_text = parts[0].replace("•", "").strip()
                         # Extrair probabilidade implícita
-                        impl_match = re.search(r"\(Implícita:\s*(\d+\.?\d*)%\)", market_line)
+                        impl_match = re.search(
+                            r"\(Implícita:\s*(\d+\.?\d*)%\)", market_line
+                        )
                         if impl_match:
                             impl_prob = impl_match.group(1) + "%"
                             
-                            # Mapeamento mais direto para mercados específicos
+                            # Mapeamento para mercados específicos
                             if category == "Money Line (1X2)":
                                 if "casa" in option_text.lower() or home_team in option_text:
                                     formatted_probs[category]["Casa"]["implicit"] = impl_prob
@@ -1814,16 +1816,16 @@ def format_analysis_response(
                                         if key in formatted_probs[category]:
                                             formatted_probs[category][key]["implicit"] = impl_prob
                             
-                            # Caso genérico para qualquer outro mercado
+                            # Caso genérico para outros mercados
                             else:
                                 for opt in formatted_probs[category]:
-                                    # Verificar se a opção atual contém o nome da opção no texto
                                     if opt.lower() in option_text.lower() or any(
                                         term.lower() in option_text.lower()
                                         for term in opt.lower().split()
                                     ):
                                         formatted_probs[category][opt]["implicit"] = impl_prob
                                         break
+
         # CRUCIAL: ADICIONAR PROBABILIDADES PARA MERCADOS SELECIONADOS QUE ESTÃO FALTANDO
         if selected_markets:
             for market_key, is_selected in selected_markets.items():
@@ -1842,19 +1844,20 @@ def format_analysis_response(
                         if (display_name not in all_probabilities or not all_probabilities.get(display_name)) and display_name in formatted_probs:
                             logger.info(f"Adicionando mercado selecionado faltante: {display_name}")
                             all_probabilities[display_name] = formatted_probs[display_name]
-    # Garantir que não temos valores vazios antes de construir o relatório
-if not consistency_info.strip():
-    consistency_info = "Moderada, baseada na análise de resultados recentes de ambas as equipes."
-    
-if not form_info.strip():
-    form_info = "Ambas as equipes mostram tendências recentes que refletem seu desempenho na temporada."
-    
-if not influence_info.strip():
-    influence_info = "O nível de confiança é influenciado pela consistência dos resultados e forma recente."
 
-# PARTE 6: CONSTRUÇÃO DO RELATÓRIO FINAL
-# =====================================
-clean_report = f"""
+    # Garantir que não temos valores vazios antes de construir o relatório
+    if not consistency_info.strip():
+        consistency_info = "Moderada, baseada na análise de resultados recentes de ambas as equipes."
+        
+    if not form_info.strip():
+        form_info = "Ambas as equipes mostram tendências recentes que refletem seu desempenho na temporada."
+        
+    if not influence_info.strip():
+        influence_info = "O nível de confiança é influenciado pela consistência dos resultados e forma recente."
+
+    # PARTE 6: CONSTRUÇÃO DO RELATÓRIO FINAL
+    # =====================================
+    clean_report = f"""
 ANÁLISE DE PARTIDA
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -1865,98 +1868,98 @@ ANÁLISE DE PARTIDA
 ANÁLISE DE MERCADOS DISPONÍVEIS
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔"""
 
-# Adicionar mercados organizados por categoria
-any_markets = False
-for category, markets in market_categories.items():
-    if markets:
-        any_markets = True
-        clean_report += f"\n\n[{category}]"
-        for market in markets:
-            clean_report += f"\n{market}"
+    # Adicionar mercados organizados por categoria
+    any_markets = False
+    for category, markets in market_categories.items():
+        if markets:
+            any_markets = True
+            clean_report += f"\n\n[{category}]"
+            for market in markets:
+                clean_report += f"\n{market}"
 
-if not any_markets:
-    clean_report += "\nInformações de mercados não disponíveis."
+    if not any_markets:
+        clean_report += "\nInformações de mercados não disponíveis."
 
-clean_report += f"""
+    clean_report += f"""
 
 PROBABILIDADES CALCULADAS
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔"""
 
-# Determinar quais categorias exibir baseado nos mercados selecionados
-categories_to_show = []
-if selected_markets:
-    for market_key, is_selected in selected_markets.items():
-        if is_selected:
-            # Usar o mapeamento para obter o nome de exibição
-            display_name = market_key_mapping.get(market_key)
-            if display_name and display_name not in categories_to_show:
-                categories_to_show.append(display_name)
-                logger.info(f"Adicionando categoria para exibição: {display_name}")
-else:
-    # Se não temos mercados selecionados, mostrar todos
-    categories_to_show = list(all_probabilities.keys())
-
-# Verificação adicional de debug para garantir que o Total de Gols está sendo incluído
-if selected_markets and (selected_markets.get("gols", False) or selected_markets.get("over_under", False)):
-    if "Total de Gols" not in categories_to_show:
-        categories_to_show.append("Total de Gols")
-        logger.info("Forçando exibição do mercado Total de Gols")
-
-# Agora exibir probabilidades para cada categoria selecionada
-any_probs = False
-for category in categories_to_show:
-    # Se não temos probabilidades para esta categoria mas temos originais, usar as originais
-    if category not in all_probabilities and category in formatted_probs:
-        all_probabilities[category] = formatted_probs[category]
-        
-    options = all_probabilities.get(category, {})
+    # Determinar quais categorias exibir baseado nos mercados selecionados
+    categories_to_show = []
+    if selected_markets:
+        for market_key, is_selected in selected_markets.items():
+            if is_selected:
+                # Usar o mapeamento para obter o nome de exibição
+                display_name = market_key_mapping.get(market_key)
+                if display_name and display_name not in categories_to_show:
+                    categories_to_show.append(display_name)
+                    logger.info(f"Adicionando categoria para exibição: {display_name}")
+    else:
+        # Se não temos mercados selecionados, mostrar todos
+        categories_to_show = list(all_probabilities.keys())
     
-    if options:
-        any_probs = True
-        clean_report += f"""
+    # Verificação adicional de debug para garantir que o Total de Gols está sendo incluído
+    if selected_markets and (selected_markets.get("gols", False) or selected_markets.get("over_under", False)):
+        if "Total de Gols" not in categories_to_show:
+            categories_to_show.append("Total de Gols")
+            logger.info("Forçando exibição do mercado Total de Gols")
+    
+    # Agora exibir probabilidades para cada categoria selecionada
+    any_probs = False
+    for category in categories_to_show:
+        # Se não temos probabilidades para esta categoria mas temos originais, usar as originais
+        if category not in all_probabilities and category in formatted_probs:
+            all_probabilities[category] = formatted_probs[category]
+            
+        options = all_probabilities.get(category, {})
+        
+        if options:
+            any_probs = True
+            clean_report += f"""
 
 [{category}]
 ┌────────────┬────────────┬────────────┐
 │  MERCADO   │  REAL (%)  │ IMPLÍCITA  │
 ├────────────┼────────────┼────────────┤"""
 
-        for option, probs in options.items():
-            option_display = option if len(option) <= 8 else option[:7] + "."
-            real_val = probs.get('real', 'N/A')
-            impl_val = probs.get('implicit', 'N/A')
-            clean_report += f"""
+            for option, probs in options.items():
+                option_display = option if len(option) <= 8 else option[:7] + "."
+                real_val = probs.get('real', 'N/A')
+                impl_val = probs.get('implicit', 'N/A')
+                clean_report += f"""
 │  {option_display.ljust(8)} │ {real_val.center(10)} │ {impl_val.center(10)} │"""
 
-        clean_report += """
+            clean_report += """
 └────────────┴────────────┴────────────┘"""
-    else:
-        # Se temos uma categoria selecionada mas sem opções, adicionar uma mensagem
-        if selected_markets:
-            for market_key, is_selected in selected_markets.items():
-                if is_selected and market_key_mapping.get(market_key) == category:
-                    any_probs = True
-                    clean_report += f"""
+        else:
+            # Se temos uma categoria selecionada mas sem opções, adicionar uma mensagem
+            if selected_markets:
+                for market_key, is_selected in selected_markets.items():
+                    if is_selected and market_key_mapping.get(market_key) == category:
+                        any_probs = True
+                        clean_report += f"""
 
 [{category}]
 Dados insuficientes para calcular probabilidades."""
 
-if not any_probs:
-    clean_report += "\nProbabilidades não disponíveis para análise."
+    if not any_probs:
+        clean_report += "\nProbabilidades não disponíveis para análise."
 
-clean_report += f"""
+    clean_report += f"""
 
 OPORTUNIDADES IDENTIFICADAS
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
 """
 
-# Adicionar oportunidades identificadas
-if opportunities:
-    for opp in opportunities:
-        clean_report += f"{opp}\n"
-else:
-    clean_report += "Nenhuma oportunidade de valor identificada.\n"
+    # Adicionar oportunidades identificadas
+    if opportunities:
+        for opp in opportunities:
+            clean_report += f"{opp}\n"
+    else:
+        clean_report += "Nenhuma oportunidade de valor identificada.\n"
 
-clean_report += f"""
+    clean_report += f"""
 NÍVEL DE CONFIANÇA GERAL: {confidence_level}
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
 
