@@ -2468,8 +2468,7 @@ NÍVEL DE CONFIANÇA GERAL: {confidence_level}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
      © RELATÓRIO VALUE HUNTER DE ANÁLISE ESPORTIVA
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
-
-    return clean_report
+     return clean_report
 
 # Função auxiliar para limpar marcadores de mercados
 def limpar_marcadores_mercados(market_line):
