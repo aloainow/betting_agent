@@ -1439,99 +1439,69 @@ def format_analysis_response(
     form_info = ""
     influence_info = ""
     
-    # Na seção PARTE 1: EXTRAÇÃO DOS MERCADOS DISPONÍVEIS
-markets_section = ""
-if "ANÁLISE DE MERCADOS DISPONÍVEIS" in analysis_text:
-    # Obter a seção de mercados - usar regex para ser mais flexível
-    match = re.search(r'ANÁLISE DE MERCADOS DISPONÍVEIS.*?(?=PROBABILIDADES CALCULADAS)', analysis_text, re.DOTALL)
-    if match:
-        markets_section = match.group(0)
-    else:
-        # Tentar alternativa
-        parts = analysis_text.split("ANÁLISE DE MERCADOS DISPONÍVEIS")
-        if len(parts) > 1:
-            markets_section = parts[1].split("PROBABILIDADES CALCULADAS")[0]
+    # PARTE 1: EXTRAÇÃO DOS MERCADOS DISPONÍVEIS
+    markets_section = ""
+    if "ANÁLISE DE MERCADOS DISPONÍVEIS" in analysis_text:
+        # Obter a seção de mercados
+        markets_section = analysis_text.split("ANÁLISE DE MERCADOS DISPONÍVEIS")[1].split(
+            "PROBABILIDADES CALCULADAS"
+        )[0]
 
-    # Adicione logging para debug
-    logger.info(f"Extração de mercados - tamanho da seção: {len(markets_section)}")
-    
-    # Extrair todos os mercados com @
-    market_lines = []
-    for line in markets_section.strip().split("\n"):
-        if "@" in line:
-            market_lines.append(line)
-    
-    logger.info(f"Mercados encontrados: {len(market_lines)}")
-    
-    # Processar linhas
-    current_section = None
-    for line in markets_section.strip().split("\n"):
-        line = line.strip()
+        # Processar linhas
+        current_section = None
+        for line in markets_section.strip().split("\n"):
+            line = line.strip()
 
-        # Detectar cabeçalhos de seção
-        if line.startswith("[") and line.endswith("]"):
-            current_section = line[1:-1]
-            logger.info(f"Encontrada seção: {current_section}")
-            continue
+            # Detectar cabeçalhos de seção
+            if line.startswith("[") and line.endswith("]"):
+                current_section = line[1:-1]
+                continue
 
-        # Processar linha de mercado
-        if "@" in line:
-            # Limpar formatação
-            clean_line = line.replace("• •", "•").replace("••", "•")
-            if not clean_line.startswith("•"):
-                clean_line = "• " + clean_line
-            
-            # Detectar categoria
-            category = current_section
-            if not category or category not in market_categories:
-                # Tentar determinar categoria pela linha
-                if "casa" in line.lower() or "empate" in line.lower() or "fora" in line.lower():
-                    category = "Money Line (1X2)"
-                elif "1x" in line.lower() or "12" in line.lower() or "x2" in line.lower():
-                    category = "Chance Dupla"
-                elif "over" in line.lower() and any(val in line.lower() for val in ["2.5", "3.5", "1.5", "4.5"]):
-                    category = "Total de Gols"
-                elif "sim" in line.lower() and "não" in line.lower() or "ambos marcam" in line.lower():
-                    category = "Ambos Marcam"
-                elif "escanteio" in line.lower() or "corner" in line.lower():
-                    category = "Total de Escanteios"
-                elif "cartão" in line.lower() or "cartoes" in line.lower():
-                    category = "Total de Cartões"
-            
-            # Adicionar à categoria apropriada
-            if category in market_categories:
-                market_categories[category].append(clean_line)
-                logger.info(f"Adicionado mercado a {category}: {clean_line}")
-            # Depois de extrair market_categories, adicione um pré-processamento para calcular as probabilidades implícitas
-            processed_markets = {}
-            for category, markets in market_categories.items():
-                processed_markets[category] = []
-                for market in markets:
-                    # Extrair probabilidade implícita da odds
-                    odds_match = re.search(r'@(\d+\.?\d+)', market)
-                    if odds_match:
-                        odds = float(odds_match.group(1))
-                        implied_prob = round((1 / odds) * 100, 1)
-                        # Adicionar ao texto se não estiver já presente
-                        if "Implícita:" not in market:
-                            market = f"{market} (Implícita: {implied_prob}%)"
-                    processed_markets[category].append(market)
-            
-            # Substituir market_categories com a versão processada
-            market_categories = processed_markets
-            
+            # Processar linha de mercado
+            if "@" in line:
+                # Limpar formatação
+                clean_line = limpar_marcadores_mercados(line)
+
+                # Categorizar o mercado
+                if current_section and current_section in market_categories:
+                    category = current_section
+                else:
+                    category = categorizar_mercado(clean_line)
+
+                # Adicionar à categoria apropriada
+                if category in market_categories:
+                    market_categories[category].append("• " + clean_line)
+
+    # Depois de extrair market_categories, adicione um pré-processamento para calcular as probabilidades implícitas
+    processed_markets = {}
+    for category, markets in market_categories.items():
+        processed_markets[category] = []
+        for market in markets:
+            # Extrair probabilidade implícita da odds
+            odds_match = re.search(r'@(\d+\.?\d+)', market)
+            if odds_match:
+                odds = float(odds_match.group(1))
+                implied_prob = round((1 / odds) * 100, 1)
+                # Adicionar ao texto se não estiver já presente
+                if "Implícita:" not in market:
+                    market = f"{market} (Implícita: {implied_prob}%)"
+            processed_markets[category].append(market)
+
+    # Substituir market_categories com a versão processada
+    market_categories = processed_markets            
             # PARTE 2: EXTRAÇÃO DE PROBABILIDADES
-            # ===================================
-            probs_section = ""
-            if "PROBABILIDADES CALCULADAS" in analysis_text:
-                try:
-                    probs_section = analysis_text.split("PROBABILIDADES CALCULADAS")[1].split(
-                        "OPORTUNIDADES"
-                    )[0]
-                except:
-                    logger.warning(
-                        "Não foi possível extrair seção de probabilidades calculadas"
-                    )
+    # ===================================
+    probs_section = ""
+    if "PROBABILIDADES CALCULADAS" in analysis_text:
+        try:
+            probs_section = analysis_text.split("PROBABILIDADES CALCULADAS")[1].split(
+                "OPORTUNIDADES"
+            )[0]
+        except:
+            logger.warning(
+                "Não foi possível extrair seção de probabilidades calculadas"
+            )
+
     # Detectar e processar tabelas de probabilidades
     if probs_section:
         # Tentar extrair tabelas formatadas
@@ -1588,6 +1558,7 @@ if "ANÁLISE DE MERCADOS DISPONÍVEIS" in analysis_text:
                             "real": real_prob,
                             "implicit": impl_prob,
                         }
+
     # PARTE 3: EXTRAÇÃO DE OPORTUNIDADES IDENTIFICADAS
     # ===============================================
     if "OPORTUNIDADES IDENTIFICADAS" in analysis_text:
@@ -1661,228 +1632,237 @@ if "ANÁLISE DE MERCADOS DISPONÍVEIS" in analysis_text:
                 )
         except Exception as e:
             logger.warning(f"Erro ao extrair nível de confiança: {str(e)}")
-
     # PARTE 5: FORÇAR INSERÇÃO DAS PROBABILIDADES ORIGINAIS PARA TODOS OS MERCADOS SELECIONADOS
-# ======================================================================================
+    # ======================================================================================
+    
+    # Usar o mapeamento global definido no início do arquivo
+    market_key_mapping = {
+        "money_line": "Money Line (1X2)",
+        "chance_dupla": "Chance Dupla",
+        "gols": "Total de Gols",
+        "over_under": "Total de Gols",  # Compatibilidade
+        "ambos_marcam": "Ambos Marcam",
+        "escanteios": "Total de Escanteios",
+        "cartoes": "Total de Cartões",
+    }
+    
+    # Mapeamento inverso para lookups
+    INVERSE_MARKET_MAPPING = {v: k for k, v in market_key_mapping.items()}
+    
+    # Se temos probabilidades originais calculadas, inserir forçadamente
+    if original_probabilities:
+        formatted_probs = {}
 
-# Usar o mapeamento global definido no início do arquivo
-market_key_mapping = {
-    "money_line": "Money Line (1X2)",
-    "chance_dupla": "Chance Dupla",
-    "gols": "Total de Gols",
-    "over_under": "Total de Gols",  # Compatibilidade
-    "ambos_marcam": "Ambos Marcam",
-    "escanteios": "Total de Escanteios",
-    "cartoes": "Total de Cartões",
-}
+        # 1. Money Line (1X2)
+        if "moneyline" in original_probabilities:
+            formatted_probs["Money Line (1X2)"] = {
+                "Casa": {
+                    "real": f"{original_probabilities['moneyline']['home_win']:.1f}%",
+                    "implicit": "N/A",
+                },
+                "Empate": {
+                    "real": f"{original_probabilities['moneyline']['draw']:.1f}%",
+                    "implicit": "N/A",
+                },
+                "Fora": {
+                    "real": f"{original_probabilities['moneyline']['away_win']:.1f}%",
+                    "implicit": "N/A",
+                },
+            }
 
-# Mapeamento inverso para lookups
-INVERSE_MARKET_MAPPING = {v: k for k, v in market_key_mapping.items()}
+        # 2. Chance Dupla (Double Chance)
+        if "double_chance" in original_probabilities:
+            formatted_probs["Chance Dupla"] = {
+                "1X": {
+                    "real": f"{original_probabilities['double_chance']['home_or_draw']:.1f}%",
+                    "implicit": "N/A",
+                },
+                "12": {
+                    "real": f"{original_probabilities['double_chance']['home_or_away']:.1f}%",
+                    "implicit": "N/A",
+                },
+                "X2": {
+                    "real": f"{original_probabilities['double_chance']['away_or_draw']:.1f}%",
+                    "implicit": "N/A",
+                },
+            }
 
-# Se temos probabilidades originais calculadas, inserir forçadamente
-if original_probabilities:
-    formatted_probs = {}
+        # 3. Total de Gols (Over/Under)
+        if "over_under" in original_probabilities:
+            formatted_probs["Total de Gols"] = {
+                "Over 2.5": {
+                    "real": f"{original_probabilities['over_under']['over_2_5']:.1f}%",
+                    "implicit": "N/A",
+                },
+                "Under 2.5": {
+                    "real": f"{original_probabilities['over_under']['under_2_5']:.1f}%",
+                    "implicit": "N/A",
+                },
+            }
 
-    # 1. Money Line (1X2)
-    if "moneyline" in original_probabilities:
-        formatted_probs["Money Line (1X2)"] = {
-            "Casa": {
-                "real": f"{original_probabilities['moneyline']['home_win']:.1f}%",
-                "implicit": "N/A",
-            },
-            "Empate": {
-                "real": f"{original_probabilities['moneyline']['draw']:.1f}%",
-                "implicit": "N/A",
-            },
-            "Fora": {
-                "real": f"{original_probabilities['moneyline']['away_win']:.1f}%",
-                "implicit": "N/A",
-            },
-        }
+        # 4. BTTS (Ambos Marcam)
+        if "btts" in original_probabilities:
+            formatted_probs["Ambos Marcam"] = {
+                "Sim": {
+                    "real": f"{original_probabilities['btts']['yes']:.1f}%",
+                    "implicit": "N/A",
+                },
+                "Não": {
+                    "real": f"{original_probabilities['btts']['no']:.1f}%",
+                    "implicit": "N/A",
+                },
+            }
 
-    # 2. Chance Dupla (Double Chance)
-    if "double_chance" in original_probabilities:
-        formatted_probs["Chance Dupla"] = {
-            "1X": {
-                "real": f"{original_probabilities['double_chance']['home_or_draw']:.1f}%",
-                "implicit": "N/A",
-            },
-            "12": {
-                "real": f"{original_probabilities['double_chance']['home_or_away']:.1f}%",
-                "implicit": "N/A",
-            },
-            "X2": {
-                "real": f"{original_probabilities['double_chance']['away_or_draw']:.1f}%",
-                "implicit": "N/A",
-            },
-        }
+        # 5. Total de Escanteios
+        if "corners" in original_probabilities:
+            formatted_probs["Total de Escanteios"] = {
+                "Over 9.5": {
+                    "real": f"{original_probabilities['corners']['over_9_5']:.1f}%",
+                    "implicit": "N/A",
+                },
+                "Under 9.5": {
+                    "real": f"{original_probabilities['corners']['under_9_5']:.1f}%",
+                    "implicit": "N/A",
+                },
+            }
 
-    # 3. Total de Gols (Over/Under)
-    if "over_under" in original_probabilities:
-        formatted_probs["Total de Gols"] = {
-            "Over 2.5": {
-                "real": f"{original_probabilities['over_under']['over_2_5']:.1f}%",
-                "implicit": "N/A",
-            },
-            "Under 2.5": {
-                "real": f"{original_probabilities['over_under']['under_2_5']:.1f}%",
-                "implicit": "N/A",
-            },
-        }
+        # 6. Total de Cartões
+        if "cards" in original_probabilities:
+            formatted_probs["Total de Cartões"] = {
+                "Over 3.5": {
+                    "real": f"{original_probabilities['cards']['over_3_5']:.1f}%",
+                    "implicit": "N/A",
+                },
+                "Under 3.5": {
+                    "real": f"{original_probabilities['cards']['under_3_5']:.1f}%",
+                    "implicit": "N/A",
+                },
+            }
 
-    # 4. BTTS (Ambos Marcam)
-    if "btts" in original_probabilities:
-        formatted_probs["Ambos Marcam"] = {
-            "Sim": {
-                "real": f"{original_probabilities['btts']['yes']:.1f}%",
-                "implicit": "N/A",
-            },
-            "Não": {
-                "real": f"{original_probabilities['btts']['no']:.1f}%",
-                "implicit": "N/A",
-            },
-        }
-
-    # 5. Total de Escanteios
-    if "corners" in original_probabilities:
-        formatted_probs["Total de Escanteios"] = {
-            "Over 9.5": {
-                "real": f"{original_probabilities['corners']['over_9_5']:.1f}%",
-                "implicit": "N/A",
-            },
-            "Under 9.5": {
-                "real": f"{original_probabilities['corners']['under_9_5']:.1f}%",
-                "implicit": "N/A",
-            },
-        }
-
-    # 6. Total de Cartões
-    if "cards" in original_probabilities:
-        formatted_probs["Total de Cartões"] = {
-            "Over 3.5": {
-                "real": f"{original_probabilities['cards']['over_3_5']:.1f}%",
-                "implicit": "N/A",
-            },
-            "Under 3.5": {
-                "real": f"{original_probabilities['cards']['under_3_5']:.1f}%",
-                "implicit": "N/A",
-            },
-        }
-
-    # Modificar o regex para capturar probabilidades implícitas de maneiras diferentes
-    for category, markets in market_categories.items():
-        if category in formatted_probs:
-            for market_line in markets:
-                parts = market_line.split("@")
-                if len(parts) >= 2:
-                    option_text = parts[0].replace("•", "").strip()
-                    
-                    # Primeiro tenta o padrão explícito de Implícita
-                    impl_match = re.search(r"\(Implícita:\s*(\d+\.?\d*)%\)", market_line, re.IGNORECASE)
-                    
-                    # Se não encontrar, tenta extrair diretamente da odd
-                    if not impl_match and "@" in market_line:
-                        odds_match = re.search(r"@(\d+\.?\d+)", market_line)
-                        if odds_match:
-                            odds = float(odds_match.group(1))
-                            implied_prob = round((1 / odds) * 100, 1)
-                            impl_prob = f"{implied_prob}%"
+        # Modificar o regex para capturar probabilidades implícitas de maneiras diferentes
+        for category, markets in market_categories.items():
+            if category in formatted_probs:
+                for market_line in markets:
+                    parts = market_line.split("@")
+                    if len(parts) >= 2:
+                        option_text = parts[0].replace("•", "").strip()
+                        
+                        # Primeiro tenta o padrão explícito de Implícita
+                        impl_match = re.search(r"\(Implícita:\s*(\d+\.?\d*)%\)", market_line, re.IGNORECASE)
+                        
+                        # Se não encontrar, tenta extrair diretamente da odd
+                        if not impl_match and "@" in market_line:
+                            odds_match = re.search(r"@(\d+\.?\d+)", market_line)
+                            if odds_match:
+                                odds = float(odds_match.group(1))
+                                implied_prob = round((1 / odds) * 100, 1)
+                                impl_prob = f"{implied_prob}%"
+                            else:
+                                continue  # Se não conseguir extrair a odd, pula
+                        elif impl_match:
+                            impl_prob = impl_match.group(1) + "%"
                         else:
-                            continue  # Se não conseguir extrair a odd, pula
-                    elif impl_match:
-                        impl_prob = impl_match.group(1) + "%"
-                    else:
-                        continue  # Se não conseguir extrair de nenhuma forma, pula
-                    
-                    # Agora mapeamento mais robusto para os mercados
-                    if category == "Money Line (1X2)":
-                        if "casa" in option_text.lower() or home_team.lower() in option_text.lower():
-                            formatted_probs[category]["Casa"]["implicit"] = impl_prob
-                        elif "empate" in option_text.lower():
-                            formatted_probs[category]["Empate"]["implicit"] = impl_prob
-                        elif "fora" in option_text.lower() or away_team.lower() in option_text.lower():
-                            formatted_probs[category]["Fora"]["implicit"] = impl_prob
-                    
-                    elif category == "Chance Dupla":
-                        if "1x" in option_text.lower() or ("casa" in option_text.lower() and "empate" in option_text.lower()):
-                            formatted_probs[category]["1X"]["implicit"] = impl_prob
-                        elif "12" in option_text.lower() or "qualquer equipe" in option_text.lower():
-                            formatted_probs[category]["12"]["implicit"] = impl_prob
-                        elif "x2" in option_text.lower() or ("empate" in option_text.lower() and "fora" in option_text.lower()):
-                            formatted_probs[category]["X2"]["implicit"] = impl_prob
-                    
-                    elif category == "Ambos Marcam":
-                        if any(term in option_text.lower() for term in ["sim", "yes", "ambos marcam"]):
-                            formatted_probs[category]["Sim"]["implicit"] = impl_prob
-                        elif any(term in option_text.lower() for term in ["não", "no"]):
-                            formatted_probs[category]["Não"]["implicit"] = impl_prob
-                    
-                    elif category == "Total de Gols":
-                        if "over" in option_text.lower():
-                            line_match = re.search(r"over\s+(\d+\.?\d*)", option_text.lower())
-                            if line_match:
-                                line = line_match.group(1)
-                                key = f"Over {line}"
-                                if key in formatted_probs[category]:
-                                    formatted_probs[category][key]["implicit"] = impl_prob
-                        elif "under" in option_text.lower():
-                            line_match = re.search(r"under\s+(\d+\.?\d*)", option_text.lower())
-                            if line_match:
-                                line = line_match.group(1)
-                                key = f"Under {line}"
-                                if key in formatted_probs[category]:
-                                    formatted_probs[category][key]["implicit"] = impl_prob
-                    
-                    elif category == "Total de Escanteios":
-                        if "over" in option_text.lower():
-                            line_match = re.search(r"over\s+(\d+\.?\d*)", option_text.lower())
-                            if line_match:
-                                line = line_match.group(1)
-                                key = f"Over {line}"
-                                if key in formatted_probs[category]:
-                                    formatted_probs[category][key]["implicit"] = impl_prob
-                        elif "under" in option_text.lower():
-                            line_match = re.search(r"under\s+(\d+\.?\d*)", option_text.lower())
-                            if line_match:
-                                line = line_match.group(1)
-                                key = f"Under {line}"
-                                if key in formatted_probs[category]:
-                                    formatted_probs[category][key]["implicit"] = impl_prob
-                    
-                    elif category == "Total de Cartões":
-                        if "over" in option_text.lower():
-                            line_match = re.search(r"over\s+(\d+\.?\d*)", option_text.lower())
-                            if line_match:
-                                line = line_match.group(1)
-                                key = f"Over {line}"
-                                if key in formatted_probs[category]:
-                                    formatted_probs[category][key]["implicit"] = impl_prob
-                        elif "under" in option_text.lower():
-                            line_match = re.search(r"under\s+(\d+\.?\d*)", option_text.lower())
-                            if line_match:
-                                line = line_match.group(1)
-                                key = f"Under {line}"
-                                if key in formatted_probs[category]:
-                                    formatted_probs[category][key]["implicit"] = impl_prob
+                            continue  # Se não conseguir extrair de nenhuma forma, pula
+                        
+                        # Agora mapeamento mais robusto para os mercados
+                        if category == "Money Line (1X2)":
+                            if "casa" in option_text.lower() or home_team.lower() in option_text.lower():
+                                formatted_probs[category]["Casa"]["implicit"] = impl_prob
+                            elif "empate" in option_text.lower():
+                                formatted_probs[category]["Empate"]["implicit"] = impl_prob
+                            elif "fora" in option_text.lower() or away_team.lower() in option_text.lower():
+                                formatted_probs[category]["Fora"]["implicit"] = impl_prob
+                        
+                        elif category == "Chance Dupla":
+                            if "1x" in option_text.lower() or ("casa" in option_text.lower() and "empate" in option_text.lower()):
+                                formatted_probs[category]["1X"]["implicit"] = impl_prob
+                            elif "12" in option_text.lower() or "qualquer equipe" in option_text.lower():
+                                formatted_probs[category]["12"]["implicit"] = impl_prob
+                            elif "x2" in option_text.lower() or ("empate" in option_text.lower() and "fora" in option_text.lower()):
+                                formatted_probs[category]["X2"]["implicit"] = impl_prob
+                        
+                        elif category == "Ambos Marcam":
+                            if any(term in option_text.lower() for term in ["sim", "yes", "ambos marcam"]):
+                                formatted_probs[category]["Sim"]["implicit"] = impl_prob
+                            elif any(term in option_text.lower() for term in ["não", "no"]):
+                                formatted_probs[category]["Não"]["implicit"] = impl_prob
+                        
+                        elif category == "Total de Gols":
+                            if "over" in option_text.lower():
+                                line_match = re.search(r"over\s+(\d+\.?\d*)", option_text.lower())
+                                if line_match:
+                                    line = line_match.group(1)
+                                    key = f"Over {line}"
+                                    if key in formatted_probs[category]:
+                                        formatted_probs[category][key]["implicit"] = impl_prob
+                            elif "under" in option_text.lower():
+                                line_match = re.search(r"under\s+(\d+\.?\d*)", option_text.lower())
+                                if line_match:
+                                    line = line_match.group(1)
+                                    key = f"Under {line}"
+                                    if key in formatted_probs[category]:
+                                        formatted_probs[category][key]["implicit"] = impl_prob
+                        
+                        elif category == "Total de Escanteios":
+                            if "over" in option_text.lower():
+                                line_match = re.search(r"over\s+(\d+\.?\d*)", option_text.lower())
+                                if line_match:
+                                    line = line_match.group(1)
+                                    key = f"Over {line}"
+                                    if key in formatted_probs[category]:
+                                        formatted_probs[category][key]["implicit"] = impl_prob
+                            elif "under" in option_text.lower():
+                                line_match = re.search(r"under\s+(\d+\.?\d*)", option_text.lower())
+                                if line_match:
+                                    line = line_match.group(1)
+                                    key = f"Under {line}"
+                                    if key in formatted_probs[category]:
+                                        formatted_probs[category][key]["implicit"] = impl_prob
+                        
+                        elif category == "Total de Cartões":
+                            if "over" in option_text.lower():
+                                line_match = re.search(r"over\s+(\d+\.?\d*)", option_text.lower())
+                                if line_match:
+                                    line = line_match.group(1)
+                                    key = f"Over {line}"
+                                    if key in formatted_probs[category]:
+                                        formatted_probs[category][key]["implicit"] = impl_prob
+                            elif "under" in option_text.lower():
+                                line_match = re.search(r"under\s+(\d+\.?\d*)", option_text.lower())
+                                if line_match:
+                                    line = line_match.group(1)
+                                    key = f"Under {line}"
+                                    if key in formatted_probs[category]:
+                                        formatted_probs[category][key]["implicit"] = impl_prob
 
-    # CRUCIAL: ADICIONAR PROBABILIDADES PARA MERCADOS SELECIONADOS QUE ESTÃO FALTANDO
-    if selected_markets:
-        for market_key, is_selected in selected_markets.items():
-            if is_selected:
-                # Obter o nome da categoria para este mercado
-                display_name = market_key_mapping.get(market_key)
-                
-                # Nome alternativo para over_under -> gols
-                if market_key == "over_under":
-                    market_key = "gols"  # Normalizar para "gols"
-                
-                logger.info(f"Verificando mercado selecionado: {market_key} -> {display_name}")
-                
-                if display_name:
-                    # Se a categoria não existe em all_probabilities mas existe em formatted_probs
-                    if (display_name not in all_probabilities or not all_probabilities.get(display_name)) and display_name in formatted_probs:
-                        logger.info(f"Adicionando mercado selecionado faltante: {display_name}")
-                        all_probabilities[display_name] = formatted_probs[display_name]
+        # CRUCIAL: ADICIONAR PROBABILIDADES PARA MERCADOS SELECIONADOS QUE ESTÃO FALTANDO
+        if selected_markets:
+            for market_key, is_selected in selected_markets.items():
+                if is_selected:
+                    # Obter o nome da categoria para este mercado
+                    display_name = market_key_mapping.get(market_key)
+                    
+                    # Nome alternativo para over_under -> gols
+                    if market_key == "over_under":
+                        market_key = "gols"  # Normalizar para "gols"
+                    
+                    logger.info(f"Verificando mercado selecionado: {market_key} -> {display_name}")
+                    
+                    if display_name:
+                        # Se a categoria não existe em all_probabilities mas existe em formatted_probs
+                        if (display_name not in all_probabilities or not all_probabilities.get(display_name)) and display_name in formatted_probs:
+                            logger.info(f"Adicionando mercado selecionado faltante: {display_name}")
+                            all_probabilities[display_name] = formatted_probs[display_name]
+
+    # Garantir que não temos valores vazios antes de construir o relatório
+    if not consistency_info.strip():
+        consistency_info = "Moderada, baseada na análise de resultados recentes de ambas as equipes."
+        
+    if not form_info.strip():
+        form_info = "Ambas as equipes mostram tendências recentes que refletem seu desempenho na temporada."
+        
+    if not influence_info.strip():
+        influence_info = "O nível de confiança é influenciado pela consistência dos resultados e forma recente."
 
     # PARTE 6: CONSTRUÇÃO DO RELATÓRIO FINAL
     # =====================================
@@ -2002,7 +1982,7 @@ NÍVEL DE CONFIANÇA GERAL: {confidence_level}
      © RELATÓRIO VALUE HUNTER DE ANÁLISE ESPORTIVA
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
 
-        return clean_report
+    return clean_report
 def determine_market_type(table_name, table_content):
     """
     Determina o tipo de mercado com base no nome da tabela e seu conteúdo
