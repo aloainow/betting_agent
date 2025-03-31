@@ -2356,25 +2356,61 @@ def determine_market_type(table_name, table_content):
                             }
 
         # Extrair oportunidades identificadas
-        if "OPORTUNIDADES IDENTIFICADAS" in analysis_text:
-            try:
-                opps_section = analysis_text.split("OPORTUNIDADES IDENTIFICADAS")[
-                    1
-                ].split("NÍVEL DE CONFIANÇA")[0]
-
-                for line in opps_section.strip().split("\n"):
-                    line = (
-                        line.strip()
-                        .replace("•", "")
-                        .replace("-", "")
-                        .replace("▔", "")
-                        .strip()
-                    )
-                    if line and len(line) > 5:
-                        opportunities.append("• " + line)
-            except:
-                logger.warning("Erro ao extrair oportunidades identificadas")
-
+        prob_tables = {}
+        if "PROBABILIDADES CALCULADAS" in analysis_text:
+            tables_section = analysis_text.split("PROBABILIDADES CALCULADAS")[1].split("OPORTUNIDADES IDENTIFICADAS")[0]
+            table_sections = re.split(r"\[([^]]+)\]", tables_section)
+            
+            for i in range(1, len(table_sections), 2):
+                if i + 1 < len(table_sections):
+                    category = table_sections[i].strip()
+                    table_content = table_sections[i + 1].strip()
+                    
+                    # Extrair linhas da tabela
+                    rows = re.findall(r"│([^│]+)│([^│]+)│([^│]+)│", table_content)
+                    prob_tables[category] = {}
+                    
+                    for row in rows:
+                        if "MERCADO" not in row[0] and "────" not in row[0]:
+                            option = row[0].strip()
+                            real_prob = parse_percentage(row[1].strip())
+                            impl_prob = parse_percentage(row[2].strip())
+                            
+                            prob_tables[category][option] = {
+                                "real": real_prob,
+                                "implicit": impl_prob
+                            }
+        
+        # Gerar novas oportunidades baseadas diretamente nas tabelas de probabilidades
+        valid_opps = []
+        for category, options in prob_tables.items():
+            for option, probs in options.items():
+                # Verificar se tem valor (prob real > prob implícita)
+                if probs["real"] > probs["implicit"]:
+                    advantage = probs["real"] - probs["implicit"]
+                    
+                    # Apenas considerar vantagens significativas (>= 2%)
+                    if advantage >= 2.0:
+                        valid_opps.append(f"• **[{category}] {option}**: Real {probs['real']:.1f}% vs Implícita {probs['implicit']:.1f}% (Vantagem: +{advantage:.1f}%)")
+                        logger.info(f"Identificada oportunidade: {category} {option} - vantagem de {advantage:.1f}%")
+        
+        # Ordenar oportunidades por tamanho da vantagem (maior primeiro)
+        valid_opps = sorted(valid_opps, 
+                           key=lambda x: float(re.search(r"Vantagem: \+(\d+\.\d+)%", x).group(1)) if re.search(r"Vantagem: \+(\d+\.\d+)%", x) else 0, 
+                           reverse=True)
+        
+        # Substituir a seção de oportunidades original
+        if valid_opps:
+            new_opps_section = "OPORTUNIDADES IDENTIFICADAS\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n" + "\n".join(valid_opps)
+        else:
+            new_opps_section = "OPORTUNIDADES IDENTIFICADAS\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\nNenhuma oportunidade com vantagem significativa (diferença de pelo menos 2%) foi identificada."
+        
+        # Substituir a seção no texto original
+        parts = analysis_text.split("OPORTUNIDADES IDENTIFICADAS")
+        if len(parts) >= 2:
+            rest_parts = parts[1].split("NÍVEL DE CONFIANÇA")
+            if len(rest_parts) >= 2:
+                analysis_text = parts[0] + new_opps_section + "\n\nNÍVEL DE CONFIANÇA" + rest_parts[1]
         # Extrair nível de confiança e componentes
         if "NÍVEL DE CONFIANÇA" in analysis_text:
             try:
@@ -2955,35 +2991,41 @@ def format_enhanced_prompt(complete_analysis, home_team, away_team, odds_data, s
     # INSTRUÇÕES PARA ANÁLISE
     
     Analise os dados estatísticos fornecidos para identificar valor nas odds.
-    Você é um especialista em probabilidades esportivas.
+    Você é um especialista em probabilidades esportivas que utiliza nosso método avançado de Dispersão e Ponderação.
     
-    INSTRUÇÕES MUITO IMPORTANTES:
+    IMPORTANTE: As probabilidades REAIS já foram calculadas para você para os seguintes mercados selecionados e somam exatamente 100% em cada mercado:
+    {selected_markets_str}
     
-    1. Você DEVE separar 100% dos mercados em suas categorias ESPECÍFICAS e PRÓPRIAS:
-       - Money Line (1X2): Apenas 1 (Casa), X (Empate), 2 (Fora)
-       - Chance Dupla: Apenas 1X, 12, X2
-       -  Gols: Apenas mercados de gols, NUNCA misture com escanteios ou cartões
-       - Ambos Marcam (BTTS): Apenas Sim/Não para ambas equipes marcarem
-       - Escanteios: Apenas mercados de escanteios/corners, SEMPRE separado dos gols
-       - Cartões: Apenas mercados de cartões, SEMPRE separado dos gols
+    Todas as probabilidades reais estão na seção "PROBABILIDADES CALCULADAS".
     
-    2. As probabilidades REAIS foram calculadas para cada mercado. Você DEVE apresentá-las na seção "PROBABILIDADES CALCULADAS" com este formato exato:
+    VOCÊ DEVE ORGANIZAR SUA RESPOSTA COM ESTAS REGRAS ESTRITAS:
     
-    [Money Line (1X2)]
-    ┌────────────┬────────────┬────────────┐
-    │  MERCADO   │  REAL (%)  │ IMPLÍCITA  │
-    ├────────────┼────────────┼────────────┤
-    │  Casa     │   74.3%    │   87.7%    │
-    │  Empate   │   13.7%    │   13.3%    │
-    │  Fora     │   12.0%    │    6.7%    │
-    └────────────┴────────────┴────────────┘
+    1. Organizar mercados em categorias SEPARADAS e EXPLÍCITAS:
+       - Money Line (1X2)
+       - Chance Dupla (Double Chance)
+       - Over/Under Gols (NUNCA misturar com escanteios ou cartões)
+       - Ambos Marcam (BTTS)
+       - Escanteios (específico para Corners, SEMPRE separado de gols)
+       - Cartões (específico para Cards, SEMPRE separado de gols)
     
-    [Repita este formato para cada mercado, mantendo cada tipo em sua própria tabela separada]
+    2. Na seção de probabilidades calculadas, criar tabelas SEPARADAS para CADA tipo de mercado:
+       - Uma tabela para Money Line (1X2)
+       - Uma tabela para Chance Dupla
+       - Uma tabela para Over/Under Gols (apenas gols, com as linhas específicas)
+       - Uma tabela para Ambos Marcam
+       - Uma tabela para Escanteios (apenas escanteios, com as linhas específicas)
+       - Uma tabela para Cartões (apenas cartões, com as linhas específicas)
     
-    3. Nas oportunidades identificadas, inclua sempre AMBOS os valores percentuais:
-       - Formato: **[Mercado] [Escolha]**: Real XX.X% vs Implícita XX.X% (Valor: +XX.X%)
+    3. REGRAS PARA IDENTIFICAR OPORTUNIDADES (EXTREMAMENTE IMPORTANTE):
+       - Uma opção tem VALOR APENAS quando a Probabilidade REAL é MAIOR que a Probabilidade IMPLÍCITA
+       - A diferença (REAL - IMPLÍCITA) indica a vantagem percentual
+       - Liste APENAS opções onde REAL > IMPLÍCITA com pelo menos 2% de vantagem
+       - NUNCA liste opções onde REAL < IMPLÍCITA, pois isso representa desvantagem
+       - Exemplo correto: Ambos Marcam - Não com Real 77.3% vs Implícita 55.6% (vantagem de +21.7%)
+       - Exemplo incorreto: NÃO incluir Ambos Marcam - Sim com Real 22.7% vs Implícita 50.0% (desvantagem de -27.3%)
+       - Use formato: **[Mercado] [Opção]**: Real XX.X% vs Implícita XX.X% (Vantagem: +XX.X%)
     
-    VOCÊ DEVE RESPONDER COM ESTE FORMATO ESTRITO:
+    VOCÊ DEVE responder EXATAMENTE no formato abaixo:
     
     # 📊 ANÁLISE DE PARTIDA 📊
     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -2994,48 +3036,41 @@ def format_enhanced_prompt(complete_analysis, home_team, away_team, odds_data, s
     
     ### 📈 ANÁLISE DE MERCADOS DISPONÍVEIS
     ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-    
-    [Money Line (1X2)]
-    • Informações sobre o mercado 1X2 com odds e probabilidades implícitas
-    
-    [Chance Dupla]
-    • Informações sobre o mercado de chance dupla com odds e probabilidades implícitas
-    
-    [Gols]
-    • Informações SOMENTE sobre gols (NUNCA misture com escanteios ou cartões)
-    
-    [Ambos Marcam]
-    • Informações sobre o mercado BTTS com odds e probabilidades implícitas
-    
-    [Escanteios]
-    • Informações ESPECÍFICAS de escanteios (NUNCA misture com gols)
-    
-    [Cartões]
-    • Informações ESPECÍFICAS de cartões (NUNCA misture com gols)
+    [Resumo detalhado APENAS dos mercados selecionados ({selected_markets_str}) 
+    com suas odds e probabilidades implícitas]
     
     ### 🔄 PROBABILIDADES CALCULADAS
     ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-    
-    [TABELAS SEPARADAS PARA CADA MERCADO COM FORMATO ESTRITO]
+       ┌────────────┬────────────┬────────────┐
+       │  MERCADO   │  REAL (%)  │ IMPLÍCITA  │
+       └────────────┴────────────┴────────────┘
+    [Compare as probabilidades REAIS calculadas com as probabilidades 
+    IMPLÍCITAS nas odds APENAS para os mercados selecionados ({selected_markets_str})]
     
     ### 💰 OPORTUNIDADES IDENTIFICADAS
     ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-    • **[Mercado] [Escolha]**: Real XX.X% vs Implícita XX.X% (Valor: +XX.X%)
+    [Liste APENAS opções com REAL > IMPLÍCITA por pelo menos 2%]
+    - Use formato: **[Mercado] [Opção]**: Real XX.X% vs Implícita XX.X% (Vantagem: +XX.X%)
+    - NUNCA liste opções onde REAL < IMPLÍCITA
+    - Ordenar por tamanho da vantagem (maiores primeiro)
     
     ### 🎯 NÍVEL DE CONFIANÇA GERAL: [Baixo/Médio/Alto]
     ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+    [Explique o nível de confiança, incluindo uma explicação clara sobre:]
     
-      ► CONSISTÊNCIA: [Detalhes sobre consistência]
+      ► CONSISTÊNCIA: Medida (%) que indica quão previsível é o desempenho da equipe
       
-      ► FORMA: [Detalhes sobre forma recente]
+      ► FORMA: Pontuação dos últimos 5 jogos (X.X/15)
+         • Vitória = 3 pontos
+         • Empate = 1 ponto
+         • Derrota = 0 pontos
       
-      ► INFLUÊNCIA: [Como os fatores acima influenciam a análise]
+      ► INFLUÊNCIA: Como esses fatores influenciam a confiança na análise
     
     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
                     © RELATÓRIO DE ANÁLISE ESPORTIVA
     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    """
-    
+    """    
     # Adicionar aviso quando utilizamos o modelo de fallback
     if not has_stats_data:
         instructions += """
@@ -3387,3 +3422,17 @@ def force_display_total_goals(analysis_text, home_team, away_team, original_prob
     
     # Retornar o texto original caso não consiga modificar
     return analysis_text
+def parse_percentage(text):
+    """Extrai o valor numérico de uma string contendo porcentagem.
+    
+    Args:
+        text (str): Texto que contém um valor de porcentagem
+        
+    Returns:
+        float: Valor numérico da porcentagem ou 0 se não encontrado
+    """
+    import re
+    match = re.search(r"(\d+\.?\d*)%", text)
+    if match:
+        return float(match.group(1))
+    return 0.0
