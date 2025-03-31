@@ -929,126 +929,220 @@ def get_stat(stats, col, default='N/A'):
         logger.warning(f"Erro ao obter estatística '{col}': {str(e)}")
         return default
 
+# Substituir completamente a função get_odds_data em utils/data.py
+
 def get_odds_data(selected_markets):
-    """Função para coletar e formatar os dados das odds"""
-    import streamlit as st
+    """
+    Captura as odds configuradas pelo usuário na interface.
     
-    try:
-        odds_data = {}
-        odds_text = []
-        has_valid_odds = False
-
-        # Money Line
-        if selected_markets.get("money_line", False):
-            st.markdown("### Money Line")
+    Args:
+        selected_markets (dict): Mercados selecionados pelo usuário
+        
+    Returns:
+        str: String formatada com as odds capturadas
+    """
+    import streamlit as st
+    import logging
+    
+    logger = logging.getLogger("valueHunter.data")
+    logger.info(f"Capturando odds para mercados: {selected_markets}")
+    
+    # Inicializar dicionário de configuração de odds na sessão se não existir
+    if 'odds_config' not in st.session_state:
+        st.session_state.odds_config = {}
+    
+    odds_text = []
+    
+    # Money Line (1X2)
+    if selected_markets.get("money_line", False):
+        odds_text.append("Money Line (1X2):")
+        
+        # Valores padrão ou recuperados da sessão
+        default_casa = st.session_state.odds_config.get('ml_casa_odd', 1.35)
+        default_empate = st.session_state.odds_config.get('ml_empate_odd', 5.25)
+        default_fora = st.session_state.odds_config.get('ml_fora_odd', 7.50)
+        
+        # Adicionar campos de input para usuário
+        st.subheader("Money Line (1X2)")
+        with st.container():
             col1, col2, col3 = st.columns(3)
             with col1:
-                odds_data["home"] = st.number_input("Casa (@)", min_value=1.01, step=0.01, value=1.50, format="%.2f", key="ml_home")
+                casa_odd = st.number_input("Casa (@)", value=float(default_casa), 
+                                          min_value=1.01, max_value=100.0, step=0.05, 
+                                          key='ml_casa_odd_input')
+                st.session_state.odds_config['ml_casa_odd'] = casa_odd
             with col2:
-                odds_data["draw"] = st.number_input("Empate (@)", min_value=1.01, step=0.01, value=4.00, format="%.2f", key="ml_draw")
+                empate_odd = st.number_input("Empate (@)", value=float(default_empate), 
+                                            min_value=1.01, max_value=100.0, step=0.05, 
+                                            key='ml_empate_odd_input')
+                st.session_state.odds_config['ml_empate_odd'] = empate_odd
             with col3:
-                odds_data["away"] = st.number_input("Fora (@)", min_value=1.01, step=0.01, value=6.50, format="%.2f", key="ml_away")
-
-            if all(odds_data.get(k, 0) > 1.01 for k in ["home", "draw", "away"]):
-                has_valid_odds = True
-                odds_text.append(
-                    f"""Money Line:
-- Casa: @{odds_data['home']:.2f} (Implícita: {(100/odds_data['home']):.1f}%)
-- Empate: @{odds_data['draw']:.2f} (Implícita: {(100/odds_data['draw']):.1f}%)
-- Fora: @{odds_data['away']:.2f} (Implícita: {(100/odds_data['away']):.1f}%)""")
-
-        # Over/Under
-        if selected_markets.get("gols", False):
-            st.markdown("### Total de Gols")
+                fora_odd = st.number_input("Fora (@)", value=float(default_fora), 
+                                          min_value=1.01, max_value=100.0, step=0.05, 
+                                          key='ml_fora_odd_input')
+                st.session_state.odds_config['ml_fora_odd'] = fora_odd
+        
+        odds_text.append(f"• Casa: @{casa_odd:.2f}")
+        odds_text.append(f"• Empate: @{empate_odd:.2f}")
+        odds_text.append(f"• Fora: @{fora_odd:.2f}")
+    
+    # Chance Dupla
+    if selected_markets.get("chance_dupla", False):
+        odds_text.append("\nChance Dupla:")
+        
+        # Valores padrão ou recuperados da sessão
+        default_1x = st.session_state.odds_config.get('cd_1x_odd', 1.10)
+        default_12 = st.session_state.odds_config.get('cd_12_odd', 1.16)
+        default_x2 = st.session_state.odds_config.get('cd_x2_odd', 3.00)
+        
+        st.subheader("Chance Dupla")
+        with st.container():
             col1, col2, col3 = st.columns(3)
             with col1:
-                odds_data["goals_line"] = st.number_input("Linha", min_value=0.5, value=2.5, step=0.5, format="%.1f", key="goals_line")
+                cd_1x_odd = st.number_input("1X (@)", value=float(default_1x), 
+                                           min_value=1.01, max_value=100.0, step=0.05, 
+                                           key='cd_1x_odd_input')
+                st.session_state.odds_config['cd_1x_odd'] = cd_1x_odd
             with col2:
-                odds_data["over"] = st.number_input(f"Over {odds_data.get('goals_line', 2.5)} (@)", min_value=1.01, step=0.01, value=1.85, format="%.2f", key="ou_over")
+                cd_12_odd = st.number_input("12 (@)", value=float(default_12), 
+                                           min_value=1.01, max_value=100.0, step=0.05, 
+                                           key='cd_12_odd_input')
+                st.session_state.odds_config['cd_12_odd'] = cd_12_odd
             with col3:
-                odds_data["under"] = st.number_input(f"Under {odds_data.get('goals_line', 2.5)} (@)", min_value=1.01, step=0.01, value=1.95, format="%.2f", key="ou_under")
-
-            if all(odds_data.get(k, 0) > 1.01 for k in ["over", "under"]):
-                has_valid_odds = True
-                odds_text.append(f"""Over/Under {odds_data['goals_line']}:
-    - Over: @{odds_data['over']:.2f} (Implícita: {(100/odds_data['over']):.1f}%)
-    - Under: @{odds_data['under']:.2f} (Implícita: {(100/odds_data['under']):.1f}%)""")
-
-        # Chance Dupla
-        if selected_markets.get("chance_dupla", False):
-            st.markdown("### Chance Dupla")
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                odds_data["1x"] = st.number_input("1X (@)", min_value=1.01, step=0.01, value=1.20, format="%.2f", key="cd_1x")
-            with col2:
-                odds_data["12"] = st.number_input("12 (@)", min_value=1.01, step=0.01, value=1.30, format="%.2f", key="cd_12")
-            with col3:
-                odds_data["x2"] = st.number_input("X2 (@)", min_value=1.01, step=0.01, value=1.40, format="%.2f", key="cd_x2")
-
-            if all(odds_data.get(k, 0) > 1.01 for k in ["1x", "12", "x2"]):
-                has_valid_odds = True
-                odds_text.append(f"""Chance Dupla:
-    - 1X: @{odds_data['1x']:.2f} (Implícita: {(100/odds_data['1x']):.1f}%)
-    - 12: @{odds_data['12']:.2f} (Implícita: {(100/odds_data['12']):.1f}%)
-    - X2: @{odds_data['x2']:.2f} (Implícita: {(100/odds_data['x2']):.1f}%)""")
-
-        # Ambos Marcam
-        if selected_markets.get("ambos_marcam", False):
-            st.markdown("### Ambos Marcam")
+                cd_x2_odd = st.number_input("X2 (@)", value=float(default_x2), 
+                                           min_value=1.01, max_value=100.0, step=0.05, 
+                                           key='cd_x2_odd_input')
+                st.session_state.odds_config['cd_x2_odd'] = cd_x2_odd
+        
+        odds_text.append(f"• 1X: @{cd_1x_odd:.2f}")
+        odds_text.append(f"• 12: @{cd_12_odd:.2f}")
+        odds_text.append(f"• X2: @{cd_x2_odd:.2f}")
+    
+    # Ambos Marcam
+    if selected_markets.get("ambos_marcam", False):
+        odds_text.append("\nAmbos Marcam (BTTS):")
+        
+        # Valores padrão ou recuperados da sessão
+        default_sim = st.session_state.odds_config.get('btts_sim_odd', 2.00)
+        default_nao = st.session_state.odds_config.get('btts_nao_odd', 1.80)
+        
+        st.subheader("Ambos Marcam (BTTS)")
+        with st.container():
             col1, col2 = st.columns(2)
             with col1:
-                odds_data["btts_yes"] = st.number_input("Sim (@)", min_value=1.01, step=0.01, value=1.75, format="%.2f", key="btts_yes")
+                btts_sim_odd = st.number_input("Sim (@)", value=float(default_sim), 
+                                              min_value=1.01, max_value=100.0, step=0.05, 
+                                              key='btts_sim_odd_input')
+                st.session_state.odds_config['btts_sim_odd'] = btts_sim_odd
             with col2:
-                odds_data["btts_no"] = st.number_input("Não (@)", min_value=1.01, step=0.01, value=2.05, format="%.2f", key="btts_no")
-
-            if all(odds_data.get(k, 0) > 1.01 for k in ["btts_yes", "btts_no"]):
-                has_valid_odds = True
-                odds_text.append(f"""Ambos Marcam:
-    - Sim: @{odds_data['btts_yes']:.2f} (Implícita: {(100/odds_data['btts_yes']):.1f}%)
-    - Não: @{odds_data['btts_no']:.2f} (Implícita: {(100/odds_data['btts_no']):.1f}%)""")
-
-        # Total de Escanteios
-        if selected_markets.get("escanteios", False):
-            st.markdown("### Total de Escanteios")
+                btts_nao_odd = st.number_input("Não (@)", value=float(default_nao), 
+                                              min_value=1.01, max_value=100.0, step=0.05, 
+                                              key='btts_nao_odd_input')
+                st.session_state.odds_config['btts_nao_odd'] = btts_nao_odd
+        
+        odds_text.append(f"• Sim (BTTS): @{btts_sim_odd:.2f}")
+        odds_text.append(f"• Não (BTTS): @{btts_nao_odd:.2f}")
+    
+    # Gols (Over/Under)
+    if selected_markets.get("gols", False):
+        odds_text.append("\nTotal de Gols:")
+        
+        # Valores padrão ou recuperados da sessão
+        default_linha = st.session_state.odds_config.get('gols_linha', 2.5)
+        default_over = st.session_state.odds_config.get('gols_over_odd', 1.90)
+        default_under = st.session_state.odds_config.get('gols_under_odd', 1.90)
+        
+        st.subheader("Total de Gols")
+        with st.container():
             col1, col2, col3 = st.columns(3)
             with col1:
-                odds_data["corners_line"] = st.number_input("Linha Escanteios", min_value=0.5, value=9.5, step=0.5, format="%.1f", key="corners_line")
+                linha_options = [0.5, 1.5, 2.5, 3.5, 4.5]
+                linha_index = linha_options.index(default_linha) if default_linha in linha_options else 2
+                gols_linha = st.selectbox("Linha", linha_options, index=linha_index, key='gols_linha_input')
+                st.session_state.odds_config['gols_linha'] = gols_linha
             with col2:
-                odds_data["corners_over"] = st.number_input("Over Escanteios (@)", min_value=1.01, step=0.01, value=1.85, format="%.2f", key="corners_over")
+                gols_over_odd = st.number_input(f"Over {gols_linha} (@)", value=float(default_over), 
+                                               min_value=1.01, max_value=100.0, step=0.05, 
+                                               key='gols_over_odd_input')
+                st.session_state.odds_config['gols_over_odd'] = gols_over_odd
             with col3:
-                odds_data["corners_under"] = st.number_input("Under Escanteios (@)", min_value=1.01, step=0.01, value=1.95, format="%.2f", key="corners_under")
-
-            if all(odds_data.get(k, 0) > 1.01 for k in ["corners_over", "corners_under"]):
-                has_valid_odds = True
-                odds_text.append(f"""Total de Escanteios {odds_data['corners_line']}:
-    - Over: @{odds_data['corners_over']:.2f} (Implícita: {(100/odds_data['corners_over']):.1f}%)
-    - Under: @{odds_data['corners_under']:.2f} (Implícita: {(100/odds_data['corners_under']):.1f}%)""")
-
-        # Total de Cartões
-        if selected_markets.get("cartoes", False):
-            st.markdown("### Total de Cartões")
+                gols_under_odd = st.number_input(f"Under {gols_linha} (@)", value=float(default_under), 
+                                                min_value=1.01, max_value=100.0, step=0.05, 
+                                                key='gols_under_odd_input')
+                st.session_state.odds_config['gols_under_odd'] = gols_under_odd
+        
+        odds_text.append(f"• Over {gols_linha} Gols: @{gols_over_odd:.2f}")
+        odds_text.append(f"• Under {gols_linha} Gols: @{gols_under_odd:.2f}")
+    
+    # Escanteios
+    if selected_markets.get("escanteios", False):
+        odds_text.append("\nTotal de Escanteios:")
+        
+        # Valores padrão ou recuperados da sessão
+        default_linha = st.session_state.odds_config.get('corners_linha', 9.5)
+        default_over = st.session_state.odds_config.get('corners_over_odd', 1.85)
+        default_under = st.session_state.odds_config.get('corners_under_odd', 1.85)
+        
+        st.subheader("Total de Escanteios")
+        with st.container():
             col1, col2, col3 = st.columns(3)
             with col1:
-                odds_data["cards_line"] = st.number_input("Linha Cartões", min_value=0.5, value=3.5, step=0.5, format="%.1f", key="cards_line")
+                linha_options = [7.5, 8.5, 9.5, 10.5, 11.5]
+                linha_index = linha_options.index(default_linha) if default_linha in linha_options else 2
+                corners_linha = st.selectbox("Linha", linha_options, index=linha_index, key='corners_linha_input')
+                st.session_state.odds_config['corners_linha'] = corners_linha
             with col2:
-                odds_data["cards_over"] = st.number_input("Over Cartões (@)", min_value=1.01, step=0.01, value=1.85, format="%.2f", key="cards_over")
+                corners_over_odd = st.number_input(f"Over {corners_linha} (@)", value=float(default_over), 
+                                                  min_value=1.01, max_value=100.0, step=0.05, 
+                                                  key='corners_over_odd_input')
+                st.session_state.odds_config['corners_over_odd'] = corners_over_odd
             with col3:
-                odds_data["cards_under"] = st.number_input("Under Cartões (@)", min_value=1.01, step=0.01, value=1.95, format="%.2f", key="cards_under")
-
-            if all(odds_data.get(k, 0) > 1.01 for k in ["cards_over", "cards_under"]):
-                has_valid_odds = True
-                odds_text.append(f"""Total de Cartões {odds_data['cards_line']}:
-    - Over: @{odds_data['cards_over']:.2f} (Implícita: {(100/odds_data['cards_over']):.1f}%)
-    - Under: @{odds_data['cards_under']:.2f} (Implícita: {(100/odds_data['cards_under']):.1f}%)""")
-
-        if not has_valid_odds:
-            return None
-            
-        return "\n\n".join(odds_text)
-    except Exception as e:
-        logger.error(f"Erro ao obter dados de odds: {str(e)}")
-        return None
-
+                corners_under_odd = st.number_input(f"Under {corners_linha} (@)", value=float(default_under), 
+                                                   min_value=1.01, max_value=100.0, step=0.05, 
+                                                   key='corners_under_odd_input')
+                st.session_state.odds_config['corners_under_odd'] = corners_under_odd
+        
+        odds_text.append(f"• Over {corners_linha} Escanteios: @{corners_over_odd:.2f}")
+        odds_text.append(f"• Under {corners_linha} Escanteios: @{corners_under_odd:.2f}")
+    
+    # Cartões
+    if selected_markets.get("cartoes", False):
+        odds_text.append("\nTotal de Cartões:")
+        
+        # Valores padrão ou recuperados da sessão
+        default_linha = st.session_state.odds_config.get('cards_linha', 3.5)
+        default_over = st.session_state.odds_config.get('cards_over_odd', 1.85)
+        default_under = st.session_state.odds_config.get('cards_under_odd', 1.85)
+        
+        st.subheader("Total de Cartões")
+        with st.container():
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                linha_options = [2.5, 3.5, 4.5, 5.5, 6.5]
+                linha_index = linha_options.index(default_linha) if default_linha in linha_options else 1
+                cards_linha = st.selectbox("Linha", linha_options, index=linha_index, key='cards_linha_input')
+                st.session_state.odds_config['cards_linha'] = cards_linha
+            with col2:
+                cards_over_odd = st.number_input(f"Over {cards_linha} (@)", value=float(default_over), 
+                                               min_value=1.01, max_value=100.0, step=0.05, 
+                                               key='cards_over_odd_input')
+                st.session_state.odds_config['cards_over_odd'] = cards_over_odd
+            with col3:
+                cards_under_odd = st.number_input(f"Under {cards_linha} (@)", value=float(default_under), 
+                                                min_value=1.01, max_value=100.0, step=0.05, 
+                                                key='cards_under_odd_input')
+                st.session_state.odds_config['cards_under_odd'] = cards_under_odd
+        
+        odds_text.append(f"• Over {cards_linha} Cartões: @{cards_over_odd:.2f}")
+        odds_text.append(f"• Under {cards_linha} Cartões: @{cards_under_odd:.2f}")
+    
+    # Juntar tudo em uma string formatada
+    odds_data = "\n".join(odds_text)
+    
+    # Log das odds capturadas
+    logger.info(f"Odds configuradas pelo usuário: {odds_data}")
+    
+    return odds_data
 def validate_match_data(match_data):
     """
     Valida se os dados de uma partida estão completos o suficiente para análise.
