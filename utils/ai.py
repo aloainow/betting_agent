@@ -1729,11 +1729,13 @@ def format_analysis_response(
                     if len(parts) >= 2:
                         option_text = parts[0].replace("•", "").strip()
                         # Extrair probabilidade implícita
-                        impl_match = re.search(
-                            r"\(Implícita:\s*(\d+\.?\d*)%\)", market_line
-                        )
-                        if impl_match:
-                            impl_prob = impl_match.group(1) + "%"
+                        impl_match = re.search(r"(?:Implícita:|implícita:)\s*(\d+\.?\d*)%", market_line, re.IGNORECASE)
+                        if not impl_match:
+                            # Tentar padrão alternativo de odds e porcentagem
+                            impl_match = re.search(r"@(\d+\.?\d+)\s*\((?:[^)]*?)(\d+\.?\d*)%", market_line)
+                            if impl_match:
+                                # Usar o segundo grupo que contém a porcentagem
+                                impl_prob = impl_match.group(2) + "%"
                             
                             # Mapeamento para mercados específicos
                             if category == "Money Line (1X2)":
@@ -1744,19 +1746,21 @@ def format_analysis_response(
                                 elif "fora" in option_text.lower() or away_team in option_text:
                                     formatted_probs[category]["Fora"]["implicit"] = impl_prob
                             
-                            elif category == "Chance Dupla":
-                                if "1x" in option_text.lower():
+                           elif category == "Chance Dupla":
+                                # Mais opções para capturar diferentes formatos
+                                if "1x" in option_text.lower() or ("celta" in option_text.lower() and "empate" in option_text.lower()):
                                     formatted_probs[category]["1X"]["implicit"] = impl_prob
-                                elif "12" in option_text.lower():
+                                elif "12" in option_text.lower() or "qualquer equipe" in option_text.lower():
                                     formatted_probs[category]["12"]["implicit"] = impl_prob
-                                elif "x2" in option_text.lower():
+                                elif "x2" in option_text.lower() or ("empate" in option_text.lower() and "palmas" in option_text.lower()):
                                     formatted_probs[category]["X2"]["implicit"] = impl_prob
                             
                             # Ambos Marcam
                             elif category == "Ambos Marcam":
-                                if "sim" in option_text.lower() or "yes" in option_text.lower():
+                                # Ampliado para capturar mais variações
+                                if any(term in option_text.lower() for term in ["sim", "yes", "ambos marcam", "btts yes"]):
                                     formatted_probs[category]["Sim"]["implicit"] = impl_prob
-                                elif "não" in option_text.lower() or "no" in option_text.lower():
+                                elif any(term in option_text.lower() for term in ["não", "no", "não ambos marcam", "btts no"]):
                                     formatted_probs[category]["Não"]["implicit"] = impl_prob
                             
                             # Total de Gols
