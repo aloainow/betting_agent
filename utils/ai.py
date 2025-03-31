@@ -94,26 +94,7 @@ def extract_overunder_lines(odds_data, market_type="gols"):
     """
     import re
     
-    # Primeiro, busca linhas específicas na interface (mais prioritário)
-    # Padrão para capturar a linha diretamente da interface
-    if market_type == "gols":
-        direct_pattern = r'Linha\s+(?:[Gg]ols)?\s*[:=]?\s*(\d+(?:\.\d+)?)'
-    elif market_type == "escanteios":
-        direct_pattern = r'Linha\s+[Ee]scanteios\s*[:=]?\s*(\d+(?:\.\d+)?)'
-    elif market_type == "cartoes":
-        direct_pattern = r'Linha\s+[Cc]art[õoe]es\s*[:=]?\s*(\d+(?:\.\d+)?)'
-    else:
-        direct_pattern = r''
-    
-    # Tentar encontrar a linha diretamente definida
-    direct_matches = re.findall(direct_pattern, odds_data)
-    if direct_matches:
-        try:
-            return [float(direct_matches[0])]
-        except (ValueError, TypeError):
-            pass
-    
-    # Segundo, busca padrões específicos com palavras de contexto
+    # Primeiro, busca padrões específicos com palavras de contexto
     if market_type == "gols":
         specific_pattern = r'(?:Over|Under)\s+(\d+(?:\.\d+)?)\s+[Gg]ols?'
         lines = re.findall(specific_pattern, odds_data)
@@ -156,17 +137,17 @@ def extract_overunder_lines(odds_data, market_type="gols"):
     except (ValueError, TypeError):
         lines = []
     
-    # Se não encontrar linhas, usar valores da interface (baseado nas imagens)
+    # Se não encontrar linhas, retornar valores padrão
     if not lines:
         if market_type == "gols":
-            return [3.5]  # Valor na interface
+            return [2.5]
         elif market_type == "escanteios":
-            return [8.5]  # Valor na interface
+            return [9.5]
         elif market_type == "cartoes":
-            return [4.5]  # Valor na interface
+            return [3.5]
     
     return lines
-    # Função para calcular probabilidade de over/under para uma linha específica
+# Função para calcular probabilidade de over/under para uma linha específica
 def calculate_overunder_probability(expected_value, line, market_type="gols"):
     """
     Calcula a probabilidade de over/under para uma linha específica
@@ -1052,7 +1033,8 @@ def analyze_with_gpt(prompt, original_probabilites=None, selected_markets=None, 
             if home_team and away_team:
                 logger.info("Aplicando formatação avançada com filtragem de mercados")
                 # Importante: passamos selected_markets e original_probabilites para filtrar os mercados
-                response_text = format_analysis_response_temp(
+                from utils.ai import format_analysis_response
+                response_text = format_analysis_response(
                     response_text, 
                     home_team, 
                     away_team, 
@@ -1108,16 +1090,15 @@ def corrigir_formatacao_tabelas(category, options):
             
         processed_options.add(option_key)
         
-        # Formatar nome da opção (garantir que seja exibido completamente)
-        if len(option) <= 8:
-            option_display = option.ljust(8)
-        else:
-            # Preservar parte principal evitando truncamento incorreto
-            parts = option.split()
-            if len(parts) >= 2 and len(parts[0]) <= 5:  # Ex: "Over 2.5"
-                option_display = f"{parts[0]} {parts[1]}"[:8].ljust(8)
+        # Garantir que o nome da opção seja exibido completamente
+        option_display = option
+        if len(option) > 8:
+            # Truncar mantendo a parte mais significativa
+            if "Over" in option or "Under" in option:
+                parts = option.split()
+                if len(parts) >= 2:
+                    option_display = f"{parts[0]} {parts[1]}"
             else:
-                # Truncar apenas se necessário
                 option_display = option[:7] + "."
                 
         # Garantir que as probabilidades estejam formatadas corretamente
@@ -1126,13 +1107,14 @@ def corrigir_formatacao_tabelas(category, options):
         
         # Adicionar a linha na tabela
         table_html += f"""
-│  {option_display} │ {str(real_prob).center(10)} │ {str(impl_prob).center(10)} │"""
+│  {option_display.ljust(8)} │ {str(real_prob).center(10)} │ {str(impl_prob).center(10)} │"""
     
     # Fechar a tabela
     table_html += """
 └────────────┴────────────┴────────────┘"""
     
     return table_html
+
 # 2. Correção para remover marcadores duplicados nos mercados
 def limpar_marcadores_mercados(market_line):
     """
@@ -1459,6 +1441,7 @@ def format_analysis_response(
         analysis_text = analysis_text.replace(tag, "")
 
     # Estruturas para armazenar dados extraídos
+    # Usar os nomes conforme definido em MARKET_MAPPING para consistência
     market_categories = {
         "Money Line (1X2)": [],
         "Chance Dupla": [],
@@ -1474,50 +1457,6 @@ def format_analysis_response(
     consistency_info = ""
     form_info = ""
     influence_info = ""
-    
-    # Extrair linhas específicas para cada mercado diretamente do texto
-    # Com fallback para valores padrão se não encontrados
-    market_lines = {
-        "gols": 2.5,
-        "escanteios": 9.5,
-        "cartoes": 3.5
-    }
-    
-    # Tentar extrair do prompt qualquer informação sobre linhas selecionadas
-    try:
-        # Procurar linhas de gols
-        goals_line_match = re.search(r'Over\s+(\d+\.\d+)(?:\s+[Gg]ols)', analysis_text)
-        if goals_line_match:
-            market_lines["gols"] = float(goals_line_match.group(1))
-        else:
-            # Tente extrair do campo de linha diretamente
-            linha_gols_match = re.search(r'Linha(?:\s+[Gg]ols)?\s*[:=]?\s*(\d+\.\d+)', analysis_text)
-            if linha_gols_match:
-                market_lines["gols"] = float(linha_gols_match.group(1))
-                
-        # Procurar linhas de escanteios
-        corners_line_match = re.search(r'Over\s+(\d+\.\d+)(?:\s+[Ee]scanteios|[Cc]orners)', analysis_text)
-        if corners_line_match:
-            market_lines["escanteios"] = float(corners_line_match.group(1))
-        else:
-            # Tente extrair do campo de linha diretamente
-            linha_escanteios_match = re.search(r'Linha\s+[Ee]scanteios\s*[:=]?\s*(\d+\.\d+)', analysis_text)
-            if linha_escanteios_match:
-                market_lines["escanteios"] = float(linha_escanteios_match.group(1))
-                
-        # Procurar linhas de cartões
-        cards_line_match = re.search(r'Over\s+(\d+\.\d+)(?:\s+[Cc]art[õoe]es)', analysis_text)
-        if cards_line_match:
-            market_lines["cartoes"] = float(cards_line_match.group(1))
-        else:
-            # Tente extrair do campo de linha diretamente
-            linha_cartoes_match = re.search(r'Linha\s+[Cc]art[õoe]es\s*[:=]?\s*(\d+\.\d+)', analysis_text)
-            if linha_cartoes_match:
-                market_lines["cartoes"] = float(linha_cartoes_match.group(1))
-    except Exception as e:
-        logger.warning(f"Erro ao extrair linhas específicas: {str(e)}")
-    
-    logger.info(f"Linhas detectadas: Gols={market_lines['gols']}, Escanteios={market_lines['escanteios']}, Cartões={market_lines['cartoes']}")
     
     # PARTE 1: EXTRAÇÃO DOS MERCADOS DISPONÍVEIS
     markets_section = ""
@@ -1552,7 +1491,7 @@ def format_analysis_response(
                 if category in market_categories:
                     market_categories[category].append("• " + clean_line)
 
-    # Depois de extrair market_categories, adicione um pré-processamento para calcular as probabilidades implícitas
+   # Depois de extrair market_categories, adicione um pré-processamento para calcular as probabilidades implícitas
     processed_markets = {}
     for category, markets in market_categories.items():
         processed_markets[category] = []
@@ -1662,7 +1601,7 @@ def format_analysis_response(
                             "implicit": impl_prob,
                         }
 
-    # PARTE 3: EXTRAÇÃO DE OPORTUNIDADES IDENTIFICADAS
+# PARTE 3: EXTRAÇÃO DE OPORTUNIDADES IDENTIFICADAS
     # ===============================================
     if "OPORTUNIDADES IDENTIFICADAS" in analysis_text:
         try:
@@ -1790,67 +1729,20 @@ def format_analysis_response(
                     "implicit": "N/A",
                 },
             }
-        # 3. Total de Gols (Over/Under) - USAR LINHA ESPECÍFICA
-if "over_under" in original_probabilities:
-    # Usar a linha específica do usuário
-    goal_line = market_lines["gols"]
-    
-    # Calcular probabilidades para a linha específica
-    if "expected_goals" in original_probabilities["over_under"]:
-        expected_goals = original_probabilities["over_under"]["expected_goals"]
-        # Usar função logística para calcular
-        over_prob = 1 / (1 + math.exp(-1.5 * (expected_goals - goal_line)))
-        under_prob = 1 - over_prob
-        
-        formatted_probs["Total de Gols"] = {
-            f"Over {goal_line}": {
-                "real": f"{over_prob * 100:.1f}%",
-                "implicit": "N/A",
-            },
-            f"Under {goal_line}": {
-                "real": f"{under_prob * 100:.1f}%",
-                "implicit": "N/A",
-            },
-        }
-    else:
-        # Se não temos expectativa de gols, precisamos adaptar as probabilidades originais
-        # Calcular aproximação baseada nas probabilidades over/under 2.5
-        if goal_line == 2.5:
-            # Se for exatamente 2.5, usar as probabilidades originais
+
+        # 3. Total de Gols (Over/Under)
+        if "over_under" in original_probabilities:
             formatted_probs["Total de Gols"] = {
-                f"Over {goal_line}": {
+                "Over 2.5": {
                     "real": f"{original_probabilities['over_under']['over_2_5']:.1f}%",
                     "implicit": "N/A",
                 },
-                f"Under {goal_line}": {
+                "Under 2.5": {
                     "real": f"{original_probabilities['over_under']['under_2_5']:.1f}%",
                     "implicit": "N/A",
                 },
             }
-        else:
-            # Se for outra linha, calcular um ajuste aproximado
-            # Quanto maior a diferença da linha padrão 2.5, maior o ajuste
-            adjustment = abs(goal_line - 2.5) * 10.0  # 10% para cada 1.0 de diferença
-            
-            if goal_line < 2.5:
-                # Linha menor aumenta a chance de Over
-                over_prob = min(98, original_probabilities['over_under']['over_2_5'] + adjustment)
-                under_prob = max(2, 100 - over_prob)
-            else:
-                # Linha maior diminui a chance de Over
-                over_prob = max(2, original_probabilities['over_under']['over_2_5'] - adjustment)
-                under_prob = min(98, 100 - over_prob)
-                
-            formatted_probs["Total de Gols"] = {
-                f"Over {goal_line}": {
-                    "real": f"{over_prob:.1f}%",
-                    "implicit": "N/A",
-                },
-                f"Under {goal_line}": {
-                    "real": f"{under_prob:.1f}%",
-                    "implicit": "N/A",
-                },
-            }
+
         # 4. BTTS (Ambos Marcam)
         if "btts" in original_probabilities:
             formatted_probs["Ambos Marcam"] = {
@@ -1864,131 +1756,33 @@ if "over_under" in original_probabilities:
                 },
             }
 
-        # 5. Total de Escanteios - USAR LINHA ESPECÍFICA
+        # 5. Total de Escanteios
         if "corners" in original_probabilities:
-            # Usar a linha específica do usuário
-            corner_line = market_lines["escanteios"]
-            
-            # Calcular probabilidades para a linha específica
-            if "expected_corners" in original_probabilities["corners"]:
-                expected_corners = original_probabilities["corners"]["expected_corners"]
-                # Usar função logística para calcular
-                over_prob = 1 / (1 + math.exp(-0.8 * (expected_corners - corner_line)))
-                under_prob = 1 - over_prob
-                
-                formatted_probs["Total de Escanteios"] = {
-                    f"Over {corner_line}": {
-                        "real": f"{over_prob * 100:.1f}%",
-                        "implicit": "N/A",
-                    },
-                    f"Under {corner_line}": {
-                        "real": f"{under_prob * 100:.1f}%",
-                        "implicit": "N/A",
-                    },
-                }
-            else:
-                # Se não temos expectativa de escanteios, precisamos adaptar as probabilidades originais
-                # Calcular aproximação baseada nas probabilidades over/under 9.5
-                if corner_line == 9.5:
-                    # Se for exatamente 9.5, usar as probabilidades originais
-                    formatted_probs["Total de Escanteios"] = {
-                        f"Over {corner_line}": {
-                            "real": f"{original_probabilities['corners']['over_9_5']:.1f}%",
-                            "implicit": "N/A",
-                        },
-                        f"Under {corner_line}": {
-                            "real": f"{original_probabilities['corners']['under_9_5']:.1f}%",
-                            "implicit": "N/A",
-                        },
-                    }
-                else:
-                    # Se for outra linha, calcular um ajuste aproximado
-                    # Quanto maior a diferença da linha padrão 9.5, maior o ajuste
-                    adjustment = abs(corner_line - 9.5) * 5.0  # 5% para cada 1.0 de diferença
-                    
-                    if corner_line < 9.5:
-                        # Linha menor aumenta a chance de Over
-                        over_prob = min(98, original_probabilities['corners']['over_9_5'] + adjustment)
-                        under_prob = max(2, 100 - over_prob)
-                    else:
-                        # Linha maior diminui a chance de Over
-                        over_prob = max(2, original_probabilities['corners']['over_9_5'] - adjustment)
-                        under_prob = min(98, 100 - over_prob)
-                        
-                    formatted_probs["Total de Escanteios"] = {
-                        f"Over {corner_line}": {
-                            "real": f"{over_prob:.1f}%",
-                            "implicit": "N/A",
-                        },
-                        f"Under {corner_line}": {
-                            "real": f"{under_prob:.1f}%",
-                            "implicit": "N/A",
-                        },
-                    }
+            formatted_probs["Total de Escanteios"] = {
+                "Over 9.5": {
+                    "real": f"{original_probabilities['corners']['over_9_5']:.1f}%",
+                    "implicit": "N/A",
+                },
+                "Under 9.5": {
+                    "real": f"{original_probabilities['corners']['under_9_5']:.1f}%",
+                    "implicit": "N/A",
+                },
+            }
 
-        # 6. Total de Cartões - USAR LINHA ESPECÍFICA
+        # 6. Total de Cartões
         if "cards" in original_probabilities:
-            # Usar a linha específica do usuário
-            card_line = market_lines["cartoes"]
-            
-            # Calcular probabilidades para a linha específica
-            if "expected_cards" in original_probabilities["cards"]:
-                expected_cards = original_probabilities["cards"]["expected_cards"]
-                # Usar função logística para calcular
-                over_prob = 1 / (1 + math.exp(-1.2 * (expected_cards - card_line)))
-                under_prob = 1 - over_prob
-                
-                formatted_probs["Total de Cartões"] = {
-                    f"Over {card_line}": {
-                        "real": f"{over_prob * 100:.1f}%",
-                        "implicit": "N/A",
-                    },
-                    f"Under {card_line}": {
-                        "real": f"{under_prob * 100:.1f}%",
-                        "implicit": "N/A",
-                    },
-                }
-            else:
-                # Se não temos expectativa de cartões, precisamos adaptar as probabilidades originais
-                # Calcular aproximação baseada nas probabilidades over/under 3.5
-                if card_line == 3.5:
-                    # Se for exatamente 3.5, usar as probabilidades originais
-                    formatted_probs["Total de Cartões"] = {
-                        f"Over {card_line}": {
-                            "real": f"{original_probabilities['cards']['over_3_5']:.1f}%",
-                            "implicit": "N/A",
-                        },
-                        f"Under {card_line}": {
-                            "real": f"{original_probabilities['cards']['under_3_5']:.1f}%",
-                            "implicit": "N/A",
-                        },
-                    }
-                else:
-                    # Se for outra linha, calcular um ajuste aproximado
-                    # Quanto maior a diferença da linha padrão 3.5, maior o ajuste
-                    adjustment = abs(card_line - 3.5) * 8.0  # 8% para cada 1.0 de diferença
-                    
-                    if card_line < 3.5:
-                        # Linha menor aumenta a chance de Over
-                        over_prob = min(98, original_probabilities['cards']['over_3_5'] + adjustment)
-                        under_prob = max(2, 100 - over_prob)
-                    else:
-                        # Linha maior diminui a chance de Over
-                        over_prob = max(2, original_probabilities['cards']['over_3_5'] - adjustment)
-                        under_prob = min(98, 100 - over_prob)
-                        
-                    formatted_probs["Total de Cartões"] = {
-                        f"Over {card_line}": {
-                            "real": f"{over_prob:.1f}%",
-                            "implicit": "N/A",
-                        },
-                        f"Under {card_line}": {
-                            "real": f"{under_prob:.1f}%",
-                            "implicit": "N/A",
-                        },
-                    }
+            formatted_probs["Total de Cartões"] = {
+                "Over 3.5": {
+                    "real": f"{original_probabilities['cards']['over_3_5']:.1f}%",
+                    "implicit": "N/A",
+                },
+                "Under 3.5": {
+                    "real": f"{original_probabilities['cards']['under_3_5']:.1f}%",
+                    "implicit": "N/A",
+                },
+            }
 
-        # Extrair probabilidades implícitas dos mercados disponíveis
+        # Modificar o regex para capturar probabilidades implícitas de maneiras diferentes
         for category, markets in market_categories.items():
             if category in formatted_probs:
                 for market_line in markets:
@@ -2037,124 +1831,52 @@ if "over_under" in original_probabilities:
                                 formatted_probs[category]["Não"]["implicit"] = impl_prob
                         
                         elif category == "Total de Gols":
-                            # Verificar linhas específicas usando expressões regulares
-                            line_match = re.search(r"[Oo]ver\s+(\d+\.?\d*)", option_text)
-                            if line_match:
-                                try:
-                                    line = float(line_match.group(1))
-                                    key = f"Over {line}" if line == market_lines["gols"] else f"Over {market_lines['gols']}"
-                                    
-                                    # Se a key existe, atualizar
+                            if "over" in option_text.lower():
+                                line_match = re.search(r"over\s+(\d+\.?\d*)", option_text.lower())
+                                if line_match:
+                                    line = line_match.group(1)
+                                    key = f"Over {line}"
                                     if key in formatted_probs[category]:
                                         formatted_probs[category][key]["implicit"] = impl_prob
-                                    # Se não, criar nova entrada
-                                    else:
-                                        # Buscar por uma chave que comece com "Over"
-                                        for existing_key in formatted_probs[category].keys():
-                                            if existing_key.startswith("Over"):
-                                                formatted_probs[category][existing_key]["implicit"] = impl_prob
-                                                break
-                                except:
-                                    pass
-                            
-                            line_match = re.search(r"[Uu]nder\s+(\d+\.?\d*)", option_text)
-                            if line_match:
-                                try:
-                                    line = float(line_match.group(1))
-                                    key = f"Under {line}" if line == market_lines["gols"] else f"Under {market_lines['gols']}"
-                                    
-                                    # Se a key existe, atualizar
+                            elif "under" in option_text.lower():
+                                line_match = re.search(r"under\s+(\d+\.?\d*)", option_text.lower())
+                                if line_match:
+                                    line = line_match.group(1)
+                                    key = f"Under {line}"
                                     if key in formatted_probs[category]:
                                         formatted_probs[category][key]["implicit"] = impl_prob
-                                    # Se não, criar nova entrada
-                                    else:
-                                        # Buscar por uma chave que comece com "Under"
-                                        for existing_key in formatted_probs[category].keys():
-                                            if existing_key.startswith("Under"):
-                                                formatted_probs[category][existing_key]["implicit"] = impl_prob
-                                                break
-                                except:
-                                    pass
                         
                         elif category == "Total de Escanteios":
-                            # Verificar linhas específicas usando expressões regulares
-                            line_match = re.search(r"[Oo]ver\s+(\d+\.?\d*)", option_text)
-                            if line_match:
-                                try:
-                                    line = float(line_match.group(1))
-                                    key = f"Over {line}" if line == market_lines["escanteios"] else f"Over {market_lines['escanteios']}"
-                                    
-                                    # Se a key existe, atualizar
+                            if "over" in option_text.lower():
+                                line_match = re.search(r"over\s+(\d+\.?\d*)", option_text.lower())
+                                if line_match:
+                                    line = line_match.group(1)
+                                    key = f"Over {line}"
                                     if key in formatted_probs[category]:
                                         formatted_probs[category][key]["implicit"] = impl_prob
-                                    # Se não, criar nova entrada
-                                    else:
-                                        # Buscar por uma chave que comece com "Over"
-                                        for existing_key in formatted_probs[category].keys():
-                                            if existing_key.startswith("Over"):
-                                                formatted_probs[category][existing_key]["implicit"] = impl_prob
-                                                break
-                                except:
-                                    pass
-                            
-                            line_match = re.search(r"[Uu]nder\s+(\d+\.?\d*)", option_text)
-                            if line_match:
-                                try:
-                                    line = float(line_match.group(1))
-                                    key = f"Under {line}" if line == market_lines["escanteios"] else f"Under {market_lines['escanteios']}"
-                                    
-                                    # Se a key existe, atualizar
+                            elif "under" in option_text.lower():
+                                line_match = re.search(r"under\s+(\d+\.?\d*)", option_text.lower())
+                                if line_match:
+                                    line = line_match.group(1)
+                                    key = f"Under {line}"
                                     if key in formatted_probs[category]:
                                         formatted_probs[category][key]["implicit"] = impl_prob
-                                    # Se não, criar nova entrada
-                                    else:
-                                        # Buscar por uma chave que comece com "Under"
-                                        for existing_key in formatted_probs[category].keys():
-                                            if existing_key.startswith("Under"):
-                                                formatted_probs[category][existing_key]["implicit"] = impl_prob
-                                                break
-                                except:
-                                    pass
                         
                         elif category == "Total de Cartões":
-                            # Verificar linhas específicas usando expressões regulares
-                            line_match = re.search(r"[Oo]ver\s+(\d+\.?\d*)", option_text)
-                            if line_match:
-                                try:
-                                    line = float(line_match.group(1))
-                                    key = f"Over {line}" if line == market_lines["cartoes"] else f"Over {market_lines['cartoes']}"
-                                    
-                                    # Se a key existe, atualizar
+                            if "over" in option_text.lower():
+                                line_match = re.search(r"over\s+(\d+\.?\d*)", option_text.lower())
+                                if line_match:
+                                    line = line_match.group(1)
+                                    key = f"Over {line}"
                                     if key in formatted_probs[category]:
                                         formatted_probs[category][key]["implicit"] = impl_prob
-                                    # Se não, criar nova entrada
-                                    else:
-                                        # Buscar por uma chave que comece com "Over"
-                                        for existing_key in formatted_probs[category].keys():
-                                            if existing_key.startswith("Over"):
-                                                formatted_probs[category][existing_key]["implicit"] = impl_prob
-                                                break
-                                except:
-                                    pass
-                            
-                            line_match = re.search(r"[Uu]nder\s+(\d+\.?\d*)", option_text)
-                            if line_match:
-                                try:
-                                    line = float(line_match.group(1))
-                                    key = f"Under {line}" if line == market_lines["cartoes"] else f"Under {market_lines['cartoes']}"
-                                    
-                                    # Se a key existe, atualizar
+                            elif "under" in option_text.lower():
+                                line_match = re.search(r"under\s+(\d+\.?\d*)", option_text.lower())
+                                if line_match:
+                                    line = line_match.group(1)
+                                    key = f"Under {line}"
                                     if key in formatted_probs[category]:
                                         formatted_probs[category][key]["implicit"] = impl_prob
-                                    # Se não, criar nova entrada
-                                    else:
-                                        # Buscar por uma chave que comece com "Under"
-                                        for existing_key in formatted_probs[category].keys():
-                                            if existing_key.startswith("Under"):
-                                                formatted_probs[category][existing_key]["implicit"] = impl_prob
-                                                break
-                                except:
-                                    pass
 
         # CRUCIAL: ADICIONAR PROBABILIDADES PARA MERCADOS SELECIONADOS QUE ESTÃO FALTANDO
         if selected_markets:
@@ -2178,27 +1900,15 @@ if "over_under" in original_probabilities:
                         # NOVO: Garantir que o mercado também está presente nos mercados disponíveis
                         if display_name not in [cat for cat in market_categories if market_categories[cat]]:
                             # Adicionar mercados padrão se estiverem faltando na análise
-                            logger.info(f"Adicionando mercado disponível faltante: {display_name}")
                             if market_key == "ambos_marcam":
                                 market_categories["Ambos Marcam"] = [
                                     "• Sim (BTTS): @2.00 (Implícita: 50.0%)",
                                     "• Não (BTTS): @1.80 (Implícita: 55.6%)"
                                 ]
-                            elif market_key == "gols":
-                                market_categories["Total de Gols"] = [
-                                    f"• Over {market_lines['gols']}: @1.90 (Implícita: 52.6%)",
-                                    f"• Under {market_lines['gols']}: @1.90 (Implícita: 52.6%)"
-                                ]
-                            elif market_key == "escanteios":
-                                market_categories["Total de Escanteios"] = [
-                                    f"• Over {market_lines['escanteios']}: @1.90 (Implícita: 52.6%)",
-                                    f"• Under {market_lines['escanteios']}: @1.90 (Implícita: 52.6%)"
-                                ]
-                            elif market_key == "cartoes":
-                                market_categories["Total de Cartões"] = [
-                                    f"• Over {market_lines['cartoes']}: @1.90 (Implícita: 52.6%)",
-                                    f"• Under {market_lines['cartoes']}: @1.90 (Implícita: 52.6%)"
-                                ]
+                                # Garantir que temos as probabilidades implícitas também atualizadas
+                                if "Ambos Marcam" in formatted_probs:
+                                    formatted_probs["Ambos Marcam"]["Sim"]["implicit"] = "50.0%"
+                                    formatted_probs["Ambos Marcam"]["Não"]["implicit"] = "55.6%"
 
     # MELHORAR OS DADOS DE ANÁLISE DE CONFIANÇA
     # Usar dados reais de análise quando disponíveis em vez de texto genérico
@@ -2220,13 +1930,13 @@ if "over_under" in original_probabilities:
     
     # Garantir que não temos valores vazios antes de construir o relatório
     if not consistency_info.strip():
-        consistency_info = f"Moderada, baseada na análise de resultados recentes de {home_team} e {away_team}."
+        consistency_info = "Moderada, baseada na análise de resultados recentes de ambas as equipes."
         
     if not form_info.strip():
         form_info = f"O {home_team} e o {away_team} mostram tendências recentes que refletem seu desempenho na temporada."
         
     if not influence_info.strip():
-        influence_info = f"O nível de confiança é influenciado pela consistência dos resultados e forma recente dos times {home_team} e {away_team}."
+        influence_info = "O nível de confiança é influenciado pela consistência dos resultados e forma recente dos times."
 
     # PARTE 6: CONSTRUÇÃO DO RELATÓRIO FINAL
     # =====================================
@@ -2241,44 +1951,12 @@ ANÁLISE DE PARTIDA
 ANÁLISE DE MERCADOS DISPONÍVEIS
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔"""
 
-    # Garantir que mostramos os mercados na ordem correta
-    market_order = ["Money Line (1X2)", "Chance Dupla", "Total de Gols", 
-                    "Ambos Marcam", "Total de Escanteios", "Total de Cartões"]
-    
     # Adicionar mercados organizados por categoria
     any_markets = False
-    for category in market_order:
-        markets = market_categories.get(category, [])
+    for category, markets in market_categories.items():
         if markets:
             any_markets = True
             clean_report += f"\n\n[{category}]"
-            
-            # Para mercados Over/Under, garantir que mostrem a linha específica
-            if category in ["Total de Gols", "Total de Escanteios", "Total de Cartões"]:
-                # Identificar qual linha deve ser usada
-                line_key = ""
-                if category == "Total de Gols":
-                    line_key = "gols"
-                elif category == "Total de Escanteios":
-                    line_key = "escanteios"
-                elif category == "Total de Cartões":
-                    line_key = "cartoes"
-                
-                # Verificar se há linhas específicas nos mercados existentes
-                has_specific_line = False
-                for market in markets:
-                    if line_key and f"Over {market_lines[line_key]}" in market:
-                        has_specific_line = True
-                        break
-                
-                # Se não há, recriar os mercados com as linhas específicas
-                if not has_specific_line and line_key:
-                    markets = [
-                        f"• Over {market_lines[line_key]}: @1.90 (Implícita: 52.6%)",
-                        f"• Under {market_lines[line_key]}: @1.90 (Implícita: 52.6%)"
-                    ]
-            
-            # Adicionar os mercados ao relatório
             for market in markets:
                 clean_report += f"\n{market}"
 
@@ -2290,16 +1968,13 @@ ANÁLISE DE MERCADOS DISPONÍVEIS
 PROBABILIDADES CALCULADAS
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔"""
 
-    # Determinar quais categorias exibir
+    # Determinar quais categorias exibir baseado nos mercados selecionados
     categories_to_show = []
     if selected_markets:
         for market_key, is_selected in selected_markets.items():
             if is_selected:
-                # Mapear o mercado para o nome de exibição
+                # Usar o mapeamento para obter o nome de exibição
                 display_name = market_key_mapping.get(market_key)
-                # Tratar caso especial de over_under
-                if market_key == "over_under":
-                    display_name = "Total de Gols"
                 if display_name and display_name not in categories_to_show:
                     categories_to_show.append(display_name)
                     logger.info(f"Adicionando categoria para exibição: {display_name}")
@@ -2307,12 +1982,15 @@ PROBABILIDADES CALCULADAS
         # Se não temos mercados selecionados, mostrar todos
         categories_to_show = list(all_probabilities.keys())
     
-    # Mostrar probabilidades na ordem correta
+    # Verificação adicional de debug para garantir que o Total de Gols está sendo incluído
+    if selected_markets and (selected_markets.get("gols", False) or selected_markets.get("over_under", False)):
+        if "Total de Gols" not in categories_to_show:
+            categories_to_show.append("Total de Gols")
+            logger.info("Forçando exibição do mercado Total de Gols")
+    
+    # Agora exibir probabilidades para cada categoria selecionada
     any_probs = False
-    for category in market_order:
-        if category not in categories_to_show:
-            continue
-            
+    for category in categories_to_show:
         # Se não temos probabilidades para esta categoria mas temos originais, usar as originais
         if category not in all_probabilities and category in formatted_probs:
             all_probabilities[category] = formatted_probs[category]
@@ -2328,38 +2006,6 @@ PROBABILIDADES CALCULADAS
 │  MERCADO   │  REAL (%)  │ IMPLÍCITA  │
 ├────────────┼────────────┼────────────┤"""
 
-            # Para mercados de Over/Under, garantir que as linhas específicas sejam mostradas
-            if category in ["Total de Gols", "Total de Escanteios", "Total de Cartões"]:
-                line_key = ""
-                if category == "Total de Gols":
-                    line_key = "gols"
-                elif category == "Total de Escanteios":
-                    line_key = "escanteios"
-                elif category == "Total de Cartões":
-                    line_key = "cartoes"
-                
-                # Verificar se já temos as opções com as linhas específicas
-                has_specific_line = False
-                for option in options.keys():
-                    if line_key and f"{market_lines[line_key]}" in option:
-                        has_specific_line = True
-                        break
-                
-                # Se não temos, substituir as opções
-                if not has_specific_line and line_key:
-                    # Obter probabilidades das opções existentes
-                    over_prob = next((probs["real"] for option, probs in options.items() if option.startswith("Over")), "50.0%")
-                    under_prob = next((probs["real"] for option, probs in options.items() if option.startswith("Under")), "50.0%")
-                    over_implicit = next((probs["implicit"] for option, probs in options.items() if option.startswith("Over")), "N/A")
-                    under_implicit = next((probs["implicit"] for option, probs in options.items() if option.startswith("Under")), "N/A")
-                    
-                    # Substituir as opções
-                    options = {
-                        f"Over {market_lines[line_key]}": {"real": over_prob, "implicit": over_implicit},
-                        f"Under {market_lines[line_key]}": {"real": under_prob, "implicit": under_implicit}
-                    }
-            
-            # Adicionar cada opção à tabela
             for option, probs in options.items():
                 option_display = option if len(option) <= 8 else option[:7] + "."
                 real_val = probs.get('real', 'N/A')
@@ -2371,49 +2017,14 @@ PROBABILIDADES CALCULADAS
 └────────────┴────────────┴────────────┘"""
         else:
             # Se temos uma categoria selecionada mas sem opções, adicionar uma mensagem
-            if category in categories_to_show:
-                any_probs = True
-                
-                # Crie tabela com valores padrão baseados na categoria
-                clean_report += f"""
+            if selected_markets:
+                for market_key, is_selected in selected_markets.items():
+                    if is_selected and market_key_mapping.get(market_key) == category:
+                        any_probs = True
+                        clean_report += f"""
 
 [{category}]
-┌────────────┬────────────┬────────────┐
-│  MERCADO   │  REAL (%)  │ IMPLÍCITA  │
-├────────────┼────────────┼────────────┤"""
-
-                if category == "Money Line (1X2)":
-                    clean_report += f"""
-│  Casa     │   50.0%    │   N/A      │
-│  Empate   │   25.0%    │   N/A      │
-│  Fora     │   25.0%    │   N/A      │"""
-                elif category == "Chance Dupla":
-                    clean_report += f"""
-│  1X       │   75.0%    │   N/A      │
-│  12       │   75.0%    │   N/A      │
-│  X2       │   50.0%    │   N/A      │"""
-                elif category == "Total de Gols":
-                    line = market_lines["gols"]
-                    clean_report += f"""
-│  Over {line} │   50.0%    │   N/A      │
-│  Under {line}│   50.0%    │   N/A      │"""
-                elif category == "Ambos Marcam":
-                    clean_report += f"""
-│  Sim      │   50.0%    │   N/A      │
-│  Não      │   50.0%    │   N/A      │"""
-                elif category == "Total de Escanteios":
-                    line = market_lines["escanteios"]
-                    clean_report += f"""
-│  Over {line} │   50.0%    │   N/A      │
-│  Under {line}│   50.0%    │   N/A      │"""
-                elif category == "Total de Cartões":
-                    line = market_lines["cartoes"]
-                    clean_report += f"""
-│  Over {line} │   50.0%    │   N/A      │
-│  Under {line}│   50.0%    │   N/A      │"""
-                
-                clean_report += """
-└────────────┴────────────┴────────────┘"""
+Dados insuficientes para calcular probabilidades."""
 
     if not any_probs:
         clean_report += "\nProbabilidades não disponíveis para análise."
@@ -2423,51 +2034,30 @@ PROBABILIDADES CALCULADAS
 OPORTUNIDADES IDENTIFICADAS
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
 """
-
     # Adicionar oportunidades identificadas
     if opportunities:
         for opp in opportunities:
-            # Verificar se precisamos atualizar linhas específicas nas oportunidades
-            updated_opp = opp
-            
-            # Atualizar linhas de gols
-            if "gols" in opp.lower() or "over" in opp.lower() or "under" in opp.lower():
-                for old_line in [2.5, 3.5, 4.5]:
-                    if f"{old_line}" in opp and old_line != market_lines["gols"]:
-                        updated_opp = opp.replace(f"{old_line}", f"{market_lines['gols']}")
-                        break
-            
-            # Atualizar linhas de escanteios
-            if "escanteio" in opp.lower() or "corner" in opp.lower():
-                for old_line in [8.5, 9.5, 10.5, 11.5]:
-                    if f"{old_line}" in opp and old_line != market_lines["escanteios"]:
-                        updated_opp = opp.replace(f"{old_line}", f"{market_lines['escanteios']}")
-                        break
-            
-            # Atualizar linhas de cartões
-            if "cartão" in opp.lower() or "cartões" in opp.lower() or "card" in opp.lower():
-                for old_line in [3.5, 4.5, 5.5]:
-                    if f"{old_line}" in opp and old_line != market_lines["cartoes"]:
-                        updated_opp = opp.replace(f"{old_line}", f"{market_lines['cartoes']}")
-                        break
-                
-            clean_report += f"{updated_opp}\n"
+            clean_report += f"{opp}\n"
     else:
         clean_report += "Nenhuma oportunidade de valor identificada.\n"
 
     clean_report += f"""
 NÍVEL DE CONFIANÇA GERAL: {confidence_level}
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+
 ► CONSISTÊNCIA: {consistency_info}
+
 ► FORMA: {form_info}
+
 ► INFLUÊNCIA: {influence_info}
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
      © RELATÓRIO VALUE HUNTER DE ANÁLISE ESPORTIVA
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
-    
+
     return clean_report
 
-# Função auxiliar para limpar marcadores de mercados
+# Função auxiliar para limpar marcadores de mercados (usada no code acima)
 def limpar_marcadores_mercados(market_line):
     """
     Remove duplicação de marcadores (•) em linhas de mercado.
@@ -2478,16 +2068,13 @@ def limpar_marcadores_mercados(market_line):
     # Garantir consistência no formato
     if not clean_line.startswith("•"):
         clean_line = "• " + clean_line.lstrip("- ")
-    else:
-        # Garantir que há espaço após o marcador
-        if clean_line.startswith("•") and not clean_line.startswith("• "):
-            clean_line = "• " + clean_line[1:].lstrip()
     
     # Remover espaços extras
     clean_line = " ".join(clean_line.split())
     
     return clean_line
-# Função auxiliar para categorizar mercados
+
+# Função auxiliar para categorizar mercados (usada no code acima)
 def categorizar_mercado(mercado_texto):
     """
     Categoriza um mercado com base no seu texto para garantir
@@ -3800,57 +3387,3 @@ def force_display_total_goals(analysis_text, home_team, away_team, original_prob
     
     # Retornar o texto original caso não consiga modificar
     return analysis_text
-def format_analysis_response_temp(analysis_text, home_team, away_team, selected_markets=None, original_probabilities=None):
-    """Versão temporária simplificada da função para contornar o erro"""
-    # Construir um relatório padrão básico
-    clean_report = f"""
-ANÁLISE DE PARTIDA
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-{home_team} vs {away_team}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ANÁLISE DE MERCADOS DISPONÍVEIS
-▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-[Money Line (1X2)]
-• Casa: @1.60 (Implícita: 62.5%)
-• Empate: @4.10 (Implícita: 24.4%)
-• Fora: @5.70 (Implícita: 17.5%)
-
-[Chance Dupla]
-• 1X: @1.14 (Implícita: 87.7%)
-• 12: @1.22 (Implícita: 82.0%)
-• X2: @2.28 (Implícita: 43.9%)
-
-[Total de Gols]
-• Over 3.5: @3.48 (Implícita: 28.7%)
-• Under 3.5: @1.31 (Implícita: 76.3%)
-
-[Ambos Marcam]
-• Sim (BTTS): @1.80 (Implícita: 55.6%)
-• Não (BTTS): @2.01 (Implícita: 49.8%)
-
-PROBABILIDADES CALCULADAS
-▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-Probabilidades não disponíveis para análise.
-
-OPORTUNIDADES IDENTIFICADAS
-▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-Nenhuma oportunidade de valor identificada.
-
-NÍVEL DE CONFIANÇA GERAL: Médio
-▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-► CONSISTÊNCIA: Moderada
-
-► FORMA: Teams mostrando forma média
-
-► INFLUÊNCIA: Confiança média baseada nos dados disponíveis
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-     © RELATÓRIO VALUE HUNTER DE ANÁLISE ESPORTIVA
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
-    
-    # Se temos o texto original e ele parece válido, retornar isso
-    if analysis_text and "ANÁLISE DE PARTIDA" in analysis_text:
-        return analysis_text
-    
-    # Caso contrário, retornar o relatório padrão
-    return clean_report
