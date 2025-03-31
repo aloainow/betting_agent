@@ -1292,15 +1292,21 @@ def categorizar_mercado(mercado_texto):
     Categoriza um mercado com base no seu texto para garantir
     que seja atribuído à categoria correta.
     """
+    import re
     texto_lower = mercado_texto.lower()
     
-    # Primeiro verificar explicitamente se é Chance Dupla
+    # Primeiro verificamos se contém o nome de um time ou termos específicos de Money Line
+    if home_team.lower() in texto_lower or away_team.lower() in texto_lower or "casa" in texto_lower or "fora" in texto_lower:
+        # Verificar se não é dupla chance
+        if not any(term in texto_lower for term in ["1x", "x2", "12", "dupla"]):
+            return "Money Line (1X2)"
+    
+    # Depois verificamos explicitamente se é Chance Dupla
     if "1x" in texto_lower or "x2" in texto_lower or "12" in texto_lower or "dupla" in texto_lower:
         return "Chance Dupla"
     
-    # Verificar Money Line (1X2)
-    elif "casa" in texto_lower or "empate" in texto_lower or "fora" in texto_lower or "1x2" in texto_lower:
-        # Verificação adicional para garantir que não seja um mercado de Chance Dupla
+    # Verificar Money Line (1X2) por outros termos
+    elif "empate" in texto_lower or "1x2" in texto_lower or "money line" in texto_lower:
         if not any(term in texto_lower for term in ["1x", "x2", "12", "dupla"]):
             return "Money Line (1X2)"
     
@@ -1805,7 +1811,35 @@ def format_analysis_response(
                         elif impl_match:
                             impl_prob = impl_match.group(1) + "%"
                         else:
-                            continue  # Se não conseguir extrair de nenhuma forma, pula
+                            continue
+                        
+                        # Adicionar mapeamento explícito para os mercados Money Line
+                        if category == "Money Line (1X2)":
+                            if home_team.lower() in option_text.lower() or "casa" in option_text.lower():
+                                formatted_probs[category]["Casa"]["implicit"] = impl_prob
+                            elif away_team.lower() in option_text.lower() or "fora" in option_text.lower():
+                                formatted_probs[category]["Fora"]["implicit"] = impl_prob
+                            elif "empate" in option_text.lower():
+                                formatted_probs[category]["Empate"]["implicit"] = impl_prob
+                        elif category == "Chance Dupla":
+                            if "1x" in option_text.lower():
+                                formatted_probs[category]["1X"]["implicit"] = impl_prob
+                            elif "12" in option_text.lower():
+                                formatted_probs[category]["12"]["implicit"] = impl_prob
+                            elif "x2" in option_text.lower():
+                                formatted_probs[category]["X2"]["implicit"] = impl_prob
+                        elif category == "Ambos Marcam":
+                            if "sim" in option_text.lower():
+                                formatted_probs[category]["Sim"]["implicit"] = impl_prob
+                            elif "não" in option_text.lower():
+                                formatted_probs[category]["Não"]["implicit"] = impl_prob
+                        else:
+                            # Para outros mercados, manter o comportamento original
+                            for opt in formatted_probs.get(category, {}):
+                                if opt.lower() in option_text.lower():
+                                    formatted_probs[category][opt]["implicit"] = impl_prob
+                                    break
+                    # Se não conseguir extrair de nenhuma forma, pula
                         
                         # Agora mapeamento mais robusto para os mercados
                         if category == "Money Line (1X2)":
