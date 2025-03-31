@@ -1033,7 +1033,6 @@ def analyze_with_gpt(prompt, original_probabilites=None, selected_markets=None, 
             if home_team and away_team:
                 logger.info("Aplicando formatação avançada com filtragem de mercados")
                 # Importante: passamos selected_markets e original_probabilites para filtrar os mercados
-                from utils.ai import 
                 response_text = (
                     response_text, 
                     home_team, 
