@@ -1746,33 +1746,33 @@ def format_analysis_response(
                                 elif "fora" in option_text.lower() or away_team in option_text:
                                     formatted_probs[category]["Fora"]["implicit"] = impl_prob
                             
-                           elif category == "Chance Dupla":
-                                # Mais opções para capturar diferentes formatos
-                                if "1x" in option_text.lower() or ("celta" in option_text.lower() and "empate" in option_text.lower()):
-                                    formatted_probs[category]["1X"]["implicit"] = impl_prob
-                                elif "12" in option_text.lower() or "qualquer equipe" in option_text.lower():
-                                    formatted_probs[category]["12"]["implicit"] = impl_prob
-                                elif "x2" in option_text.lower() or ("empate" in option_text.lower() and "palmas" in option_text.lower()):
-                                    formatted_probs[category]["X2"]["implicit"] = impl_prob
-                            
-                            # Ambos Marcam
-                            elif category == "Ambos Marcam":
-                                # Ampliado para capturar mais variações
-                                if any(term in option_text.lower() for term in ["sim", "yes", "ambos marcam", "btts yes"]):
-                                    formatted_probs[category]["Sim"]["implicit"] = impl_prob
-                                elif any(term in option_text.lower() for term in ["não", "no", "não ambos marcam", "btts no"]):
-                                    formatted_probs[category]["Não"]["implicit"] = impl_prob
-                            
-                            # Total de Gols
-                            elif category == "Total de Gols":
-                                if "over" in option_text.lower():
-                                    # Extrair o valor da linha (2.5, 3.5, etc)
-                                    line_match = re.search(r"over\s+(\d+\.?\d*)", option_text.lower())
-                                    if line_match:
-                                        line = line_match.group(1)
-                                        key = f"Over {line}"
-                                        if key in formatted_probs[category]:
-                                            formatted_probs[category][key]["implicit"] = impl_prob
+                               elif category == "Chance Dupla":
+                                    # Mais opções para capturar diferentes formatos
+                                    if "1x" in option_text.lower() or ("celta" in option_text.lower() and "empate" in option_text.lower()):
+                                        formatted_probs[category]["1X"]["implicit"] = impl_prob
+                                    elif "12" in option_text.lower() or "qualquer equipe" in option_text.lower():
+                                        formatted_probs[category]["12"]["implicit"] = impl_prob
+                                    elif "x2" in option_text.lower() or ("empate" in option_text.lower() and "palmas" in option_text.lower()):
+                                        formatted_probs[category]["X2"]["implicit"] = impl_prob
+                                
+                                # Ambos Marcam
+                                elif category == "Ambos Marcam":
+                                    # Ampliado para capturar mais variações
+                                    if any(term in option_text.lower() for term in ["sim", "yes", "ambos marcam", "btts yes"]):
+                                        formatted_probs[category]["Sim"]["implicit"] = impl_prob
+                                    elif any(term in option_text.lower() for term in ["não", "no", "não ambos marcam", "btts no"]):
+                                        formatted_probs[category]["Não"]["implicit"] = impl_prob
+                                
+                                # Total de Gols
+                                elif category == "Total de Gols":
+                                    if "over" in option_text.lower():
+                                        # Extrair o valor da linha (2.5, 3.5, etc)
+                                        line_match = re.search(r"over\s+(\d+\.?\d*)", option_text.lower())
+                                        if line_match:
+                                            line = line_match.group(1)
+                                            key = f"Over {line}"
+                                            if key in formatted_probs[category]:
+                                                formatted_probs[category][key]["implicit"] = impl_prob
                                 elif "under" in option_text.lower():
                                     # Extrair o valor da linha
                                     line_match = re.search(r"under\s+(\d+\.?\d*)", option_text.lower())
@@ -1782,36 +1782,36 @@ def format_analysis_response(
                                         if key in formatted_probs[category]:
                                             formatted_probs[category][key]["implicit"] = impl_prob
                             
-                            # Total de Escanteios
-                            elif category == "Total de Escanteios":
-                                if "over" in option_text.lower():
-                                    # Extrair o valor da linha
-                                    line_match = re.search(r"over\s+(\d+\.?\d*)", option_text.lower())
-                                    if line_match:
-                                        line = line_match.group(1)
-                                        key = f"Over {line}"
-                                        if key in formatted_probs[category]:
-                                            formatted_probs[category][key]["implicit"] = impl_prob
-                                elif "under" in option_text.lower():
-                                    # Extrair o valor da linha
-                                    line_match = re.search(r"under\s+(\d+\.?\d*)", option_text.lower())
-                                    if line_match:
-                                        line = line_match.group(1)
-                                        key = f"Under {line}"
-                                        if key in formatted_probs[category]:
-                                            formatted_probs[category][key]["implicit"] = impl_prob
-                            
-                            # Total de Cartões
-                            elif category == "Total de Cartões":
-                                if "over" in option_text.lower():
-                                    # Extrair o valor da linha
-                                    line_match = re.search(r"over\s+(\d+\.?\d*)", option_text.lower())
-                                    if line_match:
-                                        line = line_match.group(1)
-                                        key = f"Over {line}"
-                                        if key in formatted_probs[category]:
-                                            formatted_probs[category][key]["implicit"] = impl_prob
-                                elif "under" in option_text.lower():
+                                # Total de Escanteios
+                                elif category == "Total de Escanteios":
+                                    if "over" in option_text.lower():
+                                        # Extrair o valor da linha
+                                        line_match = re.search(r"over\s+(\d+\.?\d*)", option_text.lower())
+                                        if line_match:
+                                            line = line_match.group(1)
+                                            key = f"Over {line}"
+                                            if key in formatted_probs[category]:
+                                                formatted_probs[category][key]["implicit"] = impl_prob
+                                    elif "under" in option_text.lower():
+                                        # Extrair o valor da linha
+                                        line_match = re.search(r"under\s+(\d+\.?\d*)", option_text.lower())
+                                        if line_match:
+                                            line = line_match.group(1)
+                                            key = f"Under {line}"
+                                            if key in formatted_probs[category]:
+                                                formatted_probs[category][key]["implicit"] = impl_prob
+                                
+                                # Total de Cartões
+                                elif category == "Total de Cartões":
+                                    if "over" in option_text.lower():
+                                        # Extrair o valor da linha
+                                        line_match = re.search(r"over\s+(\d+\.?\d*)", option_text.lower())
+                                        if line_match:
+                                            line = line_match.group(1)
+                                            key = f"Over {line}"
+                                            if key in formatted_probs[category]:
+                                                formatted_probs[category][key]["implicit"] = impl_prob
+                                    elif "under" in option_text.lower():
                                     # Extrair o valor da linha
                                     line_match = re.search(r"under\s+(\d+\.?\d*)", option_text.lower())
                                     if line_match:
