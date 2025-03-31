@@ -468,56 +468,24 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
         
         # Form points (35%)
         def form_to_points(form_str):
-            """
-            Converte uma string de forma (ex: 'WDLWW') em pontos
-            
-            Args:
-                form_str (str): String representando a forma recente
-                
-            Returns:
-                float: Pontos totais (vitória=3, empate=1, derrota=0)
-            """
             points = 0
             weight = 1.0
             total_weight = 0
             
-            # Log para depuração
-            logger.info(f"Calculando pontos para forma: '{form_str}'")
-            
-            # Verificar validade da string
-            if not form_str or not isinstance(form_str, str):
-                logger.warning(f"String de forma inválida: {form_str}")
-                return 0
-            
-            # Garantir que a forma tenha no máximo 5 caracteres
-            form_str = form_str[:5]
-            logger.info(f"Forma normalizada: '{form_str}'")
-            
-            # Mapear cada resultado para pontos
-            for i, result in enumerate(reversed(form_str)):
-                point_value = 0
-                if result.upper() == 'W':
-                    point_value = 3
-                elif result.upper() == 'D':
-                    point_value = 1
-                # L ou qualquer outro = 0
+            for i, result in enumerate(reversed(form_str[:5])):
+                if result == 'W':
+                    points += 3 * weight
+                elif result == 'D':
+                    points += 1 * weight
+                elif result == 'L':
+                    points += 0
+                else:
+                    points += 1 * weight  # Neutral value for '?'
                 
-                # Aplicar peso (mais recente tem mais peso)
-                weighted_point = point_value * weight
-                points += weighted_point
                 total_weight += weight
-                
-                # Log detalhado
-                logger.info(f"Jogo {i+1}: '{result}' = {point_value} pontos × {weight:.2f} peso = {weighted_point:.2f}")
-                
-                # Reduzir peso para jogos mais antigos
-                weight *= 0.8
+                weight *= 0.8  # Decay for older games
             
-            # Calcular pontuação final
-            final_points = points / max(total_weight, 1)
-            logger.info(f"Pontuação total: {points:.2f}/{total_weight:.2f} = {final_points:.2f}")
-            
-            return final_points
+            return points / max(total_weight, 1)
         
         # Convert form to points (scale 0-1)
         home_form = home.get('form', '?????')
@@ -1324,21 +1292,15 @@ def categorizar_mercado(mercado_texto):
     Categoriza um mercado com base no seu texto para garantir
     que seja atribuído à categoria correta.
     """
-    import re
     texto_lower = mercado_texto.lower()
     
-    # Primeiro verificamos se contém o nome de um time ou termos específicos de Money Line
-    if home_team.lower() in texto_lower or away_team.lower() in texto_lower or "casa" in texto_lower or "fora" in texto_lower:
-        # Verificar se não é dupla chance
-        if not any(term in texto_lower for term in ["1x", "x2", "12", "dupla"]):
-            return "Money Line (1X2)"
-    
-    # Depois verificamos explicitamente se é Chance Dupla
+    # Primeiro verificar explicitamente se é Chance Dupla
     if "1x" in texto_lower or "x2" in texto_lower or "12" in texto_lower or "dupla" in texto_lower:
         return "Chance Dupla"
     
-    # Verificar Money Line (1X2) por outros termos
-    elif "empate" in texto_lower or "1x2" in texto_lower or "money line" in texto_lower:
+    # Verificar Money Line (1X2)
+    elif "casa" in texto_lower or "empate" in texto_lower or "fora" in texto_lower or "1x2" in texto_lower:
+        # Verificação adicional para garantir que não seja um mercado de Chance Dupla
         if not any(term in texto_lower for term in ["1x", "x2", "12", "dupla"]):
             return "Money Line (1X2)"
     
@@ -1843,35 +1805,7 @@ def format_analysis_response(
                         elif impl_match:
                             impl_prob = impl_match.group(1) + "%"
                         else:
-                            continue
-                        
-                        # Adicionar mapeamento explícito para os mercados Money Line
-                        if category == "Money Line (1X2)":
-                            if home_team.lower() in option_text.lower() or "casa" in option_text.lower():
-                                formatted_probs[category]["Casa"]["implicit"] = impl_prob
-                            elif away_team.lower() in option_text.lower() or "fora" in option_text.lower():
-                                formatted_probs[category]["Fora"]["implicit"] = impl_prob
-                            elif "empate" in option_text.lower():
-                                formatted_probs[category]["Empate"]["implicit"] = impl_prob
-                        elif category == "Chance Dupla":
-                            if "1x" in option_text.lower():
-                                formatted_probs[category]["1X"]["implicit"] = impl_prob
-                            elif "12" in option_text.lower():
-                                formatted_probs[category]["12"]["implicit"] = impl_prob
-                            elif "x2" in option_text.lower():
-                                formatted_probs[category]["X2"]["implicit"] = impl_prob
-                        elif category == "Ambos Marcam":
-                            if "sim" in option_text.lower():
-                                formatted_probs[category]["Sim"]["implicit"] = impl_prob
-                            elif "não" in option_text.lower():
-                                formatted_probs[category]["Não"]["implicit"] = impl_prob
-                        else:
-                            # Para outros mercados, manter o comportamento original
-                            for opt in formatted_probs.get(category, {}):
-                                if opt.lower() in option_text.lower():
-                                    formatted_probs[category][opt]["implicit"] = impl_prob
-                                    break
-                    # Se não conseguir extrair de nenhuma forma, pula
+                            continue  # Se não conseguir extrair de nenhuma forma, pula
                         
                         # Agora mapeamento mais robusto para os mercados
                         if category == "Money Line (1X2)":
@@ -2003,24 +1937,7 @@ def format_analysis_response(
         
     if not influence_info.strip():
         influence_info = "O nível de confiança é influenciado pela consistência dos resultados e forma recente dos times."
-        # Identificar oportunidades baseadas nas probabilidades calculadas
-        opportunities_list = identify_opportunities(all_probabilities)
-        
-        # Se não encontrou oportunidades usando nossa função, manter as que vieram da IA
-        if not opportunities_list and opportunities:
-            opportunities_list = opportunities
-            
-        # Construir a seção de oportunidades
-        opportunities_section = """
-        OPORTUNIDADES IDENTIFICADAS
-        ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-        """
-        
-        if opportunities_list:
-            for opp in opportunities_list:
-                opportunities_section += f"{opp}\n"
-        else:
-            opportunities_section += "Nenhuma oportunidade de valor identificada.\n"
+
     # PARTE 6: CONSTRUÇÃO DO RELATÓRIO FINAL
     # =====================================
     clean_report = f"""
@@ -3470,52 +3387,3 @@ def force_display_total_goals(analysis_text, home_team, away_team, original_prob
     
     # Retornar o texto original caso não consiga modificar
     return analysis_text
-def identify_opportunities(all_probabilities, threshold=2.0):
-    """
-    Identifica oportunidades de valor comparando probabilidades reais com implícitas.
-    
-    Args:
-        all_probabilities (dict): Dicionário de probabilidades por mercado
-        threshold (float): Diferença mínima para considerar valor (em pontos percentuais)
-        
-    Returns:
-        list: Lista de strings descrevendo as oportunidades encontradas
-    """
-    import re
-    import logging
-    logger = logging.getLogger("valueHunter.ai")
-    
-    opportunities = []
-    
-    # Para cada mercado
-    for category, options in all_probabilities.items():
-        logger.info(f"Analisando mercado: {category} com {len(options)} opções")
-        
-        for option, probs in options.items():
-            # Extrair valores numéricos das strings de probabilidade
-            real_str = probs.get('real', 'N/A')
-            impl_str = probs.get('implicit', 'N/A')
-            
-            # Skip if we don't have both probabilities
-            if real_str == 'N/A' or impl_str == 'N/A':
-                continue
-                
-            # Extract numeric values
-            real_match = re.search(r'(\d+\.?\d*)', real_str)
-            impl_match = re.search(r'(\d+\.?\d*)', impl_str)
-            
-            if not real_match or not impl_match:
-                continue
-                
-            real_prob = float(real_match.group(1))
-            impl_prob = float(impl_match.group(1))
-            
-            # Check if there's value (real > implicit)
-            edge = real_prob - impl_prob
-            
-            if edge > threshold:
-                opportunity = f"**{category} {option}**: Real {real_prob:.1f}% vs Implícita {impl_prob:.1f}% (Valor: +{edge:.1f}%)"
-                opportunities.append(opportunity)
-                logger.info(f"Oportunidade encontrada: {category} {option} - Vantagem: +{edge:.1f}%")
-    
-    return opportunities
