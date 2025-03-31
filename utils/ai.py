@@ -2458,17 +2458,14 @@ OPORTUNIDADES IDENTIFICADAS
     clean_report += f"""
 NÍVEL DE CONFIANÇA GERAL: {confidence_level}
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-
 ► CONSISTÊNCIA: {consistency_info}
-
 ► FORMA: {form_info}
-
 ► INFLUÊNCIA: {influence_info}
-
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
      © RELATÓRIO VALUE HUNTER DE ANÁLISE ESPORTIVA
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
-     return clean_report
+    
+    return clean_report
 
 # Função auxiliar para limpar marcadores de mercados
 def limpar_marcadores_mercados(market_line):
