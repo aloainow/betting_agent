@@ -1773,9 +1773,27 @@ def format_analysis_response(
             }
             # 3. Total de Gols (Over/Under) - USAR LINHA ESPECÍFICA
             if "over_under" in original_probabilities:
-            # Usar a linha específica do usuário
-            goal_line = market_lines["gols"]
-            
+                # Usar a linha específica do usuário
+                goal_line = market_lines["gols"]
+                
+                # Calcular probabilidades para a linha específica
+                if "expected_goals" in original_probabilities["over_under"]:
+                    expected_goals = original_probabilities["over_under"]["expected_goals"]
+                    # Usar função logística para calcular
+                    over_prob = 1 / (1 + math.exp(-1.5 * (expected_goals - goal_line)))
+                    under_prob = 1 - over_prob
+                    
+                    formatted_probs["Total de Gols"] = {
+                        f"Over {goal_line}": {
+                            "real": f"{over_prob * 100:.1f}%",
+                            "implicit": "N/A",
+                        },
+                        f"Under {goal_line}": {
+                            "real": f"{under_prob * 100:.1f}%",
+                            "implicit": "N/A",
+                        },
+                    }
+                else:            
             # Calcular probabilidades para a linha específica
             if "expected_goals" in original_probabilities["over_under"]:
                 expected_goals = original_probabilities["over_under"]["expected_goals"]
