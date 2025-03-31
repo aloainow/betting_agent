@@ -1294,13 +1294,21 @@ def categorizar_mercado(mercado_texto):
     """
     texto_lower = mercado_texto.lower()
     
-    # Verificar o tipo de mercado
-    if "casa" in texto_lower or "empate" in texto_lower or "fora" in texto_lower or "1x2" in texto_lower:
-        return "Money Line (1X2)"
-    elif "1x" in texto_lower or "12" in texto_lower or "x2" in texto_lower or "dupla" in texto_lower:
+    # Primeiro verificar explicitamente se é Chance Dupla
+    if "1x" in texto_lower or "x2" in texto_lower or "12" in texto_lower or "dupla" in texto_lower:
         return "Chance Dupla"
+    
+    # Verificar Money Line (1X2)
+    elif "casa" in texto_lower or "empate" in texto_lower or "fora" in texto_lower or "1x2" in texto_lower:
+        # Verificação adicional para garantir que não seja um mercado de Chance Dupla
+        if not any(term in texto_lower for term in ["1x", "x2", "12", "dupla"]):
+            return "Money Line (1X2)"
+    
+    # Ambos Marcam
     elif "ambos" in texto_lower or "btts" in texto_lower or ("sim" in texto_lower and "não" in texto_lower):
         return "Ambos Marcam"
+    
+    # Over/Under
     elif "over" in texto_lower or "under" in texto_lower:
         # Primeiro verificar menções explícitas ao tipo de mercado
         if "gol" in texto_lower:
@@ -1323,7 +1331,7 @@ def categorizar_mercado(mercado_texto):
                     return "Total de Escanteios"
                 elif linha >= 2.5 and linha <= 6.5:  # Valores típicos de cartões
                     # Em caso de sobreposição com gols (2.5-4.5), verificar contexto adicional
-                    if any(termo in texto_lower for termo in ["cartão", "cartões", "amarelo", "vermelho", "card"]):
+                    if any(term in texto_lower for term in ["cartão", "cartões", "amarelo", "vermelho", "card"]):
                         return "Total de Cartões"
                     else:
                         return "Total de Gols"  # Padrão para linhas baixas
@@ -1333,9 +1341,20 @@ def categorizar_mercado(mercado_texto):
         # Padrão para Over/Under sem contexto específico
         return "Total de Gols"
     
+    # Se não conseguiu categorizar, tenta identificar por partes do texto
+    for keyword, category in [
+        (["1x", "x2", "12", "dupla", "chance dupla"], "Chance Dupla"),
+        (["casa", "empate", "fora", "1x2", "money line"], "Money Line (1X2)"),
+        (["ambos", "btts", "marcam"], "Ambos Marcam"),
+        (["escanteio", "corner", "corners"], "Total de Escanteios"),
+        (["cartão", "cartoes", "card", "cards"], "Total de Cartões"),
+        (["gol", "gols"], "Total de Gols")
+    ]:
+        if any(k in texto_lower for k in keyword):
+            return category
+    
     # Categorias padrão para outros casos
-    return "Outros"
-# Coletando e organizando todos os mercados sem duplicação
+    return "Outros"# Coletando e organizando todos os mercados sem duplicação
 def coletar_mercados_organizados(odd_lines, selected_markets):
     """
     Coleta e organiza todos os mercados em categorias apropriadas,
@@ -1472,7 +1491,7 @@ def format_analysis_response(
                 if category in market_categories:
                     market_categories[category].append("• " + clean_line)
 
-    # Depois de extrair market_categories, adicione um pré-processamento para calcular as probabilidades implícitas
+   # Depois de extrair market_categories, adicione um pré-processamento para calcular as probabilidades implícitas
     processed_markets = {}
     for category, markets in market_categories.items():
         processed_markets[category] = []
@@ -1486,9 +1505,31 @@ def format_analysis_response(
                 if "Implícita:" not in market:
                     market = f"{market} (Implícita: {implied_prob}%)"
             processed_markets[category].append(market)
-
+    
     # Substituir market_categories com a versão processada
-    market_categories = processed_markets            
+    market_categories = processed_markets  
+    
+    # Mover mercados de Chance Dupla incorretamente categorizados
+    for category in list(market_categories.keys()):
+        if category == "Money Line (1X2)":
+            # Criar uma lista temporária para armazenar os mercados a manter nesta categoria
+            keep_markers = []
+            
+            for i, market_line in enumerate(market_categories[category]):
+                option_text = market_line.split("@")[0].replace("•", "").strip()
+                
+                # Verificar se é realmente um mercado de Chance Dupla
+                if "1x" in option_text.lower() or "x2" in option_text.lower() or "12" in option_text.lower():
+                    # Adicionar à categoria correta
+                    if "Chance Dupla" not in market_categories:
+                        market_categories["Chance Dupla"] = []
+                    market_categories["Chance Dupla"].append(market_line)
+                else:
+                    # Manter na categoria atual
+                    keep_markers.append(market_line)
+            
+            # Atualizar a categoria com apenas os mercados corretos
+            market_categories[category] = keep_markers
             # PARTE 2: EXTRAÇÃO DE PROBABILIDADES
     # ===================================
     probs_section = ""
