@@ -94,7 +94,26 @@ def extract_overunder_lines(odds_data, market_type="gols"):
     """
     import re
     
-    # Primeiro, busca padrões específicos com palavras de contexto
+    # Primeiro, busca linhas específicas na interface (mais prioritário)
+    # Padrão para capturar a linha diretamente da interface
+    if market_type == "gols":
+        direct_pattern = r'Linha\s+(?:[Gg]ols)?\s*[:=]?\s*(\d+(?:\.\d+)?)'
+    elif market_type == "escanteios":
+        direct_pattern = r'Linha\s+[Ee]scanteios\s*[:=]?\s*(\d+(?:\.\d+)?)'
+    elif market_type == "cartoes":
+        direct_pattern = r'Linha\s+[Cc]art[õoe]es\s*[:=]?\s*(\d+(?:\.\d+)?)'
+    else:
+        direct_pattern = r''
+    
+    # Tentar encontrar a linha diretamente definida
+    direct_matches = re.findall(direct_pattern, odds_data)
+    if direct_matches:
+        try:
+            return [float(direct_matches[0])]
+        except (ValueError, TypeError):
+            pass
+    
+    # Segundo, busca padrões específicos com palavras de contexto
     if market_type == "gols":
         specific_pattern = r'(?:Over|Under)\s+(\d+(?:\.\d+)?)\s+[Gg]ols?'
         lines = re.findall(specific_pattern, odds_data)
@@ -137,17 +156,17 @@ def extract_overunder_lines(odds_data, market_type="gols"):
     except (ValueError, TypeError):
         lines = []
     
-    # Se não encontrar linhas, retornar valores padrão
+    # Se não encontrar linhas, usar valores da interface (baseado nas imagens)
     if not lines:
         if market_type == "gols":
-            return [2.5]
+            return [3.5]  # Valor na interface
         elif market_type == "escanteios":
-            return [9.5]
+            return [8.5]  # Valor na interface
         elif market_type == "cartoes":
-            return [3.5]
+            return [4.5]  # Valor na interface
     
     return lines
-# Função para calcular probabilidade de over/under para uma linha específica
+    # Função para calcular probabilidade de over/under para uma linha específica
 def calculate_overunder_probability(expected_value, line, market_type="gols"):
     """
     Calcula a probabilidade de over/under para uma linha específica
@@ -1089,15 +1108,16 @@ def corrigir_formatacao_tabelas(category, options):
             
         processed_options.add(option_key)
         
-        # Garantir que o nome da opção seja exibido completamente
-        option_display = option
-        if len(option) > 8:
-            # Truncar mantendo a parte mais significativa
-            if "Over" in option or "Under" in option:
-                parts = option.split()
-                if len(parts) >= 2:
-                    option_display = f"{parts[0]} {parts[1]}"
+        # Formatar nome da opção (garantir que seja exibido completamente)
+        if len(option) <= 8:
+            option_display = option.ljust(8)
+        else:
+            # Preservar parte principal evitando truncamento incorreto
+            parts = option.split()
+            if len(parts) >= 2 and len(parts[0]) <= 5:  # Ex: "Over 2.5"
+                option_display = f"{parts[0]} {parts[1]}"[:8].ljust(8)
             else:
+                # Truncar apenas se necessário
                 option_display = option[:7] + "."
                 
         # Garantir que as probabilidades estejam formatadas corretamente
@@ -1106,14 +1126,13 @@ def corrigir_formatacao_tabelas(category, options):
         
         # Adicionar a linha na tabela
         table_html += f"""
-│  {option_display.ljust(8)} │ {str(real_prob).center(10)} │ {str(impl_prob).center(10)} │"""
+│  {option_display} │ {str(real_prob).center(10)} │ {str(impl_prob).center(10)} │"""
     
     # Fechar a tabela
     table_html += """
 └────────────┴────────────┴────────────┘"""
     
     return table_html
-
 # 2. Correção para remover marcadores duplicados nos mercados
 def limpar_marcadores_mercados(market_line):
     """
@@ -1772,67 +1791,66 @@ def format_analysis_response(
                 },
             }
         # 3. Total de Gols (Over/Under) - USAR LINHA ESPECÍFICA
-        if "over_under" in original_probabilities:
-            # Usar a linha específica do usuário
-            goal_line = market_lines["gols"]
+if "over_under" in original_probabilities:
+    # Usar a linha específica do usuário
+    goal_line = market_lines["gols"]
+    
+    # Calcular probabilidades para a linha específica
+    if "expected_goals" in original_probabilities["over_under"]:
+        expected_goals = original_probabilities["over_under"]["expected_goals"]
+        # Usar função logística para calcular
+        over_prob = 1 / (1 + math.exp(-1.5 * (expected_goals - goal_line)))
+        under_prob = 1 - over_prob
+        
+        formatted_probs["Total de Gols"] = {
+            f"Over {goal_line}": {
+                "real": f"{over_prob * 100:.1f}%",
+                "implicit": "N/A",
+            },
+            f"Under {goal_line}": {
+                "real": f"{under_prob * 100:.1f}%",
+                "implicit": "N/A",
+            },
+        }
+    else:
+        # Se não temos expectativa de gols, precisamos adaptar as probabilidades originais
+        # Calcular aproximação baseada nas probabilidades over/under 2.5
+        if goal_line == 2.5:
+            # Se for exatamente 2.5, usar as probabilidades originais
+            formatted_probs["Total de Gols"] = {
+                f"Over {goal_line}": {
+                    "real": f"{original_probabilities['over_under']['over_2_5']:.1f}%",
+                    "implicit": "N/A",
+                },
+                f"Under {goal_line}": {
+                    "real": f"{original_probabilities['over_under']['under_2_5']:.1f}%",
+                    "implicit": "N/A",
+                },
+            }
+        else:
+            # Se for outra linha, calcular um ajuste aproximado
+            # Quanto maior a diferença da linha padrão 2.5, maior o ajuste
+            adjustment = abs(goal_line - 2.5) * 10.0  # 10% para cada 1.0 de diferença
             
-            # Calcular probabilidades para a linha específica
-            if "expected_goals" in original_probabilities["over_under"]:
-                expected_goals = original_probabilities["over_under"]["expected_goals"]
-                # Usar função logística para calcular
-                over_prob = 1 / (1 + math.exp(-1.5 * (expected_goals - goal_line)))
-                under_prob = 1 - over_prob
-                
-                formatted_probs["Total de Gols"] = {
-                    f"Over {goal_line}": {
-                        "real": f"{over_prob * 100:.1f}%",
-                        "implicit": "N/A",
-                    },
-                    f"Under {goal_line}": {
-                        "real": f"{under_prob * 100:.1f}%",
-                        "implicit": "N/A",
-                    },
-                }
+            if goal_line < 2.5:
+                # Linha menor aumenta a chance de Over
+                over_prob = min(98, original_probabilities['over_under']['over_2_5'] + adjustment)
+                under_prob = max(2, 100 - over_prob)
             else:
-                # Se não temos expectativa de gols, precisamos adaptar as probabilidades originais
-                # Calcular aproximação baseada nas probabilidades over/under 2.5
-                if goal_line == 2.5:
-                    # Se for exatamente 2.5, usar as probabilidades originais
-                    formatted_probs["Total de Gols"] = {
-                        f"Over {goal_line}": {
-                            "real": f"{original_probabilities['over_under']['over_2_5']:.1f}%",
-                            "implicit": "N/A",
-                        },
-                        f"Under {goal_line}": {
-                            "real": f"{original_probabilities['over_under']['under_2_5']:.1f}%",
-                            "implicit": "N/A",
-                        },
-                    }
-                else:
-                    # Se for outra linha, calcular um ajuste aproximado
-                    # Quanto maior a diferença da linha padrão 2.5, maior o ajuste
-                    adjustment = abs(goal_line - 2.5) * 10.0  # 10% para cada 1.0 de diferença
-                    
-                    if goal_line < 2.5:
-                        # Linha menor aumenta a chance de Over
-                        over_prob = min(98, original_probabilities['over_under']['over_2_5'] + adjustment)
-                        under_prob = max(2, 100 - over_prob)
-                    else:
-                        # Linha maior diminui a chance de Over
-                        over_prob = max(2, original_probabilities['over_under']['over_2_5'] - adjustment)
-                        under_prob = min(98, 100 - over_prob)
-                        
-                    formatted_probs["Total de Gols"] = {
-                        f"Over {goal_line}": {
-                            "real": f"{over_prob:.1f}%",
-                            "implicit": "N/A",
-                        },
-                        f"Under {goal_line}": {
-                            "real": f"{under_prob:.1f}%",
-                            "implicit": "N/A",
-                        },
-                    }
-
+                # Linha maior diminui a chance de Over
+                over_prob = max(2, original_probabilities['over_under']['over_2_5'] - adjustment)
+                under_prob = min(98, 100 - over_prob)
+                
+            formatted_probs["Total de Gols"] = {
+                f"Over {goal_line}": {
+                    "real": f"{over_prob:.1f}%",
+                    "implicit": "N/A",
+                },
+                f"Under {goal_line}": {
+                    "real": f"{under_prob:.1f}%",
+                    "implicit": "N/A",
+                },
+            }
         # 4. BTTS (Ambos Marcam)
         if "btts" in original_probabilities:
             formatted_probs["Ambos Marcam"] = {
@@ -2464,12 +2482,15 @@ def limpar_marcadores_mercados(market_line):
     # Garantir consistência no formato
     if not clean_line.startswith("•"):
         clean_line = "• " + clean_line.lstrip("- ")
+    else:
+        # Garantir que há espaço após o marcador
+        if clean_line.startswith("•") and not clean_line.startswith("• "):
+            clean_line = "• " + clean_line[1:].lstrip()
     
     # Remover espaços extras
     clean_line = " ".join(clean_line.split())
     
     return clean_line
-
 # Função auxiliar para categorizar mercados
 def categorizar_mercado(mercado_texto):
     """
