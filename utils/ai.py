@@ -1516,22 +1516,22 @@ if "ANÁLISE DE MERCADOS DISPONÍVEIS" in analysis_text:
                         if "Implícita:" not in market:
                             market = f"{market} (Implícita: {implied_prob}%)"
                     processed_markets[category].append(market)
-
-# Substituir market_categories com a versão processada
-market_categories = processed_markets    
-    # PARTE 2: EXTRAÇÃO DE PROBABILIDADES
-    # ===================================
-    probs_section = ""
-    if "PROBABILIDADES CALCULADAS" in analysis_text:
-        try:
-            probs_section = analysis_text.split("PROBABILIDADES CALCULADAS")[1].split(
-                "OPORTUNIDADES"
-            )[0]
-        except:
-            logger.warning(
-                "Não foi possível extrair seção de probabilidades calculadas"
-            )
-
+            
+            # Substituir market_categories com a versão processada
+            market_categories = processed_markets
+            
+            # PARTE 2: EXTRAÇÃO DE PROBABILIDADES
+            # ===================================
+            probs_section = ""
+            if "PROBABILIDADES CALCULADAS" in analysis_text:
+                try:
+                    probs_section = analysis_text.split("PROBABILIDADES CALCULADAS")[1].split(
+                        "OPORTUNIDADES"
+                    )[0]
+                except:
+                    logger.warning(
+                        "Não foi possível extrair seção de probabilidades calculadas"
+                    )
     # Detectar e processar tabelas de probabilidades
     if probs_section:
         # Tentar extrair tabelas formatadas
