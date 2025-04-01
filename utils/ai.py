@@ -2048,7 +2048,7 @@ NÍVEL DE CONFIANÇA GERAL: {confidence_level}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
     
     clean_report = fix_analysis_output(clean_report, home_team, away_team)
-    clean_report = fix_btts_and_form(clean_report, home_team, away_team)
+    clean_report = fix_opportunities_and_form(clean_report, home_team, away_team)
     return clean_report
 
 # Função auxiliar para limpar marcadores de mercados (usada no code acima)
