@@ -2052,7 +2052,7 @@ NÍVEL DE CONFIANÇA GERAL: {confidence_level}
     
     clean_report = fix_analysis_output(clean_report, home_team, away_team)
     clean_report = fix_opportunities_and_form(clean_report, home_team, away_team)
-    clean_report = fix_btts_probabilities(clean_report)
+    clean_report = (clean_report)
     clean_report = fix_markets_display(clean_report, home_team, away_team)
     clean_report = final_fixes(clean_report)
     clean_report = fix_forma_calculation(clean_report, home_team, away_team)  # Cálculo direto de FORMA
@@ -3590,34 +3590,26 @@ def fix_opportunities_and_form(analysis_text, home_team, away_team):
     
     return analysis_text
 def fix_btts_probabilities(analysis_text):
+    """
+    Corrige especificamente as probabilidades BTTS usando as odds exatas do input do usuário
+    """
     import re
     
-    # Primeiro, procurar por valores específicos em outras partes do texto
-    btts_yes_odds = None
-    btts_no_odds = None
+    # Buscar os valores reais do input do usuário na primeira ocorrência
+    btts_input_section = re.search(r"\[Ambos Marcam\].*?Sim \(BTTS\): @([\d\.]+).*?Não \(BTTS\): @([\d\.]+)", analysis_text, re.DOTALL)
     
-    # Procure por padrões de odds de BTTS em toda a resposta, não apenas na seção específica
-    btts_yes_pattern = r"Sim.*?@(\d+[\.,]\d+)"
-    btts_no_pattern = r"Não.*?@(\d+[\.,]\d+)"
-    
-    yes_match = re.search(btts_yes_pattern, analysis_text)
-    no_match = re.search(btts_no_pattern, analysis_text)
-    
-    if yes_match:
-        btts_yes_odds = float(yes_match.group(1).replace(',', '.'))
-    
-    if no_match:
-        btts_no_odds = float(no_match.group(1).replace(',', '.'))
-    
-    # Se encontrou as odds, atualize a tabela
-    if btts_yes_odds and btts_no_odds:
-        # Calcular probabilidades implícitas
+    if btts_input_section:
+        # Extrair as odds diretamente do que o usuário inseriu
+        btts_yes_odds = float(btts_input_section.group(1))
+        btts_no_odds = float(btts_input_section.group(2))
+        
+        # Calcular as probabilidades implícitas
         btts_yes_impl = f"{(100/btts_yes_odds):.1f}%"
         btts_no_impl = f"{(100/btts_no_odds):.1f}%"
         
         # Encontrar a tabela BTTS
         btts_table = re.search(r"\[Ambos Marcam\].*?└────────────┴────────────┴────────────┘", analysis_text, re.DOTALL)
-        if btts_table and "N/A" in btts_table.group(0):
+        if btts_table:
             table_text = btts_table.group(0)
             
             # Extrair as probabilidades reais
@@ -3853,51 +3845,68 @@ def final_corrections(analysis_text, home_team, away_team):
     return analysis_text
 def fix_forma_calculation(analysis_text, home_team, away_team):
     """
-    Corrige especificamente o cálculo de FORMA para somar corretamente
-    os pontos dos últimos 5 jogos.
+    Calcula a FORMA com base nas odds de Money Line e outros indicadores
     """
     import re
     
-    # Buscar informações das odds para determinar o favorito
-    ml_section = re.search(r"\[Money Line \(1X2\)\].*?Casa.*?@(\d+[\.,]\d+).*?Fora.*?@(\d+[\.,]\d+)", analysis_text, re.DOTALL)
-    
-    # Valores padrão
-    home_form_points = 9
-    away_form_points = 7
+    # Buscar odds do Money Line para determinar o favorito
+    ml_section = re.search(r"\[Money Line \(1X2\)\].*?Casa.*?@([\d\.]+).*?Empate.*?@([\d\.]+).*?Fora.*?@([\d\.]+)", analysis_text, re.DOTALL)
     
     if ml_section:
         try:
-            home_odds = float(ml_section.group(1).replace(',', '.'))
-            away_odds = float(ml_section.group(2).replace(',', '.'))
+            home_odds = float(ml_section.group(1))
+            draw_odds = float(ml_section.group(2))
+            away_odds = float(ml_section.group(3))
             
-            # CORRIGIDO: Odds menores = time mais forte (forma melhor)
-            if home_odds < away_odds:  # Time da casa é favorito
-                diff = away_odds - home_odds
-                # Quanto maior a diferença, mais pontos para o favorito
-                if diff > 2:
-                    home_form_points = 13  # Muito favorito
-                    away_form_points = 4
-                else:
-                    home_form_points = 11  # Moderadamente favorito
-                    away_form_points = 6
-            else:  # Visitante é favorito
-                diff = home_odds - away_odds
-                # Quanto maior a diferença, mais pontos para o favorito
-                if diff > 2:
-                    home_form_points = 4
-                    away_form_points = 13  # Muito favorito
-                else:
-                    home_form_points = 6
-                    away_form_points = 11  # Moderadamente favorito
+            # Calcular probabilidades implícitas
+            home_prob = 100 / home_odds
+            away_prob = 100 / away_odds
+            
+            # Quanto maior a probabilidade implícita, mais pontos de forma
+            # Escala de 3 a 15 (3 = pior, 15 = melhor)
+            
+            # Time da casa - escala de forma
+            if home_prob >= 60:  # Muito favorito
+                home_form_points = 14
+            elif home_prob >= 50:  # Favorito
+                home_form_points = 12
+            elif home_prob >= 40:  # Ligeiro favorito
+                home_form_points = 10
+            elif home_prob >= 30:  # Equilibrado
+                home_form_points = 8
+            elif home_prob >= 20:  # Ligeiro azarão
+                home_form_points = 6
+            else:  # Azarão claro
+                home_form_points = 4
+            
+            # Time visitante - escala de forma
+            if away_prob >= 60:  # Muito favorito
+                away_form_points = 14
+            elif away_prob >= 50:  # Favorito
+                away_form_points = 12
+            elif away_prob >= 40:  # Ligeiro favorito
+                away_form_points = 10
+            elif away_prob >= 30:  # Equilibrado
+                away_form_points = 8
+            elif away_prob >= 20:  # Ligeiro azarão
+                away_form_points = 6
+            else:  # Azarão claro
+                away_form_points = 4
         except:
-            pass
+            # Fallback para valores padrão
+            home_form_points = 10
+            away_form_points = 8
+    else:
+        # Valores padrão se não encontrar as odds
+        home_form_points = 10
+        away_form_points = 8
     
     # Substituir a linha de FORMA
     form_pattern = r"► FORMA:.*?(?=\n)"
     new_form_line = f"► FORMA: {home_team}: {home_form_points}/15 pontos, {away_team}: {away_form_points}/15 pontos (baseado nos últimos 5 jogos)."
     analysis_text = re.sub(form_pattern, new_form_line, analysis_text)
     
-    return analysis_text    # Função para calcular pontos com base na sequência de resultados
+    return analysis_text  # Função para calcular pontos com base na sequência de resultados
     def calculate_points(results):
         points = 0
         for result in results:
@@ -4003,3 +4012,23 @@ def final_fixes(analysis_text):
     analysis_text = analysis_text.replace("• • •", "• •").replace("••", "•")
     
     return analysis_text
+def generate_opportunities(prob_tables):
+    valid_opps = []
+    
+    for category, options in prob_tables.items():
+        for option, probs in options.items():
+            real_prob = parse_percentage(probs["real"])
+            impl_prob = parse_percentage(probs["implicit"])
+            
+            # Só considerar oportunidade quando real > implícita
+            if real_prob > impl_prob:
+                advantage = real_prob - impl_prob
+                
+                # Considerar apenas vantagens significativas (>= 2%)
+                if advantage >= 2.0:
+                    valid_opps.append(f"• **[{category}] {option}**: Real {real_prob:.1f}% vs Implícita {impl_prob:.1f}% (Vantagem: +{advantage:.1f}%)")
+    
+    # Ordenar por tamanho da vantagem
+    valid_opps.sort(key=lambda x: float(re.search(r"\+(\d+\.\d+)%", x).group(1)), reverse=True)
+    
+    return valid_opps
