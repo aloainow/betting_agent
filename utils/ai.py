@@ -2047,11 +2047,12 @@ NÍVEL DE CONFIANÇA GERAL: {confidence_level}
      © RELATÓRIO VALUE HUNTER DE ANÁLISE ESPORTIVA
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
     
-        clean_report = fix_analysis_output(clean_report, home_team, away_team)
-        clean_report = fix_opportunities_and_form(clean_report, home_team, away_team)
-        clean_report = fix_btts_probabilities(clean_report)
-        clean_report = fix_markets_display(clean_report, home_team, away_team)  # Nova função
-        return clean_report
+    clean_report = fix_analysis_output(clean_report, home_team, away_team)
+    clean_report = fix_opportunities_and_form(clean_report, home_team, away_team)
+    clean_report = fix_btts_probabilities(clean_report)
+    clean_report = fix_markets_display(clean_report, home_team, away_team)  # Nova função
+    return clean_report
+    
 # Função auxiliar para limpar marcadores de mercados (usada no code acima)
 def limpar_marcadores_mercados(market_line):
     """
