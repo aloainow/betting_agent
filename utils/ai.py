@@ -324,29 +324,31 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
         # E então, ao calcular os pontos, use a função form_to_points atualizada
         # Modificar onde o cálculo é feito:
         # Calcular pontos brutos (0-15)
+        # Calcular pontos brutos (0-15)
         home_form_raw_points = form_to_points(home_form)
         away_form_raw_points = form_to_points(away_form)
         
-        # Normalizar para usar em cálculos (0-1)
+        # Normalizar para uso nos cálculos (0-1)
         home_form_normalized = home_form_raw_points / 15.0
         away_form_normalized = away_form_raw_points / 15.0
         
-        # Usar os valores normalizados nos cálculos
+        # Usar nas ponderações
         home_total_score = (
-            home_form_normalized * 0.35 +
-            home_stats_score * 0.25 +
-            home_position_score * 0.20 +
-            home_creation * 0.20
+            home_form_normalized * 0.35 +      # Normalizar para 0-1
+            home_stats_score * 0.25 +      # Estatísticas: 25%
+            home_position_score * 0.20 +   # Posição: 20%
+            home_creation * 0.20           # Criação: 20%
         )
         
-        # Usar os valores brutos na exibição
-        probability_section += f"""
-        ### Índices de Confiança
-        * Consistência {home_team}: {home_consistency:.1f}%
-        * Consistência {away_team}: {away_consistency:.1f}%
-        * Forma recente {home_team} (pontos): {home_form_raw_points}/15
-        * Forma recente {away_team} (pontos): {away_form_raw_points}/15
-        """
+        # Armazenar os valores brutos e normalizados para uso posterior
+        analysis_data = {
+            "home_consistency": home_consistency,
+            "away_consistency": away_consistency,
+            "home_form_points": home_form_raw_points / 15.0,  # Armazenar como normalizado, mas o valor bruto é usado na exibição
+            "away_form_points": away_form_raw_points / 15.0,
+            "home_total_score": home_total_score,
+            "away_total_score": away_total_score
+        }
         
         # E para cálculos, se necessário:
         home_total_score = (
@@ -864,83 +866,254 @@ def check_data_quality(stats_dict):
     
     return False
 
-def format_analysis_response(analysis_text, home_team, away_team, **kwargs):
+def format_analysis_response(analysis_text, home_team, away_team, selected_markets=None, original_probabilities=None):
     """
-    Garante que a resposta da análise seja formatada corretamente, identificando oportunidades com valor.
+    Reformata completamente a análise para corrigir os problemas de exibição.
+    
+    Args:
+        analysis_text (str): Texto original da análise
+        home_team (str): Nome do time da casa
+        away_team (str): Nome do time visitante
+        selected_markets (dict): Mercados selecionados
+        original_probabilities (dict): Probabilidades calculadas originalmente
+        
+    Returns:
+        str: Análise corrigida
     """
-    # Se não começar com a estrutura esperada, formatar o conteúdo
-    if not analysis_text.strip().startswith("# Análise da Partida"):
-        analysis_text = f"# Análise da Partida\n## {home_team} x {away_team}\n\n{analysis_text}"
-    
-    # Criar uma nova seção de Oportunidades Identificadas
-    new_opportunities = []
-    
-    # Procurar pela seção de probabilidades calculadas
-    if "# Probabilidades Calculadas" in analysis_text:
-        prob_section = analysis_text.split("# Probabilidades Calculadas")[1]
+    try:
+        # Verificar se temos o texto de análise
+        if not analysis_text:
+            logger.error("Texto de análise vazio")
+            return "Erro ao processar análise."
         
-        # Cortar até a próxima seção, se houver
-        if "#" in prob_section:
-            prob_section = prob_section.split("#")[0]
+        # Extrair as seções existentes
+        sections = {}
+        current_section = None
+        section_content = []
         
-        # Analisar linha por linha
-        lines = prob_section.strip().split('\n')
-        for line in lines:
-            line = line.strip()
-            # Pular linhas vazias
-            if not line:
-                continue
+        for line in analysis_text.split('\n'):
+            if line.startswith('# '):
+                if current_section:
+                    sections[current_section] = '\n'.join(section_content)
+                current_section = line[2:].strip()
+                section_content = []
+            else:
+                section_content.append(line)
+        
+        # Adicionar a última seção
+        if current_section:
+            sections[current_section] = '\n'.join(section_content)
+        
+        # Criar a nova análise
+        new_analysis = []
+        
+        # Adicionar título
+        new_analysis.append(f"# Análise da Partida\n## {home_team} x {away_team}")
+        
+        # Adicionar mercados disponíveis
+        if "Análise de Mercados Disponíveis" in sections:
+            new_analysis.append(f"# Análise de Mercados Disponíveis:\n{sections['Análise de Mercados Disponíveis']}")
+        else:
+            new_analysis.append("# Análise de Mercados Disponíveis:\nNão foi possível recuperar a análise de mercados.")
+        
+        # Identificar probabilidades calculadas e reais
+        # Primeira etapa: extrair valores das probabilidades calculadas
+        prob_data = {}
+        
+        # Tentar extrair do texto original
+        if "Probabilidades Calculadas" in sections:
+            prob_text = sections["Probabilidades Calculadas"]
+            
+            # Procurar probabilidades para Money Line
+            if "Genoa CFC" in prob_text or home_team in prob_text:
+                # Extrair probabilidade para casa
+                home_lines = [line for line in prob_text.split('\n') if home_team in line or "Probabilidade Real" in line and "Casa" in line]
+                if home_lines and "Real:" in home_lines[0]:
+                    try:
+                        real_prob = float(home_lines[0].split("Real:")[1].split("%")[0].strip())
+                        impl_prob = float(home_lines[0].split("Implícita:")[1].split("%")[0].strip())
+                        prob_data["home"] = {"real": real_prob, "implicit": impl_prob}
+                    except:
+                        pass
                 
-            # Verificar se a linha contém informações de probabilidades
-            if "Real:" in line and "Implícita:" in line:
-                try:
-                    # Extrair as probabilidades
-                    real_prob = float(line.split("Real:")[1].split("%")[0].strip())
-                    impl_prob = float(line.split("Implícita:")[1].split("%")[0].strip())
-                    
-                    # Verificar se há valor (real > implícita por pelo menos 2%)
-                    if real_prob > impl_prob + 2:
-                        # Extrair o nome do mercado
-                        market_name = line.split(":")[0].strip()
-                        if market_name.startswith("-"):
-                            market_name = market_name[1:].strip()
-                            
-                        # Adicionar à lista de oportunidades
-                        value_pct = real_prob - impl_prob
-                        new_opportunities.append(f"- **{market_name}:** Real {real_prob:.1f}% vs Implícita {impl_prob:.1f}% (Valor de {value_pct:.1f}%)")
-                except Exception as e:
-                    # Se houver erro ao processar a linha, ignorar e continuar
-                    continue
+                # Extrair probabilidade para empate
+                draw_lines = [line for line in prob_text.split('\n') if "Empate" in line]
+                if draw_lines and "Real:" in draw_lines[0]:
+                    try:
+                        real_prob = float(draw_lines[0].split("Real:")[1].split("%")[0].strip())
+                        impl_prob = float(draw_lines[0].split("Implícita:")[1].split("%")[0].strip())
+                        prob_data["draw"] = {"real": real_prob, "implicit": impl_prob}
+                    except:
+                        pass
+                
+                # Extrair probabilidade para fora
+                away_lines = [line for line in prob_text.split('\n') if away_team in line or "Fora" in line]
+                if away_lines and "Real:" in away_lines[0]:
+                    try:
+                        real_prob = float(away_lines[0].split("Real:")[1].split("%")[0].strip())
+                        impl_prob = float(away_lines[0].split("Implícita:")[1].split("%")[0].strip())
+                        prob_data["away"] = {"real": real_prob, "implicit": impl_prob}
+                    except:
+                        pass
+        
+        # Segunda etapa: usar probabilidades originais se disponíveis
+        if not prob_data and original_probabilities:
+            if "moneyline" in original_probabilities:
+                moneyline = original_probabilities["moneyline"]
+                prob_data["home"] = {"real": moneyline.get("home_win", 0)}
+                prob_data["draw"] = {"real": moneyline.get("draw", 0)}
+                prob_data["away"] = {"real": moneyline.get("away_win", 0)}
+            
+            if "double_chance" in original_probabilities:
+                dc = original_probabilities["double_chance"]
+                prob_data["home_draw"] = {"real": dc.get("home_or_draw", 0)}
+                prob_data["home_away"] = {"real": dc.get("home_or_away", 0)}
+                prob_data["draw_away"] = {"real": dc.get("away_or_draw", 0)}
+            
+            if "btts" in original_probabilities:
+                btts = original_probabilities["btts"]
+                prob_data["btts_yes"] = {"real": btts.get("yes", 0)}
+                prob_data["btts_no"] = {"real": btts.get("no", 0)}
+        
+        # Terceira etapa: reconstruir a seção de probabilidades calculadas
+        new_probs = "# Probabilidades Calculadas (REAL vs IMPLÍCITA):\n"
+        
+        # Money Line
+        if selected_markets and selected_markets.get("money_line"):
+            new_probs += "## Money Line (1X2):\n"
+            
+            # Casa
+            if "home" in prob_data:
+                real = prob_data["home"].get("real", 0)
+                implicit = prob_data["home"].get("implicit", 0)
+                value = real > implicit + 2
+                new_probs += f"- **{home_team}**: Real {real:.1f}% vs Implícita {implicit:.1f}%{' (Valor)' if value else ''}\n"
+            
+            # Empate
+            if "draw" in prob_data:
+                real = prob_data["draw"].get("real", 0)
+                implicit = prob_data["draw"].get("implicit", 0)
+                value = real > implicit + 2
+                new_probs += f"- **Empate**: Real {real:.1f}% vs Implícita {implicit:.1f}%{' (Valor)' if value else ''}\n"
+            
+            # Fora
+            if "away" in prob_data:
+                real = prob_data["away"].get("real", 0)
+                implicit = prob_data["away"].get("implicit", 0)
+                value = real > implicit + 2
+                new_probs += f"- **{away_team}**: Real {real:.1f}% vs Implícita {implicit:.1f}%{' (Valor)' if value else ''}\n"
+            
+            new_probs += "\n"
+        
+        # Chance Dupla
+        if selected_markets and selected_markets.get("chance_dupla"):
+            new_probs += "## Chance Dupla (Double Chance):\n"
+            
+            # 1X
+            if "home_draw" in prob_data:
+                real = prob_data["home_draw"].get("real", 0)
+                implicit = prob_data["home_draw"].get("implicit", 0)
+                value = real > implicit + 2
+                new_probs += f"- **{home_team} ou Empate**: Real {real:.1f}% vs Implícita {implicit:.1f}%{' (Valor)' if value else ''}\n"
+            
+            # 12
+            if "home_away" in prob_data:
+                real = prob_data["home_away"].get("real", 0)
+                implicit = prob_data["home_away"].get("implicit", 0)
+                value = real > implicit + 2
+                new_probs += f"- **{home_team} ou {away_team}**: Real {real:.1f}% vs Implícita {implicit:.1f}%{' (Valor)' if value else ''}\n"
+            
+            # X2
+            if "draw_away" in prob_data:
+                real = prob_data["draw_away"].get("real", 0)
+                implicit = prob_data["draw_away"].get("implicit", 0)
+                value = real > implicit + 2
+                new_probs += f"- **Empate ou {away_team}**: Real {real:.1f}% vs Implícita {implicit:.1f}%{' (Valor)' if value else ''}\n"
+            
+            new_probs += "\n"
+        
+        # BTTS
+        if selected_markets and selected_markets.get("ambos_marcam"):
+            new_probs += "## Ambos Marcam (BTTS):\n"
+            
+            # Sim
+            if "btts_yes" in prob_data:
+                real = prob_data["btts_yes"].get("real", 0)
+                implicit = prob_data["btts_yes"].get("implicit", 0)
+                value = real > implicit + 2
+                new_probs += f"- **Sim**: Real {real:.1f}% vs Implícita {implicit:.1f}%{' (Valor)' if value else ''}\n"
+            
+            # Não
+            if "btts_no" in prob_data:
+                real = prob_data["btts_no"].get("real", 0)
+                implicit = prob_data["btts_no"].get("implicit", 0)
+                value = real > implicit + 2
+                new_probs += f"- **Não**: Real {real:.1f}% vs Implícita {implicit:.1f}%{' (Valor)' if value else ''}\n"
+        
+        # Adicionar seção de probabilidades
+        new_analysis.append(new_probs)
+        
+        # Identificar oportunidades com valor
+        opportunities = []
+        
+        # Iterar sobre todas as linhas da seção de probabilidades
+        for line in new_probs.split('\n'):
+            if '(Valor)' in line:
+                # Remover o prefixo "- " e outros caracteres de formatação
+                if line.startswith('-'):
+                    line = line[1:].strip()
+                
+                # Adicionar à lista de oportunidades
+                opportunities.append(f"- {line}")
+        
+        # Adicionar seção de oportunidades
+        if opportunities:
+            new_analysis.append("# Oportunidades Identificadas:\n" + "\n".join(opportunities))
+        else:
+            new_analysis.append("# Oportunidades Identificadas:\nInfelizmente não detectamos valor em nenhuma dos seus inputs.")
+        
+        # Adicionar seção de nível de confiança
+        if "Nível de Confiança Geral" in sections:
+            confidence_content = sections["Nível de Confiança Geral"]
+            
+            # Tentar extrair o nível de confiança (Baixo/Médio/Alto)
+            level = "Médio"  # Valor padrão
+            if ":" in confidence_content.split('\n')[0]:
+                level = confidence_content.split('\n')[0].split(':', 1)[1].strip()
+            
+            # Montar nova seção com explicações padrão
+            confidence_text = f"# Nível de Confiança Geral: {level}\n"
+            confidence_text += "- **Consistência**: É uma medida (%) que indica quão previsível é o desempenho da equipe. Valores mais altos indicam maior previsibilidade.\n"
+            
+            # Adicionar dados de forma se disponíveis
+            if original_probabilities and "analysis_data" in original_probabilities:
+                analysis_data = original_probabilities["analysis_data"]
+                home_consistency = analysis_data.get("home_consistency", 0) * 100
+                away_consistency = analysis_data.get("away_consistency", 0) * 100
+                home_form_points = int(analysis_data.get("home_form_points", 0) * 15)
+                away_form_points = int(analysis_data.get("away_form_points", 0) * 15)
+                
+                confidence_text += f"- **Consistência {home_team}**: {home_consistency:.1f}%, **{away_team}**: {away_consistency:.1f}%\n"
+                confidence_text += f"- **Forma Recente**: {home_team} ({home_form_points}/15), {away_team} ({away_form_points}/15)\n"
+                confidence_text += "- Forma representa a pontuação dos últimos 5 jogos (vitória=3pts, empate=1pt, derrota=0pts). Valores mais altos indicam melhor desempenho recente.\n"
+            else:
+                confidence_text += "- **Forma Recente**: Representa a pontuação dos últimos 5 jogos (vitória=3pts, empate=1pt, derrota=0pts). Valores mais altos indicam melhor desempenho recente.\n"
+            
+            # Adicionar o restante do texto de confiança
+            if confidence_content.count('\n') > 1:
+                confidence_text += '\n'.join(confidence_content.split('\n')[1:])
+            
+            new_analysis.append(confidence_text)
+        else:
+            new_analysis.append("# Nível de Confiança Geral: Médio\nBaseado nas estatísticas disponíveis e na qualidade dos dados.")
+        
+        # Retornar o texto reconstruído
+        return '\n\n'.join(new_analysis)
     
-    # Substituir ou criar a seção de oportunidades
-    if "# Oportunidades Identificadas" in analysis_text:
-        # Extrair a seção atual e o que vem depois
-        parts = analysis_text.split("# Oportunidades Identificadas", 1)
-        before_opps = parts[0]
-        
-        after_opps = ""
-        if "#" in parts[1]:
-            opps_and_after = parts[1].split("#", 1)
-            after_opps = "#" + opps_and_after[1]
-        else:
-            after_opps = ""
-        
-        # Criar nova seção
-        if new_opportunities:
-            new_section = "# Oportunidades Identificadas:\n" + "\n".join(new_opportunities)
-        else:
-            new_section = "# Oportunidades Identificadas:\nInfelizmente não detectamos valor em nenhuma dos seus inputs."
-        
-        # Reconstruir o texto
-        analysis_text = before_opps + new_section + after_opps
-    else:
-        # Se a seção não existe, criar nova seção no final
-        if new_opportunities:
-            analysis_text += "\n# Oportunidades Identificadas:\n" + "\n".join(new_opportunities) + "\n"
-        else:
-            analysis_text += "\n# Oportunidades Identificadas:\nInfelizmente não detectamos valor em nenhuma dos seus inputs.\n"
-    
-    return analysis_text
+    except Exception as e:
+        logger.error(f"Erro ao formatar resposta de análise: {str(e)}")
+        logger.error(traceback.format_exc())
+        return analysis_text  # Retornar o texto original em caso de erro
 def format_enhanced_prompt(complete_analysis, home_team, away_team, odds_data, selected_markets):
     """
     Função aprimorada para formatar prompt de análise multi-mercados
@@ -1221,7 +1394,7 @@ def calculate_advanced_probabilities(home_team, away_team, league_table=None):
                     points += 1
                 # L ou outros caracteres = 0 pontos
             
-            return points  # Valor inteiro # Retorno sem divisão, valor inteiro
+            return points  # Valor inteiro  # Valor inteiro # Retorno sem divisão, valor inteiro
         
         # Verificar se os dados de forma parecem suspeitos (ambos iguais a "DDDDD")
         home_form = home_team.get('form', '?????')
