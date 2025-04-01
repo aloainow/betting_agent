@@ -1878,7 +1878,7 @@ def format_analysis_response(
                                     key = f"Under {line}"
                                     if key in formatted_probs[category]:
                                         formatted_probs[category][key]["implicit"] = impl_prob
-
+        
        # CRUCIAL: ADICIONAR PROBABILIDADES PARA MERCADOS SELECIONADOS QUE ESTÃO FALTANDO
         if selected_markets:
             for market_key, is_selected in selected_markets.items():
@@ -1901,7 +1901,10 @@ def format_analysis_response(
                         # NOVO: Garantir que o mercado também está presente nos mercados disponíveis
                         if display_name not in [cat for cat in market_categories if market_categories[cat]]:
                             pass  # Apenas passamos para evitar erro de sintaxe (ou remova esta condição)
-        
+        # Forçar a inclusão das probabilidades no formato de tabela
+        for category, options in formatted_probs.items():
+            if category not in all_probabilities or not all_probabilities[category]:
+                all_probabilities[category] = options
         # MELHORAR OS DADOS DE ANÁLISE DE CONFIANÇA
         # Usar dados reais de análise quando disponíveis em vez de texto genérico
         if original_probabilities and "analysis_data" in original_probabilities:
@@ -2383,12 +2386,15 @@ def determine_market_type(table_name, table_content):
         for category, options in prob_tables.items():
             for option, probs in options.items():
                 # Verificar se tem valor (prob real > prob implícita)
-                if probs["real"] > probs["implicit"]:
-                    advantage = probs["real"] - probs["implicit"]
+                real_prob = parse_percentage(probs["real"])
+                impl_prob = parse_percentage(probs["implicit"])
+                
+                if real_prob > impl_prob:  # Apenas quando real > implícita
+                    advantage = real_prob - impl_prob
                     
                     # Apenas considerar vantagens significativas (>= 2%)
                     if advantage >= 2.0:
-                        valid_opps.append(f"• **[{category}] {option}**: Real {probs['real']:.1f}% vs Implícita {probs['implicit']:.1f}% (Vantagem: +{advantage:.1f}%)")
+                        valid_opps.append(f"• **[{category}] {option}**: Real {real_prob:.1f}% vs Implícita {impl_prob:.1f}% (Vantagem: +{advantage:.1f}%)")
                         logger.info(f"Identificada oportunidade: {category} {option} - vantagem de {advantage:.1f}%")
         
         # Ordenar oportunidades por tamanho da vantagem (maior primeiro)
@@ -3584,68 +3590,57 @@ def fix_opportunities_and_form(analysis_text, home_team, away_team):
     
     return analysis_text
 def fix_btts_probabilities(analysis_text):
-    """
-    Corrige especificamente o problema das probabilidades implícitas N/A 
-    no mercado Ambos Marcam usando as odds já presentes no texto.
-    """
     import re
     
-    # Primeiro, extrair as odds da seção ANÁLISE DE MERCADOS DISPONÍVEIS
+    # Primeiro, procurar por valores específicos em outras partes do texto
     btts_yes_odds = None
     btts_no_odds = None
     
-    btts_market = re.search(r"\[Ambos Marcam\].*?(?=\[|PROBABILIDADES)", analysis_text, re.DOTALL)
-    if btts_market:
-        yes_match = re.search(r"Sim.*?@(\d+\.?\d*)\s*\(Implícita:\s*(\d+\.?\d*)%\)", btts_market.group(0))
-        no_match = re.search(r"Não.*?@(\d+\.?\d*)\s*\(Implícita:\s*(\d+\.?\d*)%\)", btts_market.group(0))
-        
-        if yes_match:
-            btts_yes_odds = float(yes_match.group(1))
-            btts_yes_impl = yes_match.group(2)
-        
-        if no_match:
-            btts_no_odds = float(no_match.group(1))
-            btts_no_impl = no_match.group(2)
+    # Procure por padrões de odds de BTTS em toda a resposta, não apenas na seção específica
+    btts_yes_pattern = r"Sim.*?@(\d+[\.,]\d+)"
+    btts_no_pattern = r"Não.*?@(\d+[\.,]\d+)"
     
-    # Agora, atualizar a tabela PROBABILIDADES CALCULADAS
+    yes_match = re.search(btts_yes_pattern, analysis_text)
+    no_match = re.search(btts_no_pattern, analysis_text)
+    
+    if yes_match:
+        btts_yes_odds = float(yes_match.group(1).replace(',', '.'))
+    
+    if no_match:
+        btts_no_odds = float(no_match.group(1).replace(',', '.'))
+    
+    # Se encontrou as odds, atualize a tabela
     if btts_yes_odds and btts_no_odds:
+        # Calcular probabilidades implícitas
+        btts_yes_impl = f"{(100/btts_yes_odds):.1f}%"
+        btts_no_impl = f"{(100/btts_no_odds):.1f}%"
+        
+        # Encontrar a tabela BTTS
         btts_table = re.search(r"\[Ambos Marcam\].*?└────────────┴────────────┴────────────┘", analysis_text, re.DOTALL)
         if btts_table and "N/A" in btts_table.group(0):
             table_text = btts_table.group(0)
             
-            # Extrair probabilidades reais atuais
-            sim_real = re.search(r"│\s*Sim\s*│\s*(\d+\.?\d*)%\s*│", table_text)
-            nao_real = re.search(r"│\s*Não\s*│\s*(\d+\.?\d*)%\s*│", table_text)
+            # Extrair as probabilidades reais
+            sim_real_match = re.search(r"│\s*Sim\s*│\s*(\d+\.?\d*)%", table_text)
+            nao_real_match = re.search(r"│\s*Não\s*│\s*(\d+\.?\d*)%", table_text)
             
-            # Substituir N/A pelas probabilidades implícitas extraídas
-            if sim_real and "N/A" in table_text:
-                table_text = re.sub(
-                    r"(│\s*Sim\s*│\s*" + re.escape(sim_real.group(1)) + r"%\s*│\s*)N/A(\s*│)",
-                    f"\\1{btts_yes_impl.center(10)}\\2",
-                    table_text
-                )
-            
-            if nao_real and "N/A" in table_text:
-                table_text = re.sub(
-                    r"(│\s*Não\s*│\s*" + re.escape(nao_real.group(1)) + r"%\s*│\s*)N/A(\s*│)",
-                    f"\\1{btts_no_impl.center(10)}\\2",
-                    table_text
-                )
-            
-            analysis_text = analysis_text.replace(btts_table.group(0), table_text)
-    
-    # Corrigir duplicação de separadores na seção OPORTUNIDADES IDENTIFICADAS
-    double_separator = r"▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔"
-    single_separator = r"▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔"
-    
-    if double_separator in analysis_text:
-        analysis_text = analysis_text.replace(double_separator, single_separator)
-    
-    # Também corrigir problema de bullets extras no Ambos Marcam
-    analysis_text = analysis_text.replace("• • •", "• •")
+            if sim_real_match and nao_real_match:
+                # Criar nova tabela com valores corretos
+                sim_real = sim_real_match.group(1)
+                nao_real = nao_real_match.group(1)
+                
+                new_table = f"""[Ambos Marcam]
+┌────────────┬────────────┬────────────┐
+│  MERCADO   │  REAL (%)  │ IMPLÍCITA  │
+├────────────┼────────────┼────────────┤
+│  Sim      │   {sim_real}%    │   {btts_yes_impl}    │
+│  Não      │   {nao_real}%    │   {btts_no_impl}    │
+└────────────┴────────────┴────────────┘"""
+                
+                analysis_text = analysis_text.replace(btts_table.group(0), new_table)
     
     return analysis_text
-def fix_markets_display(analysis_text, home_team_name, away_team_name):
+    def fix_markets_display(analysis_text, home_team_name, away_team_name):
     """
     Corrige a seção ANÁLISE DE MERCADOS DISPONÍVEIS, garantindo que todos
     os mercados importantes estejam presentes e corretamente formatados.
@@ -3863,61 +3858,46 @@ def fix_forma_calculation(analysis_text, home_team, away_team):
     """
     import re
     
-    # Special case for Bayern München which should generally have high form
-    if "bayern" in away_team.lower():
-        home_form_points = 6  # Lower form for opponent
-        away_form_points = 13  # High form for Bayern
-    elif "bayern" in home_team.lower():
-        home_form_points = 13  # High form for Bayern
-        away_form_points = 6  # Lower form for opponent
-    else:
-        # Default form calculation based on odds
-        ml_section = re.search(r"\[Money Line \(1X2\)\].*?Casa.*?@(\d+[\.,]\d+).*?Fora.*?@(\d+[\.,]\d+)", analysis_text, re.DOTALL)
-        
-        # Default values
-        home_form_points = 9
-        away_form_points = 7
-        
-        if ml_section:
-            try:
-                home_odds = float(ml_section.group(1).replace(',', '.'))
-                away_odds = float(ml_section.group(2).replace(',', '.'))
-                
-                # CORRECTED LOGIC: Lower odds indicate better team (higher form)
-                if home_odds < away_odds:  # Home team is favorite
-                    home_form_points = 11
+    # Buscar informações das odds para determinar o favorito
+    ml_section = re.search(r"\[Money Line \(1X2\)\].*?Casa.*?@(\d+[\.,]\d+).*?Fora.*?@(\d+[\.,]\d+)", analysis_text, re.DOTALL)
+    
+    # Valores padrão
+    home_form_points = 9
+    away_form_points = 7
+    
+    if ml_section:
+        try:
+            home_odds = float(ml_section.group(1).replace(',', '.'))
+            away_odds = float(ml_section.group(2).replace(',', '.'))
+            
+            # CORRIGIDO: Odds menores = time mais forte (forma melhor)
+            if home_odds < away_odds:  # Time da casa é favorito
+                diff = away_odds - home_odds
+                # Quanto maior a diferença, mais pontos para o favorito
+                if diff > 2:
+                    home_form_points = 13  # Muito favorito
+                    away_form_points = 4
+                else:
+                    home_form_points = 11  # Moderadamente favorito
                     away_form_points = 6
-                else:  # Away team is favorite
+            else:  # Visitante é favorito
+                diff = home_odds - away_odds
+                # Quanto maior a diferença, mais pontos para o favorito
+                if diff > 2:
+                    home_form_points = 4
+                    away_form_points = 13  # Muito favorito
+                else:
                     home_form_points = 6
-                    away_form_points = 11
-            except:
-                pass
+                    away_form_points = 11  # Moderadamente favorito
+        except:
+            pass
     
     # Substituir a linha de FORMA
     form_pattern = r"► FORMA:.*?(?=\n)"
     new_form_line = f"► FORMA: {home_team}: {home_form_points}/15 pontos, {away_team}: {away_form_points}/15 pontos (baseado nos últimos 5 jogos)."
     analysis_text = re.sub(form_pattern, new_form_line, analysis_text)
     
-    # Also fix Ambos Marcam table to use market-derived probabilities
-    btts_market = re.search(r"\[Ambos Marcam\].*?Sim \(BTTS\): @.*?\(Implícita: (\d+\.?\d*)%\).*?Não \(BTTS\): @.*?\(Implícita: (\d+\.?\d*)%\)", analysis_text, re.DOTALL)
-    
-    if btts_market:
-        sim_impl = btts_market.group(1)
-        nao_impl = btts_market.group(2)
-        
-        # Find BTTS table and update it
-        btts_table = re.search(r"\[Ambos Marcam\].*?└────────────┴────────────┴────────────┘", analysis_text, re.DOTALL)
-        if btts_table and "N/A" in btts_table.group(0):
-            table_text = btts_table.group(0)
-            
-            # Replace N/A with implicit probabilities
-            table_text = re.sub(r"(│\s*Sim\s*│.*?│\s*)N/A(\s*│)", f"\\1{sim_impl}%\\2", table_text)
-            table_text = re.sub(r"(│\s*Não\s*│.*?│\s*)N/A(\s*│)", f"\\1{nao_impl}%\\2", table_text)
-            
-            analysis_text = analysis_text.replace(btts_table.group(0), table_text)
-    
-    return analysis_text
-    # Função para calcular pontos com base na sequência de resultados
+    return analysis_text    # Função para calcular pontos com base na sequência de resultados
     def calculate_points(results):
         points = 0
         for result in results:
