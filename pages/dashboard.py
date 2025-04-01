@@ -1185,10 +1185,9 @@ def show_main_dashboard():
                             return
                         
                         # Etapa 4: Análise GPT com probabilidades originais
-                        status.info("Realizando análise com IA...")
                         analysis = analyze_with_gpt(
                             prompt,
-                            original_probabilites=original_probabilities,
+                            original_probabilities=original_probabilities,  # Correção: "probabilities" 
                             selected_markets=selected_markets,
                             home_team=home_team,
                             away_team=away_team
