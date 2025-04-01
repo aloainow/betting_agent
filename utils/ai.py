@@ -3640,7 +3640,7 @@ def fix_btts_probabilities(analysis_text):
                 analysis_text = analysis_text.replace(btts_table.group(0), new_table)
     
     return analysis_text
-    def fix_markets_display(analysis_text, home_team_name, away_team_name):
+def fix_markets_display(analysis_text, home_team_name, away_team_name):
     """
     Corrige a seção ANÁLISE DE MERCADOS DISPONÍVEIS, garantindo que todos
     os mercados importantes estejam presentes e corretamente formatados.
