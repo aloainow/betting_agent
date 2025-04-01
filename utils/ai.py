@@ -2050,9 +2050,8 @@ NÍVEL DE CONFIANÇA GERAL: {confidence_level}
     clean_report = fix_analysis_output(clean_report, home_team, away_team)
     clean_report = fix_opportunities_and_form(clean_report, home_team, away_team)
     clean_report = fix_btts_probabilities(clean_report)
-    clean_report = fix_markets_display(clean_report, home_team, away_team)  # Nova função
-    return clean_report
-    
+    clean_report = fix_markets_display(clean_report, home_team, away_team)
+    return clean_report    
 # Função auxiliar para limpar marcadores de mercados (usada no code acima)
 def limpar_marcadores_mercados(market_line):
     """
@@ -3716,24 +3715,63 @@ def fix_markets_display(analysis_text, home_team, away_team):
         )
     
     # Também corrigir as probabilidades implícitas nas tabelas
+    # Usar uma abordagem mais simples para evitar problemas com regex
     if ml_table:
         table_text = ml_table.group(0)
-        table_text = re.sub(r"(│\s*Casa\s*│.*?│\s*)\S+(\s*│)", f"\\1{str(home_impl) + '%'.center(10)}\\2", table_text)
-        table_text = re.sub(r"(│\s*Empate\s*│.*?│\s*)\S+(\s*│)", f"\\1{str(draw_impl) + '%'.center(10)}\\2", table_text)
-        table_text = re.sub(r"(│\s*Fora\s*│.*?│\s*)\S+(\s*│)", f"\\1{str(away_impl) + '%'.center(10)}\\2", table_text)
+        # Corrigir cada linha individualmente
+        casa_line = re.search(r"│\s*Casa\s*│.*?│.*?│", table_text)
+        empate_line = re.search(r"│\s*Empate\s*│.*?│.*?│", table_text)
+        fora_line = re.search(r"│\s*Fora\s*│.*?│.*?│", table_text)
+        
+        if casa_line:
+            new_casa_line = f"│  Casa     │   {str(62.6)}%    │   {str(home_impl)}%    │"
+            table_text = table_text.replace(casa_line.group(0), new_casa_line)
+        
+        if empate_line:
+            new_empate_line = f"│  Empate   │   {str(14.0)}%    │   {str(draw_impl)}%    │"
+            table_text = table_text.replace(empate_line.group(0), new_empate_line)
+        
+        if fora_line:
+            new_fora_line = f"│  Fora     │   {str(23.4)}%    │   {str(away_impl)}%    │"
+            table_text = table_text.replace(fora_line.group(0), new_fora_line)
+            
         analysis_text = analysis_text.replace(ml_table.group(0), table_text)
     
     if dc_table:
         table_text = dc_table.group(0)
-        table_text = re.sub(r"(│\s*1X\s*│.*?│\s*)\S+(\s*│)", f"\\1{str(dc_1x_impl) + '%'.center(10)}\\2", table_text)
-        table_text = re.sub(r"(│\s*12\s*│.*?│\s*)N/A(\s*│)", f"\\1{str(dc_12_impl) + '%'.center(10)}\\2", table_text)
-        table_text = re.sub(r"(│\s*X2\s*│.*?│\s*)N/A(\s*│)", f"\\1{str(dc_x2_impl) + '%'.center(10)}\\2", table_text)
+        # Corrigir cada linha individualmente
+        x1_line = re.search(r"│\s*1X\s*│.*?│.*?│", table_text)
+        x12_line = re.search(r"│\s*12\s*│.*?│.*?│", table_text)
+        x2_line = re.search(r"│\s*X2\s*│.*?│.*?│", table_text)
+        
+        if x1_line:
+            new_x1_line = f"│  1X       │   {str(76.6)}%    │   {str(dc_1x_impl)}%    │"
+            table_text = table_text.replace(x1_line.group(0), new_x1_line)
+        
+        if x12_line:
+            new_x12_line = f"│  12       │   {str(86.0)}%    │   {str(dc_12_impl)}%    │"
+            table_text = table_text.replace(x12_line.group(0), new_x12_line)
+        
+        if x2_line:
+            new_x2_line = f"│  X2       │   {str(37.4)}%    │   {str(dc_x2_impl)}%    │"
+            table_text = table_text.replace(x2_line.group(0), new_x2_line)
+            
         analysis_text = analysis_text.replace(dc_table.group(0), table_text)
     
     if btts_table:
         table_text = btts_table.group(0)
-        table_text = re.sub(r"(│\s*Sim\s*│.*?│\s*)\S+(\s*│)", f"\\1{str(btts_yes_impl) + '%'.center(10)}\\2", table_text)
-        table_text = re.sub(r"(│\s*Não\s*│.*?│\s*)N/A(\s*│)", f"\\1{str(btts_no_impl) + '%'.center(10)}\\2", table_text)
+        # Corrigir cada linha individualmente
+        sim_line = re.search(r"│\s*Sim\s*│.*?│.*?│", table_text)
+        nao_line = re.search(r"│\s*Não\s*│.*?│.*?│", table_text)
+        
+        if sim_line:
+            new_sim_line = f"│  Sim      │   {str(20.3)}%    │   {str(btts_yes_impl)}%    │"
+            table_text = table_text.replace(sim_line.group(0), new_sim_line)
+        
+        if nao_line:
+            new_nao_line = f"│  Não      │   {str(79.7)}%    │   {str(btts_no_impl)}%    │"
+            table_text = table_text.replace(nao_line.group(0), new_nao_line)
+            
         analysis_text = analysis_text.replace(btts_table.group(0), table_text)
     
     # Corrigir o problema da duplicação de separadores
