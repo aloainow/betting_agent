@@ -1878,7 +1878,7 @@ def format_analysis_response(
                                     if key in formatted_probs[category]:
                                         formatted_probs[category][key]["implicit"] = impl_prob
 
-        # CRUCIAL: ADICIONAR PROBABILIDADES PARA MERCADOS SELECIONADOS QUE ESTÃO FALTANDO
+       # CRUCIAL: ADICIONAR PROBABILIDADES PARA MERCADOS SELECIONADOS QUE ESTÃO FALTANDO
         if selected_markets:
             for market_key, is_selected in selected_markets.items():
                 if is_selected:
@@ -1899,11 +1899,12 @@ def format_analysis_response(
                         
                         # NOVO: Garantir que o mercado também está presente nos mercados disponíveis
                         if display_name not in [cat for cat in market_categories if market_categories[cat]]:
-                           
-    # MELHORAR OS DADOS DE ANÁLISE DE CONFIANÇA
-    # Usar dados reais de análise quando disponíveis em vez de texto genérico
-    if original_probabilities and "analysis_data" in original_probabilities:
-        analysis_data = original_probabilities["analysis_data"]
+                            pass  # Apenas passamos para evitar erro de sintaxe (ou remova esta condição)
+        
+        # MELHORAR OS DADOS DE ANÁLISE DE CONFIANÇA
+        # Usar dados reais de análise quando disponíveis em vez de texto genérico
+        if original_probabilities and "analysis_data" in original_probabilities:
+            analysis_data = original_probabilities["analysis_data"]
         
         # Formatar consistência de forma mais detalhada
         home_consistency = analysis_data.get("home_consistency", 0.5) * 100
