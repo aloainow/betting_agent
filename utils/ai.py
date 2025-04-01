@@ -2051,7 +2051,8 @@ NÍVEL DE CONFIANÇA GERAL: {confidence_level}
     clean_report = fix_opportunities_and_form(clean_report, home_team, away_team)
     clean_report = fix_btts_probabilities(clean_report)
     clean_report = fix_markets_display(clean_report, home_team, away_team)
-    return clean_report    
+    clean_report = final_fixes(clean_report)  # Aplicar correções finais
+    return clean_report   
 # Função auxiliar para limpar marcadores de mercados (usada no code acima)
 def limpar_marcadores_mercados(market_line):
     """
@@ -3778,5 +3779,60 @@ def fix_markets_display(analysis_text, home_team, away_team):
     double_separator = "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔"
     single_separator = "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔"
     analysis_text = analysis_text.replace(double_separator, single_separator)
+    
+    return analysis_text
+def final_fixes(analysis_text):
+    """
+    Aplica correções finais para problemas persistentes no relatório.
+    """
+    import re
+    
+    # 1. Corrigir bullets na seção de mercados
+    analysis_text = analysis_text.replace("- •", "• •")
+    
+    # 2. Corrigir probabilidades N/A no Ambos Marcam
+    btts_market = re.search(r"\[Ambos Marcam\].*?Sim \(BTTS\): @(\d+\.?\d*) \(Implícita: (\d+\.?\d*)%\).*?Não \(BTTS\): @(\d+\.?\d*) \(Implícita: (\d+\.?\d*)%\)", analysis_text, re.DOTALL)
+    
+    if btts_market:
+        # Extrair valores
+        btts_yes_odds = float(btts_market.group(1))
+        btts_yes_impl = btts_market.group(2)
+        btts_no_odds = float(btts_market.group(3))
+        btts_no_impl = btts_market.group(4)
+        
+        # Encontrar tabela Ambos Marcam
+        btts_table = re.search(r"\[Ambos Marcam\].*?└────────────┴────────────┴────────────┘", analysis_text, re.DOTALL)
+        if btts_table and "N/A" in btts_table.group(0):
+            table_text = btts_table.group(0)
+            
+            # Extrair linhas da tabela
+            sim_line = re.search(r"│\s*Sim\s*│\s*(\d+\.?\d*)%\s*│\s*N/A\s*│", table_text)
+            nao_line = re.search(r"│\s*Não\s*│\s*(\d+\.?\d*)%\s*│\s*N/A\s*│", table_text)
+            
+            # Criar novas linhas
+            if sim_line:
+                real_prob = sim_line.group(1)
+                new_sim_line = f"│  Sim      │   {real_prob}%    │   {btts_yes_impl}%    │"
+                table_text = table_text.replace(sim_line.group(0), new_sim_line)
+            
+            if nao_line:
+                real_prob = nao_line.group(1)
+                new_nao_line = f"│  Não      │   {real_prob}%    │   {btts_no_impl}%    │"
+                table_text = table_text.replace(nao_line.group(0), new_nao_line)
+            
+            analysis_text = analysis_text.replace(btts_table.group(0), table_text)
+    
+    # 3. Adicionar uma correção específica para valores de forma
+    form_line = re.search(r"► FORMA:.*?pontos, ", analysis_text)
+    if form_line:
+        # Se os times não estiverem invertidos, manter a formulação como está
+        # Se houver interesse em inverter os valores de forma entre os times
+        # esta seria a lógica para fazer isso:
+        #
+        # Mas por agora, vamos apenas garantir que os valores sejam inteiros
+        form_text = form_line.group(0)
+        # Substituir decimais por inteiros (10.0 -> 10, 6.0 -> 6)
+        form_text = re.sub(r"(\d+)\.0", r"\1", form_text)
+        analysis_text = analysis_text.replace(form_line.group(0), form_text)
     
     return analysis_text
