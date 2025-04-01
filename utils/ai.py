@@ -1412,6 +1412,7 @@ def format_analysis_response(
     away_team,
     selected_markets=None,
     original_probabilities=None,
+    odds_data=None,  # Adicionar este parâmetro
 ):
     """
     Constrói uma análise limpa com INSERÇÃO FORÇADA das probabilidades originais
@@ -2046,7 +2047,7 @@ NÍVEL DE CONFIANÇA GERAL: {confidence_level}
      © RELATÓRIO VALUE HUNTER DE ANÁLISE ESPORTIVA
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
     
-    clean_report = fix_analysis_output(clean_report, odds_data)
+    clean_report = fix_analysis_output(clean_report)
     return clean_report
 
 # Função auxiliar para limpar marcadores de mercados (usada no code acima)
@@ -3428,61 +3429,17 @@ def parse_percentage(text):
     if match:
         return float(match.group(1))
     return 0.0
-def fix_analysis_output(analysis_text, odds_data):
+def fix_analysis_output(analysis_text):
     """
-    Corrige problemas específicos na saída da análise.
+    Corrige problemas específicos na saída da análise sem depender de odds_data.
     
     Args:
         analysis_text: Texto da análise atual
-        odds_data: Dados das odds fornecidos pelo usuário
         
     Returns:
         str: Texto da análise corrigido
     """
     import re
-    
-    # 1. Verificar se o mercado Ambos Marcam está nas odds mas não na análise
-    if "Ambos Marcam" not in analysis_text.split("ANÁLISE DE MERCADOS DISPONÍVEIS")[1].split("PROBABILIDADES CALCULADAS")[0]:
-        # Extrair odds para Ambos Marcam
-        btts_yes_match = re.search(r"Sim.*BTTS.*@(\d+\.?\d+)", odds_data)
-        btts_no_match = re.search(r"Não.*BTTS.*@(\d+\.?\d+)", odds_data)
-        
-        if btts_yes_match or btts_no_match:
-            yes_odds = float(btts_yes_match.group(1)) if btts_yes_match else 0
-            no_odds = float(btts_no_match.group(1)) if btts_no_match else 0
-            
-            yes_prob = (1/yes_odds*100) if yes_odds else 0
-            no_prob = (1/no_odds*100) if no_odds else 0
-            
-            btts_section = "\n[Ambos Marcam]"
-            if yes_odds:
-                btts_section += f"\n• Sim (BTTS): @{yes_odds:.2f} (Implícita: {yes_prob:.1f}%)"
-            if no_odds:
-                btts_section += f"\n• Não (BTTS): @{no_odds:.2f} (Implícita: {no_prob:.1f}%)"
-            
-            # Adicionar à seção de mercados
-            parts = analysis_text.split("PROBABILIDADES CALCULADAS")
-            analysis_text = parts[0] + btts_section + "\nPROBABILIDADES CALCULADAS" + parts[1]
-    
-    # 2. Corrigir as probabilidades implícitas N/A no Ambos Marcam
-    btts_table_match = re.search(r"\[Ambos Marcam\].*?└────────────┴────────────┴────────────┘", analysis_text, re.DOTALL)
-    if btts_table_match and "N/A" in btts_table_match.group(0):
-        btts_yes_match = re.search(r"Sim.*BTTS.*@(\d+\.?\d+)", odds_data)
-        btts_no_match = re.search(r"Não.*BTTS.*@(\d+\.?\d+)", odds_data)
-        
-        if btts_yes_match or btts_no_match:
-            yes_odds = float(btts_yes_match.group(1)) if btts_yes_match else 0
-            no_odds = float(btts_no_match.group(1)) if btts_no_match else 0
-            
-            yes_prob = f"{(1/yes_odds*100):.1f}%" if yes_odds else "N/A"
-            no_prob = f"{(1/no_odds*100):.1f}%" if no_odds else "N/A"
-            
-            # Substituir N/A pelas probabilidades calculadas
-            table = btts_table_match.group(0)
-            table = table.replace("│  Sim      │", f"│  Sim      │").replace("N/A", yes_prob, 1)
-            table = table.replace("│  Não      │", f"│  Não      │").replace("N/A", no_prob, 1)
-            
-            analysis_text = analysis_text.replace(btts_table_match.group(0), table)
     
     # 3. Adicionar oportunidade em Chance Dupla X2 se estiver faltando
     if "X2" in analysis_text and "Chance Dupla" in analysis_text:
@@ -3498,10 +3455,22 @@ def fix_analysis_output(analysis_text, odds_data):
                 opportunity = f"• **[Chance Dupla] X2**: Real {real_prob:.1f}% vs Implícita {impl_prob:.1f}% (Vantagem: +{advantage:.1f}%)"
                 
                 # Adicionar à seção de oportunidades
-                parts = analysis_text.split("OPORTUNIDADES IDENTIFICADAS")
-                if len(parts) > 1:
-                    rest_parts = parts[1].split("NÍVEL DE CONFIANÇA")
-                    if len(rest_parts) > 1:
-                        analysis_text = parts[0] + "OPORTUNIDADES IDENTIFICADAS\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n" + opportunity + "\n" + rest_parts[0].split("▔▔▔▔▔")[1] + "\nNÍVEL DE CONFIANÇA" + rest_parts[1]
+                if "OPORTUNIDADES IDENTIFICADAS" in analysis_text:
+                    opps_section = analysis_text.split("OPORTUNIDADES IDENTIFICADAS")[1].split("NÍVEL DE CONFIANÇA")[0]
+                    
+                    if "Nenhuma oportunidade" in opps_section:
+                        # Substituir a mensagem "Nenhuma oportunidade"
+                        new_section = "OPORTUNIDADES IDENTIFICADAS\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n" + opportunity
+                        analysis_text = analysis_text.replace(
+                            "OPORTUNIDADES IDENTIFICADAS" + opps_section, 
+                            new_section
+                        )
+                    else:
+                        # Adicionar à lista existente
+                        new_section = opps_section + opportunity + "\n"
+                        analysis_text = analysis_text.replace(
+                            opps_section, 
+                            new_section
+                        )
     
     return analysis_text
