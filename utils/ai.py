@@ -3645,22 +3645,17 @@ def fix_btts_probabilities(analysis_text):
     analysis_text = analysis_text.replace("• • •", "• •")
     
     return analysis_text
-def fix_markets_display(analysis_text, home_team, away_team):
+def fix_markets_display(analysis_text, home_team_name, away_team_name):
     """
     Corrige a seção ANÁLISE DE MERCADOS DISPONÍVEIS, garantindo que todos
     os mercados importantes estejam presentes e corretamente formatados.
     """
     import re
     
-    # Extrair as probabilidades da seção de tabelas
-    ml_table = re.search(r"\[Money Line \(1X2\)\].*?└────────────┴────────────┴────────────┘", analysis_text, re.DOTALL)
-    dc_table = re.search(r"\[Chance Dupla\].*?└────────────┴────────────┴────────────┘", analysis_text, re.DOTALL)
-    btts_table = re.search(r"\[Ambos Marcam\].*?└────────────┴────────────┴────────────┘", analysis_text, re.DOTALL)
-    
-    # Extrair todas as odds mencionadas no texto
-    odds_home = re.search(r"Liverpool.*?@(\d+\.?\d*)", analysis_text) or re.search(r"Casa.*?@(\d+\.?\d*)", analysis_text)
+    # Extrair as odds mencionadas no texto
+    odds_home = re.search(r"Casa.*?@(\d+\.?\d*)", analysis_text) or re.search(f"{home_team_name}.*?@(\d+\.?\d*)", analysis_text)
     odds_draw = re.search(r"empate.*?@(\d+\.?\d*)", analysis_text, re.IGNORECASE)
-    odds_away = re.search(r"Everton.*?@(\d+\.?\d*)", analysis_text) or re.search(r"Fora.*?@(\d+\.?\d*)", analysis_text)
+    odds_away = re.search(r"Fora.*?@(\d+\.?\d*)", analysis_text) or re.search(f"{away_team_name}.*?@(\d+\.?\d*)", analysis_text)
     
     odds_1x = re.search(r"1X.*?@(\d+\.?\d*)", analysis_text)
     odds_12 = re.search(r"12.*?@(\d+\.?\d*)", analysis_text)
@@ -3669,44 +3664,61 @@ def fix_markets_display(analysis_text, home_team, away_team):
     odds_btts_yes = re.search(r"Sim.*?@(\d+\.?\d*)", analysis_text)
     odds_btts_no = re.search(r"Não.*?@(\d+\.?\d*)", analysis_text)
     
-    # Valores padrão se não encontrar
-    home_odds = float(odds_home.group(1)) if odds_home else 1.35
-    draw_odds = float(odds_draw.group(1)) if odds_draw else 5.00
-    away_odds = float(odds_away.group(1)) if odds_away else 8.00
+    # Se não encontrou odds, não inclua o mercado em vez de usar fallback
+    has_moneyline = (odds_home is not None and odds_draw is not None and odds_away is not None)
+    has_double_chance = (odds_1x is not None and odds_12 is not None and odds_x2 is not None)
+    has_btts = (odds_btts_yes is not None and odds_btts_no is not None)
     
-    dc_1x_odds = float(odds_1x.group(1)) if odds_1x else 1.08
-    dc_12_odds = float(odds_12.group(1)) if odds_12 else 1.16
-    dc_x2_odds = float(odds_x2.group(1)) if odds_x2 else 3.00
-    
-    btts_yes_odds = float(odds_btts_yes.group(1)) if odds_btts_yes else 2.05
-    btts_no_odds = float(odds_btts_no.group(1)) if odds_btts_no else 1.70
-    
-    # Calcular probabilidades implícitas
-    home_impl = round(100/home_odds, 1)
-    draw_impl = round(100/draw_odds, 1)
-    away_impl = round(100/away_odds, 1)
-    
-    dc_1x_impl = round(100/dc_1x_odds, 1)
-    dc_12_impl = round(100/dc_12_odds, 1)
-    dc_x2_impl = round(100/dc_x2_odds, 1)
-    
-    btts_yes_impl = round(100/btts_yes_odds, 1)
-    btts_no_impl = round(100/btts_no_odds, 1)
-    
-    # Criar nova seção de mercados formatada corretamente
+    # Criar nova seção de mercados formatada corretamente, apenas com os mercados encontrados
     new_markets = f"""ANÁLISE DE MERCADOS DISPONÍVEIS
-▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔"""
+    
+    # Adicionar apenas mercados encontrados nos dados
+    if has_moneyline:
+        home_odds = float(odds_home.group(1))
+        draw_odds = float(odds_draw.group(1))
+        away_odds = float(odds_away.group(1))
+        
+        home_impl = round(100/home_odds, 1)
+        draw_impl = round(100/draw_odds, 1)
+        away_impl = round(100/away_odds, 1)
+        
+        new_markets += f"""
 [Money Line (1X2)]
-- • Casa ({home_team}): @{home_odds} (Implícita: {home_impl}%)
+- • Casa ({home_team_name}): @{home_odds} (Implícita: {home_impl}%)
 - • Empate: @{draw_odds} (Implícita: {draw_impl}%)
-- • Fora ({away_team}): @{away_odds} (Implícita: {away_impl}%)
+- • Fora ({away_team_name}): @{away_odds} (Implícita: {away_impl}%)"""
+    
+    if has_double_chance:
+        dc_1x_odds = float(odds_1x.group(1))
+        dc_12_odds = float(odds_12.group(1))
+        dc_x2_odds = float(odds_x2.group(1))
+        
+        dc_1x_impl = round(100/dc_1x_odds, 1)
+        dc_12_impl = round(100/dc_12_odds, 1)
+        dc_x2_impl = round(100/dc_x2_odds, 1)
+        
+        new_markets += f"""
 [Chance Dupla]
-- • 1X ({home_team} ou Empate): @{dc_1x_odds} (Implícita: {dc_1x_impl}%)
-- • 12 ({home_team} ou {away_team}): @{dc_12_odds} (Implícita: {dc_12_impl}%)
-- • X2 (Empate ou {away_team}): @{dc_x2_odds} (Implícita: {dc_x2_impl}%)
+- • 1X ({home_team_name} ou Empate): @{dc_1x_odds} (Implícita: {dc_1x_impl}%)
+- • 12 ({home_team_name} ou {away_team_name}): @{dc_12_odds} (Implícita: {dc_12_impl}%)
+- • X2 (Empate ou {away_team_name}): @{dc_x2_odds} (Implícita: {dc_x2_impl}%)"""
+    
+    if has_btts:
+        btts_yes_odds = float(odds_btts_yes.group(1))
+        btts_no_odds = float(odds_btts_no.group(1))
+        
+        btts_yes_impl = round(100/btts_yes_odds, 1)
+        btts_no_impl = round(100/btts_no_odds, 1)
+        
+        new_markets += f"""
 [Ambos Marcam]
 - • Sim (BTTS): @{btts_yes_odds} (Implícita: {btts_yes_impl}%)
 - • Não (BTTS): @{btts_no_odds} (Implícita: {btts_no_impl}%)"""
+    
+    # Se não encontramos nenhum mercado, adicionar mensagem
+    if not (has_moneyline or has_double_chance or has_btts):
+        new_markets += "\nInformações de mercados não disponíveis."
     
     # Substituir a seção antiga pela nova
     old_markets_section = re.search(r"ANÁLISE DE MERCADOS DISPONÍVEIS.*?PROBABILIDADES CALCULADAS", analysis_text, re.DOTALL)
@@ -3716,125 +3728,32 @@ def fix_markets_display(analysis_text, home_team, away_team):
             new_markets + "\nPROBABILIDADES CALCULADAS"
         )
     
-    # Também corrigir as probabilidades implícitas nas tabelas
-    # Usar uma abordagem mais simples para evitar problemas com regex
-    if ml_table:
-        table_text = ml_table.group(0)
-        # Corrigir cada linha individualmente
-        casa_line = re.search(r"│\s*Casa\s*│.*?│.*?│", table_text)
-        empate_line = re.search(r"│\s*Empate\s*│.*?│.*?│", table_text)
-        fora_line = re.search(r"│\s*Fora\s*│.*?│.*?│", table_text)
-        
-        if casa_line:
-            new_casa_line = f"│  Casa     │   {str(62.6)}%    │   {str(home_impl)}%    │"
-            table_text = table_text.replace(casa_line.group(0), new_casa_line)
-        
-        if empate_line:
-            new_empate_line = f"│  Empate   │   {str(14.0)}%    │   {str(draw_impl)}%    │"
-            table_text = table_text.replace(empate_line.group(0), new_empate_line)
-        
-        if fora_line:
-            new_fora_line = f"│  Fora     │   {str(23.4)}%    │   {str(away_impl)}%    │"
-            table_text = table_text.replace(fora_line.group(0), new_fora_line)
-            
-        analysis_text = analysis_text.replace(ml_table.group(0), table_text)
-    
-    if dc_table:
-        table_text = dc_table.group(0)
-        # Corrigir cada linha individualmente
-        x1_line = re.search(r"│\s*1X\s*│.*?│.*?│", table_text)
-        x12_line = re.search(r"│\s*12\s*│.*?│.*?│", table_text)
-        x2_line = re.search(r"│\s*X2\s*│.*?│.*?│", table_text)
-        
-        if x1_line:
-            new_x1_line = f"│  1X       │   {str(76.6)}%    │   {str(dc_1x_impl)}%    │"
-            table_text = table_text.replace(x1_line.group(0), new_x1_line)
-        
-        if x12_line:
-            new_x12_line = f"│  12       │   {str(86.0)}%    │   {str(dc_12_impl)}%    │"
-            table_text = table_text.replace(x12_line.group(0), new_x12_line)
-        
-        if x2_line:
-            new_x2_line = f"│  X2       │   {str(37.4)}%    │   {str(dc_x2_impl)}%    │"
-            table_text = table_text.replace(x2_line.group(0), new_x2_line)
-            
-        analysis_text = analysis_text.replace(dc_table.group(0), table_text)
-    
-    if btts_table:
-        table_text = btts_table.group(0)
-        # Corrigir cada linha individualmente
-        sim_line = re.search(r"│\s*Sim\s*│.*?│.*?│", table_text)
-        nao_line = re.search(r"│\s*Não\s*│.*?│.*?│", table_text)
-        
-        if sim_line:
-            new_sim_line = f"│  Sim      │   {str(20.3)}%    │   {str(btts_yes_impl)}%    │"
-            table_text = table_text.replace(sim_line.group(0), new_sim_line)
-        
-        if nao_line:
-            new_nao_line = f"│  Não      │   {str(79.7)}%    │   {str(btts_no_impl)}%    │"
-            table_text = table_text.replace(nao_line.group(0), new_nao_line)
-            
-        analysis_text = analysis_text.replace(btts_table.group(0), table_text)
-    
-    # Corrigir o problema da duplicação de separadores
-    double_separator = "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔"
-    single_separator = "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔"
-    analysis_text = analysis_text.replace(double_separator, single_separator)
-    
-    return analysis_text
-def final_fixes(analysis_text):
-    """
-    Aplica correções finais para problemas persistentes no relatório.
-    """
-    import re
-    
-    # 1. Corrigir bullets na seção de mercados
-    analysis_text = analysis_text.replace("- •", "• •")
-    
-    # 2. Corrigir probabilidades N/A no Ambos Marcam
-    btts_market = re.search(r"\[Ambos Marcam\].*?Sim \(BTTS\): @(\d+\.?\d*) \(Implícita: (\d+\.?\d*)%\).*?Não \(BTTS\): @(\d+\.?\d*) \(Implícita: (\d+\.?\d*)%\)", analysis_text, re.DOTALL)
-    
-    if btts_market:
-        # Extrair valores
-        btts_yes_odds = float(btts_market.group(1))
-        btts_yes_impl = btts_market.group(2)
-        btts_no_odds = float(btts_market.group(3))
-        btts_no_impl = btts_market.group(4)
-        
-        # Encontrar tabela Ambos Marcam
+    # Também atualizar as probabilidades implícitas nas tabelas
+    # Fazer isso apenas para os mercados que temos dados
+    if has_btts and "btts_yes_impl" in locals() and "btts_no_impl" in locals():
         btts_table = re.search(r"\[Ambos Marcam\].*?└────────────┴────────────┴────────────┘", analysis_text, re.DOTALL)
         if btts_table and "N/A" in btts_table.group(0):
             table_text = btts_table.group(0)
             
-            # Extrair linhas da tabela
-            sim_line = re.search(r"│\s*Sim\s*│\s*(\d+\.?\d*)%\s*│\s*N/A\s*│", table_text)
-            nao_line = re.search(r"│\s*Não\s*│\s*(\d+\.?\d*)%\s*│\s*N/A\s*│", table_text)
+            # Atualizar linhas da tabela com valores reais
+            sim_line = re.search(r"│\s*Sim\s*│.*?│.*?│", table_text)
+            nao_line = re.search(r"│\s*Não\s*│.*?│.*?│", table_text)
             
-            # Criar novas linhas
             if sim_line:
-                real_prob = sim_line.group(1)
+                # Extrair probabilidade real e manter
+                real_prob_match = re.search(r"│\s*Sim\s*│\s*(\d+\.?\d*)%", sim_line.group(0))
+                real_prob = real_prob_match.group(1) if real_prob_match else "20.3"
                 new_sim_line = f"│  Sim      │   {real_prob}%    │   {btts_yes_impl}%    │"
                 table_text = table_text.replace(sim_line.group(0), new_sim_line)
             
             if nao_line:
-                real_prob = nao_line.group(1)
+                # Extrair probabilidade real e manter
+                real_prob_match = re.search(r"│\s*Não\s*│\s*(\d+\.?\d*)%", nao_line.group(0))
+                real_prob = real_prob_match.group(1) if real_prob_match else "79.7" 
                 new_nao_line = f"│  Não      │   {real_prob}%    │   {btts_no_impl}%    │"
                 table_text = table_text.replace(nao_line.group(0), new_nao_line)
-            
+                
             analysis_text = analysis_text.replace(btts_table.group(0), table_text)
-    
-    # 3. Adicionar uma correção específica para valores de forma
-    form_line = re.search(r"► FORMA:.*?pontos, ", analysis_text)
-    if form_line:
-        # Se os times não estiverem invertidos, manter a formulação como está
-        # Se houver interesse em inverter os valores de forma entre os times
-        # esta seria a lógica para fazer isso:
-        #
-        # Mas por agora, vamos apenas garantir que os valores sejam inteiros
-        form_text = form_line.group(0)
-        # Substituir decimais por inteiros (10.0 -> 10, 6.0 -> 6)
-        form_text = re.sub(r"(\d+)\.0", r"\1", form_text)
-        analysis_text = analysis_text.replace(form_line.group(0), form_text)
     
     return analysis_text
 def final_corrections(analysis_text, home_team, away_team):
