@@ -3975,3 +3975,51 @@ def fix_forma_calculation(analysis_text, home_team, away_team):
     analysis_text = re.sub(form_pattern, new_form_line, analysis_text)
     
     return analysis_text
+def final_fixes(analysis_text):
+    """
+    Aplica correções finais para problemas persistentes no relatório.
+    """
+    import re
+    
+    # 1. Corrigir bullets na seção de mercados
+    analysis_text = analysis_text.replace("- •", "•")
+    
+    # 2. Corrigir probabilidades N/A no Ambos Marcam
+    btts_market = re.search(r"\[Ambos Marcam\].*?Sim \(BTTS\): @(\d+\.?\d*) \(Implícita: (\d+\.?\d*)%\).*?Não \(BTTS\): @(\d+\.?\d*) \(Implícita: (\d+\.?\d*)%\)", analysis_text, re.DOTALL)
+    
+    if btts_market:
+        # Extrair valores
+        btts_yes_impl = btts_market.group(2)
+        btts_no_impl = btts_market.group(4)
+        
+        # Encontrar tabela Ambos Marcam
+        btts_table = re.search(r"\[Ambos Marcam\].*?└────────────┴────────────┴────────────┘", analysis_text, re.DOTALL)
+        if btts_table and "N/A" in btts_table.group(0):
+            table_text = btts_table.group(0)
+            
+            # Extrair linhas da tabela
+            sim_line = re.search(r"│\s*Sim\s*│\s*(\d+\.?\d*)%\s*│\s*N/A\s*│", table_text)
+            nao_line = re.search(r"│\s*Não\s*│\s*(\d+\.?\d*)%\s*│\s*N/A\s*│", table_text)
+            
+            # Criar novas linhas
+            if sim_line:
+                real_prob = sim_line.group(1)
+                new_sim_line = f"│  Sim      │   {real_prob}%    │   {btts_yes_impl}%    │"
+                table_text = table_text.replace(sim_line.group(0), new_sim_line)
+            
+            if nao_line:
+                real_prob = nao_line.group(1)
+                new_nao_line = f"│  Não      │   {real_prob}%    │   {btts_no_impl}%    │"
+                table_text = table_text.replace(nao_line.group(0), new_nao_line)
+            
+            analysis_text = analysis_text.replace(btts_table.group(0), table_text)
+    
+    # 3. Corrigir duplicação de separadores
+    double_separator = "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔"
+    single_separator = "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔"
+    analysis_text = analysis_text.replace(double_separator, single_separator)
+    
+    # 4. Também corrigir problema de bullets extras em Ambos Marcam
+    analysis_text = analysis_text.replace("• • •", "• •").replace("••", "•")
+    
+    return analysis_text
