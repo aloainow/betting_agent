@@ -292,23 +292,19 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
         # Form points (35%)
         def form_to_points(form_str):
             points = 0
-            weight = 1.0
-            total_weight = 0
             
-            for i, result in enumerate(reversed(form_str[:5])):
+            # Garantir que estamos usando apenas os últimos 5 jogos
+            recent_form = form_str[-5:] if len(form_str) >= 5 else form_str
+            
+            for result in recent_form:
+                result = result.upper()  # Converter para maiúscula para garantir
                 if result == 'W':
-                    points += 3 * weight
+                    points += 3
                 elif result == 'D':
-                    points += 1 * weight
-                elif result == 'L':
-                    points += 0
-                else:
-                    points += 1 * weight  # Neutral value for '?'
-                
-                total_weight += weight
-                weight *= 0.8  # Decay for older games
+                    points += 1
+                # L ou outros caracteres = 0 pontos
             
-            return points / max(total_weight, 1)
+            return points
         
         # Extrair últimos 5 jogos do formRun_overall se disponível
         home_formRun = home.get('formRun_overall', '')
@@ -327,16 +323,29 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
         
         # E então, ao calcular os pontos, use a função form_to_points atualizada
         # Modificar onde o cálculo é feito:
-        home_form_points = form_to_points(home_form)  # Sem divisão por 15
-        away_form_points = form_to_points(away_form)  # Sem divisão por 15
+        # Calcular pontos brutos (0-15)
+        home_form_raw_points = form_to_points(home_form)
+        away_form_raw_points = form_to_points(away_form)
         
-        # E quando formatamos para o prompt:
+        # Normalizar para usar em cálculos (0-1)
+        home_form_normalized = home_form_raw_points / 15.0
+        away_form_normalized = away_form_raw_points / 15.0
+        
+        # Usar os valores normalizados nos cálculos
+        home_total_score = (
+            home_form_normalized * 0.35 +
+            home_stats_score * 0.25 +
+            home_position_score * 0.20 +
+            home_creation * 0.20
+        )
+        
+        # Usar os valores brutos na exibição
         probability_section += f"""
         ### Índices de Confiança
         * Consistência {home_team}: {home_consistency:.1f}%
         * Consistência {away_team}: {away_consistency:.1f}%
-        * Forma recente {home_team} (pontos): {home_form_points}/15
-        * Forma recente {away_team} (pontos): {away_form_points}/15
+        * Forma recente {home_team} (pontos): {home_form_raw_points}/15
+        * Forma recente {away_team} (pontos): {away_form_raw_points}/15
         """
         
         # E para cálculos, se necessário:
@@ -857,17 +866,7 @@ def check_data_quality(stats_dict):
 
 def format_analysis_response(analysis_text, home_team, away_team, **kwargs):
     """
-    Garante que a resposta da análise seja formatada corretamente com todas as seções necessárias,
-    identificando corretamente as oportunidades com valor.
-    
-    Args:
-        analysis_text (str): Resposta bruta da análise da IA
-        home_team (str): Nome do time da casa
-        away_team (str): Nome do time visitante
-        **kwargs: Argumentos extras opcionais (selected_markets, original_probabilities, etc.)
-        
-    Returns:
-        str: Análise formatada corretamente
+    Garante que a resposta da análise seja formatada corretamente, identificando oportunidades com valor.
     """
     # Se não começar com a estrutura esperada, formatar o conteúdo
     if not analysis_text.strip().startswith("# Análise da Partida"):
@@ -885,42 +884,55 @@ def format_analysis_response(analysis_text, home_team, away_team, **kwargs):
             prob_section = prob_section.split("#")[0]
         
         # Analisar linha por linha
-        for line in prob_section.strip().split('\n'):
-            # Identificar linhas que mencionam "(Valor)"
-            if "(Valor)" in line:
-                # Remover o prefixo se estiver presente
-                if line.startswith("-"):
-                    line = line[1:].strip()
-                elif line.startswith("*"):
-                    line = line[1:].strip()
+        lines = prob_section.strip().split('\n')
+        for line in lines:
+            line = line.strip()
+            # Pular linhas vazias
+            if not line:
+                continue
                 
-                # Adicionar à lista de oportunidades
-                new_opportunities.append(f"- {line}")
+            # Verificar se a linha contém informações de probabilidades
+            if "Real:" in line and "Implícita:" in line:
+                try:
+                    # Extrair as probabilidades
+                    real_prob = float(line.split("Real:")[1].split("%")[0].strip())
+                    impl_prob = float(line.split("Implícita:")[1].split("%")[0].strip())
+                    
+                    # Verificar se há valor (real > implícita por pelo menos 2%)
+                    if real_prob > impl_prob + 2:
+                        # Extrair o nome do mercado
+                        market_name = line.split(":")[0].strip()
+                        if market_name.startswith("-"):
+                            market_name = market_name[1:].strip()
+                            
+                        # Adicionar à lista de oportunidades
+                        value_pct = real_prob - impl_prob
+                        new_opportunities.append(f"- **{market_name}:** Real {real_prob:.1f}% vs Implícita {impl_prob:.1f}% (Valor de {value_pct:.1f}%)")
+                except Exception as e:
+                    # Se houver erro ao processar a linha, ignorar e continuar
+                    continue
     
     # Substituir ou criar a seção de oportunidades
     if "# Oportunidades Identificadas" in analysis_text:
-        old_section = analysis_text.split("# Oportunidades Identificadas")[1]
+        # Extrair a seção atual e o que vem depois
+        parts = analysis_text.split("# Oportunidades Identificadas", 1)
+        before_opps = parts[0]
         
-        # Cortar até a próxima seção, se houver
-        if "#" in old_section:
-            next_section = old_section.split("#", 1)[1]
-            old_section = old_section.split("#", 1)[0]
-            
-            # Se temos oportunidades
-            if new_opportunities:
-                new_section = "# Oportunidades Identificadas:\n" + "\n".join(new_opportunities) + "\n\n#" + next_section
-            else:
-                new_section = "# Oportunidades Identificadas:\nInfelizmente não detectamos valor em nenhuma dos seus inputs.\n\n#" + next_section
-                
-            analysis_text = analysis_text.replace("# Oportunidades Identificadas" + old_section + "#" + next_section, new_section)
+        after_opps = ""
+        if "#" in parts[1]:
+            opps_and_after = parts[1].split("#", 1)
+            after_opps = "#" + opps_and_after[1]
         else:
-            # Se esta é a última seção
-            if new_opportunities:
-                new_section = "# Oportunidades Identificadas:\n" + "\n".join(new_opportunities) + "\n"
-            else:
-                new_section = "# Oportunidades Identificadas:\nInfelizmente não detectamos valor em nenhuma dos seus inputs.\n"
-                
-            analysis_text = analysis_text.replace("# Oportunidades Identificadas" + old_section, new_section)
+            after_opps = ""
+        
+        # Criar nova seção
+        if new_opportunities:
+            new_section = "# Oportunidades Identificadas:\n" + "\n".join(new_opportunities)
+        else:
+            new_section = "# Oportunidades Identificadas:\nInfelizmente não detectamos valor em nenhuma dos seus inputs."
+        
+        # Reconstruir o texto
+        analysis_text = before_opps + new_section + after_opps
     else:
         # Se a seção não existe, criar nova seção no final
         if new_opportunities:
