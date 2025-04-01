@@ -845,11 +845,6 @@ def extract_complete_h2h_data(api_data, formatted_data, home_team_name, away_tea
         h2h_over25 = (home_over25 + away_over25) * 0.9 / 2  # Ajuste para H2H
         h2h["over_2_5_pct"] = max(35, h2h_over25)  # Pelo menos 35%
         
-        # BTTS
-        home_btts = home_team.get("btts_pct", 50)
-        away_btts = away_team.get("btts_pct", 45)
-        h2h_btts = (home_btts + away_btts) * 0.9 / 2  # Ajuste para H2H
-        h2h["btts_pct"] = max(40, h2h_btts)  # Pelo menos 40%
         
         # Cartões - jogos H2H tendem a ter mais cartões
         home_cards = home_team.get("cards_per_game", 3.5)
