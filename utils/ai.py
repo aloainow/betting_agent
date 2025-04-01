@@ -339,6 +339,14 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
         * Forma recente {away_team} (pontos): {away_form_points}/15
         """
         
+        # E para cálculos, se necessário:
+        home_total_score = (
+            (home_form_points / 15.0) * 0.35 +  # Normalizar para escala 0-1
+            home_stats_score * 0.25 +
+            home_position_score * 0.20 +
+            home_creation * 0.20
+        )
+        
         # Team stats score (25%)
         home_xg = home.get('xg', 0)
         home_xga = home.get('xga', 0)
@@ -849,114 +857,79 @@ def check_data_quality(stats_dict):
 
 # Add this new function to utils/ai.py
 
-def format_analysis_response(analysis_text, home_team, away_team, selected_markets=None, original_probabilities=None):
+def format_analysis_response(analysis_text, home_team, away_team):
     """
     Garante que a resposta da análise seja formatada corretamente com todas as seções necessárias,
-    sem adicionar dados artificiais.
+    identificando corretamente as oportunidades com valor.
+    
+    Args:
+        analysis_text (str): Resposta bruta da análise da IA
+        home_team (str): Nome do time da casa
+        away_team (str): Nome do time visitante
+        
+    Returns:
+        str: Análise formatada corretamente
     """
-    # Verificar se a análise já tem os cabeçalhos de seção adequados
-    if "# Análise da Partida" in analysis_text and "# Probabilidades Calculadas" in analysis_text:
-        # Vamos processar a seção de oportunidades identificadas para filtrar apenas as que têm valor
-        sections = analysis_text.split('#')
-        processed_sections = []
-        
-        for section in sections:
-            if section.strip().startswith("Oportunidades Identificadas"):
-                # Extrair a parte das Probabilidades Calculadas para identificar linhas com "(Valor)"
-                probs_section = None
-                for s in sections:
-                    if s.strip().startswith("Probabilidades Calculadas"):
-                        probs_section = s
-                        break
-                
-                if probs_section:
-                    # Identificar todas as linhas com "(Valor)" na seção de probabilidades
-                    value_opportunities = []
-                    lines = probs_section.split('\n')
-                    
-                    for line in lines:
-                        if "(Valor)" in line:
-                            # Extrair informação do mercado com valor
-                            parts = line.split(':')
-                            if len(parts) > 1:
-                                market = parts[0].strip()
-                                if "Real" in parts[1]:
-                                    values = parts[1].strip()
-                                    # Construir uma linha de oportunidade identificada
-                                    value_opportunities.append(f"- **{market}:** {values}")
-                    
-                    # Criar nova seção de oportunidades
-                    if value_opportunities:
-                        new_section = "Oportunidades Identificadas:\n" + "\n".join(value_opportunities)
-                    else:
-                        new_section = "Oportunidades Identificadas:\nInfelizmente não detectamos valor em nenhuma dos seus inputs."
-                    
-                    processed_sections.append(new_section)
-                else:
-                    # Se não encontrar a seção de probabilidades, manter a seção original
-                    processed_sections.append(section)
-            else:
-                processed_sections.append(section)
-        
-        return "#".join(processed_sections)
+    # Se não começar com a estrutura esperada, formatar o conteúdo
+    if not analysis_text.strip().startswith("# Análise da Partida"):
+        analysis_text = f"# Análise da Partida\n## {home_team} x {away_team}\n\n{analysis_text}"
     
-    # Se não estiver formatada corretamente, reestruturar como antes
-    formatted_sections = []
+    # Criar uma nova seção de Oportunidades Identificadas
+    new_opportunities = []
     
-    # Adicionar seção de título
-    formatted_sections.append(f"# Análise da Partida\n## {home_team} x {away_team}\n")
-    
-    # Procurar seção de mercados ou criá-la
-    if "# Análise de Mercados Disponíveis:" in analysis_text:
-        market_section = analysis_text.split("# Análise de Mercados Disponíveis:")[1]
-        if "#" in market_section:
-            market_section = market_section.split("#")[0]
-        formatted_sections.append(f"# Análise de Mercados Disponíveis:\n{market_section.strip()}\n")
-    else:
-        formatted_sections.append("# Análise de Mercados Disponíveis:\nNão foi possível estruturar uma análise detalhada dos mercados a partir do texto.\n")
-    
-    # Procurar seção de probabilidades ou criá-la
+    # Procurar pela seção de probabilidades calculadas
     if "# Probabilidades Calculadas" in analysis_text:
         prob_section = analysis_text.split("# Probabilidades Calculadas")[1]
+        
+        # Cortar até a próxima seção, se houver
         if "#" in prob_section:
             prob_section = prob_section.split("#")[0]
-        formatted_sections.append(f"# Probabilidades Calculadas (REAL vs IMPLÍCITA):\n{prob_section.strip()}\n")
-    else:
-        formatted_sections.append("# Probabilidades Calculadas (REAL vs IMPLÍCITA):\nNão há dados estatísticos suficientes para calcular probabilidades reais.\n")
-    
-    # Criar seção de oportunidades baseada nas linhas com "(Valor)" na seção de probabilidades
-    value_opportunities = []
-    
-    if "# Probabilidades Calculadas" in analysis_text:
-        prob_section = analysis_text.split("# Probabilidades Calculadas")[1]
-        if "#" in prob_section:
-            prob_section = prob_section.split("#")[0]
-            
-        lines = prob_section.split('\n')
-        for line in lines:
+        
+        # Analisar linha por linha
+        for line in prob_section.strip().split('\n'):
+            # Identificar linhas que mencionam "(Valor)"
             if "(Valor)" in line:
-                parts = line.split(':')
-                if len(parts) > 1:
-                    market = parts[0].strip()
-                    values = parts[1].strip()
-                    value_opportunities.append(f"- **{market}:** {values}")
+                # Remover o prefixo se estiver presente
+                if line.startswith("-"):
+                    line = line[1:].strip()
+                elif line.startswith("*"):
+                    line = line[1:].strip()
+                
+                # Adicionar à lista de oportunidades
+                new_opportunities.append(f"- {line}")
     
-    if value_opportunities:
-        formatted_sections.append(f"# Oportunidades Identificadas:\n{chr(10).join(value_opportunities)}\n")
+    # Substituir ou criar a seção de oportunidades
+    if "# Oportunidades Identificadas" in analysis_text:
+        old_section = analysis_text.split("# Oportunidades Identificadas")[1]
+        
+        # Cortar até a próxima seção, se houver
+        if "#" in old_section:
+            next_section = old_section.split("#", 1)[1]
+            old_section = old_section.split("#", 1)[0]
+            
+            # Se temos oportunidades
+            if new_opportunities:
+                new_section = "# Oportunidades Identificadas:\n" + "\n".join(new_opportunities) + "\n\n#" + next_section
+            else:
+                new_section = "# Oportunidades Identificadas:\nInfelizmente não detectamos valor em nenhuma dos seus inputs.\n\n#" + next_section
+                
+            analysis_text = analysis_text.replace("# Oportunidades Identificadas" + old_section + "#" + next_section, new_section)
+        else:
+            # Se esta é a última seção
+            if new_opportunities:
+                new_section = "# Oportunidades Identificadas:\n" + "\n".join(new_opportunities) + "\n"
+            else:
+                new_section = "# Oportunidades Identificadas:\nInfelizmente não detectamos valor em nenhuma dos seus inputs.\n"
+                
+            analysis_text = analysis_text.replace("# Oportunidades Identificadas" + old_section, new_section)
     else:
-        formatted_sections.append("# Oportunidades Identificadas:\nInfelizmente não detectamos valor em nenhuma dos seus inputs.\n")
+        # Se a seção não existe, criar nova seção no final
+        if new_opportunities:
+            analysis_text += "\n# Oportunidades Identificadas:\n" + "\n".join(new_opportunities) + "\n"
+        else:
+            analysis_text += "\n# Oportunidades Identificadas:\nInfelizmente não detectamos valor em nenhuma dos seus inputs.\n"
     
-    # Procurar seção de nível de confiança ou criá-la
-    if "# Nível de Confiança" in analysis_text:
-        conf_section = analysis_text.split("# Nível de Confiança")[1]
-        if "#" in conf_section:
-            conf_section = conf_section.split("#")[0]
-        formatted_sections.append(f"# Nível de Confiança Geral: {conf_section.strip()}\n")
-    else:
-        formatted_sections.append("# Nível de Confiança Geral: Baixo\nDevido à limitação de dados estatísticos disponíveis, o nível de confiança é baixo.\n")
-    
-    # Combinar todas as seções
-    return "\n".join(formatted_sections)
+    return analysis_text
 def format_enhanced_prompt(complete_analysis, home_team, away_team, odds_data, selected_markets):
     """
     Função aprimorada para formatar prompt de análise multi-mercados
@@ -1220,17 +1193,24 @@ def calculate_advanced_probabilities(home_team, away_team, league_table=None):
                 int: Pontuação total (máximo 15 pontos)
             """
             points = 0
-            # Garantir que estamos usando apenas os últimos 5 jogos
+            
+            # Garantir que temos uma string
+            if not form_str or not isinstance(form_str, str):
+                return 0
+            
+            # Pegar apenas os últimos 5 caracteres (ou menos, se a string for mais curta)
             recent_form = form_str[-5:] if len(form_str) >= 5 else form_str
             
+            # Calcular pontos
             for result in recent_form:
-                if result.upper() == 'W':
+                result = result.upper()  # Converter para maiúscula para garantir
+                if result == 'W':
                     points += 3
-                elif result.upper() == 'D':
+                elif result == 'D':
                     points += 1
                 # L ou outros caracteres = 0 pontos
             
-            return points  # Retorno sem divisão, valor inteiro
+            return points  # Valor inteiro # Retorno sem divisão, valor inteiro
         
         # Verificar se os dados de forma parecem suspeitos (ambos iguais a "DDDDD")
         home_form = home_team.get('form', '?????')
