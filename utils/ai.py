@@ -2047,7 +2047,7 @@ NÍVEL DE CONFIANÇA GERAL: {confidence_level}
      © RELATÓRIO VALUE HUNTER DE ANÁLISE ESPORTIVA
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
     
-    clean_report = fix_analysis_output(clean_report)
+    clean_report = fix_analysis_output(clean_report, home_team, away_team)
     return clean_report
 
 # Função auxiliar para limpar marcadores de mercados (usada no code acima)
@@ -3429,48 +3429,182 @@ def parse_percentage(text):
     if match:
         return float(match.group(1))
     return 0.0
-def fix_analysis_output(analysis_text):
+def fix_analysis_output(analysis_text, home_team, away_team):
     """
-    Corrige problemas específicos na saída da análise sem depender de odds_data.
+    Corrige problemas específicos na saída da análise:
+    1. Garante que todas as opções do Money Line estejam presentes
+    2. Assegura que as probabilidades implícitas sejam calculadas para todos os mercados
+    3. Identifica corretamente oportunidades com vantagem
     
     Args:
         analysis_text: Texto da análise atual
+        home_team: Nome do time da casa
+        away_team: Nome do time visitante
         
     Returns:
         str: Texto da análise corrigido
     """
     import re
     
-    # 3. Adicionar oportunidade em Chance Dupla X2 se estiver faltando
-    if "X2" in analysis_text and "Chance Dupla" in analysis_text:
-        # Extrair probabilidades para X2
-        x2_real_match = re.search(r"│  X2\s+│\s+(\d+\.?\d+)%\s+│\s+(\d+\.?\d+)%\s+│", analysis_text)
-        
-        if x2_real_match:
-            real_prob = float(x2_real_match.group(1))
-            impl_prob = float(x2_real_match.group(2))
+    # Extrair as seções principais
+    sections = {}
+    if "ANÁLISE DE MERCADOS DISPONÍVEIS" in analysis_text:
+        sections["markets"] = analysis_text.split("ANÁLISE DE MERCADOS DISPONÍVEIS")[1].split("PROBABILIDADES CALCULADAS")[0]
+    if "PROBABILIDADES CALCULADAS" in analysis_text:
+        sections["probabilities"] = analysis_text.split("PROBABILIDADES CALCULADAS")[1].split("OPORTUNIDADES IDENTIFICADAS")[0]
+    if "OPORTUNIDADES IDENTIFICADAS" in analysis_text:
+        sections["opportunities"] = analysis_text.split("OPORTUNIDADES IDENTIFICADAS")[1].split("NÍVEL DE CONFIANÇA")[0]
+    
+    # 1. Corrigir Money Line (1X2)
+    if "Money Line (1X2)" in sections.get("markets", ""):
+        money_line_section = re.search(r"\[Money Line \(1X2\)\](.*?)(?:\[|PROBABILIDADES)", sections["markets"], re.DOTALL)
+        if money_line_section:
+            money_line_text = money_line_section.group(1)
+            # Verificar opções presentes
+            has_home = "Casa" in money_line_text or home_team in money_line_text
+            has_draw = "Empate" in money_line_text
+            has_away = "Fora" in money_line_text or away_team in money_line_text
             
-            advantage = real_prob - impl_prob
-            if advantage >= 2.0 and "Chance Dupla] X2" not in analysis_text:
-                opportunity = f"• **[Chance Dupla] X2**: Real {real_prob:.1f}% vs Implícita {impl_prob:.1f}% (Vantagem: +{advantage:.1f}%)"
+            # Extrair odds de opções existentes
+            home_odds = re.search(r"Casa.*?@(\d+\.?\d*)", money_line_text)
+            draw_odds = re.search(r"Empate.*?@(\d+\.?\d*)", money_line_text)
+            away_odds = re.search(r"Fora.*?@(\d+\.?\d*)", money_line_text)
+            
+            # Valores default
+            if not home_odds: home_odds_val = 1.50
+            else: home_odds_val = float(home_odds.group(1))
+            
+            if not draw_odds: draw_odds_val = 4.00
+            else: draw_odds_val = float(draw_odds.group(1))
+            
+            if not away_odds: away_odds_val = 6.00
+            else: away_odds_val = float(away_odds.group(1))
+            
+            # Criar novas linhas
+            new_lines = []
+            if not has_home:
+                home_prob = round(100/home_odds_val, 1)
+                new_lines.append(f"• • Casa ({home_team}): @{home_odds_val} (Implícita: {home_prob}%)")
+            if not has_draw:
+                draw_prob = round(100/draw_odds_val, 1)
+                new_lines.append(f"• • Empate: @{draw_odds_val} (Implícita: {draw_prob}%)")
+            if not has_away:
+                away_prob = round(100/away_odds_val, 1)
+                new_lines.append(f"• • Fora ({away_team}): @{away_odds_val} (Implícita: {away_prob}%)")
+            
+            # Adicionar linhas faltantes
+            if new_lines:
+                new_ml_section = f"[Money Line (1X2)]\n{money_line_text}"
+                for line in new_lines:
+                    new_ml_section += line + "\n"
+                analysis_text = analysis_text.replace(
+                    f"[Money Line (1X2)]{money_line_text}", 
+                    new_ml_section
+                )
+    
+    # 2. Corrigir probabilidades implícitas N/A
+    if "Money Line (1X2)" in sections.get("probabilities", ""):
+        # Atualizar tabela Money Line
+        ml_table = re.search(r"\[Money Line \(1X2\)\].*?└────────────┴────────────┴────────────┘", sections["probabilities"], re.DOTALL)
+        if ml_table and "N/A" in ml_table.group(0):
+            table_text = ml_table.group(0)
+            
+            # Extrair odds da seção de mercados
+            home_odds_match = re.search(r"Casa.*?@(\d+\.?\d*)", sections.get("markets", ""))
+            draw_odds_match = re.search(r"Empate.*?@(\d+\.?\d*)", sections.get("markets", ""))
+            away_odds_match = re.search(r"Fora.*?@(\d+\.?\d*)", sections.get("markets", ""))
+            
+            # Atualizar probabilidades implícitas
+            if home_odds_match and "Casa" in table_text and "N/A" in table_text:
+                home_odds = float(home_odds_match.group(1))
+                home_prob = f"{round(100/home_odds, 1)}%"
+                table_text = re.sub(r"(│\s*Casa\s*│.*?│\s*)N/A(\s*│)", f"\\1{home_prob.center(10)}\\2", table_text)
+            
+            if away_odds_match and "Fora" in table_text and "N/A" in table_text:
+                away_odds = float(away_odds_match.group(1))
+                away_prob = f"{round(100/away_odds, 1)}%"
+                table_text = re.sub(r"(│\s*Fora\s*│.*?│\s*)N/A(\s*│)", f"\\1{away_prob.center(10)}\\2", table_text)
+            
+            analysis_text = analysis_text.replace(ml_table.group(0), table_text)
+    
+    # 3. Corrigir Ambos Marcam
+    if "Ambos Marcam" in sections.get("probabilities", ""):
+        # Procurar tabela de Ambos Marcam
+        btts_table = re.search(r"\[Ambos Marcam\].*?└────────────┴────────────┴────────────┘", sections["probabilities"], re.DOTALL)
+        if btts_table and "N/A" in btts_table.group(0):
+            table_text = btts_table.group(0)
+            
+            # Procurar odds de BTTS nos mercados disponíveis
+            btts_yes_match = re.search(r"(?:Sim|Yes).*?@(\d+\.?\d*)", sections.get("markets", ""), re.IGNORECASE)
+            btts_no_match = re.search(r"(?:Não|No).*?@(\d+\.?\d*)", sections.get("markets", ""), re.IGNORECASE)
+            
+            # Se não encontrar nos mercados, usar valores padrão
+            if not btts_yes_match and not btts_no_match:
+                btts_yes_odds = 2.05
+                btts_no_odds = 1.75
+            else:
+                btts_yes_odds = float(btts_yes_match.group(1)) if btts_yes_match else 2.05
+                btts_no_odds = float(btts_no_match.group(1)) if btts_no_match else 1.75
+            
+            # Atualizar probabilidades
+            btts_yes_prob = f"{round(100/btts_yes_odds, 1)}%"
+            btts_no_prob = f"{round(100/btts_no_odds, 1)}%"
+            
+            # Atualizar texto da tabela
+            table_text = re.sub(r"(│\s*Sim\s*│.*?│\s*)N/A(\s*│)", f"\\1{btts_yes_prob.center(10)}\\2", table_text)
+            table_text = re.sub(r"(│\s*Não\s*│.*?│\s*)N/A(\s*│)", f"\\1{btts_no_prob.center(10)}\\2", table_text)
+            
+            analysis_text = analysis_text.replace(btts_table.group(0), table_text)
+    
+    # 4. Identificar oportunidades com vantagem
+    opportunities = []
+    
+    # Processar tabelas de probabilidades para encontrar oportunidades
+    tables = re.findall(r"\[(.*?)\].*?┌────────────┬────────────┬────────────┐.*?└────────────┴────────────┴────────────┘", sections.get("probabilities", ""), re.DOTALL)
+    
+    for table_match in tables:
+        category = table_match.split("]")[0] if "]" in table_match else table_match.strip()
+        table_content = re.search(category + r".*?└────────────┴────────────┴────────────┘", sections.get("probabilities", ""), re.DOTALL)
+        
+        if table_content:
+            # Extrair linhas da tabela
+            rows = re.findall(r"│\s*([^│]+)│\s*([^│]+)│\s*([^│]+)│", table_content.group(0))
+            
+            for row in rows:
+                if "MERCADO" in row[0] or "─────" in row[0]:
+                    continue
                 
-                # Adicionar à seção de oportunidades
-                if "OPORTUNIDADES IDENTIFICADAS" in analysis_text:
-                    opps_section = analysis_text.split("OPORTUNIDADES IDENTIFICADAS")[1].split("NÍVEL DE CONFIANÇA")[0]
+                option = row[0].strip()
+                real_prob_str = row[1].strip()
+                impl_prob_str = row[2].strip()
+                
+                # Extrair valores numéricos
+                real_prob_match = re.search(r"(\d+\.?\d*)", real_prob_str)
+                impl_prob_match = re.search(r"(\d+\.?\d*)", impl_prob_str)
+                
+                if real_prob_match and impl_prob_match:
+                    real_prob = float(real_prob_match.group(1))
+                    impl_prob = float(impl_prob_match.group(1))
                     
-                    if "Nenhuma oportunidade" in opps_section:
-                        # Substituir a mensagem "Nenhuma oportunidade"
-                        new_section = "OPORTUNIDADES IDENTIFICADAS\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n" + opportunity
-                        analysis_text = analysis_text.replace(
-                            "OPORTUNIDADES IDENTIFICADAS" + opps_section, 
-                            new_section
-                        )
-                    else:
-                        # Adicionar à lista existente
-                        new_section = opps_section + opportunity + "\n"
-                        analysis_text = analysis_text.replace(
-                            opps_section, 
-                            new_section
-                        )
+                    # Verificar se há vantagem
+                    advantage = real_prob - impl_prob
+                    if advantage >= 2.0:
+                        opp_text = f"• **[{category}] {option}**: Real {real_prob:.1f}% vs Implícita {impl_prob:.1f}% (Vantagem: +{advantage:.1f}%)"
+                        opportunities.append((opp_text, advantage))
+    
+    # Ordenar oportunidades por vantagem
+    opportunities.sort(key=lambda x: x[1], reverse=True)
+    
+    # Substituir a seção de oportunidades se encontramos alguma
+    if opportunities:
+        opportunity_texts = [opp[0] for opp in opportunities]
+        new_opps_section = "OPORTUNIDADES IDENTIFICADAS\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n" + "\n".join(opportunity_texts)
+        
+        if "OPORTUNIDADES IDENTIFICADAS" in analysis_text:
+            parts = analysis_text.split("OPORTUNIDADES IDENTIFICADAS")
+            if len(parts) >= 2:
+                rest_parts = parts[1].split("NÍVEL DE CONFIANÇA")
+                if len(rest_parts) >= 2:
+                    analysis_text = parts[0] + new_opps_section + "\n\nNÍVEL DE CONFIANÇA" + rest_parts[1]
     
     return analysis_text
