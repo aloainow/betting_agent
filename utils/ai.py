@@ -2049,6 +2049,7 @@ NÍVEL DE CONFIANÇA GERAL: {confidence_level}
     
     clean_report = fix_analysis_output(clean_report, home_team, away_team)
     clean_report = fix_opportunities_and_form(clean_report, home_team, away_team)
+    clean_report = fix_btts_probabilities(clean_report)  # Nova função específica
     return clean_report
 
 # Função auxiliar para limpar marcadores de mercados (usada no code acima)
@@ -3578,5 +3579,67 @@ def fix_opportunities_and_form(analysis_text, home_team, away_team):
             new_form_line = f"► FORMA: {home_team}: {home_form}/15 pontos, {away_team}: {away_form}/15 pontos (baseado nos últimos 5 jogos)."
             form_pattern = r"► FORMA:.*?(?=\n)"
             analysis_text = re.sub(form_pattern, new_form_line, analysis_text)
+    
+    return analysis_text
+def fix_btts_probabilities(analysis_text):
+    """
+    Corrige especificamente o problema das probabilidades implícitas N/A 
+    no mercado Ambos Marcam usando as odds já presentes no texto.
+    """
+    import re
+    
+    # Primeiro, extrair as odds da seção ANÁLISE DE MERCADOS DISPONÍVEIS
+    btts_yes_odds = None
+    btts_no_odds = None
+    
+    btts_market = re.search(r"\[Ambos Marcam\].*?(?=\[|PROBABILIDADES)", analysis_text, re.DOTALL)
+    if btts_market:
+        yes_match = re.search(r"Sim.*?@(\d+\.?\d*)\s*\(Implícita:\s*(\d+\.?\d*)%\)", btts_market.group(0))
+        no_match = re.search(r"Não.*?@(\d+\.?\d*)\s*\(Implícita:\s*(\d+\.?\d*)%\)", btts_market.group(0))
+        
+        if yes_match:
+            btts_yes_odds = float(yes_match.group(1))
+            btts_yes_impl = yes_match.group(2)
+        
+        if no_match:
+            btts_no_odds = float(no_match.group(1))
+            btts_no_impl = no_match.group(2)
+    
+    # Agora, atualizar a tabela PROBABILIDADES CALCULADAS
+    if btts_yes_odds and btts_no_odds:
+        btts_table = re.search(r"\[Ambos Marcam\].*?└────────────┴────────────┴────────────┘", analysis_text, re.DOTALL)
+        if btts_table and "N/A" in btts_table.group(0):
+            table_text = btts_table.group(0)
+            
+            # Extrair probabilidades reais atuais
+            sim_real = re.search(r"│\s*Sim\s*│\s*(\d+\.?\d*)%\s*│", table_text)
+            nao_real = re.search(r"│\s*Não\s*│\s*(\d+\.?\d*)%\s*│", table_text)
+            
+            # Substituir N/A pelas probabilidades implícitas extraídas
+            if sim_real and "N/A" in table_text:
+                table_text = re.sub(
+                    r"(│\s*Sim\s*│\s*" + re.escape(sim_real.group(1)) + r"%\s*│\s*)N/A(\s*│)",
+                    f"\\1{btts_yes_impl.center(10)}\\2",
+                    table_text
+                )
+            
+            if nao_real and "N/A" in table_text:
+                table_text = re.sub(
+                    r"(│\s*Não\s*│\s*" + re.escape(nao_real.group(1)) + r"%\s*│\s*)N/A(\s*│)",
+                    f"\\1{btts_no_impl.center(10)}\\2",
+                    table_text
+                )
+            
+            analysis_text = analysis_text.replace(btts_table.group(0), table_text)
+    
+    # Corrigir duplicação de separadores na seção OPORTUNIDADES IDENTIFICADAS
+    double_separator = r"▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔"
+    single_separator = r"▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔"
+    
+    if double_separator in analysis_text:
+        analysis_text = analysis_text.replace(double_separator, single_separator)
+    
+    # Também corrigir problema de bullets extras no Ambos Marcam
+    analysis_text = analysis_text.replace("• • •", "• •")
     
     return analysis_text
