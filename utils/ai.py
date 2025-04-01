@@ -3938,11 +3938,11 @@ def final_corrections(analysis_text, home_team, away_team):
     
     return analysis_text
     def fix_forma_calculation(analysis_text, home_team, away_team):
-    """
-    Corrige especificamente o cálculo de FORMA para somar corretamente
-    os pontos dos últimos 5 jogos.
-    """
-    import re
+        """
+        Corrige especificamente o cálculo de FORMA para somar corretamente
+        os pontos dos últimos 5 jogos.
+        """
+        import re
     
     # Buscar sequência de forma na seção de estatísticas fundamentais
     home_form_match = re.search(f"{home_team}:.*?forma:?\s*(W|D|L|V|E|D|P|N).*?(W|D|L|V|E|D|P|N).*?(W|D|L|V|E|D|P|N).*?(W|D|L|V|E|D|P|N).*?(W|D|L|V|E|D|P|N)", analysis_text, re.IGNORECASE)
