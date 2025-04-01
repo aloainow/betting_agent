@@ -310,9 +310,22 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
             
             return points / max(total_weight, 1)
         
-        # Convert form to points (scale 0-1)
-        home_form = home.get('form', '?????')
-        away_form = away.get('form', '?????')
+        # Extrair últimos 5 jogos do formRun_overall se disponível
+        home_formRun = home.get('formRun_overall', '')
+        away_formRun = away.get('formRun_overall', '')
+        
+        # Formatar string de forma corretamente
+        if home_formRun and len(home_formRun) >= 5:
+            home_form = home_formRun[-5:].upper()
+        else:
+            home_form = home.get('form', '?????')
+            
+        if away_formRun and len(away_formRun) >= 5:
+            away_form = away_formRun[-5:].upper()
+        else:
+            away_form = away.get('form', '?????')
+        
+        # E então, ao calcular os pontos, use a função form_to_points atualizada
         home_form_points = form_to_points(home_form) / 15
         away_form_points = form_to_points(away_form) / 15
         
@@ -829,7 +842,7 @@ def check_data_quality(stats_dict):
 def format_analysis_response(analysis_text, home_team, away_team, selected_markets=None, original_probabilities=None):
     """
     Garante que a resposta da análise seja formatada corretamente com todas as seções necessárias,
-    sem adicionar dados artificiais.
+    filtrando apenas oportunidades com valor real.
     
     Args:
         analysis_text (str): Resposta bruta da análise da IA
@@ -843,9 +856,29 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
     """
     # Verificar se a análise já tem os cabeçalhos de seção adequados
     if "# Análise da Partida" in analysis_text and "# Probabilidades Calculadas" in analysis_text:
-        return analysis_text
+        # Processamento apenas da seção de oportunidades
+        sections = analysis_text.split('#')
+        processed_sections = []
         
-    # Se não estiver formatada corretamente, reestruturar
+        for section in sections:
+            if section.strip().startswith("Oportunidades Identificadas"):
+                lines = section.split('\n')
+                header = lines[0]
+                opportunities = [line for line in lines[1:] if line.strip() and "valor" in line.lower() and "sem valor" not in line.lower()]
+                
+                # Se não há oportunidades com valor, mostrar mensagem padrão
+                if not opportunities:
+                    new_section = f"{header}\nInfelizmente não detectamos valor em nenhuma dos seus inputs."
+                else:
+                    new_section = f"{header}\n" + "\n".join(opportunities)
+                
+                processed_sections.append(new_section)
+            else:
+                processed_sections.append(section)
+        
+        return "#".join(processed_sections)
+    
+    # Se não estiver formatada corretamente, reestruturar (código original)
     formatted_sections = []
     
     # Adicionar seção de título
@@ -875,9 +908,17 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
         opp_section = analysis_text.split("# Oportunidades Identificadas")[1]
         if "#" in opp_section:
             opp_section = opp_section.split("#")[0]
-        formatted_sections.append(f"# Oportunidades Identificadas:\n{opp_section.strip()}\n")
+            
+        # Filtrar apenas oportunidades com valor
+        lines = opp_section.strip().split('\n')
+        opportunities = [line for line in lines if line.strip() and "valor" in line.lower() and "sem valor" not in line.lower()]
+        
+        if opportunities:
+            formatted_sections.append(f"# Oportunidades Identificadas:\n{chr(10).join(opportunities)}\n")
+        else:
+            formatted_sections.append("# Oportunidades Identificadas:\nInfelizmente não detectamos valor em nenhuma dos seus inputs.\n")
     else:
-        formatted_sections.append("# Oportunidades Identificadas:\nNão há dados suficientes para identificar oportunidades claras.\n")
+        formatted_sections.append("# Oportunidades Identificadas:\nInfelizmente não detectamos valor em nenhuma dos seus inputs.\n")
     
     # Procurar seção de nível de confiança ou criá-la
     if "# Nível de Confiança" in analysis_text:
@@ -1142,25 +1183,28 @@ def calculate_advanced_probabilities(home_team, away_team, league_table=None):
         
         # 1. Forma recente (35%) - precisamos processar a string de forma
         def form_to_points(form_str):
-            points = 0
-            weight = 1.0
-            total_weight = 0
+            """
+            Calcula pontos de forma considerando os últimos 5 jogos
+            W=3pts, D=1pt, L=0pts
             
-            # Inverter string para dar mais peso aos jogos mais recentes
-            for i, result in enumerate(reversed(form_str[:5])):
-                if result == 'W':
-                    points += 3 * weight
-                elif result == 'D':
-                    points += 1 * weight
-                elif result == 'L':
-                    points += 0
-                else:
-                    points += 1 * weight  # Valor neutro para '?'
+            Args:
+                form_str (str): String com a sequência de resultados (ex: "WDLWW")
                 
-                total_weight += weight
-                weight *= 0.8  # Decaimento para jogos mais antigos
+            Returns:
+                float: Pontuação total (máximo 15 pontos)
+            """
+            points = 0
+            # Garantir que estamos usando apenas os últimos 5 jogos
+            recent_form = form_str[-5:] if len(form_str) >= 5 else form_str
             
-            return points / max(total_weight, 1)
+            for result in recent_form:
+                if result == 'W' or result == 'w':
+                    points += 3
+                elif result == 'D' or result == 'd':
+                    points += 1
+                # L ou outros caracteres = 0 pontos
+            
+            return points
         
         # Verificar se os dados de forma parecem suspeitos (ambos iguais a "DDDDD")
         home_form = home_team.get('form', '?????')
