@@ -1899,17 +1899,7 @@ def format_analysis_response(
                         
                         # NOVO: Garantir que o mercado também está presente nos mercados disponíveis
                         if display_name not in [cat for cat in market_categories if market_categories[cat]]:
-                            # Adicionar mercados padrão se estiverem faltando na análise
-                            if market_key == "ambos_marcam":
-                                market_categories["Ambos Marcam"] = [
-                                    "• Sim (BTTS): @2.00 (Implícita: 50.0%)",
-                                    "• Não (BTTS): @1.80 (Implícita: 55.6%)"
-                                ]
-                                # Garantir que temos as probabilidades implícitas também atualizadas
-                                if "Ambos Marcam" in formatted_probs:
-                                    formatted_probs["Ambos Marcam"]["Sim"]["implicit"] = "50.0%"
-                                    formatted_probs["Ambos Marcam"]["Não"]["implicit"] = "55.6%"
-
+                           
     # MELHORAR OS DADOS DE ANÁLISE DE CONFIANÇA
     # Usar dados reais de análise quando disponíveis em vez de texto genérico
     if original_probabilities and "analysis_data" in original_probabilities:
