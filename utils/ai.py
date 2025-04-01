@@ -826,7 +826,7 @@ def check_data_quality(stats_dict):
 
 # Add this new function to utils/ai.py
 
-def format_analysis_response(analysis_text, home_team, away_team):
+def format_analysis_response(analysis_text, home_team, away_team, selected_markets=None, original_probabilities=None):
     """
     Garante que a resposta da análise seja formatada corretamente com todas as seções necessárias,
     sem adicionar dados artificiais.
@@ -835,6 +835,8 @@ def format_analysis_response(analysis_text, home_team, away_team):
         analysis_text (str): Resposta bruta da análise da IA
         home_team (str): Nome do time da casa
         away_team (str): Nome do time visitante
+        selected_markets (dict, optional): Mercados selecionados para análise
+        original_probabilities (dict, optional): Probabilidades calculadas originalmente
         
     Returns:
         str: Análise formatada corretamente
