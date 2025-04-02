@@ -291,42 +291,42 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
         
         # Form points (35%)
         def form_to_points(form_str):
-        """
-        Calcula pontos de forma considerando os últimos 5 jogos
-        W=3pts, D=1pt, L=0pts
-        
-        Args:
-            form_str (str): String com a sequência de resultados (ex: "WDLWW")
+            """
+            Calcula pontos de forma considerando os últimos 5 jogos
+            W=3pts, D=1pt, L=0pts
             
-        Returns:
-            int: Pontuação total (máximo 15 pontos)
-        """
-        if not form_str or not isinstance(form_str, str):
-            return 0
-        
-        points = 0
-        # Garantir que estamos usando apenas os últimos 5 jogos
-        recent_form = form_str[-5:] if len(form_str) >= 5 else form_str
-        
-        # Log para debug
-        logger.debug(f"Calculando pontos para forma: {recent_form}")
-        
-        # Calcular pontos
-        for result in recent_form:
-            result = result.upper()  # Converter para maiúscula para garantir
-            if result == 'W':
-                points += 3
-                logger.debug(f"W encontrado, adicionando 3 pontos, total: {points}")
-            elif result == 'D':
-                points += 1
-                logger.debug(f"D encontrado, adicionando 1 ponto, total: {points}")
-            elif result == 'L':
-                logger.debug(f"L encontrado, sem pontos, total: {points}")
-            else:
-                logger.debug(f"Caractere desconhecido: {result}, sem pontos, total: {points}")
-        
-        logger.debug(f"Pontuação final da forma: {points}")
-        return points  # Valor inteiro
+            Args:
+                form_str (str): String com a sequência de resultados (ex: "WDLWW")
+                
+            Returns:
+                int: Pontuação total (máximo 15 pontos)
+            """
+            if not form_str or not isinstance(form_str, str):
+                return 0
+            
+            points = 0
+            # Garantir que estamos usando apenas os últimos 5 jogos
+            recent_form = form_str[-5:] if len(form_str) >= 5 else form_str
+            
+            # Log para debug
+            logger.debug(f"Calculando pontos para forma: {recent_form}")
+            
+            # Calcular pontos
+            for result in recent_form:
+                result = result.upper()  # Converter para maiúscula para garantir
+                if result == 'W':
+                    points += 3
+                    logger.debug(f"W encontrado, adicionando 3 pontos, total: {points}")
+                elif result == 'D':
+                    points += 1
+                    logger.debug(f"D encontrado, adicionando 1 ponto, total: {points}")
+                elif result == 'L':
+                    logger.debug(f"L encontrado, sem pontos, total: {points}")
+                else:
+                    logger.debug(f"Caractere desconhecido: {result}, sem pontos, total: {points}")
+            
+            logger.debug(f"Pontuação final da forma: {points}")
+            return points  # Valor inteiro
         
         # Extrair últimos 5 jogos do formRun_overall se disponível
         home_formRun = home.get('formRun_overall', '')
