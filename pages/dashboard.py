@@ -1374,7 +1374,7 @@ def show_main_dashboard():
                                     if btts_no_odd > 0:
                                         implied_probabilities["btts_no"] = 100.0 / btts_no_odd
                                 
-                                new_analysis.append(markets_section)
+                                    new_analysis.append(markets_section)
                                 
                                 # Probabilidades calculadas
                                 probs_section = "# Probabilidades Calculadas (REAL vs IMPLÍCITA):\n"
