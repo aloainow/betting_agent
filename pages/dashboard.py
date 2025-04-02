@@ -1273,14 +1273,21 @@ def show_main_dashboard():
                             
                             # Reconstrução completa da análise
                             def reconstruct_analysis(analysis_text, home_team, away_team, selected_markets, original_probabilities, implied_probabilities, odds_data):
-                                # Iniciar construção da análise
-                                new_analysis = []
-                                
-                                # Adicionar cabeçalho
-                                new_analysis.append(f"# Análise da Partida\n## {home_team} x {away_team}")
-                                
-                                # Adicionar análise de mercados disponíveis
-                                markets_section = "# Análise de Mercados Disponíveis:\n"
+                                try:
+                                    # Logs para depuração
+                                    print(f"Selected markets: {selected_markets}")
+                                    print(f"Original probabilities keys: {original_probabilities.keys() if original_probabilities else 'None'}")
+                                    print(f"Implied probabilities keys: {implied_probabilities.keys() if implied_probabilities else 'None'}")
+                                    print(f"Odds data: {odds_data}")
+                                    
+                                    # Iniciar construção da análise
+                                    new_analysis = []
+                                    
+                                    # Adicionar cabeçalho
+                                    new_analysis.append(f"# Análise da Partida\n## {home_team} x {away_team}")
+                                    
+                                    # Adicionar análise de mercados disponíveis
+                                    markets_section = "# Análise de Mercados Disponíveis:\n"
                                 
                                 # Moneyline
                                 if selected_markets.get("money_line"):
