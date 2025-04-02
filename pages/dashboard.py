@@ -1123,10 +1123,7 @@ def show_main_dashboard():
                 # Botão em largura total para melhor design
                 analyze_button = st.button("Analisar Partida", type="primary", use_container_width=True)
                 
-                # Find the analyze button handler in pages/dashboard.py and replace it with this code
-
-                # Versão sem fallback do código do botão de análise
-
+                # Código atualizado para o botão de análise
                 if analyze_button:
                     if not any(selected_markets.values()):
                         st.error("Por favor, selecione pelo menos um mercado para análise.")
@@ -1177,6 +1174,63 @@ def show_main_dashboard():
                             stats_data["away_team"]
                         )
                         
+                        # Extrair probabilidades implícitas das odds
+                        implied_probabilities = {}
+                        
+                        # Função auxiliar para extrair odds de um texto
+                        def extract_odds(text, pattern, default=0.0):
+                            import re
+                            matches = re.findall(pattern, text)
+                            if matches:
+                                try:
+                                    return float(matches[0])
+                                except:
+                                    pass
+                            return default
+                        
+                        # Parsear as odds para Money Line
+                        if selected_markets.get("money_line") and odds_data:
+                            # Padrões para extrair odds
+                            home_odd = extract_odds(odds_data, rf"(?:Casa|Home).*?@(\d+\.?\d*)")
+                            draw_odd = extract_odds(odds_data, r"Empate.*?@(\d+\.?\d*)")
+                            away_odd = extract_odds(odds_data, rf"(?:Fora|Away).*?@(\d+\.?\d*)")
+                            
+                            if home_odd > 0:
+                                implied_probabilities["home"] = 100.0 / home_odd
+                            if draw_odd > 0:
+                                implied_probabilities["draw"] = 100.0 / draw_odd
+                            if away_odd > 0:
+                                implied_probabilities["away"] = 100.0 / away_odd
+                        
+                        # Parsear para Chance Dupla
+                        if selected_markets.get("chance_dupla") and odds_data:
+                            home_draw_odd = extract_odds(odds_data, r"1X.*?@(\d+\.?\d*)")
+                            home_away_odd = extract_odds(odds_data, r"12.*?@(\d+\.?\d*)")
+                            draw_away_odd = extract_odds(odds_data, r"X2.*?@(\d+\.?\d*)")
+                            
+                            if home_draw_odd > 0:
+                                implied_probabilities["home_draw"] = 100.0 / home_draw_odd
+                            if home_away_odd > 0:
+                                implied_probabilities["home_away"] = 100.0 / home_away_odd
+                            if draw_away_odd > 0:
+                                implied_probabilities["draw_away"] = 100.0 / draw_away_odd
+                        
+                        # Parsear para BTTS
+                        if selected_markets.get("ambos_marcam") and odds_data:
+                            btts_yes_odd = extract_odds(odds_data, r"Sim.*?@(\d+\.?\d*)")
+                            btts_no_odd = extract_odds(odds_data, r"Não.*?@(\d+\.?\d*)")
+                            
+                            if btts_yes_odd > 0:
+                                implied_probabilities["btts_yes"] = 100.0 / btts_yes_odd
+                            if btts_no_odd > 0:
+                                implied_probabilities["btts_no"] = 100.0 / btts_no_odd
+                        
+                        # Adicionar as probabilidades implícitas às probabilidades originais
+                        if implied_probabilities:
+                            if "analysis_data" not in original_probabilities:
+                                original_probabilities["analysis_data"] = {}
+                            original_probabilities["analysis_data"]["implied_odds"] = implied_probabilities
+                        
                         # Depois geramos o prompt com essas probabilidades
                         prompt = format_highly_optimized_prompt(stats_data, home_team, away_team, odds_data, selected_markets)
                         
@@ -1185,9 +1239,10 @@ def show_main_dashboard():
                             return
                         
                         # Etapa 4: Análise GPT com probabilidades originais
+                        status.info("Realizando análise com IA...")
                         analysis = analyze_with_gpt(
                             prompt,
-                            original_probabilities=original_probabilities,  # Correção: "probabilities" 
+                            original_probabilities=original_probabilities,
                             selected_markets=selected_markets,
                             home_team=home_team,
                             away_team=away_team
@@ -1212,12 +1267,246 @@ def show_main_dashboard():
                             
                             # IMPORTANTE: Aplicar formatação avançada para garantir filtragem por mercados selecionados
                             from utils.ai import format_analysis_response
-                            formatted_analysis = format_analysis_response(
+                            
+                            # Adiciona módulo re para expressões regulares caso não esteja importado
+                            import re
+                            
+                            # Reconstrução completa da análise
+                            def reconstruct_analysis(analysis_text, home_team, away_team, selected_markets, original_probabilities, implied_probabilities, odds_data):
+                                # Iniciar construção da análise
+                                new_analysis = []
+                                
+                                # Adicionar cabeçalho
+                                new_analysis.append(f"# Análise da Partida\n## {home_team} x {away_team}")
+                                
+                                # Adicionar análise de mercados disponíveis
+                                markets_section = "# Análise de Mercados Disponíveis:\n"
+                                
+                                # Moneyline
+                                if selected_markets.get("money_line"):
+                                    markets_section += "- **Money Line (1X2):**\n"
+                                    home_odd = 0
+                                    draw_odd = 0
+                                    away_odd = 0
+                                    
+                                    # Extrair odds do texto original
+                                    home_match = re.search(r"Casa.*?@(\d+\.?\d*)", odds_data)
+                                    if home_match:
+                                        home_odd = float(home_match.group(1))
+                                        markets_section += f"  - Casa ({home_team}): @{home_odd}\n"
+                                    
+                                    draw_match = re.search(r"Empate.*?@(\d+\.?\d*)", odds_data)
+                                    if draw_match:
+                                        draw_odd = float(draw_match.group(1))
+                                        markets_section += f"  - Empate: @{draw_odd}\n"
+                                    
+                                    away_match = re.search(r"Fora.*?@(\d+\.?\d*)", odds_data)
+                                    if away_match:
+                                        away_odd = float(away_match.group(1))
+                                        markets_section += f"  - Fora ({away_team}): @{away_odd}\n"
+                                    
+                                    # Atualizar probabilidades implícitas
+                                    if home_odd > 0:
+                                        implied_probabilities["home"] = 100.0 / home_odd
+                                    if draw_odd > 0:
+                                        implied_probabilities["draw"] = 100.0 / draw_odd
+                                    if away_odd > 0:
+                                        implied_probabilities["away"] = 100.0 / away_odd
+                                
+                                # Chance Dupla
+                                if selected_markets.get("chance_dupla"):
+                                    markets_section += "- **Chance Dupla:**\n"
+                                    home_draw_odd = 0
+                                    home_away_odd = 0
+                                    draw_away_odd = 0
+                                    
+                                    # Extrair odds do texto original
+                                    hd_match = re.search(r"1X.*?@(\d+\.?\d*)", odds_data)
+                                    if hd_match:
+                                        home_draw_odd = float(hd_match.group(1))
+                                        markets_section += f"  - 1X ({home_team} ou Empate): @{home_draw_odd}\n"
+                                    
+                                    ha_match = re.search(r"12.*?@(\d+\.?\d*)", odds_data)
+                                    if ha_match:
+                                        home_away_odd = float(ha_match.group(1))
+                                        markets_section += f"  - 12 ({home_team} ou {away_team}): @{home_away_odd}\n"
+                                    
+                                    da_match = re.search(r"X2.*?@(\d+\.?\d*)", odds_data)
+                                    if da_match:
+                                        draw_away_odd = float(da_match.group(1))
+                                        markets_section += f"  - X2 (Empate ou {away_team}): @{draw_away_odd}\n"
+                                    
+                                    # Atualizar probabilidades implícitas
+                                    if home_draw_odd > 0:
+                                        implied_probabilities["home_draw"] = 100.0 / home_draw_odd
+                                    if home_away_odd > 0:
+                                        implied_probabilities["home_away"] = 100.0 / home_away_odd
+                                    if draw_away_odd > 0:
+                                        implied_probabilities["draw_away"] = 100.0 / draw_away_odd
+                                
+                                # Ambos Marcam
+                                if selected_markets.get("ambos_marcam"):
+                                    markets_section += "- **Ambos Marcam (BTTS):**\n"
+                                    btts_yes_odd = 0
+                                    btts_no_odd = 0
+                                    
+                                    # Extrair odds do texto original
+                                    yes_match = re.search(r"Sim.*?@(\d+\.?\d*)", odds_data)
+                                    if yes_match:
+                                        btts_yes_odd = float(yes_match.group(1))
+                                        markets_section += f"  - Sim: @{btts_yes_odd}\n"
+                                    
+                                    no_match = re.search(r"Não.*?@(\d+\.?\d*)", odds_data)
+                                    if no_match:
+                                        btts_no_odd = float(no_match.group(1))
+                                        markets_section += f"  - Não: @{btts_no_odd}\n"
+                                    
+                                    # Atualizar probabilidades implícitas
+                                    if btts_yes_odd > 0:
+                                        implied_probabilities["btts_yes"] = 100.0 / btts_yes_odd
+                                    if btts_no_odd > 0:
+                                        implied_probabilities["btts_no"] = 100.0 / btts_no_odd
+                                
+                                new_analysis.append(markets_section)
+                                
+                                # Probabilidades calculadas
+                                probs_section = "# Probabilidades Calculadas (REAL vs IMPLÍCITA):\n"
+                                opportunities = []
+                                
+                                # Money Line
+                                if selected_markets.get("money_line") and "moneyline" in original_probabilities:
+                                    probs_section += "## Money Line (1X2):\n"
+                                    
+                                    # Casa
+                                    home_real = original_probabilities["moneyline"].get("home_win", 0)
+                                    home_implicit = implied_probabilities.get("home", 0)
+                                    home_value = home_real > home_implicit + 2
+                                    
+                                    probs_section += f"- **{home_team}**: Real {home_real:.1f}% vs Implícita {home_implicit:.1f}%{' (Valor)' if home_value else ''}\n"
+                                    
+                                    if home_value:
+                                        opportunities.append(f"- **{home_team}**: Real {home_real:.1f}% vs Implícita {home_implicit:.1f}% (Valor de {home_real-home_implicit:.1f}%)")
+                                    
+                                    # Empate
+                                    draw_real = original_probabilities["moneyline"].get("draw", 0)
+                                    draw_implicit = implied_probabilities.get("draw", 0)
+                                    draw_value = draw_real > draw_implicit + 2
+                                    
+                                    probs_section += f"- **Empate**: Real {draw_real:.1f}% vs Implícita {draw_implicit:.1f}%{' (Valor)' if draw_value else ''}\n"
+                                    
+                                    if draw_value:
+                                        opportunities.append(f"- **Empate**: Real {draw_real:.1f}% vs Implícita {draw_implicit:.1f}% (Valor de {draw_real-draw_implicit:.1f}%)")
+                                    
+                                    # Fora
+                                    away_real = original_probabilities["moneyline"].get("away_win", 0)
+                                    away_implicit = implied_probabilities.get("away", 0)
+                                    away_value = away_real > away_implicit + 2
+                                    
+                                    probs_section += f"- **{away_team}**: Real {away_real:.1f}% vs Implícita {away_implicit:.1f}%{' (Valor)' if away_value else ''}\n"
+                                    
+                                    if away_value:
+                                        opportunities.append(f"- **{away_team}**: Real {away_real:.1f}% vs Implícita {away_implicit:.1f}% (Valor de {away_real-away_implicit:.1f}%)")
+                                
+                                # Double Chance
+                                if selected_markets.get("chance_dupla") and "double_chance" in original_probabilities:
+                                    probs_section += "## Chance Dupla (Double Chance):\n"
+                                    
+                                    # 1X
+                                    hd_real = original_probabilities["double_chance"].get("home_or_draw", 0)
+                                    hd_implicit = implied_probabilities.get("home_draw", 0)
+                                    hd_value = hd_real > hd_implicit + 2
+                                    
+                                    probs_section += f"- **{home_team} ou Empate**: Real {hd_real:.1f}% vs Implícita {hd_implicit:.1f}%{' (Valor)' if hd_value else ''}\n"
+                                    
+                                    if hd_value:
+                                        opportunities.append(f"- **{home_team} ou Empate**: Real {hd_real:.1f}% vs Implícita {hd_implicit:.1f}% (Valor de {hd_real-hd_implicit:.1f}%)")
+                                    
+                                    # 12
+                                    ha_real = original_probabilities["double_chance"].get("home_or_away", 0)
+                                    ha_implicit = implied_probabilities.get("home_away", 0)
+                                    ha_value = ha_real > ha_implicit + 2
+                                    
+                                    probs_section += f"- **{home_team} ou {away_team}**: Real {ha_real:.1f}% vs Implícita {ha_implicit:.1f}%{' (Valor)' if ha_value else ''}\n"
+                                    
+                                    if ha_value:
+                                        opportunities.append(f"- **{home_team} ou {away_team}**: Real {ha_real:.1f}% vs Implícita {ha_implicit:.1f}% (Valor de {ha_real-ha_implicit:.1f}%)")
+                                    
+                                    # X2
+                                    da_real = original_probabilities["double_chance"].get("away_or_draw", 0)
+                                    da_implicit = implied_probabilities.get("draw_away", 0)
+                                    da_value = da_real > da_implicit + 2
+                                    
+                                    probs_section += f"- **Empate ou {away_team}**: Real {da_real:.1f}% vs Implícita {da_implicit:.1f}%{' (Valor)' if da_value else ''}\n"
+                                    
+                                    if da_value:
+                                        opportunities.append(f"- **Empate ou {away_team}**: Real {da_real:.1f}% vs Implícita {da_implicit:.1f}% (Valor de {da_real-da_implicit:.1f}%)")
+                                
+                                # BTTS
+                                if selected_markets.get("ambos_marcam") and "btts" in original_probabilities:
+                                    probs_section += "## Ambos Marcam (BTTS):\n"
+                                    
+                                    # Sim
+                                    yes_real = original_probabilities["btts"].get("yes", 0)
+                                    yes_implicit = implied_probabilities.get("btts_yes", 0)
+                                    yes_value = yes_real > yes_implicit + 2
+                                    
+                                    probs_section += f"- **Sim**: Real {yes_real:.1f}% vs Implícita {yes_implicit:.1f}%{' (Valor)' if yes_value else ''}\n"
+                                    
+                                    if yes_value:
+                                        opportunities.append(f"- **Ambos Marcam - Sim**: Real {yes_real:.1f}% vs Implícita {yes_implicit:.1f}% (Valor de {yes_real-yes_implicit:.1f}%)")
+                                    
+                                    # Não
+                                    no_real = original_probabilities["btts"].get("no", 0)
+                                    no_implicit = implied_probabilities.get("btts_no", 0)
+                                    no_value = no_real > no_implicit + 2
+                                    
+                                    probs_section += f"- **Não**: Real {no_real:.1f}% vs Implícita {no_implicit:.1f}%{' (Valor)' if no_value else ''}\n"
+                                    
+                                    if no_value:
+                                        opportunities.append(f"- **Ambos Marcam - Não**: Real {no_real:.1f}% vs Implícita {no_implicit:.1f}% (Valor de {no_real-no_implicit:.1f}%)")
+                                
+                                new_analysis.append(probs_section)
+                                
+                                # Oportunidades identificadas
+                                if opportunities:
+                                    new_analysis.append("# Oportunidades Identificadas:\n" + "\n".join(opportunities))
+                                else:
+                                    new_analysis.append("# Oportunidades Identificadas:\nInfelizmente não detectamos valor em nenhuma dos seus inputs.")
+                                
+                                # Nível de confiança
+                                confidence_section = "# Nível de Confiança Geral: Médio\n"
+                                
+                                # Extrair dados da forma e consistência
+                                if "analysis_data" in original_probabilities:
+                                    analysis_data = original_probabilities["analysis_data"]
+                                    home_consistency = analysis_data.get("home_consistency", 0) * 100
+                                    away_consistency = analysis_data.get("away_consistency", 0) * 100
+                                    
+                                    # Calcular pontos de forma como valores inteiros
+                                    home_form_points = int(analysis_data.get("home_form_points", 0) * 15)
+                                    away_form_points = int(analysis_data.get("away_form_points", 0) * 15)
+                                    
+                                    confidence_section += f"- **Consistência**: {home_team}: {home_consistency:.1f}%, {away_team}: {away_consistency:.1f}%. Consistência é uma medida que indica quão previsível é o desempenho da equipe.\n"
+                                    confidence_section += f"- **Forma Recente**: {home_team}: {home_form_points}/15, {away_team}: {away_form_points}/15. Forma representa a pontuação dos últimos 5 jogos (vitória=3pts, empate=1pt, derrota=0pts).\n"
+                                    confidence_section += "- Valores mais altos em ambas métricas aumentam a confiança na previsão."
+                                else:
+                                    confidence_section += "- **Consistência**: Consistência é uma medida que indica quão previsível é o desempenho da equipe.\n"
+                                    confidence_section += "- **Forma Recente**: Forma representa a pontuação dos últimos 5 jogos (vitória=3pts, empate=1pt, derrota=0pts).\n"
+                                    confidence_section += "- Valores mais altos em ambas métricas aumentam a confiança na previsão."
+                                
+                                new_analysis.append(confidence_section)
+                                
+                                return "\n\n".join(new_analysis)
+                            
+                            # Usar a análise de texto da API como base, mas reconstruir completamente as seções críticas
+                            formatted_analysis = reconstruct_analysis(
                                 analysis,
                                 home_team,
                                 away_team,
-                                selected_markets=selected_markets,
-                                original_probabilities=original_probabilities
+                                selected_markets,
+                                original_probabilities,
+                                implied_probabilities,
+                                odds_data
                             )
                             
                             # Exibir o resultado formatado
