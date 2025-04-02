@@ -1289,12 +1289,12 @@ def show_main_dashboard():
                                     # Adicionar análise de mercados disponíveis
                                     markets_section = "# Análise de Mercados Disponíveis:\n"
                                 
-                                # Moneyline
-                                if selected_markets.get("money_line"):
-                                    markets_section += "- **Money Line (1X2):**\n"
-                                    home_odd = 0
-                                    draw_odd = 0
-                                    away_odd = 0
+                                    # Moneyline
+                                    if selected_markets.get("money_line"):
+                                        markets_section += "- **Money Line (1X2):**\n"
+                                        home_odd = 0
+                                        draw_odd = 0
+                                        away_odd = 0
                                     
                                     # Extrair odds do texto original
                                     home_match = re.search(r"Casa.*?@(\d+\.?\d*)", odds_data)
