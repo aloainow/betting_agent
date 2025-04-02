@@ -929,7 +929,7 @@ def get_stat(stats, col, default='N/A'):
         logger.warning(f"Erro ao obter estatística '{col}': {str(e)}")
         return default
 
-# Substituir completamente a função get_odds_data em utils/data.py
+# Substituir completamente a função  em utils/data.py
 
 def get_odds_data(selected_markets):
     """
@@ -1044,7 +1044,7 @@ def get_odds_data(selected_markets):
         odds_text.append(f"• Não (BTTS): @{btts_nao_odd:.2f}")
     
     # Gols (Over/Under)
-    if selected_markets.get("gols", False):
+    if selected_markets.get("over_under", False):
         odds_text.append("\nTotal de Gols:")
         
         # Valores padrão ou recuperados da sessão
