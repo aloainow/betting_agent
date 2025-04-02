@@ -1475,16 +1475,52 @@ def show_main_dashboard():
                                 
                                 # Nível de confiança
                                 confidence_section = "# Nível de Confiança Geral: Médio\n"
-                                
+
                                 # Extrair dados da forma e consistência
                                 if "analysis_data" in original_probabilities:
                                     analysis_data = original_probabilities["analysis_data"]
                                     home_consistency = analysis_data.get("home_consistency", 0) * 100
                                     away_consistency = analysis_data.get("away_consistency", 0) * 100
                                     
-                                    # Calcular pontos de forma como valores inteiros
-                                    home_form_points = int(analysis_data.get("home_form_points", 0) * 15)
-                                    away_form_points = int(analysis_data.get("away_form_points", 0) * 15)
+                                    # Verificar se temos dados de forma bruta
+                                    home_form_raw = stats_data["home_team"].get("formRun_overall", "")
+                                    away_form_raw = stats_data["away_team"].get("formRun_overall", "")
+                                    
+                                    # Calcular a forma diretamente a partir dos dados brutos se disponíveis
+                                    home_form_points = 0
+                                    away_form_points = 0
+                                    
+                                    # Função simplificada para calcular pontos da forma
+                                    def calculate_form_points(form_str):
+                                        if not form_str or not isinstance(form_str, str):
+                                            return 0
+                                        
+                                        points = 0
+                                        # Pegar apenas os últimos 5 caracteres
+                                        recent_form = form_str[-5:] if len(form_str) >= 5 else form_str
+                                        
+                                        for result in recent_form:
+                                            result = result.upper()
+                                            if result == 'W':
+                                                points += 3
+                                            elif result == 'D':
+                                                points += 1
+                                            # L ou outros caracteres = 0 pontos
+                                        
+                                        return points
+                                    
+                                    # Calcular pontos para cada time
+                                    if home_form_raw:
+                                        home_form_points = calculate_form_points(home_form_raw)
+                                    else:
+                                        # Tentar calcular a partir do analysis_data se disponível
+                                        home_form_points = int(analysis_data.get("home_form_points", 0) * 15)
+                                    
+                                    if away_form_raw:
+                                        away_form_points = calculate_form_points(away_form_raw)
+                                    else:
+                                        # Tentar calcular a partir do analysis_data se disponível
+                                        away_form_points = int(analysis_data.get("away_form_points", 0) * 15)
                                     
                                     confidence_section += f"- **Consistência**: {home_team}: {home_consistency:.1f}%, {away_team}: {away_consistency:.1f}%. Consistência é uma medida que indica quão previsível é o desempenho da equipe.\n"
                                     confidence_section += f"- **Forma Recente**: {home_team}: {home_form_points}/15, {away_team}: {away_form_points}/15. Forma representa a pontuação dos últimos 5 jogos (vitória=3pts, empate=1pt, derrota=0pts).\n"
