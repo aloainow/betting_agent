@@ -1320,12 +1320,12 @@ def show_main_dashboard():
                                     if away_odd > 0:
                                         implied_probabilities["away"] = 100.0 / away_odd
                                 
-                                # Chance Dupla
-                                if selected_markets.get("chance_dupla"):
-                                    markets_section += "- **Chance Dupla:**\n"
-                                    home_draw_odd = 0
-                                    home_away_odd = 0
-                                    draw_away_odd = 0
+                                    # Chance Dupla
+                                    if selected_markets.get("chance_dupla"):
+                                        markets_section += "- **Chance Dupla:**\n"
+                                        home_draw_odd = 0
+                                        home_away_odd = 0
+                                        draw_away_odd = 0
                                     
                                     # Extrair odds do texto original
                                     hd_match = re.search(r"1X.*?@(\d+\.?\d*)", odds_data)
@@ -1351,11 +1351,11 @@ def show_main_dashboard():
                                     if draw_away_odd > 0:
                                         implied_probabilities["draw_away"] = 100.0 / draw_away_odd
                                 
-                                # Ambos Marcam
-                                if selected_markets.get("ambos_marcam"):
-                                    markets_section += "- **Ambos Marcam (BTTS):**\n"
-                                    btts_yes_odd = 0
-                                    btts_no_odd = 0
+                                    # Ambos Marcam
+                                    if selected_markets.get("ambos_marcam"):
+                                        markets_section += "- **Ambos Marcam (BTTS):**\n"
+                                        btts_yes_odd = 0
+                                        btts_no_odd = 0
                                     
                                     # Extrair odds do texto original
                                     yes_match = re.search(r"Sim.*?@(\d+\.?\d*)", odds_data)
