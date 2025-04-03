@@ -1050,3 +1050,157 @@ def handle_stripe_errors():
     if 'error' in st.query_params:
         st.error("Erro no processamento do pagamento...")
         st.query_params.clear()
+def apply_responsive_styles():
+    """
+    Aplica estilos CSS responsivos para melhorar a aparência e usabilidade 
+    do aplicativo em diferentes dispositivos.
+    """
+    import streamlit as st
+    
+    # CSS para melhorar a responsividade e margens do aplicativo
+    st.markdown("""
+    <style>
+    /* Configurações principais de layout */
+    .main .block-container {
+        padding-left: max(1rem, 5%);
+        padding-right: max(1rem, 5%);
+        padding-top: 1rem;
+        padding-bottom: 1rem;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    /* Melhor espaçamento para contêineres */
+    div.stApp {
+        background-color: #1a1a1a;
+    }
+
+    /* Melhorar margens laterais */
+    [data-testid="column"] {
+        padding: 0.5rem;
+    }
+
+    /* Aumentar margens responsivas para conteúdo principal */
+    @media (min-width: 768px) {
+        .main .block-container {
+            padding-left: max(2rem, 8%);
+            padding-right: max(2rem, 8%);
+        }
+        
+        /* Margens laterais melhores em desktop */
+        [data-testid="column"] {
+            padding: 0.75rem;
+        }
+    }
+
+    /* Ajustes para dispositivos móveis */
+    @media (max-width: 767px) {
+        .main .block-container {
+            padding-left: 0.75rem;
+            padding-right: 0.75rem;
+        }
+        
+        /* Estilo específico para botões em mobile */
+        button[data-testid="baseButton-primary"] {
+            width: 100%;
+            margin: 0.25rem 0;
+        }
+        
+        /* Ajustar barra lateral em modo móvel */
+        [data-testid="stSidebar"] {
+            min-width: 250px !important;
+            max-width: 300px !important;
+        }
+    }
+
+    /* Melhorar espaçamento dos formulários e inputs */
+    input[type="text"], 
+    input[type="email"], 
+    input[type="password"], 
+    textarea {
+        margin-bottom: 0.75rem !important;
+    }
+
+    /* Estilo para cards de pacotes */
+    .credit-card {
+        background-color: #292929;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        text-align: center;
+        border: 1px solid #3a3a3a;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .credit-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .credit-title {
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+        color: #fd7014;
+    }
+
+    .credit-price {
+        font-size: 2rem;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+        color: white;
+    }
+
+    .credit-desc {
+        color: #b0b0b0;
+        font-size: 1rem;
+    }
+
+    /* Melhorar aparência em geral */
+    h1, h2, h3 {
+        color: #fd7014;
+        margin-bottom: 1rem;
+    }
+
+    /* Estilo para mensagens de alerta, erro e sucesso */
+    [data-testid="stAlert"] {
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        margin: 1rem 0;
+    }
+
+    /* Header com logo */
+    .vh-logo {
+        max-height: 60px;
+        display: block;
+    }
+
+    /* Estilo para a landing page */
+    .hero {
+        padding: 2rem 0;
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .hero h1 {
+        color: #fd7014;
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+    }
+
+    @media (max-width: 576px) {
+        .hero h1 {
+            font-size: 1.8rem;
+        }
+    }
+
+    /* Footer */
+    .footer {
+        text-align: center;
+        padding: 2rem 0;
+        margin-top: 3rem;
+        border-top: 1px solid #3a3a3a;
+    }
+    </style>
+    """, unsafe_allow_html=True)
