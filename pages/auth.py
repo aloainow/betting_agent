@@ -1,4 +1,4 @@
-# pages/auth.py - Layout completamente corrigido
+# pages/auth.py - Solução Simplificada
 import streamlit as st
 import time
 import logging
@@ -7,267 +7,167 @@ from utils.core import show_valuehunter_logo, go_to_landing, go_to_login, go_to_
 # Configuração de logging
 logger = logging.getLogger("valueHunter.auth")
 
-def apply_fixed_login_style():
-    """Aplica um estilo completamente corrigido para a tela de login"""
+def apply_streamlit_friendly_styles():
+    """Aplica estilos que funcionam de forma confiável com o Streamlit"""
     st.markdown("""
     <style>
-    /* Reset completo de estilos */
-    div.block-container {
-        max-width: 100% !important;
-        padding: 0 !important;
-        margin: 0 !important;
-    }
-    
-    /* Esconder completamente elementos do Streamlit */
-    div.stApp > header {
+    /* Esconder barra lateral */
+    [data-testid="stSidebar"] {
         display: none !important;
     }
     
-    .main .block-container {
-        padding: 0 !important;
-        max-width: 100% !important;
-    }
-    
-    /* Fundo com diagrama corrigido */
-    .vh-login-page {
-        width: 100vw;
-        height: 100vh;
-        display: flex;
-        justify-content: center;
-        align-items: center;
+    /* Estilo de fundo com gradiente */
+    .stApp {
         background: linear-gradient(135deg, #1a1a1a 0%, #1a1a1a 50%, #fd7014 50%, #fd7014 100%);
-        padding: 0;
-        margin: 0;
-        overflow: hidden;
-        box-sizing: border-box;
     }
     
-    /* Card de login centralizado e com tamanho fixo */
-    .vh-login-card {
-        width: 100%;
-        max-width: 420px;
+    /* Estilo para o card */
+    .login-card {
         background: white;
         border-radius: 12px;
-        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.15);
-        padding: 40px 30px;
-        box-sizing: border-box;
+        padding: 40px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        max-width: 420px;
+        margin: 0 auto;
     }
     
-    /* Título e decoração */
-    .vh-login-title {
+    /* Logo estilizado */
+    .vh-logo {
+        text-align: center;
         font-size: 24px;
-        font-weight: 600;
-        color: #333;
-        margin-bottom: 30px;
-        position: relative;
-        padding-bottom: 10px;
-    }
-    
-    .vh-login-title:after {
-        content: '';
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        width: 50px;
-        height: 3px;
-        background-color: #fd7014;
-    }
-    
-    /* Campos de formulário */
-    .vh-form-field {
-        margin-bottom: 25px;
-    }
-    
-    .vh-form-label {
-        display: block;
-        font-size: 14px;
-        font-weight: 500;
-        color: #555;
-        margin-bottom: 8px;
-    }
-    
-    .vh-form-input {
-        width: 100%;
-        padding: 12px 15px;
-        border: 1px solid #ddd;
-        border-radius: 6px;
-        background-color: #f7f7f7;
-        font-size: 16px;
-        box-sizing: border-box;
-    }
-    
-    /* Checkbox personalizado */
-    .vh-checkbox {
-        display: flex;
-        align-items: center;
+        font-weight: bold;
         margin-bottom: 20px;
     }
     
-    .vh-checkbox input[type="checkbox"] {
-        margin-right: 8px;
+    .vh-logo-value {
+        color: #252525;
     }
     
-    .vh-checkbox label {
-        font-size: 14px;
-        color: #555;
+    .vh-logo-hunter {
+        color: #fd7014;
     }
     
-    /* Botão de login */
-    .vh-button {
+    /* Título com linha abaixo */
+    .login-title {
+        color: #333;
+        font-size: 24px;
+        font-weight: 600;
+        margin-bottom: 30px;
+        position: relative;
+        padding-bottom: 12px;
+        border-bottom: 3px solid #fd7014;
+        width: fit-content;
+    }
+    
+    /* Estilo para o botão de login/registro */
+    div[data-testid="stButton"] button {
         background-color: #fd7014;
         color: white;
         border: none;
         border-radius: 6px;
-        padding: 12px 20px;
-        font-size: 16px;
         font-weight: 600;
-        cursor: pointer;
+        transition: background-color 0.3s;
         width: 100%;
-        transition: background-color 0.2s;
     }
     
-    .vh-button:hover {
+    div[data-testid="stButton"] button:hover {
         background-color: #e06000;
     }
     
-    /* Links e texto de apoio */
-    .vh-text-center {
+    /* Estilo para o botão secundário */
+    .secondary-button button {
+        background-color: #252525 !important;
+    }
+    
+    .secondary-button button:hover {
+        background-color: #333 !important;
+    }
+    
+    /* Estilos para texto centralizado e separadores */
+    .centered-text {
         text-align: center;
     }
     
-    .vh-link {
+    hr.divider {
+        margin: 25px 0;
+        border-top: 1px solid #eee;
+        border-bottom: none;
+    }
+    
+    /* Estilos para links */
+    a.orange-link {
         color: #fd7014;
         text-decoration: none;
         font-weight: 500;
     }
     
-    .vh-link:hover {
+    a.orange-link:hover {
         text-decoration: underline;
     }
     
-    .vh-mt-20 {
-        margin-top: 20px;
+    /* Melhorar aparência do formulário */
+    div[data-baseweb="input"] {
+        margin-bottom: 15px;
     }
     
-    .vh-mt-30 {
-        margin-top: 30px;
-    }
-    
-    .vh-divider {
-        border-top: 1px solid #eee;
-        margin: 25px 0;
-    }
-    
-    /* Botão secundário */
-    .vh-button-secondary {
-        background-color: #252525;
-        color: white;
-        border: none;
+    div[data-baseweb="input"] input {
+        background-color: #f7f7f7;
         border-radius: 6px;
-        padding: 12px 20px;
-        font-size: 16px;
-        font-weight: 500;
-        cursor: pointer;
-        width: 100%;
-        transition: background-color 0.2s;
     }
     
-    .vh-button-secondary:hover {
-        background-color: #333;
+    div[data-testid="stCheckbox"] {
+        margin-bottom: 20px;
     }
     
-    /* Logo */
-    .vh-logo {
-        font-size: 24px;
-        font-weight: bold;
-        color: #252525;
-        text-align: center;
-        margin-bottom: 30px;
-    }
-    
-    .vh-logo span {
-        color: #fd7014;
-    }
-    
-    /* Esconder elementos do Streamlit */
-    div[data-testid="stForm"] > div:first-child {
-        border: none !important;
-        padding: 0 !important;
-        margin: 0 !important;
-        background: transparent !important;
-    }
-    
-    /* Ajustes responsivos */
-    @media (max-width: 480px) {
-        .vh-login-card {
-            max-width: 90%;
-            padding: 30px 20px;
-        }
+    /* Melhorar espaçamento */
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
     }
     </style>
     """, unsafe_allow_html=True)
 
 def show_login():
-    """Display properly formatted login form"""
+    """Display login form with simpler styling approach"""
     try:
-        # Esconder a barra lateral do Streamlit
-        st.markdown("""
-        <style>
-        [data-testid="stSidebar"] {
-            display: none !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
+        # Aplicar os estilos
+        apply_streamlit_friendly_styles()
         
-        # Aplicar estilo corrigido
-        apply_fixed_login_style()
+        # Criar o container com a classe de estilo
+        st.markdown('<div class="login-card">', unsafe_allow_html=True)
         
-        # Estrutura HTML customizada
-        st.markdown("""
-        <div class="vh-login-page">
-            <div class="vh-login-card">
-                <div class="vh-logo">Value<span>Hunter</span></div>
-                <h1 class="vh-login-title">Faça o seu login</h1>
-                
-                <!-- Aqui o Streamlit vai inserir o formulário -->
-        """, unsafe_allow_html=True)
+        # Logo
+        st.markdown('<div class="vh-logo"><span class="vh-logo-value">Value</span><span class="vh-logo-hunter">Hunter</span></div>', unsafe_allow_html=True)
         
-        # O formulário é inserido aqui (vai se integrar com o HTML)
-        with st.form("login_form", clear_on_submit=False):
-            st.markdown('<div class="vh-form-field">', unsafe_allow_html=True)
-            st.markdown('<label class="vh-form-label">Seu e-mail</label>', unsafe_allow_html=True)
-            email = st.text_input("", key="email_input", label_visibility="collapsed")
-            st.markdown('</div>', unsafe_allow_html=True)
+        # Título
+        st.markdown('<h1 class="login-title">Faça o seu login</h1>', unsafe_allow_html=True)
+        
+        # Formulário
+        with st.form("login_form"):
+            email = st.text_input("Seu e-mail")
+            password = st.text_input("Sua senha", type="password")
+            remember = st.checkbox("Lembrar-me")
             
-            st.markdown('<div class="vh-form-field">', unsafe_allow_html=True)
-            st.markdown('<label class="vh-form-label">Sua senha</label>', unsafe_allow_html=True)
-            password = st.text_input("", type="password", key="password_input", label_visibility="collapsed")
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            st.markdown('<div class="vh-checkbox">', unsafe_allow_html=True)
-            remember = st.checkbox("Lembrar-me", value=False, key="remember_checkbox", label_visibility="collapsed")
-            st.markdown('<label for="remember_checkbox">Lembrar-me</label>', unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            submitted = st.form_submit_button("ENTRAR", type="primary")
+            # Botão de submissão
+            submitted = st.form_submit_button("ENTRAR", use_container_width=True)
         
-        # Continuar o layout HTML após o formulário
-        st.markdown("""
-                <button class="vh-button" type="button" onclick="document.querySelector('button[data-testid=\\"baseButton-primary\\"]').click();">ENTRAR</button>
-                
-                <div class="vh-text-center vh-mt-20">
-                    <a href="#" class="vh-link">Esqueceu sua senha?</a>
-                </div>
-                
-                <div class="vh-divider"></div>
-                
-                <div class="vh-text-center">
-                    <p>Não tem uma conta?</p>
-                    <a href="?page=register" class="vh-button-secondary vh-mt-20" style="display: inline-block; text-decoration: none;">REGISTRE-SE AQUI</a>
-                </div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        # Link para senha esquecida
+        st.markdown('<div class="centered-text"><a href="#" class="orange-link">Esqueceu sua senha?</a></div>', unsafe_allow_html=True)
+        
+        # Separador
+        st.markdown('<hr class="divider">', unsafe_allow_html=True)
+        
+        # Opção de registro
+        st.markdown('<div class="centered-text">Não tem uma conta?</div>', unsafe_allow_html=True)
+        
+        # Botão para registro - usando o padrão do Streamlit
+        st.markdown('<div class="secondary-button">', unsafe_allow_html=True)
+        if st.button("REGISTRE-SE AQUI", use_container_width=True):
+            go_to_register()
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Fechar div do card
+        st.markdown('</div>', unsafe_allow_html=True)
         
         # Processar submissão do formulário
         if submitted:
@@ -294,62 +194,43 @@ def show_login():
         st.error(f"Detalhes: {str(e)}")
 
 def show_register():
-    """Display properly formatted registration form"""
+    """Display registration form with simpler styling approach"""
     try:
-        # Esconder a barra lateral do Streamlit
-        st.markdown("""
-        <style>
-        [data-testid="stSidebar"] {
-            display: none !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
+        # Aplicar os estilos
+        apply_streamlit_friendly_styles()
         
-        # Aplicar estilo corrigido
-        apply_fixed_login_style()
+        # Criar o container com a classe de estilo
+        st.markdown('<div class="login-card">', unsafe_allow_html=True)
         
-        # Estrutura HTML customizada
-        st.markdown("""
-        <div class="vh-login-page">
-            <div class="vh-login-card">
-                <div class="vh-logo">Value<span>Hunter</span></div>
-                <h1 class="vh-login-title">Criar uma conta</h1>
-                
-                <!-- Aqui o Streamlit vai inserir o formulário -->
-        """, unsafe_allow_html=True)
+        # Logo
+        st.markdown('<div class="vh-logo"><span class="vh-logo-value">Value</span><span class="vh-logo-hunter">Hunter</span></div>', unsafe_allow_html=True)
         
-        # O formulário é inserido aqui (vai se integrar com o HTML)
-        with st.form("register_form", clear_on_submit=False):
-            st.markdown('<div class="vh-form-field">', unsafe_allow_html=True)
-            st.markdown('<label class="vh-form-label">Nome completo</label>', unsafe_allow_html=True)
-            name = st.text_input("", key="name_input", label_visibility="collapsed")
-            st.markdown('</div>', unsafe_allow_html=True)
+        # Título
+        st.markdown('<h1 class="login-title">Criar uma conta</h1>', unsafe_allow_html=True)
+        
+        # Formulário
+        with st.form("register_form"):
+            name = st.text_input("Nome completo")
+            email = st.text_input("Seu e-mail")
+            password = st.text_input("Sua senha", type="password")
             
-            st.markdown('<div class="vh-form-field">', unsafe_allow_html=True)
-            st.markdown('<label class="vh-form-label">Seu e-mail</label>', unsafe_allow_html=True)
-            email = st.text_input("", key="email_input", label_visibility="collapsed")
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            st.markdown('<div class="vh-form-field">', unsafe_allow_html=True)
-            st.markdown('<label class="vh-form-label">Sua senha</label>', unsafe_allow_html=True)
-            password = st.text_input("", type="password", key="password_input", label_visibility="collapsed")
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            submitted = st.form_submit_button("REGISTRAR", type="primary")
+            # Botão de submissão
+            submitted = st.form_submit_button("REGISTRAR", use_container_width=True)
         
-        # Continuar o layout HTML após o formulário
-        st.markdown("""
-                <button class="vh-button" type="button" onclick="document.querySelector('button[data-testid=\\"baseButton-primary\\"]').click();">REGISTRAR</button>
-                
-                <div class="vh-divider"></div>
-                
-                <div class="vh-text-center">
-                    <p>Já tem uma conta?</p>
-                    <a href="?page=login" class="vh-button-secondary vh-mt-20" style="display: inline-block; text-decoration: none;">FAÇA LOGIN</a>
-                </div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        # Separador
+        st.markdown('<hr class="divider">', unsafe_allow_html=True)
+        
+        # Opção de login
+        st.markdown('<div class="centered-text">Já tem uma conta?</div>', unsafe_allow_html=True)
+        
+        # Botão para login - usando o padrão do Streamlit
+        st.markdown('<div class="secondary-button">', unsafe_allow_html=True)
+        if st.button("FAÇA LOGIN", use_container_width=True):
+            go_to_login()
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Fechar div do card
+        st.markdown('</div>', unsafe_allow_html=True)
         
         # Processar submissão do formulário
         if submitted:
