@@ -1,4 +1,4 @@
-# pages/auth.py - Solução Completa em Streamlit
+# pages/auth.py - Corrigido
 import streamlit as st
 import time
 import logging
@@ -10,14 +10,6 @@ logger = logging.getLogger("valueHunter.auth")
 def show_login():
     """Display login form using native Streamlit components"""
     try:
-        # Configurar página
-        st.set_page_config(
-            page_title="ValueHunter - Login",
-            page_icon="💼",
-            layout="centered",
-            initial_sidebar_state="collapsed"
-        )
-        
         # Esconder a barra lateral e outros elementos do Streamlit
         hide_elements = """
         <style>
@@ -128,7 +120,7 @@ def show_login():
             border-bottom: none;
         }
         </style>
-        """, unsafe_allow_html=True)
+        """
         
         st.markdown(hide_elements, unsafe_allow_html=True)
         
@@ -138,33 +130,35 @@ def show_login():
         # Título
         st.markdown('<h1>Faça o seu login</h1>', unsafe_allow_html=True)
         
-        # Formulário - usando componentes nativos
-        with st.form("login_form"):
-            email = st.text_input("Seu e-mail")
-            password = st.text_input("Sua senha", type="password")
-            remember = st.checkbox("Lembrar-me")
+        # Conteúdo principal em um container com fundo branco
+        with st.container():
+            # Formulário - usando componentes nativos
+            with st.form("login_form"):
+                email = st.text_input("Seu e-mail")
+                password = st.text_input("Sua senha", type="password")
+                remember = st.checkbox("Lembrar-me")
+                
+                col1, col2, col3 = st.columns([1, 2, 1])
+                with col2:
+                    submitted = st.form_submit_button("ENTRAR", use_container_width=True)
             
+            # Esqueceu senha link
+            st.markdown('<div class="forgot-password"><a href="#">Esqueceu sua senha?</a></div>', unsafe_allow_html=True)
+            
+            # Separador
+            st.markdown('<hr class="custom-divider">', unsafe_allow_html=True)
+            
+            # Não tem conta
+            st.markdown('<div class="center-text">Não tem uma conta?</div>', unsafe_allow_html=True)
+            
+            # Botão Registre-se
+            st.markdown('<div class="secondary-button">', unsafe_allow_html=True)
             col1, col2, col3 = st.columns([1, 2, 1])
             with col2:
-                submitted = st.form_submit_button("ENTRAR", use_container_width=True)
-        
-        # Esqueceu senha link
-        st.markdown('<div class="forgot-password"><a href="#">Esqueceu sua senha?</a></div>', unsafe_allow_html=True)
-        
-        # Separador
-        st.markdown('<hr class="custom-divider">', unsafe_allow_html=True)
-        
-        # Não tem conta
-        st.markdown('<div class="center-text">Não tem uma conta?</div>', unsafe_allow_html=True)
-        
-        # Botão Registre-se
-        st.markdown('<div class="secondary-button">', unsafe_allow_html=True)
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:
-            if st.button("REGISTRE-SE AQUI", use_container_width=True):
-                st.session_state.page = "register"
-                st.experimental_rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
+                if st.button("REGISTRE-SE AQUI", use_container_width=True):
+                    st.session_state.page = "register"
+                    st.experimental_rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
         
         # Processar submissão do formulário
         if submitted:
@@ -193,14 +187,6 @@ def show_login():
 def show_register():
     """Display registration form using native Streamlit components"""
     try:
-        # Configurar página
-        st.set_page_config(
-            page_title="ValueHunter - Registro",
-            page_icon="💼",
-            layout="centered",
-            initial_sidebar_state="collapsed"
-        )
-        
         # Esconder a barra lateral e outros elementos do Streamlit
         hide_elements = """
         <style>
@@ -299,7 +285,7 @@ def show_register():
             border-bottom: none;
         }
         </style>
-        """, unsafe_allow_html=True)
+        """
         
         st.markdown(hide_elements, unsafe_allow_html=True)
         
@@ -309,30 +295,32 @@ def show_register():
         # Título
         st.markdown('<h1>Criar uma conta</h1>', unsafe_allow_html=True)
         
-        # Formulário - usando componentes nativos
-        with st.form("register_form"):
-            name = st.text_input("Nome completo")
-            email = st.text_input("Seu e-mail")
-            password = st.text_input("Sua senha", type="password")
+        # Conteúdo principal em um container com fundo branco
+        with st.container():
+            # Formulário - usando componentes nativos
+            with st.form("register_form"):
+                name = st.text_input("Nome completo")
+                email = st.text_input("Seu e-mail")
+                password = st.text_input("Sua senha", type="password")
+                
+                col1, col2, col3 = st.columns([1, 2, 1])
+                with col2:
+                    submitted = st.form_submit_button("REGISTRAR", use_container_width=True)
             
+            # Separador
+            st.markdown('<hr class="custom-divider">', unsafe_allow_html=True)
+            
+            # Já tem conta
+            st.markdown('<div class="center-text">Já tem uma conta?</div>', unsafe_allow_html=True)
+            
+            # Botão Login
+            st.markdown('<div class="secondary-button">', unsafe_allow_html=True)
             col1, col2, col3 = st.columns([1, 2, 1])
             with col2:
-                submitted = st.form_submit_button("REGISTRAR", use_container_width=True)
-        
-        # Separador
-        st.markdown('<hr class="custom-divider">', unsafe_allow_html=True)
-        
-        # Já tem conta
-        st.markdown('<div class="center-text">Já tem uma conta?</div>', unsafe_allow_html=True)
-        
-        # Botão Login
-        st.markdown('<div class="secondary-button">', unsafe_allow_html=True)
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:
-            if st.button("FAÇA LOGIN", use_container_width=True):
-                st.session_state.page = "login"
-                st.experimental_rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
+                if st.button("FAÇA LOGIN", use_container_width=True):
+                    st.session_state.page = "login"
+                    st.experimental_rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
         
         # Processar submissão do formulário
         if submitted:
