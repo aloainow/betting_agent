@@ -40,50 +40,44 @@ if "RENDER" in os.environ:
 def configure_sidebar_visibility():
     """
     Configura a visibilidade da barra lateral:
-    1. NÃO ocultamos a barra lateral globalmente
-    2. Oculta apenas itens específicos (app e admin)
+    1. Mantém a barra lateral visível
+    2. Oculta apenas os itens de navegação
     """
     st.markdown("""
     <style>
-        /* PRIMEIRO: Garantir que a barra lateral esteja visível nas páginas que precisam dela */
-        /* Deixamos a visibilidade ser controlada por cada página individualmente */
-        
-        /* SEGUNDO: Ocultar apenas os itens específicos no menu */
-        [data-testid="stSidebarNavItems"] a:has(p:contains("app")),
-        [data-testid="stSidebarNavItems"] a:has(p:contains("admin")) {
-            display: none !important;
+        /* Garantir que a barra lateral esteja visível */
+        [data-testid="stSidebar"] {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            width: auto !important;
         }
         
-        /* Versão alternativa para Streamlit mais recente */
-        .st-emotion-cache-16idsys a:has(p:contains("app")),
-        .st-emotion-cache-16idsys a:has(p:contains("admin")) {
+        /* Ocultar completamente o menu de navegação lateral */
+        [data-testid="stSidebarNavItems"],
+        .st-emotion-cache-16idsys, 
+        .st-emotion-cache-1cypcdb,
+        .st-emotion-cache-vk3wp9,
+        .st-emotion-cache-ue6h4q,
+        .st-emotion-cache-jnd7a1 {
             display: none !important;
         }
-        
-        /* Verificar mais um seletor alternativo */
-        div[data-testid="stSidebarNavContainer"] li:has(a[href*="app"]),
-        div[data-testid="stSidebarNavContainer"] li:has(a[href*="admin"]) {
-            display: none !important;
+
+        /* Remover margens superiores desnecessárias */
+        section[data-testid="stSidebarUserContent"] {
+            margin-top: 0 !important;
         }
         
-        /* Também oculta os textos diretos contendo app/admin */
-        [data-testid="stSidebarNavItems"] p:contains("app"),
-        [data-testid="stSidebarNavItems"] p:contains("admin"),
-        .st-emotion-cache-16idsys p:contains("app"),
-        .st-emotion-cache-16idsys p:contains("admin") {
-            display: none !important;
-        }
-        
-        /* Adicionar seletores específicos para o modal/dropdown */
-        div[role="dialog"] p:contains("app"),
-        div[role="dialog"] p:contains("admin"),
-        div[aria-modal="true"] p:contains("app"),
-        div[aria-modal="true"] p:contains("admin") {
+        /* Ocultar outros elementos de navegação */
+        header[data-testid="stHeader"],
+        button[kind="header"],
+        #MainMenu,
+        footer,
+        [data-testid="collapsedControl"] {
             display: none !important;
         }
     </style>
     """, unsafe_allow_html=True)
-
 def hide_streamlit_menu():
     """Oculta o menu de navegação do Streamlit e outros elementos da interface padrão"""
     return """
