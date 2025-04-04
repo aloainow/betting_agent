@@ -3,7 +3,7 @@ import streamlit as st
 import time
 import logging
 from utils.core import show_valuehunter_logo, go_to_landing, go_to_login, go_to_register
-from utils.core import show_valuehunter_logo, go_to_landing, go_to_login, go_to_register, apply_responsive_styles
+from utils.core import show_valuehunter_logo, go_to_landing, go_to_login, go_to_register, apply_responsive_styles, apply_custom_styles
 
 
 # Configuração de logging
@@ -12,6 +12,8 @@ logger = logging.getLogger("valueHunter.auth")
 def show_login():
     """Display login form"""
     try:
+        # Aplicar estilos personalizados
+        apply_custom_styles()
         # Aplicar estilos responsivos
         apply_responsive_styles()
         # Esconder a barra lateral do Streamlit na página de login
@@ -68,6 +70,8 @@ def show_login():
 def show_register():
     """Display registration form"""
     try:
+        # Aplicar estilos personalizados
+        apply_custom_styles()
         # Aplicar estilos responsivos
         apply_responsive_styles()
         # Esconder a barra lateral do Streamlit na página de registro
