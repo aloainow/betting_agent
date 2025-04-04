@@ -82,45 +82,40 @@ def hide_streamlit_menu():
     """Oculta o menu de navegação do Streamlit e outros elementos da interface padrão"""
     return """
     <style>
-        /* IMPORTANTE: Apenas ocultar elementos de navegação, não a barra lateral inteira */
+        /* Ocultar completamente o menu de navegação lateral */
+        [data-testid="stSidebarNavItems"],
+        div.stSidebarNavItems, 
+        button.stSidebarButton,
+        .st-emotion-cache-16idsys, 
+        .st-emotion-cache-1cypcdb,
+        .st-emotion-cache-vk3wp9,
+        .st-emotion-cache-ue6h4q,
+        .st-emotion-cache-jnd7a1,
+        ul.st-emotion-cache-pbk8do {
+            display: none !important;
+        }
         
-        /* FORÇAR barra lateral a permanecer visível */
+        /* Remover margens superiores desnecessárias */
+        section[data-testid="stSidebarUserContent"] {
+            margin-top: 0 !important;
+        }
+        
+        /* Ocultar cabeçalho, rodapé e menu principal */
+        header[data-testid="stHeader"],
+        button[kind="header"],
+        #MainMenu,
+        footer,
+        [data-testid="collapsedControl"] {
+            display: none !important;
+        }
+        
+        /* Garantir que a barra lateral esteja visível e funcionando */
         [data-testid="stSidebar"] {
             display: block !important;
             visibility: visible !important;
             opacity: 1 !important;
             width: auto !important;
             transform: none !important;
-        }
-        
-        /* Ocultar menu de navegação */
-        header[data-testid="stHeader"] {
-            display: none !important;
-        }
-        
-        /* Ocultar hamburger menu e botão de navegação */
-        button[kind="header"] {
-            display: none !important;
-        }
-        
-        /* Ocultar apenas o container de navegação na sidebar */
-        section[data-testid="stSidebarNavContainer"] {
-            display: none !important;
-        }
-        
-        /* Seletores para itens de navegação, não para a barra inteira */
-        div.stSidebarNavItems, 
-        button.stSidebarButton,
-        div.st-emotion-cache-16idsys,
-        ul.st-emotion-cache-pbk8do {
-            display: none !important;
-        }
-        
-        /* Adicionais seletores para navegação */
-        [data-testid="collapsedControl"],
-        #MainMenu,
-        footer {
-            display: none !important;
         }
         
         /* Remover espaço extra no topo que normalmente é ocupado pelo menu */
