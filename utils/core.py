@@ -336,8 +336,8 @@ def show_valuehunter_logo():
     """Display the ValueHunter logo"""
     # Logo com o "V" em cor diferente e formatação correta
     st.markdown("""
-    <div style="background-color: #fd7014; padding: 10px; border-radius: 5px; display: inline-block; margin-bottom: 1rem;">
-        <h1 style="color: white; margin: 0; font-family: 'Arial', sans-serif;"><span style="color: #333;">V</span>ValueHunter</h1>
+    <div style="background-color: #fd7014; padding: 8px; border-radius: 5px; display: inline-block; margin-bottom: 0.5rem;">
+        <h1 style="color: white; margin: 0; font-family: 'Arial', sans-serif; font-size: 1.5rem;"><span style="color: #333;">V</span>ValueHunter</h1>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1313,28 +1313,39 @@ def apply_custom_styles():
     """Aplica estilos CSS personalizados para layout e espaçamento consistentes"""
     st.markdown("""
     <style>
-    /* Reduzir espaçamento do cabeçalho */
+    /* Reduzir drasticamente o espaçamento do cabeçalho */
     .main .block-container {
-        padding-top: 0.5rem !important;
-        padding-bottom: 1rem !important;
-        margin-top: 0rem !important;
+        padding-top: 0.2rem !important;
+        padding-bottom: 0.5rem !important;
+        margin-top: 0 !important;
     }
     
     /* Aumentar significativamente as bordas laterais */
     .main .block-container {
-        max-width: 1000px;
-        padding-left: 4rem !important;
-        padding-right: 4rem !important;
+        max-width: 900px;
+        padding-left: 6rem !important;
+        padding-right: 6rem !important;
         margin-left: auto !important;
         margin-right: auto !important;
     }
     
-    /* Ajustar espaçamento do cabeçalho */
+    /* Ajustar espaçamento do cabeçalho do Streamlit */
     header[data-testid="stHeader"] {
         background-color: #0e1117;
         height: auto !important;
-        padding-top: 0.5rem !important;
-        padding-bottom: 0.5rem !important;
+        padding-top: 0.2rem !important;
+        padding-bottom: 0.2rem !important;
+    }
+    
+    /* Remover espaço acima do primeiro elemento */
+    .stMarkdown:first-child {
+        margin-top: 0 !important;
+    }
+    
+    /* Ajustar todos os cabeçalhos para ter menos espaço em cima */
+    h1, h2, h3, h4, h5 {
+        margin-top: 0.5rem !important;
+        margin-bottom: 0.5rem !important;
     }
     
     /* Estilo para botões de navegação */
@@ -1348,8 +1359,8 @@ def apply_custom_styles():
     /* Melhorar a responsividade para telas menores */
     @media screen and (max-width: 768px) {
         .main .block-container {
-            padding-left: 2rem !important;
-            padding-right: 2rem !important;
+            padding-left: 2.5rem !important;
+            padding-right: 2.5rem !important;
         }
     }
     </style>
