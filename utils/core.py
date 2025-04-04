@@ -334,9 +334,10 @@ def apply_global_css():
 # Função para exibir a logo do ValueHunter de forma consistente
 def show_valuehunter_logo():
     """Display the ValueHunter logo"""
+    # Logo com o "V" em cor diferente e formatação correta
     st.markdown("""
-    <div class="valuehunter-logo">
-        <img src="https://yourimagepath.com/logo.png" alt="ValueHunter" style="height: 60px;">
+    <div style="background-color: #fd7014; padding: 10px; border-radius: 5px; display: inline-block; margin-bottom: 1rem;">
+        <h1 style="color: white; margin: 0; font-family: 'Arial', sans-serif;"><span style="color: #333;">V</span>ValueHunter</h1>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1299,25 +1300,36 @@ def remove_loading_screen():
     </script>
     """
     return st.components.v1.html(js_code, height=0)
+def show_valuehunter_logo():
+    """Display the ValueHunter logo"""
+    # Logo com o "V" em cor diferente e formatação correta
+    st.markdown("""
+    <div style="background-color: #fd7014; padding: 10px; border-radius: 5px; display: inline-block; margin-bottom: 1rem;">
+        <h1 style="color: white; margin: 0; font-family: 'Arial', sans-serif;"><span style="color: #333;">V</span>ValueHunter</h1>
+    </div>
+    """, unsafe_allow_html=True)
+
 def apply_custom_styles():
     """Aplica estilos CSS personalizados para layout e espaçamento consistentes"""
     st.markdown("""
     <style>
     /* Reduzir espaçamento do cabeçalho */
     .main .block-container {
-        padding-top: 1rem !important;
+        padding-top: 0.5rem !important;
         padding-bottom: 1rem !important;
         margin-top: 0rem !important;
     }
     
-    /* Aumentar as bordas laterais */
+    /* Aumentar significativamente as bordas laterais */
     .main .block-container {
-        max-width: 1100px;
-        padding-left: 2rem !important;
-        padding-right: 2rem !important;
+        max-width: 1000px;
+        padding-left: 4rem !important;
+        padding-right: 4rem !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
     }
     
-    /* Ajustar espaçamento do logo e cabeçalho */
+    /* Ajustar espaçamento do cabeçalho */
     header[data-testid="stHeader"] {
         background-color: #0e1117;
         height: auto !important;
@@ -1325,16 +1337,19 @@ def apply_custom_styles():
         padding-bottom: 0.5rem !important;
     }
     
-    /* Ajustar o espaço entre o logo e o conteúdo */
-    .valuehunter-logo {
-        margin-bottom: 0.5rem !important;
+    /* Estilo para botões de navegação */
+    .stButton button {
+        background-color: #fd7014;
+        color: white;
+        border: none;
+        font-weight: bold;
     }
     
     /* Melhorar a responsividade para telas menores */
     @media screen and (max-width: 768px) {
         .main .block-container {
-            padding-left: 1rem !important;
-            padding-right: 1rem !important;
+            padding-left: 2rem !important;
+            padding-right: 2rem !important;
         }
     }
     </style>
