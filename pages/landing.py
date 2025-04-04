@@ -1,7 +1,7 @@
 # pages/landing.py - Página Inicial
 import streamlit as st
 import logging
-from utils.core import show_valuehunter_logo, go_to_login, go_to_register
+from utils.core import show_valuehunter_logo, go_to_login, go_to_register, apply_custom_styles 
 
 # Configuração de logging
 logger = logging.getLogger("valueHunter.landing")
