@@ -5,7 +5,7 @@ import json
 import os
 import time
 import streamlit as st
-from utils.core import show_valuehunter_logo, go_to_login, update_purchase_button, DATA_DIR
+from utils.core import show_valuehunter_logo, go_to_login, update_purchase_button, DATA_DIR, apply_custom_styles
 from utils.data import parse_team_stats, get_odds_data, format_prompt
 from utils.ai import analyze_with_gpt, format_enhanced_prompt, format_highly_optimized_prompt
 from utils.ai import analyze_with_gpt, format_enhanced_prompt, format_highly_optimized_prompt, calculate_advanced_probabilities
@@ -892,6 +892,8 @@ def check_analysis_limits(selected_markets):
 def show_main_dashboard():
     """Show the main dashboard with improved error handling and debug info"""
     try:
+        # Aplicar estilos personalizados
+        apply_custom_styles()
         # VERIFICAÇÃO DE AUTENTICAÇÃO
         if not hasattr(st.session_state, 'authenticated') or not st.session_state.authenticated:
             st.error("Sessão não autenticada. Por favor, faça login novamente.")
