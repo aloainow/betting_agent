@@ -334,9 +334,9 @@ def apply_global_css():
 # Função para exibir a logo do ValueHunter de forma consistente
 def show_valuehunter_logo():
     """Display the ValueHunter logo"""
-    # Logo no estilo dos sites modernos como Anthropic e ChatOn
+    # Logo mantido consistente com o design atual
     st.markdown("""
-    <div style="background-color: #fd7014; padding: 15px; border-radius: 5px; display: inline-block; margin-bottom: 0.5rem;">
+    <div style="background-color: #fd7014; padding: 15px; border-radius: 5px; display: inline-block; margin-top: 0; margin-bottom: 0;">
         <h1 style="color: white; margin: 0; font-family: 'Arial', sans-serif; font-size: 1.8rem;"><span style="color: #333;">V</span>ValueHunter</h1>
     </div>
     """, unsafe_allow_html=True)
@@ -1313,14 +1313,22 @@ def apply_custom_styles():
     """Aplica estilos CSS personalizados para layout e espaçamento consistentes"""
     st.markdown("""
     <style>
-    /* Reduzir espaçamento do cabeçalho para ficar similar aos exemplos */
+    /* Reduzir drasticamente o espaçamento do cabeçalho */
     .main .block-container {
-        padding-top: 1rem !important;
-        padding-bottom: 1rem !important;
+        padding-top: 0 !important;
         margin-top: 0 !important;
+        padding-bottom: 1rem !important;
     }
     
-    /* Aumentar significativamente as bordas laterais similar ao ChatOn e Anthropic */
+    /* Ajustar a altura máxima do cabeçalho */
+    header[data-testid="stHeader"] {
+        height: 0px !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        visibility: hidden !important;
+    }
+    
+    /* Aumentar significativamente as bordas laterais */
     .main .block-container {
         max-width: 1200px !important;
         padding-left: 12% !important;
@@ -1329,33 +1337,37 @@ def apply_custom_styles():
         margin-right: auto !important;
     }
     
-    /* Ajustar espaçamento do cabeçalho do Streamlit */
-    header[data-testid="stHeader"] {
-        background-color: #0e1117;
-        height: auto !important;
-        padding-top: 0 !important;
-        padding-bottom: 0 !important;
-    }
-    
     /* Texto justificado em todo o aplicativo */
     p, li, .stMarkdown {
         text-align: justify !important;
     }
     
-    /* Ajustar todos os cabeçalhos para ter menos espaço em cima */
+    /* Ajustar todos os cabeçalhos para ter menos espaço */
     h1, h2, h3 {
-        margin-top: 1.5rem !important;
-        margin-bottom: 1rem !important;
+        margin-top: 0.8rem !important;
+        margin-bottom: 0.8rem !important;
     }
     
-    /* Estilo para botões de navegação */
+    /* Corrigir botões para garantir que o texto caiba corretamente */
     .stButton button {
         background-color: #fd7014;
         color: white;
         border: none;
         font-weight: bold;
         border-radius: 4px;
-        padding: 0.5rem 1rem;
+        padding: 0.4rem 0.8rem !important;
+        font-size: 0.9rem !important;
+        white-space: nowrap !important;
+        min-width: fit-content !important;
+        height: auto !important;
+        line-height: normal !important;
+    }
+    
+    /* Estilo específico para os botões de Sign In/Up */
+    div[data-testid="column"]:has(button:contains("Sign In")),
+    div[data-testid="column"]:has(button:contains("Sign Up")) {
+        padding: 0 !important;
+        margin: 0 !important;
     }
     
     /* Melhorar a responsividade para telas menores */
