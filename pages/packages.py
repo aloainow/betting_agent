@@ -2,7 +2,7 @@
 import streamlit as st
 import logging
 from utils.core import (
-    show_valuehunter_logo, update_purchase_button, check_payment_success
+    show_valuehunter_logo, update_purchase_button, check_payment_success, apply_custom_styles
 )
 
 # Configuração de logging
@@ -11,6 +11,8 @@ logger = logging.getLogger("valueHunter.packages")
 def show_packages_page():
     """Display credit purchase page with improved session handling"""
     try:
+        # Aplicar estilos personalizados
+        apply_custom_styles()
         # Esconder a barra lateral na página de pacotes
         st.markdown("""
         <style>
