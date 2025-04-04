@@ -1264,3 +1264,37 @@ def apply_navigation_hiding(hide_sidebar_completely=False):
         }
         </style>
         """, unsafe_allow_html=True)
+def remove_loading_screen():
+    """
+    Remove a tela de carregamento e revela o aplicativo
+    Deve ser chamada depois que todos os elementos principais foram carregados
+    """
+    js_code = """
+    <script>
+    // Remover a tela de carregamento
+    const loadingScreen = document.getElementById('loading-screen');
+    if (loadingScreen) {
+        // Adicionar classe para fazer fade-out
+        loadingScreen.style.opacity = '0';
+        
+        // Remover após a transição
+        setTimeout(() => {
+            loadingScreen.style.display = 'none';
+            
+            // Quando remover o loading, garantir que o app esteja totalmente visível
+            document.querySelectorAll('.stApp, .main, [data-testid="stSidebarContent"]').forEach(el => {
+                if (el) {
+                    el.style.visibility = 'visible';
+                    el.style.opacity = '1';
+                }
+            });
+            
+            // Garantir que a navegação está oculta
+            document.querySelectorAll('[data-testid="stSidebarNavItems"], .st-emotion-cache-16idsys').forEach(el => {
+                if (el) el.style.display = 'none';
+            });
+        }, 500);
+    }
+    </script>
+    """
+    return st.components.v1.html(js_code, height=0)
