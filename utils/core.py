@@ -333,11 +333,12 @@ def apply_global_css():
     """ + hide_streamlit_menu(), unsafe_allow_html=True)
 # Função para exibir a logo do ValueHunter de forma consistente
 def show_valuehunter_logo():
-    """Exibe a logo do ValueHunter de forma consistente"""
-    st.markdown(
-        '<div class="logo-container"><span class="logo-v">V</span><span class="logo-text">ValueHunter</span></div>', 
-        unsafe_allow_html=True
-    )
+    """Display the ValueHunter logo"""
+    st.markdown("""
+    <div class="valuehunter-logo">
+        <img src="https://yourimagepath.com/logo.png" alt="ValueHunter" style="height: 60px;">
+    </div>
+    """, unsafe_allow_html=True)
 
 # Funções de navegação
 def go_to_login():
