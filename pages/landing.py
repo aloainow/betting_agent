@@ -36,7 +36,7 @@ def show_landing_page():
         # Conteúdo principal
         st.markdown("""
             <div class="hero">
-                <h1>Maximize o Valor em Apostas Esportivas</h1>
+                <h1>Maximize seus Ganhos em Apostas Esportivas</h1>
                 <p style="color: #FFFFFF;">Identifique oportunidades de valor com precisão matemática e análise de dados avançada.</p>
             </div>
         """, unsafe_allow_html=True)
