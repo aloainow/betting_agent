@@ -42,42 +42,36 @@ st.set_page_config(
     menu_items=None  # Tenta remover o menu
 )
 
-# Corrija o CSS no início do arquivo app.py:
-
-# Ocultar o próprio app.py do menu de navegação e qualquer elemento do menu
+# Aplicar CSS imediatamente após o set_page_config
 st.markdown("""
 <style>
-/* FORÇAR a barra lateral a permanecer visível */
+/* Ocultar completamente o menu de navegação lateral */
+[data-testid="stSidebarNavItems"] {
+    display: none !important;
+}
+section[data-testid="stSidebarUserContent"] {
+    margin-top: 0 !important;
+}
+/* Seletores adicionais para ocultar a navegação, incluindo versões mais recentes */
+.st-emotion-cache-16idsys, 
+.st-emotion-cache-1cypcdb,
+.st-emotion-cache-vk3wp9,
+.st-emotion-cache-ue6h4q,
+.st-emotion-cache-jnd7a1 {
+    display: none !important;
+}
+/* Ocultar o menu principal e o botão de navegação */
+header[data-testid="stHeader"],
+button[kind="header"],
+#MainMenu,
+footer {
+    display: none !important;
+}
+/* Garantir que a barra lateral em si permanece visível */
 [data-testid="stSidebar"] {
     display: block !important;
     visibility: visible !important;
     opacity: 1 !important;
-    width: auto !important;
-    transform: none !important;
-}
-
-/* Ocultar apenas elementos de navegação do Streamlit, não a sidebar inteira */
-header[data-testid="stHeader"],
-footer,
-#MainMenu,
-[data-testid="collapsedControl"],
-button[kind="header"] {
-    display: none !important;
-}
-
-/* Ocultar apenas o container de navegação */
-section[data-testid="stSidebarNavContainer"],
-div.stSidebarNavItems, 
-button.stSidebarButton,
-div.st-emotion-cache-16idsys,
-ul.st-emotion-cache-pbk8do {
-    display: none !important;
-}
-
-/* Ocultar apenas a página app.py no menu - caso elementos acima não funcionem */
-[data-testid="stSidebarNav"] ul li,
-div[data-testid="stSidebarNav"] > div > ul > li {
-    display: none !important;
 }
 </style>
 """, unsafe_allow_html=True)
