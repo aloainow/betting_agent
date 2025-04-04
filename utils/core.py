@@ -1298,3 +1298,43 @@ def remove_loading_screen():
     </script>
     """
     return st.components.v1.html(js_code, height=0)
+def apply_custom_styles():
+    """Aplica estilos CSS personalizados para layout e espaçamento consistentes"""
+    st.markdown("""
+    <style>
+    /* Reduzir espaçamento do cabeçalho */
+    .main .block-container {
+        padding-top: 1rem !important;
+        padding-bottom: 1rem !important;
+        margin-top: 0rem !important;
+    }
+    
+    /* Aumentar as bordas laterais */
+    .main .block-container {
+        max-width: 1100px;
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
+    }
+    
+    /* Ajustar espaçamento do logo e cabeçalho */
+    header[data-testid="stHeader"] {
+        background-color: #0e1117;
+        height: auto !important;
+        padding-top: 0.5rem !important;
+        padding-bottom: 0.5rem !important;
+    }
+    
+    /* Ajustar o espaço entre o logo e o conteúdo */
+    .valuehunter-logo {
+        margin-bottom: 0.5rem !important;
+    }
+    
+    /* Melhorar a responsividade para telas menores */
+    @media screen and (max-width: 768px) {
+        .main .block-container {
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
+        }
+    }
+    </style>
+    """, unsafe_allow_html=True)
