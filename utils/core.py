@@ -1193,3 +1193,74 @@ def apply_responsive_styles():
     }
     </style>
     """, unsafe_allow_html=True)
+# Adicione esta função à utils/core.py
+def apply_navigation_hiding(hide_sidebar_completely=False):
+    """
+    Aplica CSS para ocultar elementos de navegação do Streamlit
+    
+    Args:
+        hide_sidebar_completely (bool): Se True, oculta toda a barra lateral,
+                                       caso contrário, oculta apenas os itens de navegação
+    """
+    if hide_sidebar_completely:
+        st.markdown("""
+        <style>
+        /* Ocultar barra lateral completamente */
+        [data-testid="stSidebar"] {
+            display: none !important;
+            width: 0px !important;
+            height: 0px !important;
+            visibility: hidden !important;
+            margin: 0px !important;
+            padding: 0px !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+        
+        /* Esconder botão de expansão da barra lateral */
+        button[kind="header"],
+        [data-testid="collapsedControl"] {
+            display: none !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <style>
+        /* Ocultar apenas os itens de navegação */
+        [data-testid="stSidebarNavItems"],
+        div.stSidebarNavItems, 
+        button.stSidebarButton,
+        .st-emotion-cache-16idsys, 
+        .st-emotion-cache-1cypcdb,
+        .st-emotion-cache-vk3wp9,
+        .st-emotion-cache-ue6h4q,
+        .st-emotion-cache-jnd7a1,
+        ul.st-emotion-cache-pbk8do {
+            display: none !important;
+        }
+        
+        /* Remover margens superiores desnecessárias */
+        section[data-testid="stSidebarUserContent"] {
+            margin-top: 0 !important;
+        }
+        
+        /* Ocultar outros elementos de navegação */
+        header[data-testid="stHeader"],
+        button[kind="header"],
+        #MainMenu,
+        footer,
+        [data-testid="collapsedControl"] {
+            display: none !important;
+        }
+        
+        /* Garantir que a barra lateral esteja visível */
+        [data-testid="stSidebar"] {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            width: auto !important;
+            transform: none !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
