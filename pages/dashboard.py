@@ -938,7 +938,7 @@ def show_main_dashboard():
                 position: relative;
             }}
             
-            /* Botão toggle */
+            /* Botão toggle (pré-posicionado por CSS) */
             .sidebar-toggle {{
                 position: absolute;
                 top: 50%;
@@ -956,15 +956,11 @@ def show_main_dashboard():
                 transform: translateY(-50%);
                 box-shadow: 0 2px 5px rgba(0,0,0,0.2);
                 border: none;
+                font-weight: bold;
             }}
-
+        
             .sidebar-toggle:hover {{
                 background-color: #E54D00;
-            }}
-            
-            /* Ajustar conteúdo da sidebar baseado no estado */
-            .sidebar-content {{
-                {"display: none !important;" if not st.session_state.sidebar_expanded else ""}
             }}
             
             /* Ajustar padding para melhor aproveitamento do espaço */
@@ -972,40 +968,58 @@ def show_main_dashboard():
                 padding-left: 15px !important;
                 padding-right: 15px !important;
             }}
-
-            /* Garantir que o texto não fique comprimido */
-            [data-testid="stSidebar"] p, 
-            [data-testid="stSidebar"] span,
-            [data-testid="stSidebar"] label {{
-                white-space: normal !important;
-                word-wrap: break-word !important;
+        </style>
+        
+        <!-- Botão já inserido no HTML -->
+        <div>
+            <button id="sidebar-toggle-btn" class="sidebar-toggle" onclick="toggleSidebar()">
+                {{"<" if st.session_state.sidebar_expanded else ">"}}
+            </button>
+        </div>
+        
+        <script>
+            // Função para inserir o botão no lugar correto (mais confiável)
+            function moveToggleButton() {{
+                const sidebar = document.querySelector('[data-testid="stSidebar"]');
+                const toggleBtn = document.getElementById('sidebar-toggle-btn');
+                
+                if (sidebar && toggleBtn && toggleBtn.parentElement !== sidebar) {{
+                    sidebar.appendChild(toggleBtn);
+                    console.log("Toggle button moved to sidebar");
+                }}
             }}
             
-            /* Ocultar apenas os elementos de navegação do Streamlit */
-            header[data-testid="stHeader"],
-            footer,
-            #MainMenu {{
-                display: none !important;
+            // Função para alternar a sidebar
+            function toggleSidebar() {{
+                // Usar query params para comunicar com o Streamlit backend
+                const urlParams = new URLSearchParams(window.location.search);
+                urlParams.set('sidebar_toggle', 'true');
+                window.location.search = urlParams.toString();
             }}
-        </style>
-
-        <script>
-            // JavaScript para controlar o toggle da sidebar
+            
+            // Usar diferentes estratégias para garantir que o botão seja movido
+            // 1. Tentar assim que o script carregar
+            moveToggleButton();
+            
+            // 2. Tentar novamente após um curto delay
+            setTimeout(moveToggleButton, 100);
+            
+            // 3. Tentar novamente após o carregamento da página
             document.addEventListener('DOMContentLoaded', function() {{
-                const toggleButton = document.createElement('button');
-                toggleButton.className = 'sidebar-toggle';
-                toggleButton.innerHTML = '{{"&lt;" if st.session_state.sidebar_expanded else "&gt;"}}';
-                
-                const sidebar = document.querySelector('[data-testid="stSidebar"]');
-                sidebar.appendChild(toggleButton);
-                
-                toggleButton.addEventListener('click', function() {{
-                    // Usar query params para comunicar com o Streamlit backend
-                    const urlParams = new URLSearchParams(window.location.search);
-                    urlParams.set('sidebar_toggle', 'true');
-                    window.location.search = urlParams.toString();
-                }});
+                moveToggleButton();
+                // E mais uma vez após um delay
+                setTimeout(moveToggleButton, 500);
             }});
+            
+            // 4. Observar mudanças no DOM para capturar quando a sidebar é renderizada
+            const observer = new MutationObserver(function(mutations) {{
+                moveToggleButton();
+            }});
+            
+            observer.observe(document.body, {{ childList: true, subtree: true }});
+            
+            // Parar de observar após 3 segundos para não afetar o desempenho
+            setTimeout(function() {{ observer.disconnect(); }}, 3000);
         </script>
         """
 
