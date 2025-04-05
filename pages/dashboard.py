@@ -969,61 +969,66 @@ def show_main_dashboard():
                 padding-right: 15px !important;
             }}
         </style>
-        
-        <!-- Botão já inserido no HTML -->
-        <div>
-            <button id="sidebar-toggle-btn" class="sidebar-toggle" onclick="toggleSidebar()">
-                {{"<" if st.session_state.sidebar_expanded else ">"}}
-            </button>
-        </div>
-        
-        <script>
-            // Função para inserir o botão no lugar correto (mais confiável)
-            function moveToggleButton() {{
-                const sidebar = document.querySelector('[data-testid="stSidebar"]');
-                const toggleBtn = document.getElementById('sidebar-toggle-btn');
-                
-                if (sidebar && toggleBtn && toggleBtn.parentElement !== sidebar) {{
-                    sidebar.appendChild(toggleBtn);
-                    console.log("Toggle button moved to sidebar");
-                }}
-            }}
-            
-            // Função para alternar a sidebar
-            function toggleSidebar() {{
-                // Usar query params para comunicar com o Streamlit backend
-                const urlParams = new URLSearchParams(window.location.search);
-                urlParams.set('sidebar_toggle', 'true');
-                window.location.search = urlParams.toString();
-            }}
-            
-            // Usar diferentes estratégias para garantir que o botão seja movido
-            // 1. Tentar assim que o script carregar
-            moveToggleButton();
-            
-            // 2. Tentar novamente após um curto delay
-            setTimeout(moveToggleButton, 100);
-            
-            // 3. Tentar novamente após o carregamento da página
-            document.addEventListener('DOMContentLoaded', function() {{
-                moveToggleButton();
-                // E mais uma vez após um delay
-                setTimeout(moveToggleButton, 500);
-            }});
-            
-            // 4. Observar mudanças no DOM para capturar quando a sidebar é renderizada
-            const observer = new MutationObserver(function(mutations) {{
-                moveToggleButton();
-            }});
-            
-            observer.observe(document.body, {{ childList: true, subtree: true }});
-            
-            // Parar de observar após 3 segundos para não afetar o desempenho
-            setTimeout(function() {{ observer.disconnect(); }}, 3000);
-        </script>
         """
 
         st.markdown(sidebar_style, unsafe_allow_html=True)
+
+        # Injetar o botão toggle via JavaScript depois que a página estiver carregada
+        toggle_button_js = f"""
+        <script>
+            // Função para criar e inserir o botão toggle
+            function createToggleButton() {{
+                // Verificar se o botão já existe
+                if (document.getElementById('sidebar-toggle-btn')) {{
+                    return;
+                }}
+                
+                // Criar o botão
+                const toggleBtn = document.createElement('button');
+                toggleBtn.id = 'sidebar-toggle-btn';
+                toggleBtn.className = 'sidebar-toggle';
+                toggleBtn.innerHTML = '{{"<" if st.session_state.sidebar_expanded else ">"}}';
+                toggleBtn.onclick = function() {{
+                    // Usar query params para comunicar com o Streamlit backend
+                    const urlParams = new URLSearchParams(window.location.search);
+                    urlParams.set('sidebar_toggle', 'true');
+                    window.location.search = urlParams.toString();
+                }};
+                
+                // Encontrar a sidebar
+                const sidebar = document.querySelector('[data-testid="stSidebar"]');
+                if (sidebar) {{
+                    sidebar.appendChild(toggleBtn);
+                    console.log("Toggle button added to sidebar");
+                }}
+            }}
+            
+            // Tentar criar o botão imediatamente
+            createToggleButton();
+            
+            // Tentar novamente após a página terminar de carregar
+            document.addEventListener('DOMContentLoaded', function() {{
+                createToggleButton();
+                // E tentar mais algumas vezes após pequenos intervalos
+                setTimeout(createToggleButton, 500);
+                setTimeout(createToggleButton, 1000);
+                setTimeout(createToggleButton, 2000);
+            }});
+            
+            // Usar MutationObserver para detectar mudanças no DOM
+            const observer = new MutationObserver(function(mutations) {{
+                createToggleButton();
+            }});
+            
+            // Observar o documento inteiro para mudanças na estrutura
+            observer.observe(document.body, {{ childList: true, subtree: true }});
+            
+            // Limitar o tempo de observação para não afetar o desempenho
+            setTimeout(function() {{ observer.disconnect(); }}, 5000);
+        </script>
+        """
+        
+        st.markdown(toggle_button_js, unsafe_allow_html=True)
 
         # Verificar se o botão foi clicado através dos query params
         if 'sidebar_toggle' in st.query_params:
@@ -1088,17 +1093,24 @@ def show_main_dashboard():
                 <a href="#" id="sidebar_icon_logout" style="color: white; font-size: 20px;">🚪</a>
             </div>
             <script>
-                document.getElementById('sidebar_icon_package').addEventListener('click', function() {
+                document.getElementById('sidebar_icon_package').addEventListener('click', function(e) {
+                    e.preventDefault();
                     // Redirecionar para a página de pacotes
                     const urlParams = new URLSearchParams(window.location.search);
                     urlParams.set('page', 'packages');
                     window.location.search = urlParams.toString();
                 });
-                document.getElementById('sidebar_icon_logout').addEventListener('click', function() {
+                document.getElementById('sidebar_icon_logout').addEventListener('click', function(e) {
+                    e.preventDefault();
                     // Executar logout
                     const urlParams = new URLSearchParams(window.location.search);
                     urlParams.set('logout', 'true');
                     window.location.search = urlParams.toString();
+                });
+                document.getElementById('sidebar_icon_home').addEventListener('click', function(e) {
+                    e.preventDefault();
+                    // Recarregar a página principal
+                    window.location.href = window.location.pathname;
                 });
             </script>
             """, unsafe_allow_html=True)
@@ -1711,8 +1723,7 @@ def show_main_dashboard():
                                             
                                             if under_value:
                                                 opportunities.append(f"- **Under {line} Gols**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real-under_implicit:.1f}%)")
-                                    
-                                    # Escanteios
+                                            # Escanteios
                                     if selected_markets.get("escanteios") and "corners" in original_probabilities:
                                         probs_section += "## Escanteios:\n"
                                         
@@ -1935,8 +1946,7 @@ def show_main_dashboard():
         st.error("Erro ao carregar o painel principal. Por favor, tente novamente.")
         st.error(f"Erro: {str(e)}")
         if st.session_state.debug_mode:
-            st.code(traceback.format_exc())
-
+            st.code(traceback.format_exc())    
 # Função auxiliar para extração de dados avançada
 def extract_direct_team_stats(source, target, team_type):
     """
