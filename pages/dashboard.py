@@ -914,16 +914,17 @@ def show_main_dashboard():
             st.experimental_rerun()
             return
             
-        # Garantir que a barra lateral esteja visível
+       # Garantir que a barra lateral esteja visível mas mais estreita
         st.markdown("""
         <style>
-        /* CSS simplificado para garantir visibilidade */
+        /* CSS ajustado para sidebar mais compacta */
         [data-testid="stSidebar"] {
             display: block !important;
             visibility: visible !important;
             opacity: 1 !important;
-            width: auto !important;
-            min-width: 250px !important;
+            width: 180px !important;
+            max-width: 180px !important;
+            min-width: 180px !important;
         }
         
         /* Ocultar apenas os elementos de navegação do Streamlit */
