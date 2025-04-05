@@ -914,17 +914,23 @@ def show_main_dashboard():
             st.experimental_rerun()
             return
             
-       # Garantir que a barra lateral esteja visível mas mais estreita
+       # Garantir que a barra lateral esteja visível com tamanho equilibrado
         st.markdown("""
         <style>
-        /* CSS ajustado para sidebar mais compacta */
+        /* CSS ajustado para sidebar com tamanho equilibrado */
         [data-testid="stSidebar"] {
             display: block !important;
             visibility: visible !important;
             opacity: 1 !important;
-            width: 180px !important;
-            max-width: 180px !important;
-            min-width: 180px !important;
+            width: 220px !important;
+            max-width: 220px !important;
+            min-width: 220px !important;
+        }
+        
+        /* Melhorar o espaçamento interno para otimizar o espaço */
+        [data-testid="stSidebar"] .block-container {
+            padding-left: 10px !important;
+            padding-right: 10px !important;
         }
         
         /* Ocultar apenas os elementos de navegação do Streamlit */
@@ -934,8 +940,7 @@ def show_main_dashboard():
             display: none !important;
         }
         </style>
-        """, unsafe_allow_html=True)
-        
+        """, unsafe_allow_html=True)        
         # Iniciar com log de diagnóstico
         logger.info("Iniciando renderização do dashboard principal")     
         
