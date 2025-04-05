@@ -938,7 +938,7 @@ def show_main_dashboard():
         # Iniciar com log de diagnóstico
         logger.info("Iniciando renderização do dashboard principal")     
         
-        # Adicionar modo de depuração para facilitar debug
+        # Inicializar modo de depuração para funcionalidade interna
         if "debug_mode" not in st.session_state:
             st.session_state.debug_mode = False
             
@@ -972,21 +972,8 @@ def show_main_dashboard():
             st.session_state.page = "landing"
             st.experimental_rerun()
             
-        # Opções avançadas no sidebar
-        with st.sidebar.expander("Opções avançadas"):
-            st.session_state.debug_mode = st.checkbox("Modo de depuração", value=st.session_state.debug_mode)
-            
-            if st.button("Limpar cache"):
-                cleaned = clear_cache()
-                st.success(f"Cache limpo: {cleaned} arquivos removidos")
-                
-            if st.button("Reiniciar aplicação"):
-                for key in list(st.session_state.keys()):
-                    if key != "authenticated" and key != "email":
-                        del st.session_state[key]
-                st.success("Aplicação reiniciada")
-                st.experimental_rerun()
-
+        # Seção de "Opções avançadas" removida aqui
+        
         # ------------------------------------------------------------
         # CONTEÚDO PRINCIPAL 
         # ------------------------------------------------------------
