@@ -914,33 +914,110 @@ def show_main_dashboard():
             st.experimental_rerun()
             return
             
-       # Garantir que a barra lateral esteja visível com tamanho equilibrado
-        st.markdown("""
+        # Adicionar estado para controlar a sidebar
+        if 'sidebar_expanded' not in st.session_state:
+            st.session_state.sidebar_expanded = True  # Começa expandido
+
+        # Definir larguras baseadas no estado
+        sidebar_width_expanded = "280px"
+        sidebar_width_collapsed = "60px"
+        current_width = sidebar_width_expanded if st.session_state.sidebar_expanded else sidebar_width_collapsed
+            
+        # Aplicar CSS baseado no estado atual
+        sidebar_style = f"""
         <style>
-        /* CSS ajustado para sidebar com tamanho equilibrado */
-        [data-testid="stSidebar"] {
-            display: block !important;
-            visibility: visible !important;
-            opacity: 1 !important;
-            width: 280px !important;
-            max-width: 280px !important;
-            min-width: 280px !important;
-        }
-        
-        /* Melhorar o espaçamento interno para otimizar o espaço */
-        [data-testid="stSidebar"] .block-container {
-            padding-left: 15px !important;
-            padding-right: 15px !important;
-        }
-        
-        /* Ocultar apenas os elementos de navegação do Streamlit */
-        header[data-testid="stHeader"],
-        footer,
-        #MainMenu {
-            display: none !important;
-        }
+            /* Estilo base da sidebar */
+            [data-testid="stSidebar"] {{
+                display: block !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                transition: width 0.3s ease-in-out !important;
+                width: {current_width} !important;
+                max-width: {current_width} !important;
+                min-width: {current_width} !important;
+                position: relative;
+            }}
+            
+            /* Botão toggle */
+            .sidebar-toggle {{
+                position: absolute;
+                top: 50%;
+                right: -15px;
+                width: 30px;
+                height: 30px;
+                background-color: #FF5500;
+                color: white;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                z-index: 999;
+                transform: translateY(-50%);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+                border: none;
+            }}
+
+            .sidebar-toggle:hover {{
+                background-color: #E54D00;
+            }}
+            
+            /* Ajustar conteúdo da sidebar baseado no estado */
+            .sidebar-content {{
+                {"display: none !important;" if not st.session_state.sidebar_expanded else ""}
+            }}
+            
+            /* Ajustar padding para melhor aproveitamento do espaço */
+            [data-testid="stSidebar"] .block-container {{
+                padding-left: 15px !important;
+                padding-right: 15px !important;
+            }}
+
+            /* Garantir que o texto não fique comprimido */
+            [data-testid="stSidebar"] p, 
+            [data-testid="stSidebar"] span,
+            [data-testid="stSidebar"] label {{
+                white-space: normal !important;
+                word-wrap: break-word !important;
+            }}
+            
+            /* Ocultar apenas os elementos de navegação do Streamlit */
+            header[data-testid="stHeader"],
+            footer,
+            #MainMenu {{
+                display: none !important;
+            }}
         </style>
-        """, unsafe_allow_html=True)        
+
+        <script>
+            // JavaScript para controlar o toggle da sidebar
+            document.addEventListener('DOMContentLoaded', function() {{
+                const toggleButton = document.createElement('button');
+                toggleButton.className = 'sidebar-toggle';
+                toggleButton.innerHTML = '{{"&lt;" if st.session_state.sidebar_expanded else "&gt;"}}';
+                
+                const sidebar = document.querySelector('[data-testid="stSidebar"]');
+                sidebar.appendChild(toggleButton);
+                
+                toggleButton.addEventListener('click', function() {{
+                    // Usar query params para comunicar com o Streamlit backend
+                    const urlParams = new URLSearchParams(window.location.search);
+                    urlParams.set('sidebar_toggle', 'true');
+                    window.location.search = urlParams.toString();
+                }});
+            }});
+        </script>
+        """
+
+        st.markdown(sidebar_style, unsafe_allow_html=True)
+
+        # Verificar se o botão foi clicado através dos query params
+        if 'sidebar_toggle' in st.query_params:
+            st.session_state.sidebar_expanded = not st.session_state.sidebar_expanded
+            # Limpar query param após uso
+            del st.query_params['sidebar_toggle']
+            st.experimental_rerun()
+        
         # Iniciar com log de diagnóstico
         logger.info("Iniciando renderização do dashboard principal")     
         
@@ -952,34 +1029,83 @@ def show_main_dashboard():
         # BARRA LATERAL REORGANIZADA
         # ------------------------------------------------------------
         
-        # 1. Mostrar estatísticas de uso e saudação
-        show_usage_stats()
-        
-        # 2. Escolha da liga (usando função auxiliar)
-        selected_league = get_league_selection()
-        if not selected_league:
-            st.error("Não foi possível selecionar uma liga. Por favor, verifique a configuração.")
-            return
-        
-        # Adicionar nota sobre o carregamento automático
-        st.sidebar.info("Os times são carregados automaticamente ao selecionar uma liga.")
-        
-        # Separador para a barra lateral
-        st.sidebar.markdown("---")
-        
-        # Botão de pacotes e logout
-        if st.sidebar.button("🚀 Ver Pacotes de Créditos", key="sidebar_packages_button", use_container_width=True):
-            st.session_state.page = "packages"
-            st.experimental_rerun()
-        
-        if st.sidebar.button("Logout", key="sidebar_logout_btn", use_container_width=True):
-            st.session_state.authenticated = False
-            st.session_state.email = None
-            st.session_state.page = "landing"
-            st.experimental_rerun()
+        # Adicionar uma classe para controlar a visibilidade do conteúdo
+        if st.session_state.sidebar_expanded:
+            st.markdown('<div class="sidebar-content">', unsafe_allow_html=True)
             
-        # Seção de "Opções avançadas" removida aqui
-        
+            # 1. Mostrar estatísticas de uso e saudação
+            show_usage_stats()
+            
+            # 2. Escolha da liga (usando função auxiliar)
+            selected_league = get_league_selection()
+            if not selected_league:
+                st.error("Não foi possível selecionar uma liga. Por favor, verifique a configuração.")
+                return
+            
+            # Adicionar nota sobre o carregamento automático
+            st.sidebar.info("Os times são carregados automaticamente ao selecionar uma liga.")
+            
+            # Separador para a barra lateral
+            st.sidebar.markdown("---")
+            
+            # Botão de pacotes e logout
+            if st.sidebar.button("🚀 Ver Pacotes de Créditos", key="sidebar_packages_button", use_container_width=True):
+                st.session_state.page = "packages"
+                st.experimental_rerun()
+            
+            if st.sidebar.button("Logout", key="sidebar_logout_btn", use_container_width=True):
+                st.session_state.authenticated = False
+                st.session_state.email = None
+                st.session_state.page = "landing"
+                st.experimental_rerun()
+                
+            # Fechamento da div de conteúdo da sidebar
+            st.markdown('</div>', unsafe_allow_html=True)
+        else:
+            # Versão minimizada da sidebar - apenas ícones
+            st.markdown('<div style="text-align: center; padding-top: 20px;">', unsafe_allow_html=True)
+            st.markdown('<span style="font-size: 24px; color: #FF5500;">VH</span>', unsafe_allow_html=True)
+            
+            # Adicionar ícones minimalistas para as principais funções
+            st.markdown("""
+            <div style="display: flex; flex-direction: column; align-items: center; margin-top: 30px; gap: 20px;">
+                <a href="#" id="sidebar_icon_home" style="color: white; font-size: 20px;">🏠</a>
+                <a href="#" id="sidebar_icon_package" style="color: white; font-size: 20px;">🚀</a>
+                <a href="#" id="sidebar_icon_logout" style="color: white; font-size: 20px;">🚪</a>
+            </div>
+            <script>
+                document.getElementById('sidebar_icon_package').addEventListener('click', function() {
+                    // Redirecionar para a página de pacotes
+                    const urlParams = new URLSearchParams(window.location.search);
+                    urlParams.set('page', 'packages');
+                    window.location.search = urlParams.toString();
+                });
+                document.getElementById('sidebar_icon_logout').addEventListener('click', function() {
+                    // Executar logout
+                    const urlParams = new URLSearchParams(window.location.search);
+                    urlParams.set('logout', 'true');
+                    window.location.search = urlParams.toString();
+                });
+            </script>
+            """, unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            # Lidar com redirecionamentos dos ícones através de query params
+            if 'page' in st.query_params and st.query_params['page'] == 'packages':
+                st.session_state.page = "packages"
+                del st.query_params['page']
+                st.experimental_rerun()
+                
+            if 'logout' in st.query_params:
+                st.session_state.authenticated = False
+                st.session_state.email = None
+                st.session_state.page = "landing"
+                del st.query_params['logout']
+                st.experimental_rerun()
+                
+            # Definir a liga selecionada mesmo quando a sidebar está recolhida
+            selected_league = st.session_state.selected_league if hasattr(st.session_state, 'selected_league') else None
+            
         # ------------------------------------------------------------
         # CONTEÚDO PRINCIPAL 
         # ------------------------------------------------------------
