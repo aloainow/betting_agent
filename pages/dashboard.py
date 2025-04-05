@@ -922,15 +922,15 @@ def show_main_dashboard():
             display: block !important;
             visibility: visible !important;
             opacity: 1 !important;
-            width: 220px !important;
-            max-width: 220px !important;
-            min-width: 220px !important;
+            width: 280px !important;
+            max-width: 280px !important;
+            min-width: 280px !important;
         }
         
         /* Melhorar o espaçamento interno para otimizar o espaço */
         [data-testid="stSidebar"] .block-container {
-            padding-left: 10px !important;
-            padding-right: 10px !important;
+            padding-left: 15px !important;
+            padding-right: 15px !important;
         }
         
         /* Ocultar apenas os elementos de navegação do Streamlit */
