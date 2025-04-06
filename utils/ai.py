@@ -1286,30 +1286,49 @@ def get_stat(stats, col, default='N/A'):
         
 def calculate_advanced_probabilities(home_team, away_team, league_table=None):
     """
-    Calcular probabilidades usando o método de dispersão e ponderação corrigido
-    
-    Args:
-        home_team (dict): Estatísticas do time da casa
-        away_team (dict): Estatísticas do time visitante
-        league_table (dict, optional): Tabela do campeonato se disponível
-        
-    Returns:
-        dict: Probabilidades calculadas para diferentes mercados
+    Calcular probabilidades usando o método de dispersão e ponderação com correções robustas
     """
     try:
         import numpy as np
         import math
+        import logging
+        
+        logger = logging.getLogger("valueHunter.ai")
         
         # PASSO 1: Calcular Consistência (Inverso da Dispersão)
+        # Extrair percentuais de resultados com validação
+        def safe_get(team_dict, key, default):
+            """Obter valor com validação de limites"""
+            try:
+                value = float(team_dict.get(key, default))
+                return min(90, max(10, value))  # Limitar valores extremos
+            except (ValueError, TypeError):
+                logger.warning(f"Valor inválido para {key}: {team_dict.get(key)}")
+                return default
         
-        # Extrair percentuais de resultados
-        home_win_pct = home_team.get('win_pct', 40)
-        home_draw_pct = home_team.get('draw_pct', 30)
-        home_loss_pct = home_team.get('loss_pct', 30)
+        # Extrair percentuais com validação
+        home_win_pct = safe_get(home_team, 'win_pct', 40)
+        home_draw_pct = safe_get(home_team, 'draw_pct', 30)
+        home_loss_pct = safe_get(home_team, 'loss_pct', 30)
         
-        away_win_pct = away_team.get('win_pct', 30)
-        away_draw_pct = away_team.get('draw_pct', 30)
-        away_loss_pct = away_team.get('loss_pct', 40)
+        away_win_pct = safe_get(away_team, 'win_pct', 30)
+        away_draw_pct = safe_get(away_team, 'draw_pct', 30)
+        away_loss_pct = safe_get(away_team, 'loss_pct', 40)
+        
+        # Normalizar para 100%
+        home_total = home_win_pct + home_draw_pct + home_loss_pct
+        if abs(home_total - 100) > 1:  # Se estiver mais de 1% fora
+            factor = 100 / home_total
+            home_win_pct *= factor
+            home_draw_pct *= factor
+            home_loss_pct *= factor
+            
+        away_total = away_win_pct + away_draw_pct + away_loss_pct
+        if abs(away_total - 100) > 1:  # Se estiver mais de 1% fora
+            factor = 100 / away_total
+            away_win_pct *= factor
+            away_draw_pct *= factor
+            away_loss_pct *= factor
         
         # Resultados como probabilidades (0-1)
         home_results = [
@@ -1326,19 +1345,19 @@ def calculate_advanced_probabilities(home_team, away_team, league_table=None):
         
         # Calcular desvio padrão como medida de dispersão
         try:
-            home_dispersion = np.std(home_results) * 3
-            away_dispersion = np.std(away_results) * 3
+            home_dispersion = np.std(home_results)
+            away_dispersion = np.std(away_results)
         except:
-            # Fallback para caso np não esteja disponível
-            home_dispersion = 0.5
-            away_dispersion = 0.5
+            # Fallback manual para caso np não esteja disponível
+            home_dispersion = math.sqrt(sum((x - sum(home_results)/3)**2 for x in home_results) / 3)
+            away_dispersion = math.sqrt(sum((x - sum(away_results)/3)**2 for x in away_results) / 3)
         
-        # Converter para consistência (inverso da dispersão)
-        home_consistency = 1 - min(0.7, home_dispersion)
-        away_consistency = 1 - min(0.7, away_dispersion)
+        # Converter para consistência (inverso da dispersão) - CORRIGIDO
+        # Valor máximo de consistência é 0.9 (90%), mínimo é 0.3 (30%)
+        home_consistency = min(0.9, max(0.3, 1 - home_dispersion * 2))
+        away_consistency = min(0.9, max(0.3, 1 - away_dispersion * 2))
         
         # PASSO 2: Calcular Forma Recente (35%)
-        
         def form_to_points(form_str):
             """Calcula pontos de forma nos últimos 5 jogos (W=3pts, D=1pt, L=0pts)"""
             if not form_str or not isinstance(form_str, str):
@@ -1371,28 +1390,27 @@ def calculate_advanced_probabilities(home_team, away_team, league_table=None):
         away_form_normalized = away_form_points / 15.0
         
         # PASSO 3: Estatísticas Gerais e xG (25%)
+        # Extrair dados básicos com validação
+        home_goals_per_game = safe_get(home_team, 'goals_per_game', 1.3)
+        home_conceded_per_game = safe_get(home_team, 'conceded_per_game', 1.3)
+        away_goals_per_game = safe_get(away_team, 'goals_per_game', 1.1)
+        away_conceded_per_game = safe_get(away_team, 'conceded_per_game', 1.5)
         
-        # Extrair dados básicos
-        home_goals_per_game = home_team.get('goals_per_game', 1.3)
-        home_conceded_per_game = home_team.get('conceded_per_game', 1.3)
-        away_goals_per_game = away_team.get('goals_per_game', 1.1)
-        away_conceded_per_game = away_team.get('conceded_per_game', 1.5)
-        
-        # Extrair xG
-        home_xg = home_team.get('xg', 25)
-        home_xga = home_team.get('xga', 25)
-        away_xg = away_team.get('xg', 20)
-        away_xga = away_team.get('xga', 30)
+        # Extrair xG com validação
+        home_xg = safe_get(home_team, 'xg', 25)
+        home_xga = safe_get(home_team, 'xga', 25)
+        away_xg = safe_get(away_team, 'xg', 20)
+        away_xga = safe_get(away_team, 'xga', 30)
         
         # Normalizar xG
         max_xg = max(home_xg, away_xg, 60)  # 60 gols é benchmark máximo
         
         # Calcular scores ofensivos e defensivos
-        home_offensive = (home_xg / max_xg) * 0.6 + (home_goals_per_game / 3) * 0.4
-        home_defensive = (1 - min(1, home_xga / max_xg)) * 0.6 + (1 - min(1, home_conceded_per_game / 3)) * 0.4
+        home_offensive = min(0.9, max(0.3, (home_xg / max_xg) * 0.6 + (home_goals_per_game / 3) * 0.4))
+        home_defensive = min(0.9, max(0.3, (1 - min(1, home_xga / max_xg)) * 0.6 + (1 - min(1, home_conceded_per_game / 3)) * 0.4))
         
-        away_offensive = (away_xg / max_xg) * 0.6 + (away_goals_per_game / 3) * 0.4
-        away_defensive = (1 - min(1, away_xga / max_xg)) * 0.6 + (1 - min(1, away_conceded_per_game / 3)) * 0.4
+        away_offensive = min(0.9, max(0.3, (away_xg / max_xg) * 0.6 + (away_goals_per_game / 3) * 0.4))
+        away_defensive = min(0.9, max(0.3, (1 - min(1, away_xga / max_xg)) * 0.6 + (1 - min(1, away_conceded_per_game / 3)) * 0.4))
         
         # Score estatístico total
         home_stats_score = home_offensive * 0.6 + home_defensive * 0.4
@@ -1403,11 +1421,11 @@ def calculate_advanced_probabilities(home_team, away_team, league_table=None):
         away_position_score = away_win_pct / 100
         
         # PASSO 5: Métricas de criação (20%)
-        home_possession = home_team.get('possession', 50) / 100
-        away_possession = away_team.get('possession', 50) / 100
+        home_possession = safe_get(home_team, 'possession', 50) / 100
+        away_possession = safe_get(away_team, 'possession', 50) / 100
         
-        home_creation = home_offensive * 0.7 + home_possession * 0.3
-        away_creation = away_offensive * 0.7 + away_possession * 0.3
+        home_creation = min(0.9, max(0.3, home_offensive * 0.7 + home_possession * 0.3))
+        away_creation = min(0.9, max(0.3, away_offensive * 0.7 + away_possession * 0.3))
         
         # PASSO 6: APLICAR PONDERAÇÕES
         home_total_score = (
@@ -1428,15 +1446,15 @@ def calculate_advanced_probabilities(home_team, away_team, league_table=None):
         
         # 1. Moneyline (1X2)
         # Distribuição inicial
-        raw_home_win = home_total_score / (home_total_score + away_total_score) * 0.8
-        raw_away_win = away_total_score / (home_total_score + away_total_score) * 0.8
+        raw_home_win = min(0.65, max(0.25, home_total_score / (home_total_score + away_total_score) * 0.75))
+        raw_away_win = min(0.65, max(0.25, away_total_score / (home_total_score + away_total_score) * 0.75))
         raw_draw = 1 - (raw_home_win + raw_away_win)
         
         # Ajuste para vantagem em casa
-        home_advantage = 0.08  # +8% boost para time da casa (reduzido de 12%)
-        adjusted_home_win = raw_home_win + home_advantage
-        adjusted_away_win = raw_away_win - (home_advantage * 0.5)
-        adjusted_draw = raw_draw - (home_advantage * 0.5)
+        home_advantage = 0.06  # +6% boost para time da casa (reduzido)
+        adjusted_home_win = min(0.65, raw_home_win + home_advantage)
+        adjusted_away_win = max(0.2, raw_away_win - (home_advantage * 0.5))
+        adjusted_draw = max(0.15, 1 - (adjusted_home_win + adjusted_away_win))
         
         # Normalizar para somar 100%
         total = adjusted_home_win + adjusted_draw + adjusted_away_win
@@ -1444,58 +1462,73 @@ def calculate_advanced_probabilities(home_team, away_team, league_table=None):
         draw_prob = (adjusted_draw / total) * 100
         away_win_prob = (adjusted_away_win / total) * 100
         
-        # 2. Over/Under Gols - CORREÇÃO CRÍTICA
+        # 2. Over/Under Gols - CORREÇÃO ROBUSTA
         # Cálculo mais realista de gols esperados
-        home_expected_goals = home_offensive * 1.8 * (1 - away_defensive * 0.7)
-        away_expected_goals = away_offensive * 1.5 * (1 - home_defensive * 0.7)
+        home_expected_goals = min(2.0, max(0.3, home_offensive * 1.5 * (1 - away_defensive * 0.7)))
+        away_expected_goals = min(2.0, max(0.3, away_offensive * 1.3 * (1 - home_defensive * 0.7)))
         
         total_expected_goals = home_expected_goals + away_expected_goals
         
-        # [CORREÇÃO] Probabilidade Over 2.5 com inclinação mais moderada
-        # Inclinação original -1.5 estava muito agressiva, causando extremos
-        over_2_5_prob = 1 / (1 + math.exp(-0.7 * (total_expected_goals - 2.5))) * 100
+        # BTTS como percentual (limitado entre 30% e 70%)
+        btts_probability = min(0.7, max(0.3, home_expected_goals * away_expected_goals / 2))
+        
+        # Over 2.5 com valor limitado (entre 25% e 75%)
+        lambda_total = total_expected_goals
+        
+        # Aproximação da distribuição de Poisson para calcular P(gols >= 3)
+        p_0 = math.exp(-lambda_total)
+        p_1 = p_0 * lambda_total
+        p_2 = p_1 * lambda_total / 2
+        
+        over_2_5_prob = min(75, max(25, (1 - (p_0 + p_1 + p_2)) * 100))
         under_2_5_prob = 100 - over_2_5_prob
         
-        # 3. Ambos Marcam (BTTS) - CORREÇÃO CRÍTICA
-        # [CORREÇÃO] Usar uma abordagem estatística mais equilibrada
-        # Probabilidade de cada time marcar
-        home_scoring_prob = 1 - math.exp(-0.8 * home_expected_goals)
-        away_scoring_prob = 1 - math.exp(-0.7 * away_expected_goals)
-        
-        # BTTS = probabilidade combinada
-        btts_yes_prob = home_scoring_prob * away_scoring_prob * 100
+        # 3. Ambos Marcam (BTTS) - CORREÇÃO ROBUSTA
+        btts_yes_prob = min(75, max(35, btts_probability * 100))
         btts_no_prob = 100 - btts_yes_prob
         
-        # 4. Escanteios (Over/Under 9.5) - CORREÇÃO CRÍTICA
+        # 4. Escanteios - CORREÇÃO ROBUSTA
         # Extrair médias de escanteios
-        home_corners = home_team.get('corners_per_game', 5)
-        away_corners = away_team.get('corners_per_game', 4)
+        home_corners = safe_get(home_team, 'corners_per_game', 5)
+        away_corners = safe_get(away_team, 'corners_per_game', 4)
+        corner_threshold = 8.5  # Ajustar conforme o mercado (8.5 neste exemplo)
         
         # Ajustar para o confronto específico
-        home_expected_corners = home_corners * (1 + 0.2 * home_offensive - 0.1 * away_defensive)
-        away_expected_corners = away_corners * (1 + 0.2 * away_offensive - 0.1 * home_defensive)
+        home_expected_corners = min(6, max(2, home_corners * (1 + 0.2 * home_offensive - 0.1 * away_defensive)))
+        away_expected_corners = min(5, max(2, away_corners * (1 + 0.2 * away_offensive - 0.1 * home_defensive)))
         
         total_expected_corners = home_expected_corners + away_expected_corners
         
-        # [CORREÇÃO] Probabilidade com inclinação mais moderada
-        # Inclinação original estava muito agressiva, resultando em 100%
-        over_9_5_corners_prob = 1 / (1 + math.exp(-0.4 * (total_expected_corners - 9.5))) * 100
-        under_9_5_corners_prob = 100 - over_9_5_corners_prob
+        # Usando aproximação normal para distribuição de escanteios
+        # Standard deviation estimada como sqrt(expected)
+        corner_std = math.sqrt(total_expected_corners)
+        z_score = (corner_threshold - total_expected_corners) / corner_std
         
-        # 5. Cartões (Over/Under 4.5) - CORREÇÃO CRÍTICA
+        # Aproximação da função de distribuição normal cumulativa
+        def normal_cdf(x):
+            return 0.5 * (1 + math.erf(x / math.sqrt(2)))
+        
+        under_corners_prob = min(70, max(30, normal_cdf(z_score) * 100))
+        over_corners_prob = 100 - under_corners_prob
+        
+        # 5. Cartões - CORREÇÃO ROBUSTA
         # Extrair médias de cartões
-        home_cards = home_team.get('cards_per_game', 2)
-        away_cards = away_team.get('cards_per_game', 2)
+        home_cards = safe_get(home_team, 'cards_per_game', 2)
+        away_cards = safe_get(away_team, 'cards_per_game', 2)
+        card_threshold = 5.5  # Ajustar conforme o mercado (5.5 neste exemplo)
         
         # Calcular intensidade baseada na proximidade das equipes
         team_diff = abs(home_total_score - away_total_score)
-        intensity_factor = 1 + 0.3 * (1 - min(1, team_diff * 2))
+        intensity_factor = 1 + 0.2 * (1 - min(1, team_diff * 2))
         
         total_expected_cards = (home_cards + away_cards) * intensity_factor
         
-        # [CORREÇÃO] Probabilidade com inclinação mais moderada
-        over_4_5_cards_prob = 1 / (1 + math.exp(-0.5 * (total_expected_cards - 4.5))) * 100
-        under_4_5_cards_prob = 100 - over_4_5_cards_prob
+        # Usando aproximação normal para distribuição de cartões
+        card_std = math.sqrt(total_expected_cards)
+        z_score_cards = (card_threshold - total_expected_cards) / card_std
+        
+        under_cards_prob = min(70, max(30, normal_cdf(z_score_cards) * 100))
+        over_cards_prob = 100 - under_cards_prob
         
         # 6. Chance Dupla (Double Chance) - GARANTIR CONSISTÊNCIA MATEMÁTICA
         # Calcular diretamente a partir das probabilidades primárias para garantir consistência
@@ -1525,13 +1558,13 @@ def calculate_advanced_probabilities(home_team, away_team, league_table=None):
                 "no": round(btts_no_prob, 1)
             },
             "cards": {
-                "over_4_5": round(over_4_5_cards_prob, 1),
-                "under_4_5": round(under_4_5_cards_prob, 1),
+                "over_4_5": round(over_cards_prob, 1),
+                "under_4_5": round(under_cards_prob, 1),
                 "expected_cards": round(total_expected_cards, 1)
             },
             "corners": {
-                "over_9_5": round(over_9_5_corners_prob, 1),
-                "under_9_5": round(under_9_5_corners_prob, 1),
+                "over_9_5": round(over_corners_prob, 1),
+                "under_9_5": round(under_corners_prob, 1),
                 "expected_corners": round(total_expected_corners, 1)
             },
             "analysis_data": {
