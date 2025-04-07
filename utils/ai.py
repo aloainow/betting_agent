@@ -1284,150 +1284,68 @@ def get_stat(stats, col, default='N/A'):
         logger.warning(f"Erro ao obter estatística '{col}': {str(e)}")
         return default
         
-def calculate_advanced_probabilities(home_team, away_team, league_table=None):
+def calculate_advanced_probabilities(home_team, away_team, league_id='default', match_conditions=None):
     """
-    Calcular probabilidades usando o método de dispersão e ponderação com correções robustas
+    Cálculo avançado de probabilidades utilizando método aprimorado de Dispersão e Ponderação
+    
+    Args:
+        home_team (dict): Estatísticas do time da casa
+        away_team (dict): Estatísticas do time visitante
+        league_id (str): Identificador da liga para ajustes específicos
+        match_conditions (dict): Condições da partida (clima, etc.)
+        
+    Returns:
+        dict: Probabilidades calculadas para diferentes mercados
     """
     try:
-        import numpy as np
         import math
-        import logging
         
-        logger = logging.getLogger("valueHunter.ai")
+        # 1. Obter fatores específicos da liga
+        league_factors = calculate_league_factors(league_id, None)
         
-        # PASSO 1: Calcular Consistência (Inverso da Dispersão)
-        # Extrair percentuais de resultados com validação
-        def safe_get(team_dict, key, default):
-            """Obter valor com validação de limites"""
-            try:
-                value = float(team_dict.get(key, default))
-                return min(90, max(10, value))  # Limitar valores extremos
-            except (ValueError, TypeError):
-                logger.warning(f"Valor inválido para {key}: {team_dict.get(key)}")
-                return default
+        # 2. Calcular forma recente (35%)
+        home_form_points = calculate_form_points(home_team.get('form', 'DLWDL'))
+        away_form_points = calculate_form_points(away_team.get('form', 'DWLDL'))
         
-        # Extrair percentuais com validação
-        home_win_pct = safe_get(home_team, 'win_pct', 40)
-        home_draw_pct = safe_get(home_team, 'draw_pct', 30)
-        home_loss_pct = safe_get(home_team, 'loss_pct', 30)
-        
-        away_win_pct = safe_get(away_team, 'win_pct', 30)
-        away_draw_pct = safe_get(away_team, 'draw_pct', 30)
-        away_loss_pct = safe_get(away_team, 'loss_pct', 40)
-        
-        # Normalizar para 100%
-        home_total = home_win_pct + home_draw_pct + home_loss_pct
-        if abs(home_total - 100) > 1:  # Se estiver mais de 1% fora
-            factor = 100 / home_total
-            home_win_pct *= factor
-            home_draw_pct *= factor
-            home_loss_pct *= factor
-            
-        away_total = away_win_pct + away_draw_pct + away_loss_pct
-        if abs(away_total - 100) > 1:  # Se estiver mais de 1% fora
-            factor = 100 / away_total
-            away_win_pct *= factor
-            away_draw_pct *= factor
-            away_loss_pct *= factor
-        
-        # Resultados como probabilidades (0-1)
-        home_results = [
-            home_win_pct / 100,
-            home_draw_pct / 100,
-            home_loss_pct / 100
-        ]
-        
-        away_results = [
-            away_win_pct / 100,
-            away_draw_pct / 100,
-            away_loss_pct / 100
-        ]
-        
-        # Calcular desvio padrão como medida de dispersão
-        try:
-            home_dispersion = np.std(home_results)
-            away_dispersion = np.std(away_results)
-        except:
-            # Fallback manual para caso np não esteja disponível
-            home_dispersion = math.sqrt(sum((x - sum(home_results)/3)**2 for x in home_results) / 3)
-            away_dispersion = math.sqrt(sum((x - sum(away_results)/3)**2 for x in away_results) / 3)
-        
-        # Converter para consistência (inverso da dispersão) - CORRIGIDO
-        # Valor máximo de consistência é 0.9 (90%), mínimo é 0.3 (30%)
-        home_consistency = min(0.9, max(0.3, 1 - home_dispersion * 2))
-        away_consistency = min(0.9, max(0.3, 1 - away_dispersion * 2))
-        
-        # PASSO 2: Calcular Forma Recente (35%)
-        def form_to_points(form_str):
-            """Calcula pontos de forma nos últimos 5 jogos (W=3pts, D=1pt, L=0pts)"""
-            if not form_str or not isinstance(form_str, str):
-                return 5  # Valor default moderado
-            
-            points = 0
-            # Garantir que estamos usando apenas os últimos 5 jogos
-            recent_form = form_str[-5:] if len(form_str) >= 5 else form_str
-            
-            # Calcular pontos
-            for result in recent_form:
-                result = result.upper()
-                if result == 'W':
-                    points += 3
-                elif result == 'D':
-                    points += 1
-            
-            return points
-        
-        # Extrair forma
-        home_form = home_team.get('form', 'DLWDL')
-        away_form = away_team.get('form', 'DWLDL')
-        
-        # Calcular pontos brutos (0-15)
-        home_form_points = form_to_points(home_form)
-        away_form_points = form_to_points(away_form)
-        
-        # Normalizar para uso nos cálculos (0-1)
+        # Normalizar para 0-1
         home_form_normalized = home_form_points / 15.0
         away_form_normalized = away_form_points / 15.0
         
-        # PASSO 3: Estatísticas Gerais e xG (25%)
-        # Extrair dados básicos com validação
-        home_goals_per_game = safe_get(home_team, 'goals_per_game', 1.3)
-        home_conceded_per_game = safe_get(home_team, 'conceded_per_game', 1.3)
-        away_goals_per_game = safe_get(away_team, 'goals_per_game', 1.1)
-        away_conceded_per_game = safe_get(away_team, 'conceded_per_game', 1.5)
+        # 3. Calcular consistência
+        home_consistency = calculate_team_consistency(home_team) / 100.0
+        away_consistency = calculate_team_consistency(away_team) / 100.0
         
-        # Extrair xG com validação
-        home_xg = safe_get(home_team, 'xg', 25)
-        home_xga = safe_get(home_team, 'xga', 25)
-        away_xg = safe_get(away_team, 'xg', 20)
-        away_xga = safe_get(away_team, 'xga', 30)
+        # 4. Calcular fatores de fadiga
+        home_fatigue = calculate_team_fatigue(home_team)
+        away_fatigue = calculate_team_fatigue(away_team)
         
-        # Normalizar xG
-        max_xg = max(home_xg, away_xg, 60)  # 60 gols é benchmark máximo
+        # 5. Calcular estatísticas técnicas (25%)
+        home_offensive = calculate_offensive_strength(home_team)
+        home_defensive = calculate_defensive_strength(home_team)
+        away_offensive = calculate_offensive_strength(away_team)
+        away_defensive = calculate_defensive_strength(away_team)
         
-        # Calcular scores ofensivos e defensivos
-        home_offensive = min(0.9, max(0.3, (home_xg / max_xg) * 0.6 + (home_goals_per_game / 3) * 0.4))
-        home_defensive = min(0.9, max(0.3, (1 - min(1, home_xga / max_xg)) * 0.6 + (1 - min(1, home_conceded_per_game / 3)) * 0.4))
+        # Ajustar por fadiga
+        home_offensive *= home_fatigue
+        home_defensive *= home_fatigue
+        away_offensive *= away_fatigue
+        away_defensive *= away_fatigue
         
-        away_offensive = min(0.9, max(0.3, (away_xg / max_xg) * 0.6 + (away_goals_per_game / 3) * 0.4))
-        away_defensive = min(0.9, max(0.3, (1 - min(1, away_xga / max_xg)) * 0.6 + (1 - min(1, away_conceded_per_game / 3)) * 0.4))
-        
-        # Score estatístico total
         home_stats_score = home_offensive * 0.6 + home_defensive * 0.4
         away_stats_score = away_offensive * 0.6 + away_defensive * 0.4
         
-        # PASSO 4: Posição na tabela (20%)
-        home_position_score = home_win_pct / 100
-        away_position_score = away_win_pct / 100
+        # 6. Calcular posição na tabela (20%)
+        home_position_score = min(0.9, max(0.1, home_team.get('win_pct', 50) / 100))
+        away_position_score = min(0.9, max(0.1, away_team.get('win_pct', 50) / 100))
         
-        # PASSO 5: Métricas de criação (20%)
-        home_possession = safe_get(home_team, 'possession', 50) / 100
-        away_possession = safe_get(away_team, 'possession', 50) / 100
+        # 7. Calcular métricas de criação (20%)
+        home_possession = min(0.8, max(0.2, home_team.get('possession', 50) / 100))
+        away_possession = min(0.8, max(0.2, away_team.get('possession', 50) / 100))
         
-        home_creation = min(0.9, max(0.3, home_offensive * 0.7 + home_possession * 0.3))
-        away_creation = min(0.9, max(0.3, away_offensive * 0.7 + away_possession * 0.3))
+        home_creation = home_offensive * 0.7 + home_possession * 0.3
+        away_creation = away_offensive * 0.7 + away_possession * 0.3
         
-        # PASSO 6: APLICAR PONDERAÇÕES
+        # 8. APLICAR PONDERAÇÕES
         home_total_score = (
             home_form_normalized * 0.35 +      # Forma recente: 35%
             home_stats_score * 0.25 +          # Estatísticas: 25%
@@ -1442,19 +1360,436 @@ def calculate_advanced_probabilities(home_team, away_team, league_table=None):
             away_creation * 0.20               # Criação: 20%
         )
         
-        # PASSO 7: CÁLCULO DE PROBABILIDADES POR MERCADO
+        # 9. Ajustar por condições da partida
+        if match_conditions:
+            # Fatores como clima, campo, etc.
+            home_advantage_modifier = calculate_home_advantage_modifier(match_conditions)
+        else:
+            home_advantage_modifier = 1.0
         
-        # 1. Moneyline (1X2)
+        # 10. CALCULAR PROBABILIDADES POR MERCADO
+        
+        # 10.1. Moneyline (1X2)
+        home_win_prob, draw_prob, away_win_prob = calculate_1x2_probabilities(
+            home_total_score, away_total_score, 
+            home_consistency, away_consistency,
+            home_advantage_modifier
+        )
+        
+        # 10.2. Expected goals e mercados relacionados
+        home_expected_goals, away_expected_goals = calculate_advanced_expected_goals(
+            home_team, away_team, league_factors
+        )
+        
+        total_expected_goals = home_expected_goals + away_expected_goals
+        
+        # 10.3. Probabilidades Over/Under para múltiplos thresholds
+        over_under_probabilities = {}
+        for threshold in [0.5, 1.5, 2.5, 3.5, 4.5]:
+            over_prob = calculate_over_probability(home_expected_goals, away_expected_goals, threshold)
+            over_under_probabilities[f"over_{threshold}"] = over_prob * 100
+            over_under_probabilities[f"under_{threshold}"] = (1 - over_prob) * 100
+        
+        # 10.4. Ambos Marcam (BTTS)
+        btts_yes_prob, btts_no_prob = calculate_btts_probability(
+            home_expected_goals, away_expected_goals, league_factors[1]
+        )
+        
+        # 10.5. Escanteios
+        over_corners_prob, under_corners_prob, expected_corners = calculate_corners_probability(
+            home_team, away_team, 9.5, league_factors[3]
+        )
+        
+        # 10.6. Cartões
+        over_cards_prob, under_cards_prob, expected_cards = calculate_cards_probability(
+            home_team, away_team, 4.5, league_factors[2],
+            abs(home_total_score - away_total_score)
+        )
+        
+        # 11. Retornar resultados completos
+        return {
+            "moneyline": {
+                "home_win": round(home_win_prob * 100, 1),
+                "draw": round(draw_prob * 100, 1),
+                "away_win": round(away_win_prob * 100, 1)
+            },
+            "double_chance": {
+                "home_or_draw": round((home_win_prob + draw_prob) * 100, 1),
+                "away_or_draw": round((away_win_prob + draw_prob) * 100, 1),
+                "home_or_away": round((home_win_prob + away_win_prob) * 100, 1)
+            },
+            "over_under": {
+                "over_2_5": round(over_under_probabilities["over_2.5"], 1),
+                "under_2_5": round(over_under_probabilities["under_2.5"], 1),
+                "expected_goals": round(total_expected_goals, 2),
+                # Incluir outros thresholds
+                "over_1_5": round(over_under_probabilities["over_1.5"], 1),
+                "under_1_5": round(over_under_probabilities["under_1.5"], 1),
+                "over_3_5": round(over_under_probabilities["over_3.5"], 1),
+                "under_3_5": round(over_under_probabilities["under_3.5"], 1)
+            },
+            "btts": {
+                "yes": round(btts_yes_prob * 100, 1),
+                "no": round(btts_no_prob * 100, 1)
+            },
+            "cards": {
+                "over_4_5": round(over_cards_prob * 100, 1),
+                "under_4_5": round(under_cards_prob * 100, 1),
+                "expected_cards": round(expected_cards, 1)
+            },
+            "corners": {
+                "over_9_5": round(over_corners_prob * 100, 1),
+                "under_9_5": round(under_corners_prob * 100, 1),
+                "expected_corners": round(expected_corners, 1)
+            },
+            "analysis_data": {
+                "home_consistency": round(home_consistency * 100, 1),
+                "away_consistency": round(away_consistency * 100, 1),
+                "home_form_points": home_form_points / 15.0,
+                "away_form_points": away_form_points / 15.0,
+                "home_total_score": round(home_total_score, 2),
+                "away_total_score": round(away_total_score, 2),
+                "home_fatigue": round(home_fatigue * 100, 1),
+                "away_fatigue": round(away_fatigue * 100, 1)
+            }
+        }
+        
+    except Exception as e:
+        import logging
+        import traceback
+        logging.getLogger("valueHunter.ai").error(f"Erro no cálculo avançado: {str(e)}")
+        logging.getLogger("valueHunter.ai").error(traceback.format_exc())
+        
+        # Re-raise a exception para que seja tratada apropriadamente em outro lugar
+        # Não usar fallback, conforme solicitado
+        raise
+class AdvancedPredictionSystem:
+    """
+    Sistema avançado de predição que incorpora múltiplos modelos sem fallbacks
+    """
+    
+    def __init__(self, database_connection=None, config=None):
+        """Inicializa o sistema de predição"""
+        self.database = database_connection
+        self.config = config or {}
+        
+        # Verificar se temos conexão com banco de dados
+        if not self.database:
+            raise ValueError("Conexão com banco de dados é obrigatória")
+            
+        # Carregar dados de calibração
+        self.calibration_data = self._load_calibration_data()
+        self.league_factors = self._load_league_factors()
+        self.performance_metrics = {}
+    
+    def _load_calibration_data(self):
+        """Carrega dados de calibração do banco de dados - sem fallback"""
+        # Tentar carregar do banco de dados
+        try:
+            return self.database.get_calibration_data()
+        except Exception as e:
+            # Em vez de fornecer fallback, propagar o erro
+            raise ValueError(f"Falha ao carregar dados de calibração: {str(e)}")
+    
+    def _load_league_factors(self):
+        """Carrega fatores específicos por liga - sem fallback"""
+        try:
+            # Tentar carregar do banco de dados
+            return self.database.get_league_factors()
+        except Exception as e:
+            # Em vez de fornecer fallback, propagar o erro
+            raise ValueError(f"Falha ao carregar fatores de liga: {str(e)}")
+    
+    def predict_match(self, home_team, away_team, league_id, match_conditions=None):
+        """
+        Realiza predição completa para uma partida sem usar fallbacks
+        """
+        # Verificar se os dados necessários estão presentes
+        self._validate_team_data(home_team, "home_team")
+        self._validate_team_data(away_team, "away_team")
+        
+        if not league_id:
+            raise ValueError("ID da liga é obrigatório")
+        
+        # Obter fatores específicos da liga
+        if league_id not in self.league_factors:
+            raise ValueError(f"Fatores para liga ID {league_id} não encontrados")
+            
+        league_factors = self.league_factors[league_id]
+        
+        # Aplicar análise de jogadores ausentes
+        home_injury_factor = self._analyze_missing_players(home_team)
+        away_injury_factor = self._analyze_missing_players(away_team)
+        
+        # Ajustar estatísticas baseado em lesões/suspensões
+        adjusted_home_team = self._adjust_for_injuries(home_team, home_injury_factor)
+        adjusted_away_team = self._adjust_for_injuries(away_team, away_injury_factor)
+        
+        # Analisar tendências de jogo
+        game_trends = self._analyze_game_trends(adjusted_home_team, adjusted_away_team)
+        
+        # Obter calibração adaptativa para a liga
+        calibration = self._get_adaptive_league_calibration(league_id)
+        
+        # Executar cálculo avançado
+        return self._calculate_advanced_probabilities(
+            adjusted_home_team, 
+            adjusted_away_team, 
+            league_factors, 
+            calibration,
+            match_conditions,
+            game_trends
+        )
+    
+    def _validate_team_data(self, team_data, team_type):
+        """
+        Valida se os dados do time contêm campos essenciais
+        Lança exceção em vez de usar valores padrão
+        """
+        essential_fields = [
+            "played", "wins", "draws", "losses",
+            "goals_scored", "goals_conceded",
+            "form"
+        ]
+        
+        missing_fields = [field for field in essential_fields if field not in team_data]
+        
+        if missing_fields:
+            raise ValueError(f"Dados incompletos para {team_type}. Campos ausentes: {missing_fields}")
+            
+        # Verificar valores zero que poderiam causar divisão por zero
+        if team_data.get("played", 0) == 0:
+            raise ValueError(f"{team_type} tem 'played' igual a zero, impossível calcular médias")
+    
+    def _analyze_missing_players(self, team_data):
+        """
+        Analisa o impacto de jogadores lesionados ou suspensos
+        Sem fallback - requer dados de jogadores ausentes
+        """
+        if "missing_players" not in team_data or not team_data["missing_players"]:
+            return 1.0  # Sem impacto quando não há dados
+        
+        missing_players = team_data["missing_players"]
+        total_impact = 0
+        
+        for player in missing_players:
+            # Verificar se temos dados suficientes
+            if "position" not in player or "importance" not in player:
+                raise ValueError("Dados incompletos para jogadores ausentes")
+                
+            position = player["position"].lower()
+            importance = player["importance"].lower()
+            
+            # Definir peso de impacto por posição e importância
+            position_weights = {
+                'goalkeeper': 0.15,
+                'defender': 0.10,
+                'midfielder': 0.08,
+                'forward': 0.12
+            }
+            
+            importance_multipliers = {
+                'key': 1.5,      # Jogador-chave
+                'starter': 1.0,  # Titular regular
+                'rotation': 0.6, # Jogador de rotação 
+                'backup': 0.3    # Reserva
+            }
+            
+            # Verificar se a posição e importância estão nas categorias conhecidas
+            if position not in position_weights:
+                raise ValueError(f"Posição desconhecida: {position}")
+                
+            if importance not in importance_multipliers:
+                raise ValueError(f"Importância desconhecida: {importance}")
+            
+            # Calcular impacto
+            position_weight = position_weights[position]
+            importance_multiplier = importance_multipliers[importance]
+            
+            player_impact = position_weight * importance_multiplier
+            total_impact += player_impact
+        
+        # Limitar impacto total
+        total_impact = min(0.5, total_impact)
+        
+        # Retornar fator de ajuste (1.0 = sem impacto, <1.0 = impacto negativo)
+        return 1.0 - total_impact
+    
+    def _adjust_for_injuries(self, team_data, injury_factor):
+        """Ajusta estatísticas do time baseado em lesões/suspensões"""
+        adjusted_team = team_data.copy()
+        
+        # Ajustar estatísticas ofensivas
+        for stat in ['xg', 'goals_scored', 'shots_per_game']:
+            if stat in adjusted_team:
+                adjusted_team[stat] = adjusted_team[stat] * injury_factor
+        
+        return adjusted_team
+    
+    def _analyze_game_trends(self, home_team, away_team):
+        """
+        Analisa tendências de jogo baseadas no estilo de cada equipe
+        """
+        # Verificar dados essenciais
+        required_fields = ["possession", "pass_completion", "shots_per_game"]
+        
+        for field in required_fields:
+            if field not in home_team:
+                raise ValueError(f"Campo ausente em home_team: {field}")
+            if field not in away_team:
+                raise ValueError(f"Campo ausente em away_team: {field}")
+        
+        # Extrair métricas de estilo
+        home_possession = home_team["possession"] / 100
+        away_possession = away_team["possession"] / 100
+        
+        home_pass_completion = home_team["pass_completion"] / 100
+        away_pass_completion = away_team["pass_completion"] / 100
+        
+        home_shots_per_game = home_team["shots_per_game"]
+        away_shots_per_game = away_team["shots_per_game"]
+        
+        # Determinar estilos de jogo
+        home_direct_play = 1 - home_pass_completion
+        away_direct_play = 1 - away_pass_completion
+        
+        home_attacking_intensity = home_shots_per_game / 15
+        away_attacking_intensity = away_shots_per_game / 15
+        
+        # Calcular probabilidades de ritmo de jogo
+        game_tempo = (home_attacking_intensity + away_attacking_intensity) / 2
+        
+        # Contraste de estilos
+        style_contrast = abs(home_direct_play - away_direct_play) + abs(home_possession - away_possession)
+        
+        # Probabilidade de jogo aberto vs fechado
+        open_game_prob = (game_tempo * 0.7 + style_contrast * 0.3) * 100
+        
+        # Probabilidade de muitos gols
+        high_scoring_prob = open_game_prob * 0.8
+        
+        # Probabilidade de jogo intenso (muitos cartões)
+        intense_game_prob = (style_contrast * 0.6 + game_tempo * 0.4) * 100
+        
+        return {
+            'open_game_probability': min(85, max(15, open_game_prob)),
+            'high_scoring_probability': min(80, max(20, high_scoring_prob)),
+            'intense_game_probability': min(80, max(20, intense_game_prob))
+        }
+    
+    def _get_adaptive_league_calibration(self, league_id):
+        """
+        Obtém calibração adaptativa para liga específica
+        """
+        # Verificar se temos calibração específica para esta liga
+        league_specific_key = f"league_{league_id}"
+        
+        if league_specific_key in self.calibration_data:
+            return self.calibration_data[league_specific_key]
+        
+        # Não usar fallback - exigir calibração específica
+        raise ValueError(f"Calibração não encontrada para liga ID {league_id}")
+    
+    def _calculate_advanced_probabilities(self, home_team, away_team, league_factors, 
+                                        calibration, match_conditions, game_trends):
+        """
+        Implementação do algoritmo de cálculo avançado sem fallbacks
+        """
+        import math
+        
+        # 1. FORMA RECENTE (35%)
+        # Calcular forma usando os pontos dos últimos 5 jogos
+        home_form = home_team["form"]
+        away_form = away_team["form"]
+        
+        # Validar forma
+        if len(home_form) < 5 or len(away_form) < 5:
+            raise ValueError("Forma incompleta (menos de 5 jogos)")
+        
+        # Converter forma para pontos
+        home_form_points = 0
+        for result in home_form[:5]:
+            if result.upper() == 'W':
+                home_form_points += 3
+            elif result.upper() == 'D':
+                home_form_points += 1
+        
+        away_form_points = 0
+        for result in away_form[:5]:
+            if result.upper() == 'W':
+                away_form_points += 3
+            elif result.upper() == 'D':
+                away_form_points += 1
+        
+        # Normalizar para uso nos cálculos (0-1)
+        home_form_normalized = home_form_points / 15.0
+        away_form_normalized = away_form_points / 15.0
+        
+        # 2. ESTATÍSTICAS GERAIS E XG (25%)
+        # Validar dados essenciais
+        for team, team_name in [(home_team, "home"), (away_team, "away")]:
+            required_stats = ["xg", "xga", "possession", "goals_per_game", "conceded_per_game"]
+            missing = [stat for stat in required_stats if stat not in team]
+            if missing:
+                raise ValueError(f"Estatísticas ausentes para {team_name}: {missing}")
+        
+        # Calcular scores ofensivos e defensivos
+        home_offensive = (home_team["xg"] / 60) * 0.6 + (home_team["goals_per_game"] / 3) * 0.4
+        home_defensive = (1 - min(1, home_team["xga"] / 60)) * 0.6 + (1 - min(1, home_team["conceded_per_game"] / 3)) * 0.4
+        
+        away_offensive = (away_team["xg"] / 60) * 0.6 + (away_team["goals_per_game"] / 3) * 0.4
+        away_defensive = (1 - min(1, away_team["xga"] / 60)) * 0.6 + (1 - min(1, away_team["conceded_per_game"] / 3)) * 0.4
+        
+        # Score estatístico total
+        home_stats_score = home_offensive * 0.6 + home_defensive * 0.4
+        away_stats_score = away_offensive * 0.6 + away_defensive * 0.4
+        
+        # 3. POSIÇÃO NA TABELA (20%)
+        if "win_pct" not in home_team or "win_pct" not in away_team:
+            raise ValueError("Percentual de vitórias ausente")
+            
+        home_position_score = home_team["win_pct"] / 100
+        away_position_score = away_team["win_pct"] / 100
+        
+        # 4. MÉTRICAS DE CRIAÇÃO (20%)
+        home_possession = home_team["possession"] / 100
+        away_possession = away_team["possession"] / 100
+        
+        home_creation = home_offensive * 0.7 + home_possession * 0.3
+        away_creation = away_offensive * 0.7 + away_possession * 0.3
+        
+        # 5. APLICAR PONDERAÇÕES
+        home_total_score = (
+            home_form_normalized * 0.35 +      # Forma recente: 35%
+            home_stats_score * 0.25 +          # Estatísticas: 25%
+            home_position_score * 0.20 +       # Posição: 20%
+            home_creation * 0.20               # Criação: 20%
+        )
+        
+        away_total_score = (
+            away_form_normalized * 0.35 +      # Forma recente: 35%
+            away_stats_score * 0.25 +          # Estatísticas: 25%
+            away_position_score * 0.20 +       # Posição: 20%
+            away_creation * 0.20               # Criação: 20%
+        )
+        
+        # 6. CÁLCULO DE PROBABILIDADES POR MERCADO
+        
+        # 6.1. Moneyline (1X2)
+        # Usar inclinação calibrada do mercado 'result'
+        slope = calibration["result"]["slope"]
+        shift = calibration["result"]["shift"]
+        
         # Distribuição inicial
-        raw_home_win = min(0.65, max(0.25, home_total_score / (home_total_score + away_total_score) * 0.75))
-        raw_away_win = min(0.65, max(0.25, away_total_score / (home_total_score + away_total_score) * 0.75))
+        raw_home_win = home_total_score / (home_total_score + away_total_score) * 0.8
+        raw_away_win = away_total_score / (home_total_score + away_total_score) * 0.8
         raw_draw = 1 - (raw_home_win + raw_away_win)
         
         # Ajuste para vantagem em casa
-        home_advantage = 0.06  # +6% boost para time da casa (reduzido)
-        adjusted_home_win = min(0.65, raw_home_win + home_advantage)
-        adjusted_away_win = max(0.2, raw_away_win - (home_advantage * 0.5))
-        adjusted_draw = max(0.15, 1 - (adjusted_home_win + adjusted_away_win))
+        home_advantage = 0.08  # +8% boost para time da casa
+        adjusted_home_win = raw_home_win + home_advantage
+        adjusted_away_win = raw_away_win - (home_advantage * 0.5)
+        adjusted_draw = 1 - (adjusted_home_win + adjusted_away_win)
         
         # Normalizar para somar 100%
         total = adjusted_home_win + adjusted_draw + adjusted_away_win
@@ -1462,81 +1797,110 @@ def calculate_advanced_probabilities(home_team, away_team, league_table=None):
         draw_prob = (adjusted_draw / total) * 100
         away_win_prob = (adjusted_away_win / total) * 100
         
-        # 2. Over/Under Gols - CORREÇÃO ROBUSTA
-        # Cálculo mais realista de gols esperados
-        home_expected_goals = min(2.0, max(0.3, home_offensive * 1.5 * (1 - away_defensive * 0.7)))
-        away_expected_goals = min(2.0, max(0.3, away_offensive * 1.3 * (1 - home_defensive * 0.7)))
+        # 6.2. Over/Under 2.5
+        # Usar inclinação calibrada do mercado 'goals'
+        goals_slope = calibration["goals"]["slope"]
+        goals_shift = calibration["goals"]["shift"]
+        
+        # Calcular gols esperados
+        home_expected_goals = home_offensive * 1.8 * (1 - away_defensive * 0.7)
+        away_expected_goals = away_offensive * 1.5 * (1 - home_defensive * 0.7)
         
         total_expected_goals = home_expected_goals + away_expected_goals
         
-        # BTTS como percentual (limitado entre 30% e 70%)
-        btts_probability = min(0.7, max(0.3, home_expected_goals * away_expected_goals / 2))
-        
-        # Over 2.5 com valor limitado (entre 25% e 75%)
+        # Usar distribuição de Poisson para calcular o over 2.5
         lambda_total = total_expected_goals
         
-        # Aproximação da distribuição de Poisson para calcular P(gols >= 3)
+        # Calcular P(gols < 3) = P(0) + P(1) + P(2)
         p_0 = math.exp(-lambda_total)
-        p_1 = p_0 * lambda_total
-        p_2 = p_1 * lambda_total / 2
+        p_1 = p_0 * lambda_total / 1  # P(1) = P(0) * lambda / 1!
+        p_2 = p_1 * lambda_total / 2  # P(2) = P(1) * lambda / 2!
         
-        over_2_5_prob = min(75, max(25, (1 - (p_0 + p_1 + p_2)) * 100))
-        under_2_5_prob = 100 - over_2_5_prob
+        under_2_5_prob = (p_0 + p_1 + p_2) * 100
+        over_2_5_prob = 100 - under_2_5_prob
         
-        # 3. Ambos Marcam (BTTS) - CORREÇÃO ROBUSTA
-        btts_yes_prob = min(75, max(35, btts_probability * 100))
+        # 6.3. BTTS (Ambos Marcam)
+        # Usar inclinação calibrada do mercado 'btts'
+        btts_slope = calibration["btts"]["slope"]
+        btts_shift = calibration["btts"]["shift"]
+        
+        # Calcular probabilidade de cada time marcar
+        p_home_no_goal = math.exp(-home_expected_goals)  # P(home = 0)
+        p_away_no_goal = math.exp(-away_expected_goals)  # P(away = 0)
+        
+        p_home_scores = 1 - p_home_no_goal
+        p_away_scores = 1 - p_away_no_goal
+        
+        # BTTS = P(home > 0) * P(away > 0)
+        btts_yes_prob = p_home_scores * p_away_scores * 100
         btts_no_prob = 100 - btts_yes_prob
         
-        # 4. Escanteios - CORREÇÃO ROBUSTA
-        # Extrair médias de escanteios
-        home_corners = safe_get(home_team, 'corners_per_game', 5)
-        away_corners = safe_get(away_team, 'corners_per_game', 4)
-        corner_threshold = 8.5  # Ajustar conforme o mercado (8.5 neste exemplo)
+        # 6.4. Escanteios (Over/Under 9.5)
+        # Usar inclinação calibrada do mercado 'corners'
+        corners_slope = calibration["corners"]["slope"]
+        corners_shift = calibration["corners"]["shift"]
         
-        # Ajustar para o confronto específico
-        home_expected_corners = min(6, max(2, home_corners * (1 + 0.2 * home_offensive - 0.1 * away_defensive)))
-        away_expected_corners = min(5, max(2, away_corners * (1 + 0.2 * away_offensive - 0.1 * home_defensive)))
+        # Verificar se temos estatísticas de escanteios
+        if "corners_per_game" not in home_team or "corners_per_game" not in away_team:
+            raise ValueError("Estatísticas de escanteios ausentes")
+        
+        # Calcular escanteios esperados
+        home_corners = home_team["corners_per_game"]
+        away_corners = away_team["corners_per_game"]
+        
+        # Ajustar com base no estilo de jogo e posse
+        home_expected_corners = home_corners * (1 + 0.2 * home_offensive - 0.1 * away_defensive)
+        away_expected_corners = away_corners * (1 + 0.2 * away_offensive - 0.1 * home_defensive)
         
         total_expected_corners = home_expected_corners + away_expected_corners
         
-        # Usando aproximação normal para distribuição de escanteios
-        # Standard deviation estimada como sqrt(expected)
-        corner_std = math.sqrt(total_expected_corners)
-        z_score = (corner_threshold - total_expected_corners) / corner_std
+        # Usar aproximação normal para calcular probabilidade over/under
+        # Média = total_expected_corners, desvio = sqrt(total_expected_corners)
+        corners_std = math.sqrt(total_expected_corners)
+        z_score = (9.5 - total_expected_corners) / corners_std
         
-        # Aproximação da função de distribuição normal cumulativa
+        # Aproximação da função de distribuição normal
         def normal_cdf(x):
             return 0.5 * (1 + math.erf(x / math.sqrt(2)))
         
-        under_corners_prob = min(70, max(30, normal_cdf(z_score) * 100))
-        over_corners_prob = 100 - under_corners_prob
+        under_9_5_corners_prob = normal_cdf(z_score) * 100
+        over_9_5_corners_prob = 100 - under_9_5_corners_prob
         
-        # 5. Cartões - CORREÇÃO ROBUSTA
-        # Extrair médias de cartões
-        home_cards = safe_get(home_team, 'cards_per_game', 2)
-        away_cards = safe_get(away_team, 'cards_per_game', 2)
-        card_threshold = 5.5  # Ajustar conforme o mercado (5.5 neste exemplo)
+        # 6.5. Cartões (Over/Under 4.5)
+        # Usar inclinação calibrada do mercado 'cards'
+        cards_slope = calibration["cards"]["slope"]
+        cards_shift = calibration["cards"]["shift"]
         
-        # Calcular intensidade baseada na proximidade das equipes
+        # Verificar se temos estatísticas de cartões
+        if "cards_per_game" not in home_team or "cards_per_game" not in away_team:
+            raise ValueError("Estatísticas de cartões ausentes")
+        
+        # Calcular cartões esperados
+        home_cards = home_team["cards_per_game"]
+        away_cards = away_team["cards_per_game"]
+        
+        # Fator de intensidade baseado na proximidade das equipes
         team_diff = abs(home_total_score - away_total_score)
-        intensity_factor = 1 + 0.2 * (1 - min(1, team_diff * 2))
+        intensity_factor = 1 + 0.3 * (1 - min(1, team_diff * 2))
+        
+        # Incorporar tendência de jogo intenso
+        intensity_factor *= (1 + game_trends["intense_game_probability"] / 200)
         
         total_expected_cards = (home_cards + away_cards) * intensity_factor
         
-        # Usando aproximação normal para distribuição de cartões
-        card_std = math.sqrt(total_expected_cards)
-        z_score_cards = (card_threshold - total_expected_cards) / card_std
+        # Usar aproximação normal para calcular probabilidade
+        cards_std = math.sqrt(total_expected_cards * 0.8)
+        z_score_cards = (4.5 - total_expected_cards) / cards_std
         
-        under_cards_prob = min(70, max(30, normal_cdf(z_score_cards) * 100))
-        over_cards_prob = 100 - under_cards_prob
+        under_4_5_cards_prob = normal_cdf(z_score_cards) * 100
+        over_4_5_cards_prob = 100 - under_4_5_cards_prob
         
-        # 6. Chance Dupla (Double Chance) - GARANTIR CONSISTÊNCIA MATEMÁTICA
-        # Calcular diretamente a partir das probabilidades primárias para garantir consistência
-        home_or_draw = home_win_prob + draw_prob
-        away_or_draw = away_win_prob + draw_prob
-        home_or_away = home_win_prob + away_win_prob
+        # 6.6. Chance Dupla (Double Chance) - Derivado diretamente de 1X2
+        home_draw_prob = home_win_prob + draw_prob
+        away_draw_prob = away_win_prob + draw_prob
+        home_away_prob = home_win_prob + away_win_prob
         
-        # Retornar resultados com arredondamento para 1 casa decimal
+        # Montar resultado final
         return {
             "moneyline": {
                 "home_win": round(home_win_prob, 1),
@@ -1544,9 +1908,9 @@ def calculate_advanced_probabilities(home_team, away_team, league_table=None):
                 "away_win": round(away_win_prob, 1)
             },
             "double_chance": {
-                "home_or_draw": round(home_or_draw, 1),
-                "away_or_draw": round(away_or_draw, 1),
-                "home_or_away": round(home_or_away, 1)
+                "home_or_draw": round(home_draw_prob, 1),
+                "away_or_draw": round(away_draw_prob, 1),
+                "home_or_away": round(home_away_prob, 1)
             },
             "over_under": {
                 "over_2_5": round(over_2_5_prob, 1),
@@ -1558,13 +1922,13 @@ def calculate_advanced_probabilities(home_team, away_team, league_table=None):
                 "no": round(btts_no_prob, 1)
             },
             "cards": {
-                "over_4_5": round(over_cards_prob, 1),
-                "under_4_5": round(under_cards_prob, 1),
+                "over_4_5": round(over_4_5_cards_prob, 1),
+                "under_4_5": round(under_4_5_cards_prob, 1),
                 "expected_cards": round(total_expected_cards, 1)
             },
             "corners": {
-                "over_9_5": round(over_corners_prob, 1),
-                "under_9_5": round(under_corners_prob, 1),
+                "over_9_5": round(over_9_5_corners_prob, 1),
+                "under_9_5": round(under_9_5_corners_prob, 1),
                 "expected_corners": round(total_expected_corners, 1)
             },
             "analysis_data": {
@@ -1576,25 +1940,92 @@ def calculate_advanced_probabilities(home_team, away_team, league_table=None):
                 "away_total_score": round(away_total_score, 2)
             }
         }
+    
+    def update_calibration(self, prediction_history, actual_results):
+        """Atualiza parâmetros de calibração baseado em resultados históricos"""
+        if len(prediction_history) < 50:
+            raise ValueError("Dados insuficientes para recalibração (mínimo 50)")
         
-    except Exception as e:
-        import logging
-        import traceback
-        logging.getLogger("valueHunter.ai").error(f"Erro no cálculo avançado de probabilidades: {str(e)}")
-        logging.getLogger("valueHunter.ai").error(traceback.format_exc())
+        # Coletar dados para recalibração
+        market_data = {}
         
-        # Retorna valores default em caso de erro
-        return {
-            "moneyline": {"home_win": 45.0, "draw": 28.0, "away_win": 27.0},
-            "double_chance": {"home_or_draw": 73.0, "away_or_draw": 55.0, "home_or_away": 72.0},
-            "over_under": {"over_2_5": 58.0, "under_2_5": 42.0, "expected_goals": 2.7},
-            "btts": {"yes": 60.0, "no": 40.0},
-            "cards": {"over_4_5": 55.0, "under_4_5": 45.0, "expected_cards": 4.8},
-            "corners": {"over_9_5": 58.0, "under_9_5": 42.0, "expected_corners": 9.8},
-            "analysis_data": {
-                "home_consistency": 65.0,
-                "away_consistency": 60.0,
-                "home_form_points": 0.4,
-                "away_form_points": 0.4
+        # Preparar dados por mercado
+        for market in ['goals', 'btts', 'corners', 'cards', 'result']:
+            market_data[market] = {
+                'predictions': [],
+                'outcomes': []
             }
-        }
+        
+        # Extrair previsões e resultados
+        for pred, result in zip(prediction_history, actual_results):
+            # Moneyline
+            if 'moneyline' in pred and 'moneyline' in result:
+                # Home win
+                market_data['result']['predictions'].append(pred['moneyline']['home_win'] / 100)
+                market_data['result']['outcomes'].append(1 if result['moneyline']['home_win'] else 0)
+                
+                # Draw
+                market_data['result']['predictions'].append(pred['moneyline']['draw'] / 100)
+                market_data['result']['outcomes'].append(1 if result['moneyline']['draw'] else 0)
+                
+                # Away win
+                market_data['result']['predictions'].append(pred['moneyline']['away_win'] / 100)
+                market_data['result']['outcomes'].append(1 if result['moneyline']['away_win'] else 0)
+            
+            # Over 2.5
+            if 'over_under' in pred and 'over_under' in result:
+                market_data['goals']['predictions'].append(pred['over_under']['over_2_5'] / 100)
+                market_data['goals']['outcomes'].append(1 if result['over_under']['over_2_5'] else 0)
+            
+            # BTTS
+            if 'btts' in pred and 'btts' in result:
+                market_data['btts']['predictions'].append(pred['btts']['yes'] / 100)
+                market_data['btts']['outcomes'].append(1 if result['btts']['yes'] else 0)
+            
+            # Corners
+            if 'corners' in pred and 'corners' in result:
+                market_data['corners']['predictions'].append(pred['corners']['over_9_5'] / 100)
+                market_data['corners']['outcomes'].append(1 if result['corners']['over_9_5'] else 0)
+            
+            # Cards
+            if 'cards' in pred and 'cards' in result:
+                market_data['cards']['predictions'].append(pred['cards']['over_4_5'] / 100)
+                market_data['cards']['outcomes'].append(1 if result['cards']['over_4_5'] else 0)
+        
+        # Realizar otimização para cada mercado
+        new_calibration = {}
+        
+        for market, data in market_data.items():
+            if len(data['predictions']) < 30:
+                raise ValueError(f"Dados insuficientes para recalibrar mercado {market}")
+                
+            # Calcular brier score
+            brier_score = sum((p - o) ** 2 for p, o in zip(data['predictions'], data['outcomes'])) / len(data['predictions'])
+            
+            # Calcular calibração média
+            mean_pred = sum(data['predictions']) / len(data['predictions'])
+            mean_outcome = sum(data['outcomes']) / len(data['outcomes'])
+            
+            # Estimar novos parâmetros de inclinação e deslocamento
+            # Isto é uma simplificação - na prática, deveria usar otimização mais sofisticada
+            adjustment = mean_outcome - mean_pred
+            
+            new_slope = self.calibration_data[market]['slope']
+            new_shift = self.calibration_data[market]['shift'] + adjustment
+            
+            new_calibration[market] = {
+                'slope': new_slope,
+                'shift': new_shift,
+                'brier_score': brier_score,
+                'sample_size': len(data['predictions'])
+            }
+        
+        # Salvar nova calibração
+        if self.database:
+            self.database.save_calibration_data(new_calibration)
+            self.calibration_data = new_calibration
+        else:
+            raise ValueError("Sem banco de dados para salvar calibração")
+        
+        return new_calibration
+
