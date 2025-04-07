@@ -1479,6 +1479,11 @@ def calculate_league_factors(league_id, league_data=None):
     Raises:
         ValueError: Se a liga não for suportada ou dados insuficientes
     """
+    # Importações necessárias
+    from utils.footystats_api import LEAGUE_IDS, get_league_id_mapping
+    import logging
+    logger = logging.getLogger("valueHunter.ai")
+    
     # Verifique se league_id existe
     if not league_id:
         raise ValueError("ID da liga não fornecido")
@@ -1496,38 +1501,75 @@ def calculate_league_factors(league_id, league_data=None):
             league_data.get('corners_factor')
         ]
     
-    # Se não temos dados específicos, verificar ligas conhecidas
-    # Dicionário de fatores específicos por liga
-    known_leagues = {
-        # LaLiga - mais tático, menos escanteios
-        'es1': [1.1, 1.05, 1.2, 0.95],
-        # Bundesliga - mais gols, menos cartões
-        'de1': [1.2, 1.15, 0.9, 1.1],
-        # Serie A - menos gols, mais tático
-        'it1': [0.9, 0.85, 1.15, 0.9],
-        # Premier League - equilibrado, mais escanteios
-        'en1': [1.1, 1.1, 1.0, 1.15],
-        # Ligue 1 - médio para todos os fatores
-        'fr1': [1.0, 0.95, 1.05, 1.0],
-        # Liga Portugal - mais cartões
-        'pt1': [1.05, 1.0, 1.25, 1.05],
-        # Outras grandes ligas europeias
-        'nl1': [1.15, 1.1, 0.95, 1.05],  # Eredivisie - mais ofensiva
-        'be1': [1.1, 1.05, 1.0, 1.0],    # Jupiler Pro - padrão europeu
-        'tr1': [1.0, 0.95, 1.3, 1.0],    # Super Lig - muitos cartões
-        'gr1': [0.95, 0.9, 1.2, 0.95],   # Super League - defensivo, muitos cartões
-        # Ligas Sul-americanas
-        'br1': [1.0, 0.95, 1.15, 1.05],  # Brasileirão
-        'ar1': [1.05, 1.0, 1.2, 1.0],    # Superliga Argentina
-        # América do Norte
-        'mx1': [1.1, 1.05, 1.05, 1.0],   # Liga MX
-        'us1': [1.1, 1.05, 0.9, 1.05],   # MLS - mais ofensiva, poucos cartões
+    # Mapeamento de fatores específicos por liga
+    # Usando os mesmos league_ids que estão em utils/footystats_api.py
+    league_factors = {
+        # Liga IDs estão no arquivo footystats_api.py
+        # Brasileirão
+        14231: [1.0, 0.95, 1.15, 1.05],  
+        
+        # Premier League 
+        12325: [1.1, 1.1, 1.0, 1.15],  
+        
+        # La Liga
+        12316: [1.1, 1.05, 1.2, 0.95],  
+        
+        # Bundesliga 
+        12529: [1.2, 1.15, 0.9, 1.1],   
+        
+        # Serie A (Italy)
+        12530: [0.9, 0.85, 1.15, 0.9],  
+        
+        # Ligue 1
+        12337: [1.0, 0.95, 1.05, 1.0],  
+        
+        # Primeira Liga
+        12931: [1.05, 1.0, 1.25, 1.05], 
+        
+        # Eredivisie
+        12322: [1.15, 1.1, 0.95, 1.05],  
+        
+        # Liga MX
+        12136: [1.1, 1.05, 1.05, 1.0],   
+        
+        # Champions League
+        12321: [1.05, 1.0, 1.1, 1.1],
+        
+        # Outras ligas importantes
+        14125: [1.05, 1.0, 1.2, 1.0],   # Primera División (Argentina)
+        14305: [1.0, 0.95, 1.15, 1.05], # Serie B (Brazil)
+        12467: [1.0, 0.95, 1.15, 0.9],  # Segunda División
+        12528: [1.15, 1.1, 0.9, 1.05],  # 2. Bundesliga
+        12621: [0.9, 0.85, 1.1, 0.9],   # Serie B (Italy)
+        12338: [0.95, 0.9, 1.0, 0.95],  # Ligue 2
     }
     
     # Verificar se a liga está no dicionário
-    if league_id in known_leagues:
-        return known_leagues[league_id]    
-    # Se a liga não é conhecida e não temos dados específicos, lançar erro
+    # Converter league_id para int para garantir compatibilidade
+    try:
+        league_id_int = int(league_id)
+        if league_id_int in league_factors:
+            logger.info(f"Fatores encontrados para liga ID {league_id_int}")
+            return league_factors[league_id_int]
+    except (ValueError, TypeError):
+        # Se league_id não for um número, pode ser um código de string
+        pass
+        
+    # Se liga não encontrada, tentar buscar via mapeamento
+    try:
+        # Buscar o mapeamento completo (sem fallback)
+        league_mapping = get_league_id_mapping()
+        
+        # Se league_id é um nome de liga, tente encontrar o ID numérico
+        if league_id in league_mapping:
+            numeric_id = league_mapping[league_id]
+            if numeric_id in league_factors:
+                logger.info(f"Fatores encontrados para liga '{league_id}' (ID {numeric_id})")
+                return league_factors[numeric_id]
+    except Exception as e:
+        logger.error(f"Erro ao buscar mapeamento de ligas: {str(e)}")
+    
+    # Se a liga não é encontrada em lugar algum, lançar erro
     raise ValueError(f"Liga ID {league_id} não suportada e sem dados para calibração")
 def calibrated_logistic(x, threshold, market_type):
     """
