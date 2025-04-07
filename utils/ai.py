@@ -1463,6 +1463,7 @@ def calculate_advanced_probabilities(home_team, away_team, league_id='default', 
         # Re-raise a exception para que seja tratada apropriadamente em outro lugar
         # Não usar fallback, conforme solicitado
         raise
+
 def calculate_league_factors(league_id, league_data=None):
     """
     Calcula fatores específicos por liga para ajustar as probabilidades
@@ -1525,10 +1526,495 @@ def calculate_league_factors(league_id, league_data=None):
     
     # Verificar se a liga está no dicionário
     if league_id in known_leagues:
-        return known_leagues[league_id]
-    
+        return known_leagues[league_id]    
     # Se a liga não é conhecida e não temos dados específicos, lançar erro
     raise ValueError(f"Liga ID {league_id} não suportada e sem dados para calibração")
+def calibrated_logistic(x, threshold, market_type):
+    """
+    Função logística calibrada por tipo de mercado
+    """
+    # Parâmetros calibrados por mercado
+    params = {
+        'goals': {'slope': 0.6, 'shift': 0.0},     # Over/Under gols
+        'btts': {'slope': 0.7, 'shift': 0.1},      # Ambos marcam
+        'corners': {'slope': 0.45, 'shift': 0.05}, # Escanteios
+        'cards': {'slope': 0.5, 'shift': -0.1},    # Cartões
+        'result': {'slope': 0.65, 'shift': 0.0}    # 1X2
+    }
+    
+    p = params.get(market_type, {'slope': 0.5, 'shift': 0.0})
+    slope, shift = p['slope'], p['shift']
+    
+    # Cálculo com parâmetros calibrados
+    return 1 / (1 + math.exp(-slope * (x - threshold + shift)))
+
+def ensemble_prediction(models_output, weights=None):
+    """
+    Combina previsões de diferentes modelos usando pesos
+    """
+    if weights is None:
+        # Pesos default
+        weights = [0.5, 0.3, 0.2]  # Ajustar conforme a confiança em cada modelo
+    
+    # Normalizar pesos
+    weights = [w / sum(weights) for w in weights]
+    
+    # Combinação ponderada
+    result = 0
+    for i, model_output in enumerate(models_output):
+        result += model_output * weights[i]
+    
+    return result
+
+# Uso:
+def calculate_over_under_probability(home_team, away_team, threshold=2.5):
+    # Modelo 1: Baseado em xG
+    model1 = calculate_xg_based_probability(home_team, away_team, threshold)
+    
+    # Modelo 2: Baseado em resultados históricos
+    model2 = calculate_historical_probability(home_team, away_team, threshold)
+    
+    # Modelo 3: Baseado em tendências recentes
+    model3 = calculate_recent_trend_probability(home_team, away_team, threshold)
+    
+    # Combinar modelos
+    final_prob = ensemble_prediction([model1, model2, model3], [0.5, 0.3, 0.2])
+    
+    return final_prob
+
+def calculate_team_fatigue(team_data):
+    """
+    Calcula o fator de fadiga baseado em jogos recentes e viagens
+    """
+    # Dias desde o último jogo
+    days_since_last_match = team_data.get('days_since_last_match', 5)
+    
+    # Número de jogos nos últimos 15 dias
+    recent_matches = team_data.get('matches_last_15_days', 2)
+    
+    # Distância de viagem para o jogo (em km)
+    travel_distance = team_data.get('travel_distance', 100)
+    
+    # Cálculo do fator de fadiga (0-1, onde 1 = sem fadiga)
+    rest_factor = min(1.0, days_since_last_match / 5)
+    schedule_factor = max(0.7, 1 - (recent_matches - 2) * 0.1)
+    travel_factor = max(0.8, 1 - (travel_distance / 1000) * 0.05)
+    
+    # Fator combinado
+    fatigue_factor = rest_factor * 0.4 + schedule_factor * 0.4 + travel_factor * 0.2
+    
+    return fatigue_factor
+
+def update_calibration_parameters(prediction_history, actual_results, market_type):
+    """
+    Atualiza parâmetros de calibração baseado em desempenho histórico
+    """
+    # Minimum sample size before adjusting parameters
+    if len(prediction_history) < 50:
+        return None
+    
+    # Calculate calibration error (Brier score)
+    brier_score = sum((p - a) ** 2 for p, a in zip(prediction_history, actual_results)) / len(prediction_history)
+    
+    # Calibration parameters
+    calibration = {
+        'mean_prediction': sum(prediction_history) / len(prediction_history),
+        'mean_outcome': sum(actual_results) / len(actual_results),
+        'brier_score': brier_score,
+        'sample_size': len(prediction_history)
+    }
+    
+    # Calculate adjustment factor
+    adjustment = (calibration['mean_outcome'] - calibration['mean_prediction'])
+    
+    # Calculate new calibration parameters
+    new_params = {
+        'slope': max(0.3, min(1.0, 0.5 + adjustment * 2)),
+        'shift': max(-0.3, min(0.3, adjustment * 3))
+    }
+    
+    return new_params
+
+def calculate_team_consistency(team_data):
+    """
+    Calcula consistência da equipe baseada em variação de desempenho
+    """
+    # Obter histórico de resultados recentes
+    recent_results = team_data.get('recent_results', [])
+    
+    if not recent_results or len(recent_results) < 5:
+        return 0.5  # Valor médio default
+    
+    # Calcular pontos por jogo
+    points_per_game = []
+    for result in recent_results[:10]:  # Últimos 10 jogos
+        if result.upper() == 'W':
+            points_per_game.append(3)
+        elif result.upper() == 'D':
+            points_per_game.append(1)
+        else:
+            points_per_game.append(0)
+    
+    # Calcular desvio padrão dos pontos
+    if len(points_per_game) >= 2:
+        mean_points = sum(points_per_game) / len(points_per_game)
+        variance = sum((p - mean_points) ** 2 for p in points_per_game) / len(points_per_game)
+        std_dev = math.sqrt(variance)
+        
+        # Convertendo desvio para consistência (inverso)
+        # Desvio padrão max teórico é ~1.5 para futebol
+        consistency = 1 - min(1, std_dev / 1.5)
+        
+        # Escalar para percentual entre 30% e 90%
+        consistency_pct = 30 + consistency * 60
+        
+        return consistency_pct
+    
+    return 60  # Valor moderado default
+
+def calculate_advanced_expected_goals(home_team, away_team, league_factors):
+    """
+    Calcula expected goals considerando múltiplos fatores
+    """
+    # Extrair estatísticas base
+    home_xg_per_game = home_team.get('xg_for_avg', home_team.get('goals_per_game', 1.3))
+    home_xga_per_game = home_team.get('xg_against_avg', home_team.get('conceded_per_game', 1.3))
+    away_xg_per_game = away_team.get('xg_for_avg', away_team.get('goals_per_game', 1.1))
+    away_xga_per_game = away_team.get('xg_against_avg', away_team.get('conceded_per_game', 1.5))
+    
+    # Ajustes para casa/fora
+    home_xg_per_game_home = home_team.get('home_xg_for_avg', home_xg_per_game * 1.1)
+    away_xg_per_game_away = away_team.get('away_xg_for_avg', away_xg_per_game * 0.9)
+    home_xga_per_game_home = home_team.get('home_xg_against_avg', home_xga_per_game * 0.9)
+    away_xga_per_game_away = away_team.get('away_xg_against_avg', away_xga_per_game * 1.1)
+    
+    # Calcular xG esperado para o jogo
+    home_expected_goals = (home_xg_per_game_home + away_xga_per_game_away) / 2
+    away_expected_goals = (away_xg_per_game_away + home_xga_per_game_home) / 2
+    
+    # Ajustar pelo fator da liga
+    league_goals_factor = league_factors[0]
+    home_expected_goals *= league_goals_factor
+    away_expected_goals *= league_goals_factor
+    
+    # Ajustar por fadiga (se disponível)
+    home_fatigue = calculate_team_fatigue(home_team)
+    away_fatigue = calculate_team_fatigue(away_team)
+    
+    home_expected_goals *= home_fatigue
+    away_expected_goals *= away_fatigue
+    
+    # Considerar probabilidade de clean sheet
+    home_cs_prob = home_team.get('clean_sheet_probability', 0.3)
+    away_cs_prob = away_team.get('clean_sheet_probability', 0.2)
+    
+    # Ajustar expected goals por probabilidade de clean sheet
+    home_expected_goals *= (1 - away_cs_prob)
+    away_expected_goals *= (1 - home_cs_prob)
+    
+    return home_expected_goals, away_expected_goals
+
+def calculate_form_points(form_str):
+    """Calcula pontos baseados na forma recente"""
+    if not form_str or not isinstance(form_str, str):
+        return 5  # Valor default moderado
+    
+    points = 0
+    # Garantir que estamos usando apenas os últimos 5 jogos
+    recent_form = form_str[-5:] if len(form_str) >= 5 else form_str
+    
+    # Calcular pontos
+    for result in recent_form:
+        result = result.upper()
+        if result == 'W':
+            points += 3
+        elif result == 'D':
+            points += 1
+    
+    return points
+
+def calculate_offensive_strength(team):
+    """Calcula a força ofensiva baseada em xG e gols marcados"""
+    xg = team.get('xg', 0)
+    goals = team.get('goals_scored', 0)
+    games = max(1, team.get('matches_played', 1))
+    
+    # Normalizar para média por jogo
+    xg_per_game = xg / games
+    goals_per_game = goals / games
+    
+    # Valor combinado com limite
+    return min(0.9, max(0.1, (xg_per_game / 2.5) * 0.7 + (goals_per_game / 2.5) * 0.3))
+
+def calculate_defensive_strength(team):
+    """Calcula a força defensiva baseada em xGA e gols sofridos"""
+    xga = team.get('xga', 0)
+    goals_against = team.get('goals_conceded', 0)
+    games = max(1, team.get('matches_played', 1))
+    
+    # Normalizar para média por jogo
+    xga_per_game = xga / games
+    conceded_per_game = goals_against / games
+    
+    # Força defensiva (inverso da fraqueza)
+    return min(0.9, max(0.1, 1 - ((xga_per_game / 2.5) * 0.7 + (conceded_per_game / 2.5) * 0.3)))
+
+def calculate_1x2_probabilities(home_score, away_score, home_consistency, away_consistency, home_adv_mod=1.0):
+    """Calcula probabilidades 1X2 com distribuição ajustada"""
+    # Base raw probabilities
+    total_score = home_score + away_score
+    base_home = home_score / total_score
+    base_away = away_score / total_score
+    
+    # Ajustar para vantagem em casa
+    home_advantage = 0.07 * home_adv_mod  # Ajustável por condições
+    
+    # Aplicar vantagem em casa
+    adjusted_home = min(0.75, base_home + home_advantage)
+    adjusted_away = max(0.15, base_away - (home_advantage * 0.7))
+    
+    # Calcular empate baseado em consistências
+    # Equipes mais consistentes = menos empates
+    avg_consistency = (home_consistency + away_consistency) / 2
+    draw_factor = 1 - avg_consistency  # Menor consistência = mais empates
+    
+    # Base draw probability
+    base_draw = 0.25 * draw_factor
+    
+    # Ajustar distribuição para garantir soma 1
+    total_raw = adjusted_home + adjusted_away + base_draw
+    
+    home_win = adjusted_home / total_raw
+    away_win = adjusted_away / total_raw
+    draw = base_draw / total_raw
+    
+    return home_win, draw, away_win
+
+def calculate_over_probability(home_xg, away_xg, threshold):
+    """Calcula probabilidade de Over usando distribuição de Poisson"""
+    lambda_total = home_xg + away_xg
+    
+    # Usar cálculo exato de Poisson para o threshold
+    cumulative_prob = 0
+    for i in range(int(threshold) + 1):
+        cumulative_prob += math.exp(-lambda_total) * (lambda_total ** i) / math.factorial(i)
+    
+    # Probabilidade de Over = 1 - P(gols <= threshold)
+    return min(0.95, max(0.05, 1 - cumulative_prob))
+
+def calculate_btts_probability(home_xg, away_xg, league_btts_factor):
+    """Calcula probabilidade de Ambos Marcam"""
+    # Probabilidade de cada time não marcar (Poisson para 0 gols)
+    p_home_no_goal = math.exp(-home_xg)
+    p_away_no_goal = math.exp(-away_xg)
+    
+    # Probabilidade de pelo menos um time não marcar
+    p_not_btts = p_home_no_goal + p_away_no_goal - (p_home_no_goal * p_away_no_goal)
+    
+    # Probabilidade de ambos marcarem
+    p_btts = 1 - p_not_btts
+    
+    # Ajustar pelo fator da liga
+    p_btts *= league_btts_factor
+    
+    # Limitar a valores razoáveis
+    p_btts = min(0.85, max(0.25, p_btts))
+    
+    return p_btts, 1 - p_btts
+
+def calculate_corners_probability(home_team, away_team, threshold, league_corner_factor):
+    """Calcula probabilidades para mercados de escanteios"""
+    # Extrair estatísticas de escanteios
+    home_corners_for = home_team.get('corners_for', 0) / max(1, home_team.get('matches_played', 1))
+    home_corners_against = home_team.get('corners_against', 0) / max(1, home_team.get('matches_played', 1))
+    away_corners_for = away_team.get('corners_for', 0) / max(1, away_team.get('matches_played', 1))
+    away_corners_against = away_team.get('corners_against', 0) / max(1, away_team.get('matches_played', 1))
+    
+    # Escanteios esperados para cada time
+    home_expected = (home_corners_for + away_corners_against) / 2
+    away_expected = (away_corners_for + home_corners_against) / 2
+    
+    # Total esperado
+    total_expected = (home_expected + away_expected) * league_corner_factor
+    
+    # Cálculo de probabilidade usando aproximação normal
+    # Desvio padrão estimado
+    std_dev = math.sqrt(total_expected)
+    
+    # Z-score para threshold
+    z = (threshold - total_expected) / std_dev
+    
+    # Aproximação da função de distribuição normal cumulativa
+    def normal_cdf(x):
+        return 0.5 * (1 + math.erf(x / math.sqrt(2)))
+    
+    # Probabilidade under
+    p_under = normal_cdf(z)
+    
+    # Limitar a valores razoáveis
+    p_under = min(0.9, max(0.1, p_under))
+    p_over = 1 - p_under
+    
+    return p_over, p_under, total_expected
+
+def calculate_cards_probability(home_team, away_team, threshold, league_card_factor, team_diff):
+    """Calcula probabilidades para mercados de cartões"""
+    # Extrair estatísticas de cartões
+    home_cards = home_team.get('cards_per_game', 2)
+    away_cards = away_team.get('cards_per_game', 2)
+    
+    # Fator de intensidade baseado na proximidade das equipes
+    intensity_factor = 1 + 0.3 * (1 - min(1, team_diff * 2))
+    
+    # Cartões esperados ajustados por intensidade e fator da liga
+    expected_cards = (home_cards + away_cards) * intensity_factor * league_card_factor
+    
+    # Usando aproximação normal
+    std_dev = math.sqrt(expected_cards * 0.7)  # Desvio estimado
+    
+    # Z-score para threshold
+    z = (threshold - expected_cards) / std_dev
+    
+    # Aproximação da função de distribuição normal cumulativa
+    def normal_cdf(x):
+        return 0.5 * (1 + math.erf(x / math.sqrt(2)))
+    
+    # Probabilidade under
+    p_under = normal_cdf(z)
+    
+    # Limitar a valores razoáveis
+    p_under = min(0.85, max(0.15, p_under))
+    p_over = 1 - p_under
+    
+    return p_over, p_under, expected_cards
+
+def calculate_home_advantage_modifier(conditions):
+    """Calcula modificador para vantagem em casa baseado em condições da partida"""
+    # Valores default
+    mod = 1.0
+    
+    # Ajustes baseados em condições
+    if conditions.get('crowd_percentage', 100) < 50:
+        mod *= 0.8  # Menos torcida = menos vantagem
+    
+    if conditions.get('weather', '').lower() in ['snow', 'heavy_rain']:
+        mod *= 0.9  # Clima ruim reduz vantagem
+    
+    if conditions.get('neutral_venue', False):
+        mod *= 0.5  # Campo neutro reduz significativamente a vantagem
+    
+    if conditions.get('altitude_difference', 0) > 1000:
+        mod *= 1.2  # Grande diferença de altitude aumenta vantagem
+    
+    return max(0.3, min(1.5, mod))  # Limitar entre 0.3 e 1.5
+
+def analyze_missing_players(team_data):
+    """
+    Analisa o impacto de jogadores lesionados ou suspensos
+    """
+    missing_players = team_data.get('missing_players', [])
+    
+    if not missing_players:
+        return 1.0  # Sem impacto
+    
+    total_impact = 0
+    
+    for player in missing_players:
+        position = player.get('position', '').lower()
+        importance = player.get('importance', 'medium').lower()
+        
+        # Definir peso de impacto por posição e importância
+        position_weights = {
+            'goalkeeper': 0.15,
+            'defender': 0.10,
+            'midfielder': 0.08,
+            'forward': 0.12
+        }
+        
+        importance_multipliers = {
+            'key': 1.5,      # Jogador-chave
+            'starter': 1.0,  # Titular regular
+            'rotation': 0.6, # Jogador de rotação 
+            'backup': 0.3    # Reserva
+        }
+        
+        # Calcular impacto
+        position_weight = position_weights.get(position, 0.05)
+        importance_multiplier = importance_multipliers.get(importance, 0.5)
+        
+        player_impact = position_weight * importance_multiplier
+        total_impact += player_impact
+    
+    # Limitar impacto total
+    total_impact = min(0.5, total_impact)
+    
+    # Retornar fator de ajuste (1.0 = sem impacto, <1.0 = impacto negativo)
+    return 1.0 - total_impact
+def analyze_game_trends(home_team, away_team):
+    """
+    Analisa tendências de jogo baseadas no estilo de cada equipe
+    """
+    # Extrair métricas de estilo
+    home_possession = home_team.get('possession', 50) / 100
+    away_possession = away_team.get('possession', 50) / 100
+    
+    home_pass_completion = home_team.get('pass_completion', 75) / 100
+    away_pass_completion = away_team.get('pass_completion', 75) / 100
+    
+    home_shots_per_game = home_team.get('shots_per_game', 12)
+    away_shots_per_game = away_team.get('shots_per_game', 12)
+    
+    # Determinar estilos de jogo
+    home_direct_play = 1 - home_pass_completion  # Menor pass completion = jogo mais direto
+    away_direct_play = 1 - away_pass_completion
+    
+    home_attacking_intensity = home_shots_per_game / 15  # Normalizado para ~1.0
+    away_attacking_intensity = away_shots_per_game / 15
+    
+    # Calcular probabilidades de ritmo de jogo
+    game_tempo = (home_attacking_intensity + away_attacking_intensity) / 2
+    
+    # Contraste de estilos
+    style_contrast = abs(home_direct_play - away_direct_play) + abs(home_possession - away_possession)
+    
+    # Probabilidade de jogo aberto vs fechado
+    open_game_prob = (game_tempo * 0.7 + style_contrast * 0.3) * 100
+    
+    # Probabilidade de muitos gols
+    high_scoring_prob = open_game_prob * 0.8
+    
+    # Probabilidade de jogo intenso (muitos cartões)
+    intense_game_prob = (style_contrast * 0.6 + game_tempo * 0.4) * 100
+    
+    return {
+        'open_game_probability': min(85, max(15, open_game_prob)),
+        'high_scoring_probability': min(80, max(20, high_scoring_prob)),
+        'intense_game_probability': min(80, max(20, intense_game_prob))
+    }
+
+def get_adaptive_league_calibration(league_id, database_stats):
+    """
+    Obtém calibração adaptativa para ligas com poucos dados
+    """
+    # Verificar se temos dados suficientes específicos para a liga
+    league_matches = database_stats.get('matches_per_league', {}).get(league_id, 0)
+    
+    if league_matches < 50:
+        # Poucos dados: usar calibração baseada em ligas similares
+        region = get_league_region(league_id)
+        tier = get_league_tier(league_id)
+        
+        # Encontrar ligas similares
+        similar_leagues = find_similar_leagues(region, tier)
+        
+        # Usar média ponderada das calibrações de ligas similares
+        if similar_leagues:
+            calibration = average_league_calibrations(similar_leagues)
+            return calibration
+    
+    # Dados suficientes: usar calibração específica
+    return get_specific_league_calibration(league_id)
+
 class AdvancedPredictionSystem:
     """
     Sistema avançado de predição que incorpora múltiplos modelos sem fallbacks
