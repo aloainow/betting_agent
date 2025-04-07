@@ -1466,7 +1466,6 @@ def calculate_advanced_probabilities(home_team, away_team, league_id='default', 
 def calculate_league_factors(league_id, league_data=None):
     """
     Calcula fatores específicos por liga para ajustar as probabilidades
-    Sem fallback - se a liga não for encontrada, lança uma exceção
     
     Args:
         league_id (str): Identificador da liga
@@ -1474,19 +1473,17 @@ def calculate_league_factors(league_id, league_data=None):
         
     Returns:
         list: Lista de fatores de ajuste [gols, btts, cartões, escanteios]
-        
-    Raises:
-        ValueError: Se a liga não for suportada ou dados insuficientes
     """
     # Importações necessárias
     from utils.footystats_api import LEAGUE_IDS, get_league_id_mapping
     import logging
     logger = logging.getLogger("valueHunter.ai")
     
-    # Verifique se league_id existe
-    if not league_id:
-        raise ValueError("ID da liga não fornecido")
-    
+    # Verificar se league_id existe ou é um valor genérico
+    if not league_id or league_id in ['default', 'generic']:
+        logger.info(f"Usando fatores genéricos para league_id: {league_id}")
+        return [1.0, 1.0, 1.0, 1.0]  # Fatores neutros para gols, btts, cartões, escanteios
+        
     # Se temos dados específicos da liga, usar esses dados
     if league_data and isinstance(league_data, dict):
         # Extrair fatores dos dados, sem usar fallback
