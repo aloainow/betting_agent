@@ -1463,6 +1463,72 @@ def calculate_advanced_probabilities(home_team, away_team, league_id='default', 
         # Re-raise a exception para que seja tratada apropriadamente em outro lugar
         # Não usar fallback, conforme solicitado
         raise
+def calculate_league_factors(league_id, league_data=None):
+    """
+    Calcula fatores específicos por liga para ajustar as probabilidades
+    Sem fallback - se a liga não for encontrada, lança uma exceção
+    
+    Args:
+        league_id (str): Identificador da liga
+        league_data (dict, optional): Dados adicionais da liga
+        
+    Returns:
+        list: Lista de fatores de ajuste [gols, btts, cartões, escanteios]
+        
+    Raises:
+        ValueError: Se a liga não for suportada ou dados insuficientes
+    """
+    # Verifique se league_id existe
+    if not league_id:
+        raise ValueError("ID da liga não fornecido")
+    
+    # Se temos dados específicos da liga, usar esses dados
+    if league_data and isinstance(league_data, dict):
+        # Extrair fatores dos dados, sem usar fallback
+        if 'goals_factor' not in league_data or 'btts_factor' not in league_data:
+            raise ValueError(f"Dados insuficientes para liga ID {league_id}")
+            
+        return [
+            league_data.get('goals_factor'),
+            league_data.get('btts_factor'),
+            league_data.get('cards_factor'),
+            league_data.get('corners_factor')
+        ]
+    
+    # Se não temos dados específicos, verificar ligas conhecidas
+    # Dicionário de fatores específicos por liga
+    known_leagues = {
+        # LaLiga - mais tático, menos escanteios
+        'es1': [1.1, 1.05, 1.2, 0.95],
+        # Bundesliga - mais gols, menos cartões
+        'de1': [1.2, 1.15, 0.9, 1.1],
+        # Serie A - menos gols, mais tático
+        'it1': [0.9, 0.85, 1.15, 0.9],
+        # Premier League - equilibrado, mais escanteios
+        'en1': [1.1, 1.1, 1.0, 1.15],
+        # Ligue 1 - médio para todos os fatores
+        'fr1': [1.0, 0.95, 1.05, 1.0],
+        # Liga Portugal - mais cartões
+        'pt1': [1.05, 1.0, 1.25, 1.05],
+        # Outras grandes ligas europeias
+        'nl1': [1.15, 1.1, 0.95, 1.05],  # Eredivisie - mais ofensiva
+        'be1': [1.1, 1.05, 1.0, 1.0],    # Jupiler Pro - padrão europeu
+        'tr1': [1.0, 0.95, 1.3, 1.0],    # Super Lig - muitos cartões
+        'gr1': [0.95, 0.9, 1.2, 0.95],   # Super League - defensivo, muitos cartões
+        # Ligas Sul-americanas
+        'br1': [1.0, 0.95, 1.15, 1.05],  # Brasileirão
+        'ar1': [1.05, 1.0, 1.2, 1.0],    # Superliga Argentina
+        # América do Norte
+        'mx1': [1.1, 1.05, 1.05, 1.0],   # Liga MX
+        'us1': [1.1, 1.05, 0.9, 1.05],   # MLS - mais ofensiva, poucos cartões
+    }
+    
+    # Verificar se a liga está no dicionário
+    if league_id in known_leagues:
+        return known_leagues[league_id]
+    
+    # Se a liga não é conhecida e não temos dados específicos, lançar erro
+    raise ValueError(f"Liga ID {league_id} não suportada e sem dados para calibração")
 class AdvancedPredictionSystem:
     """
     Sistema avançado de predição que incorpora múltiplos modelos sem fallbacks
