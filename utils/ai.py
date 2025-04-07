@@ -1,4 +1,3 @@
-# utils/ai.py - Funções de Inteligência Artificial
 import os
 import logging
 import streamlit as st
