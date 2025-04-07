@@ -1283,7 +1283,7 @@ def get_stat(stats, col, default='N/A'):
         logger.warning(f"Erro ao obter estatística '{col}': {str(e)}")
         return default
         
-def calculate_advanced_probabilities(home_team, away_team, league_id='default', match_conditions=None):
+def calculate_advanced_probabilities(home_team, away_team, league_id='generic', match_conditions=None):
     """
     Cálculo avançado de probabilidades utilizando método aprimorado de Dispersão e Ponderação
     
@@ -1298,9 +1298,11 @@ def calculate_advanced_probabilities(home_team, away_team, league_id='default', 
     """
     try:
         import math
+        import numpy as np  # Adicione esta importação se necessário
         
         # 1. Obter fatores específicos da liga
         league_factors = calculate_league_factors(league_id, None)
+        
         
         # 2. Calcular forma recente (35%)
         home_form_points = calculate_form_points(home_team.get('form', 'DLWDL'))
