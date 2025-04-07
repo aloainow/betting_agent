@@ -2,6 +2,8 @@ import os
 import logging
 import streamlit as st
 import json
+import math
+import numpy as np  # Se você também estiver usando numpy
 # REMOVER ESTA LINHA: from utils.ai import format_highly_optimized_prompt
 
 # Configuração de logging
