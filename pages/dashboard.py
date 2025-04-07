@@ -1316,7 +1316,7 @@ def show_main_dashboard():
                         from utils.ai import format_highly_optimized_prompt, calculate_advanced_probabilities
                         
                         # Obter o ID da liga a partir dos dados estatísticos ou do mapeamento de ligas
-                        league_id = stats_data.get("match_info", {}).get("league_id") or LEAGUE_SEASON_IDS.get(selected_league, 'generic')
+                        league_id = None
                         
                         # Primeiro tentar obter do match_info nos dados estatísticos
                         if stats_data and "match_info" in stats_data and "league_id" in stats_data["match_info"]:
@@ -1348,6 +1348,67 @@ def show_main_dashboard():
                         
                         # Extrair probabilidades implícitas das odds
                         implied_probabilities = {}
+                        
+                        # Função auxiliar para extrair odds de um texto
+                        def extract_odds(text, pattern, default=0.0):
+                            import re
+                            matches = re.findall(pattern, text)
+                            if matches:
+                                try:
+                                    return float(matches[0])
+                                except:
+                                    pass
+                            return default
+                        
+                        # Parsear as odds para Money Line
+                        if selected_markets.get("money_line") and odds_data:
+                            # Padrões para extrair odds
+                            home_odd = extract_odds(odds_data, rf"(?:Casa|Home).*?@(\d+\.?\d*)")
+                            draw_odd = extract_odds(odds_data, r"Empate.*?@(\d+\.?\d*)")
+                            away_odd = extract_odds(odds_data, rf"(?:Fora|Away).*?@(\d+\.?\d*)")
+                            
+                            if home_odd > 0:
+                                implied_probabilities["home"] = 100.0 / home_odd
+                            if draw_odd > 0:
+                                implied_probabilities["draw"] = 100.0 / draw_odd
+                            if away_odd > 0:
+                                implied_probabilities["away"] = 100.0 / away_odd
+                        
+                        # Parsear para Chance Dupla
+                        if selected_markets.get("chance_dupla") and odds_data:
+                            home_draw_odd = extract_odds(odds_data, r"1X.*?@(\d+\.?\d*)")
+                            home_away_odd = extract_odds(odds_data, r"12.*?@(\d+\.?\d*)")
+                            draw_away_odd = extract_odds(odds_data, r"X2.*?@(\d+\.?\d*)")
+                            
+                            if home_draw_odd > 0:
+                                implied_probabilities["home_draw"] = 100.0 / home_draw_odd
+                            if home_away_odd > 0:
+                                implied_probabilities["home_away"] = 100.0 / home_away_odd
+                            if draw_away_odd > 0:
+                                implied_probabilities["draw_away"] = 100.0 / draw_away_odd
+                        
+                        # Parsear para BTTS
+                        if selected_markets.get("ambos_marcam") and odds_data:
+                            btts_yes_odd = extract_odds(odds_data, r"Sim.*?@(\d+\.?\d*)")
+                            btts_no_odd = extract_odds(odds_data, r"Não.*?@(\d+\.?\d*)")
+                            
+                            if btts_yes_odd > 0:
+                                implied_probabilities["btts_yes"] = 100.0 / btts_yes_odd
+                            if btts_no_odd > 0:
+                                implied_probabilities["btts_no"] = 100.0 / btts_no_odd
+                        
+                        # Adicionar as probabilidades implícitas às probabilidades originais
+                        if implied_probabilities:
+                            if "analysis_data" not in original_probabilities:
+                                original_probabilities["analysis_data"] = {}
+                            original_probabilities["analysis_data"]["implied_odds"] = implied_probabilities
+                        
+                        # Depois geramos o prompt com essas probabilidades
+                        prompt = format_highly_optimized_prompt(stats_data, home_team, away_team, odds_data, selected_markets)
+                        
+                        if not prompt:
+                            status.error("Falha ao preparar análise")
+                            return
                         
                         # Etapa 4: Análise GPT com probabilidades originais
                         status.info("Realizando análise com IA...")
