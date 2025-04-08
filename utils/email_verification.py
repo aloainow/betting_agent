@@ -2,6 +2,7 @@
 import random
 import string
 import smtplib
+import ssl
 import logging
 from email.mime.text import MIMEText
 import streamlit as st
@@ -25,18 +26,11 @@ def send_verification_email(email, verification_code):
         bool: True se o e-mail foi enviado com sucesso, False caso contrário
     """
     try:
-        # Obter credenciais de email
-        if hasattr(st, 'secrets') and 'email' in st.secrets:
-            sender_email = st.secrets.email.sender
-            password = st.secrets.email.password
-            smtp_server = st.secrets.email.smtp_server
-            smtp_port = st.secrets.email.smtp_port
-        else:
-            # Valores padrão para desenvolvimento (substitua em produção)
-            sender_email = "seu-email@gmail.com"
-            password = "sua-senha-app"
-            smtp_server = "smtp.gmail.com"
-            smtp_port = 587
+        # Configurações de email do GoDaddy
+        sender_email = "contact@valuehunter.app"
+        password = "sua-senha-aqui"  # Por segurança, substitua por secrets em produção
+        smtp_server = "smtpout.secureserver.net"
+        smtp_port = 465
         
         # Criar mensagem
         subject = "ValueHunter - Verificação de Email"
@@ -58,9 +52,11 @@ def send_verification_email(email, verification_code):
         msg['From'] = sender_email
         msg['To'] = email
         
-        # Enviar email
-        server = smtplib.SMTP(smtp_server, smtp_port)
-        server.starttls()
+        # Configurar contexto SSL
+        context = ssl.create_default_context()
+        
+        # Enviar email usando SSL
+        server = smtplib.SMTP_SSL(smtp_server, smtp_port, context=context)
         server.login(sender_email, password)
         server.send_message(msg)
         server.quit()
@@ -69,4 +65,23 @@ def send_verification_email(email, verification_code):
         return True
     except Exception as e:
         logger.error(f"Erro ao enviar email de verificação: {str(e)}")
+        return False
+
+def verify_email_code(email, user_provided_code, stored_code):
+    """
+    Verifica se o código fornecido pelo usuário corresponde ao código armazenado
+    
+    Args:
+        email (str): Email do usuário
+        user_provided_code (str): Código fornecido pelo usuário
+        stored_code (str): Código armazenado no sistema
+        
+    Returns:
+        bool: True se o código for válido, False caso contrário
+    """
+    try:
+        # Verificação simples de correspondência
+        return user_provided_code == stored_code
+    except Exception as e:
+        logger.error(f"Erro ao verificar código para {email}: {str(e)}")
         return False
