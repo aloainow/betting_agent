@@ -7,6 +7,8 @@ import json
 from datetime import datetime
 import sys
 import logging
+import random
+import string
 
 # Configuração da página
 st.set_page_config(
@@ -112,10 +114,113 @@ if password == ADMIN_PASSWORD:
             tier = user.get('tier', 'desconhecido')
             name = user.get('name', email.split('@')[0])
             credits = user.get('purchased_credits', 0)
+            verified = "✓" if user.get('verified', False) else "✗"
             
             # Formatar como uma linha com emoji
             tier_emoji = "🆓" if tier == "free" else "💎"
-            st.write(f"{tier_emoji} **{name}** ({email}) - Pacote: {tier.capitalize()}, Créditos: {credits}")
+            st.write(f"{tier_emoji} **{name}** ({email}) - Pacote: {tier.capitalize()}, Créditos: {credits}, Verificado: {verified}")
+
+        # Nova seção: Gerenciamento de Usuários
+        st.header("Gerenciamento de Usuários")
+
+        # Subsection: Gerenciar Créditos
+        with st.expander("Adicionar Créditos a Usuário", expanded=True):
+            # Criar uma lista de emails para o selectbox
+            user_emails = list(users_data.keys())
+            
+            # Dropdown para selecionar usuário
+            selected_user = st.selectbox("Selecionar Usuário", user_emails)
+            
+            # Campo para quantidade de créditos
+            credit_amount = st.number_input("Quantidade de Créditos", min_value=1, max_value=1000, value=10)
+            
+            # Botão para adicionar créditos
+            if st.button("Adicionar Créditos", key="add_credits_button"):
+                try:
+                    # Inicializar UserManager
+                    user_manager = UserManager()
+                    
+                    # Adicionar créditos
+                    if user_manager.add_credits(selected_user, credit_amount):
+                        st.success(f"{credit_amount} créditos adicionados com sucesso para {selected_user}")
+                        
+                        # Recarregar dados após adição
+                        with open(user_data_path, 'r', encoding='utf-8') as f:
+                            users_data = json.load(f)
+                    else:
+                        st.error(f"Falha ao adicionar créditos para {selected_user}")
+                except Exception as e:
+                    st.error(f"Erro ao adicionar créditos: {str(e)}")
+
+        # Subsection: Excluir Usuário
+        with st.expander("Excluir Usuário", expanded=False):
+            # Dropdown para selecionar usuário para exclusão
+            user_to_delete = st.selectbox("Selecionar Usuário para Excluir", user_emails, key="delete_user_select")
+            
+            # Confirmação e botão de exclusão
+            confirm_delete = st.checkbox("Confirmo que desejo excluir permanentemente esta conta")
+            
+            if st.button("Excluir Usuário", type="primary", disabled=not confirm_delete):
+                try:
+                    # Remover usuário do dicionário
+                    if user_to_delete in users_data:
+                        del users_data[user_to_delete]
+                        
+                        # Salvar arquivo atualizado
+                        with open(user_data_path, 'w', encoding='utf-8') as f:
+                            json.dump(users_data, f, indent=2)
+                        
+                        st.success(f"Usuário {user_to_delete} excluído com sucesso")
+                        
+                        # Atualizar a lista de emails no selectbox
+                        st.experimental_rerun()
+                    else:
+                        st.error(f"Usuário {user_to_delete} não encontrado")
+                except Exception as e:
+                    st.error(f"Erro ao excluir usuário: {str(e)}")
+
+        # Adicione também uma seção para resetar créditos e verificação
+        with st.expander("Operações em Lote", expanded=False):
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                if st.button("Resetar Créditos de Todos", type="secondary"):
+                    try:
+                        # Inicializar UserManager
+                        user_manager = UserManager()
+                        
+                        # Iterar sobre todos os usuários
+                        for email in users_data:
+                            # Resetar créditos
+                            users_data[email]["free_credits_exhausted_at"] = None
+                            users_data[email]["paid_credits_exhausted_at"] = None
+                            users_data[email]["usage"] = {"daily": [], "total": []}
+                        
+                        # Salvar alterações
+                        with open(user_data_path, 'w', encoding='utf-8') as f:
+                            json.dump(users_data, f, indent=2)
+                        
+                        st.success("Créditos resetados para todos os usuários")
+                    except Exception as e:
+                        st.error(f"Erro ao resetar créditos: {str(e)}")
+            
+            with col2:
+                if st.button("Resetar Verificação de Todos", type="secondary"):
+                    try:
+                        # Iterar sobre todos os usuários
+                        for email in users_data:
+                            # Resetar verificação
+                            users_data[email]["verified"] = False
+                            # Gerar novo código de verificação
+                            users_data[email]["verification_code"] = ''.join(random.choices(string.digits, k=6))
+                        
+                        # Salvar alterações
+                        with open(user_data_path, 'w', encoding='utf-8') as f:
+                            json.dump(users_data, f, indent=2)
+                        
+                        st.success("Status de verificação resetado para todos os usuários")
+                    except Exception as e:
+                        st.error(f"Erro ao resetar verificação: {str(e)}")
 
         # Sessão 4: Estatísticas de Análise
         st.header("Estatísticas de Análise")
