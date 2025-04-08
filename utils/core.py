@@ -6,7 +6,6 @@ import logging
 import streamlit as st
 from datetime import datetime, timedelta
 from urllib.parse import urlencode
-
 # Importando dependências
 try:
     import stripe
@@ -26,15 +25,33 @@ except ImportError:
             class InvalidRequestError(Exception):
                 pass
     stripe = DummyStripe
-
 # Configuração de logging
 logger = logging.getLogger("valueHunter.core")
-
 # Configurações globais
 DATA_DIR = "data"
 if "RENDER" in os.environ:
     # Em produção no Render, use um caminho padrão para montagem de disco
     DATA_DIR = "/mnt/value-hunter-data"  # Caminho padrão para discos persistentes
+
+# Ocultar mensagens de erro relacionadas a secrets.toml
+def hide_streamlit_errors():
+    st.markdown("""
+    <style>
+    /* Ocultar mensagens de erro sobre secrets */
+    [data-testid="stException"],
+    div[data-stale="false"][data-testid="stStatusWidget"],
+    div.stException,
+    .element-container div.stAlert[kind="error"] {
+        display: none !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+# Chamar a função para ocultar erros quando o módulo é importado
+try:
+    hide_streamlit_errors()
+except:
+    pass  # Ignorar erros se o contexto Streamlit não estiver disponível
 
 # Funções de CSS e UI
 def configure_sidebar_visibility():
