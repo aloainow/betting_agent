@@ -43,6 +43,12 @@ password = st.text_input("Senha de Administrador", type="password")
 if password == ADMIN_PASSWORD:
     st.success("Acesso autorizado!")
     
+    # Nova seção - Botão de atualização da página
+    refresh_col1, refresh_col2 = st.columns([3, 1])
+    with refresh_col2:
+        if st.button("🔄 Atualizar Página", use_container_width=True):
+            st.experimental_rerun()
+   
     # Carregar dados dos usuários
     user_data_path = os.path.join(DATA_DIR, "user_data.json")
     
