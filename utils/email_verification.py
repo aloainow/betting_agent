@@ -63,10 +63,10 @@ def send_verification_email(email, verification_code):
         logger.info(f"Email de verificação enviado para {email}")
         return True
     except Exception as e:
-    import traceback
-    logger.error(f"Erro ao enviar email de verificação: {str(e)}")
-    logger.error(traceback.format_exc())
-    return False
+        import traceback
+        logger.error(f"Erro ao enviar email de verificação: {str(e)}")
+        logger.error(traceback.format_exc())
+        return False
 
 def verify_email_code(email, user_provided_code, stored_code):
     """
