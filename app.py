@@ -4,14 +4,12 @@ import logging
 import sys
 import streamlit as st
 from datetime import datetime
-
 # Configuração de logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger("valueHunter")
-
 # Log de diagnóstico no início
 logger.info(f"Python version: {sys.version}")
 logger.info(f"Current directory: {os.getcwd()}")
@@ -19,6 +17,37 @@ try:
     logger.info(f"Directory contents: {os.listdir('.')}")
 except Exception as e:
     logger.error(f"Erro ao listar diretório: {str(e)}")
+
+# Configurar Streamlit para ocultar mensagens de erro
+st.set_option('client.showErrorDetails', False)
+st.set_option('server.enableCORS', True)
+st.set_option('server.enableXsrfProtection', True)
+
+# CSS para ocultar mensagens de erro do Streamlit
+st.markdown("""
+<style>
+/* Ocultar mensagens de erro e notificações do Streamlit */
+div[data-testid="stException"],
+div[data-testid="stStatusWidget"],
+div.stException,
+div.stAlert[kind="error"],
+div.stStatusWidget,
+div[data-baseweb="notification"],
+div[role="status"],
+[data-testid="stCaptionContainer"] > div:has(> code),
+.stException, .element-container div.stAlert[kind="error"] {
+    visibility: hidden !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: none !important;
+    position: absolute !important;
+    top: -9999px !important;
+    left: -9999px !important;
+    opacity: 0 !important;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # Importar módulos de utilidade - colocado antes da configuração do Streamlit
 from utils.core import (
