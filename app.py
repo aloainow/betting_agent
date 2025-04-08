@@ -1,4 +1,3 @@
-# app.py - Arquivo principal (ponto de entrada)
 import os
 import logging
 import sys
@@ -17,36 +16,6 @@ try:
     logger.info(f"Directory contents: {os.listdir('.')}")
 except Exception as e:
     logger.error(f"Erro ao listar diretório: {str(e)}")
-
-# Configurar Streamlit para ocultar mensagens de erro
-st.set_option('client.showErrorDetails', False)
-
-# CSS para ocultar mensagens de erro do Streamlit
-st.markdown("""
-<style>
-/* Ocultar mensagens de erro e notificações do Streamlit */
-div[data-testid="stException"],
-div[data-testid="stStatusWidget"],
-div.stException,
-div.stAlert[kind="error"],
-div.stStatusWidget,
-div[data-baseweb="notification"],
-div[role="status"],
-[data-testid="stCaptionContainer"] > div:has(> code),
-.stException, .element-container div.stAlert[kind="error"] {
-    visibility: hidden !important;
-    height: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    display: none !important;
-    position: absolute !important;
-    top: -9999px !important;
-    left: -9999px !important;
-    opacity: 0 !important;
-}
-</style>
-""", unsafe_allow_html=True)
-
 # Importar módulos de utilidade - colocado antes da configuração do Streamlit
 from utils.core import (
     DATA_DIR, init_session_state, show_valuehunter_logo, 
