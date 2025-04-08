@@ -4,6 +4,7 @@ import string
 import smtplib
 import ssl
 import logging
+import traceback
 from email.mime.text import MIMEText
 import streamlit as st
 
@@ -15,6 +16,16 @@ def generate_verification_code():
     return ''.join(random.choices(string.digits, k=6))
 
 def send_verification_email(email, verification_code):
+    """
+    Envia e-mail de verificação usando as credenciais configuradas
+    
+    Args:
+        email (str): Email do destinatário
+        verification_code (str): Código de verificação
+        
+    Returns:
+        bool: True se o e-mail foi enviado com sucesso, False caso contrário
+    """
     try:
         import os
         
@@ -63,7 +74,6 @@ def send_verification_email(email, verification_code):
         logger.info(f"Email de verificação enviado para {email}")
         return True
     except Exception as e:
-        import traceback
         logger.error(f"Erro ao enviar email de verificação: {str(e)}")
         logger.error(traceback.format_exc())
         return False
@@ -82,7 +92,13 @@ def verify_email_code(email, user_provided_code, stored_code):
     """
     try:
         # Verificação simples de correspondência
-        return user_provided_code == stored_code
+        if not stored_code or not user_provided_code:
+            logger.warning(f"Verificação falhou: código ausente para {email}")
+            return False
+            
+        # Converter para string e comparar
+        return str(user_provided_code) == str(stored_code)
     except Exception as e:
         logger.error(f"Erro ao verificar código para {email}: {str(e)}")
+        logger.error(traceback.format_exc())
         return False
