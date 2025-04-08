@@ -2152,3 +2152,179 @@ def transform_api_data(stats_data, home_team, away_team, selected_markets):
         }
         
         return result
+
+# Esta função avalia a qualidade da oportunidade com base na probabilidade real e na margem
+def evaluate_opportunity(real_prob, margin):
+    """
+    Avalia a qualidade da oportunidade de aposta com base na probabilidade real e na margem
+    
+    Args:
+        real_prob (float): Probabilidade real (0-100)
+        margin (float): Margem (diferença entre prob real e implícita)
+        
+    Returns:
+        tuple: (classificação, cor, descrição)
+    """
+    # Classificação baseada na probabilidade real
+    prob_rating = "Baixa"
+    prob_color = "red"
+    
+    if real_prob >= 80:
+        prob_rating = "Muito Alta"
+        prob_color = "green"
+    elif real_prob >= 70:
+        prob_rating = "Alta"
+        prob_color = "lightgreen"
+    elif real_prob >= 60:
+        prob_rating = "Média-Alta"
+        prob_color = "yellow"
+    elif real_prob >= 50:
+        prob_rating = "Média"
+        prob_color = "orange"
+    
+    # Classificação baseada na margem
+    margin_rating = "Baixa"
+    margin_color = "red"
+    
+    if margin >= 10:
+        margin_rating = "Excelente"
+        margin_color = "green"
+    elif margin >= 7:
+        margin_rating = "Muito Boa"
+        margin_color = "lightgreen"
+    elif margin >= 5:
+        margin_rating = "Boa"
+        margin_color = "yellow"
+    elif margin >= 3:
+        margin_rating = "Razoável"
+        margin_color = "orange"
+    
+    # Avaliação combinada
+    if real_prob >= 70 and margin >= 7:
+        return ("Excelente", "green", "Alta probabilidade e grande margem")
+    elif real_prob >= 60 and margin >= 5:
+        return ("Muito Boa", "lightgreen", "Boa probabilidade e margem significativa")
+    elif real_prob >= 50 and margin >= 3:
+        return ("Boa", "yellow", "Probabilidade e margem razoáveis")
+    elif real_prob >= 60 or margin >= 5:
+        return ("Razoável", "orange", "Ou boa probabilidade ou boa margem")
+    else:
+        return ("Baixa", "red", "Probabilidade e margem insuficientes")
+
+# Função para mostrar o indicador visual da oportunidade
+def show_opportunity_indicator(real_prob, margin, opportunity_name):
+    """
+    Mostra um indicador visual da qualidade da oportunidade
+    
+    Args:
+        real_prob (float): Probabilidade real (0-100)
+        margin (float): Margem (diferença entre prob real e implícita)
+        opportunity_name (str): Nome da oportunidade/mercado
+    """
+    rating, color, description = evaluate_opportunity(real_prob, margin)
+    
+    # Criar HTML para o indicador
+    indicator_html = f"""
+    <div style="margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
+        <div style="padding: 10px; background-color: #333; color: white;">
+            <strong>{opportunity_name}</strong>
+        </div>
+        <div style="padding: 15px; background-color: #444;">
+            <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                <div style="width: 120px; color: #ccc;">Probabilidade:</div>
+                <div style="flex-grow: 1; height: 10px; background-color: #555; border-radius: 5px;">
+                    <div style="width: {min(100, max(0, real_prob))}%; height: 100%; background-color: {color}; border-radius: 5px;"></div>
+                </div>
+                <div style="margin-left: 10px; color: white;">{real_prob:.1f}%</div>
+            </div>
+            <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                <div style="width: 120px; color: #ccc;">Margem:</div>
+                <div style="flex-grow: 1; height: 10px; background-color: #555; border-radius: 5px;">
+                    <div style="width: {min(100, max(0, margin * 10))}%; height: 100%; background-color: {color}; border-radius: 5px;"></div>
+                </div>
+                <div style="margin-left: 10px; color: white;">{margin:.1f}%</div>
+            </div>
+            <div style="margin-top: 10px; padding: 8px; background-color: {color}; color: black; border-radius: 4px; text-align: center;">
+                <strong>Classificação: {rating}</strong> - {description}
+            </div>
+        </div>
+    </div>
+    """
+    
+    st.markdown(indicator_html, unsafe_allow_html=True)
+
+# Função modificada para extrair oportunidades identificadas e mostrar indicadores
+def extract_and_show_opportunities(analysis_text):
+    """
+    Extrai oportunidades do texto de análise e mostra indicadores visuais
+    
+    Args:
+        analysis_text (str): Texto da análise
+    """
+    import re
+    
+    # Procurar a seção de Oportunidades Identificadas
+    opportunities_section = None
+    sections = analysis_text.split("#")
+    
+    for section in sections:
+        if "Oportunidades Identificadas" in section:
+            opportunities_section = section
+            break
+    
+    if not opportunities_section:
+        st.warning("Não foi possível encontrar oportunidades na análise.")
+        return
+    
+    # Extrair oportunidades individuais
+    opportunities = []
+    
+    # Padrão de regex para capturar: nome, probabilidade real, implícita e margem
+    pattern = r"\*\*(.*?)\*\*: Real (\d+\.\d+)% vs Implícita (\d+\.\d+)% \(Valor de (\d+\.\d+)%\)"
+    
+    matches = re.findall(pattern, opportunities_section)
+    
+    if not matches:
+        st.warning("Nenhuma oportunidade específica encontrada na análise.")
+        return
+    
+    # Mostrar cabeçalho
+    st.markdown("## Indicadores de Oportunidades")
+    
+    # Criar indicador para cada oportunidade
+    for match in matches:
+        opportunity_name, real_prob_str, implicit_prob_str, margin_str = match
+        
+        try:
+            real_prob = float(real_prob_str)
+            margin = float(margin_str)
+            
+            # Mostrar indicador
+            show_opportunity_indicator(real_prob, margin, opportunity_name)
+        except (ValueError, TypeError):
+            continue
+    
+    # Adicionar legenda explicativa
+    st.markdown("""
+    ### Legenda de Classificação
+    - **Excelente**: Alta probabilidade (>70%) e grande margem (>7%) - Oportunidade ideal
+    - **Muito Boa**: Boa probabilidade (>60%) e margem significativa (>5%)
+    - **Boa**: Probabilidade e margem razoáveis (>50% e >3%)
+    - **Razoável**: Ou boa probabilidade ou boa margem
+    - **Baixa**: Probabilidade e margem insuficientes
+    """)
+
+# Modificar a exibição do resultado da análise no código existente
+# Procure o local onde você exibe o resultado da análise, geralmente em algum lugar como:
+
+# Exemplo de como você pode integrar:
+'''
+# Exibir o resultado formatado
+st.code(formatted_analysis, language=None)
+
+# ADICIONAR AQUI: Extração e exibição de indicadores de oportunidades
+extract_and_show_opportunities(formatted_analysis)
+
+# Registrar uso após análise bem-sucedida
+num_markets = sum(1 for v in selected_markets.values() if v)
+'''
