@@ -151,8 +151,8 @@ class UserManager:
         }
         return tier_display.get(tier, tier.capitalize())
     
-    def register_user(self, email: str, password: str, name: str = None, tier: str = "free") -> tuple:
-        """Register a new user with optional name parameter"""
+    def register_user(self, email: str, password: str, name: str = None, tier: str = "free", verified: bool = False, verification_code: str = None) -> tuple:
+        """Register a new user with verification support"""
         try:
             if not self._validate_email(email):
                 return False, "Email inválido"
@@ -166,11 +166,18 @@ class UserManager:
             # Se nome não for fornecido, usar parte do email como nome
             if not name:
                 name = email.split('@')[0].capitalize()
+            
+            # Se não foi fornecido código de verificação, gerar um
+            if verification_code is None:
+                from utils.email_verification import generate_verification_code
+                verification_code = generate_verification_code()
                     
             self.users[email] = {
                 "password": self._hash_password(password),
                 "name": name,  # Adicionando o nome
                 "tier": tier,
+                "verified": verified,  # Novo campo para verificação
+                "verification_code": verification_code,  # Código de verificação
                 "usage": {
                     "daily": [],
                     "total": []  # Track total usage
@@ -181,11 +188,15 @@ class UserManager:
                 "created_at": datetime.now().isoformat()
             }
             
+            # Se o usuário não está verificado, não dar créditos ainda
+            if not verified:
+                self.users[email]["credits_remaining"] = 0
+            
             save_success = self._save_users()
             if not save_success:
                 logger.warning(f"Falha ao salvar dados durante registro do usuário: {email}")
                 
-            logger.info(f"Usuário registrado com sucesso: {email}, tier: {tier}")
+            logger.info(f"Usuário registrado com sucesso: {email}, tier: {tier}, verificado: {verified}")
             return True, "Registro realizado com sucesso"
         except Exception as e:
             logger.error(f"Erro ao registrar usuário {email}: {str(e)}")
@@ -208,6 +219,75 @@ class UserManager:
             return True
         except Exception as e:
             logger.error(f"Erro durante a autenticação para {email}: {str(e)}")
+            return False
+    
+    def verify_email_code(self, email, user_provided_code):
+        """
+        Verifica se o código fornecido pelo usuário corresponde ao código armazenado
+        
+        Args:
+            email (str): Email do usuário
+            user_provided_code (str): Código fornecido pelo usuário
+            
+        Returns:
+            bool: True se o código for válido, False caso contrário
+        """
+        try:
+            if email not in self.users:
+                logger.warning(f"Tentativa de verificar código para usuário inexistente: {email}")
+                return False
+                
+            user = self.users[email]
+            stored_code = user.get('verification_code')
+            
+            # Verificar se os códigos correspondem
+            if stored_code and user_provided_code == stored_code:
+                # Atualizar status do usuário para verificado
+                self.users[email]['verified'] = True
+                
+                # Adicionar créditos gratuitos se ainda não foram adicionados
+                if self.users[email].get('credits_remaining', 0) == 0:
+                    # Conceder 5 créditos gratuitos para usuários verificados
+                    logger.info(f"Concedendo 5 créditos gratuitos para usuário verificado: {email}")
+                
+                # Salvar alterações
+                self._save_users()
+                logger.info(f"Email verificado com sucesso: {email}")
+                return True
+                
+            logger.warning(f"Código de verificação inválido para {email}")
+            return False
+        except Exception as e:
+            import traceback
+            logger.error(f"Erro ao verificar código para {email}: {str(e)}")
+            logger.error(traceback.format_exc())
+            return False
+    
+    def update_verification_code(self, email, new_code):
+        """
+        Atualiza o código de verificação para um usuário
+        
+        Args:
+            email (str): Email do usuário
+            new_code (str): Novo código de verificação
+            
+        Returns:
+            bool: True se o código foi atualizado, False caso contrário
+        """
+        try:
+            if email not in self.users:
+                logger.warning(f"Tentativa de atualizar código para usuário inexistente: {email}")
+                return False
+                
+            # Atualizar código
+            self.users[email]['verification_code'] = new_code
+            
+            # Salvar alterações
+            self._save_users()
+            logger.info(f"Código de verificação atualizado para {email}")
+            return True
+        except Exception as e:
+            logger.error(f"Erro ao atualizar código para {email}: {str(e)}")
             return False
     
     def add_credits(self, email: str, amount: int) -> bool:
@@ -252,6 +332,20 @@ class UserManager:
                 }
                     
             user = self.users[email]
+            
+            # Se o usuário não está verificado, mostrar 0 créditos
+            if not user.get('verified', True):
+                logger.info(f"Usuário não verificado: {email}")
+                return {
+                    "name": user.get("name", email.split('@')[0].capitalize()),
+                    "tier": user.get("tier", "free"),
+                    "tier_display": self._format_tier_name(user.get("tier", "free")),
+                    "credits_used": 0,
+                    "credits_total": 0,
+                    "credits_remaining": 0,
+                    "market_limit": float('inf'),
+                    "verified": False
+                }
             
             # Calculate total credits used
             total_credits_used = sum(
@@ -322,7 +416,8 @@ class UserManager:
                 "credits_remaining": remaining_credits,
                 "market_limit": tier.market_limit,
                 "free_credits_reset": free_credits_reset,
-                "next_free_credits_time": next_free_credits_time
+                "next_free_credits_time": next_free_credits_time,
+                "verified": user.get('verified', True)
             }
         except Exception as e:
             logger.error(f"Erro ao obter estatísticas para {email}: {str(e)}")
@@ -334,13 +429,19 @@ class UserManager:
                 "credits_used": 0,
                 "credits_total": 5,
                 "credits_remaining": 5,
-                "market_limit": float('inf')
+                "market_limit": float('inf'),
+                "verified": False
             }
     
     def record_usage(self, email, num_markets, analysis_data=None):
         """Record usage of credits"""
         if email not in self.users:
             logger.warning(f"Tentativa de registrar uso para usuário inexistente: {email}")
+            return False
+            
+        # Verificar se o usuário está verificado
+        if not self.users[email].get('verified', True):
+            logger.warning(f"Tentativa de registrar uso para usuário não verificado: {email}")
             return False
 
         today = datetime.now().date().isoformat()
