@@ -27,10 +27,10 @@ def send_verification_email(email, verification_code):
     """
     try:
         # Configurações de email do GoDaddy
-        sender_email = "contact@valuehunter.app"
-        password = "sua-senha-aqui"  # Por segurança, substitua por secrets em produção
-        smtp_server = "smtpout.secureserver.net"
-        smtp_port = 465
+        sender_email = st.secrets.email.sender
+        password = st.secrets.email.password
+        smtp_server = st.secrets.email.smtp_server
+        smtp_port = st.secrets.email.smtp_port
         
         # Criar mensagem
         subject = "ValueHunter - Verificação de Email"
