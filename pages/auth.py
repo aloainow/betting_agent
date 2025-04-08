@@ -247,3 +247,85 @@ def show_verification():
         logger.error(f"Erro ao exibir página de verificação: {str(e)}")
         st.error("Erro ao carregar a página de verificação. Por favor, tente novamente.")
         st.error(f"Detalhes: {str(e)}")
+def show_verification():
+    """Display verification code entry form"""
+    try:
+        # Aplicar estilos personalizados
+        apply_custom_styles()
+        # Aplicar estilos responsivos
+        apply_responsive_styles()
+        # Esconder a barra lateral do Streamlit na página de verificação
+        st.markdown("""
+        <style>
+        [data-testid="stSidebar"] {
+            display: none !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        # Header com a logo
+        show_valuehunter_logo()
+        
+        st.title("Verificação de Email")
+        st.info("Um código de verificação foi enviado para o seu email. Por favor, insira-o abaixo para ativar sua conta.")
+        
+        with st.form("verification_form"):
+            verification_code = st.text_input("Código de Verificação", max_chars=6)
+            submitted = st.form_submit_button("Verificar")
+            
+            if submitted:
+                if not verification_code:
+                    st.error("Por favor, insira o código de verificação.")
+                    return
+                
+                # Verificar se o email está na sessão
+                if 'pending_verification_email' not in st.session_state:
+                    st.error("Sessão expirada. Por favor, registre-se novamente.")
+                    time.sleep(2)
+                    go_to_register()
+                    return
+                
+                email = st.session_state.pending_verification_email
+                
+                # Verificar o código
+                try:
+                    if st.session_state.user_manager.verify_email_code(email, verification_code):
+                        st.success("Email verificado com sucesso! Sua conta agora está ativa.")
+                        
+                        # Limpar dados de verificação pendente
+                        if 'pending_verification_email' in st.session_state:
+                            del st.session_state.pending_verification_email
+                        
+                        # Redirecionar para login
+                        st.session_state.page = "login"
+                        time.sleep(2)
+                        st.experimental_rerun()
+                    else:
+                        st.error("Código de verificação inválido. Por favor, tente novamente.")
+                except Exception as e:
+                    st.error(f"Erro ao verificar código: {str(e)}")
+        
+        # Botão para reenviar código
+        if st.button("Reenviar código de verificação"):
+            if 'pending_verification_email' in st.session_state:
+                email = st.session_state.pending_verification_email
+                from utils.email_verification import generate_verification_code, send_verification_email
+                
+                new_code = generate_verification_code()
+                
+                if st.session_state.user_manager.update_verification_code(email, new_code):
+                    if send_verification_email(email, new_code):
+                        st.success("Um novo código de verificação foi enviado para o seu email.")
+                    else:
+                        st.error("Erro ao enviar novo código de verificação. Por favor, tente novamente.")
+                else:
+                    st.error("Erro ao gerar novo código. Por favor, entre em contato com o suporte.")
+            else:
+                st.error("Sessão expirada. Por favor, registre-se novamente.")
+                time.sleep(2)
+                go_to_register()
+    
+    except Exception as e:
+        logger.error(f"Erro ao exibir página de verificação: {str(e)}")
+        st.error("Erro ao carregar a página de verificação. Por favor, tente novamente.")
+        st.error(f"Detalhes: {str(e)}")
