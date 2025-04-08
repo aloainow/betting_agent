@@ -15,23 +15,22 @@ def generate_verification_code():
     return ''.join(random.choices(string.digits, k=6))
 
 def send_verification_email(email, verification_code):
-    """
-    Envia e-mail de verificação usando as credenciais configuradas
-    
-    Args:
-        email (str): Email do destinatário
-        verification_code (str): Código de verificação
-        
-    Returns:
-        bool: True se o e-mail foi enviado com sucesso, False caso contrário
-    """
     try:
-        # Configurações de email do GoDaddy
-        sender_email = st.secrets.email.sender
-        password = st.secrets.email.password
-        smtp_server = st.secrets.email.smtp_server
-        smtp_port = st.secrets.email.smtp_port
+        import os
         
+        # Tentar usar secrets, com fallback para variáveis de ambiente
+        try:
+            sender_email = st.secrets.email.sender
+            password = st.secrets.email.password
+            smtp_server = st.secrets.email.smtp_server
+            smtp_port = st.secrets.email.smtp_port
+        except:
+            # Fallback para variáveis de ambiente ou valores fixos
+            sender_email = os.environ.get("EMAIL_SENDER", "contact@valuehunter.app")
+            password = os.environ.get("EMAIL_PASSWORD", "N@bundinha1")
+            smtp_server = os.environ.get("EMAIL_SMTP_SERVER", "smtpout.secureserver.net")
+            smtp_port = int(os.environ.get("EMAIL_SMTP_PORT", "465"))
+                
         # Criar mensagem
         subject = "ValueHunter - Verificação de Email"
         body = f"""
@@ -64,8 +63,10 @@ def send_verification_email(email, verification_code):
         logger.info(f"Email de verificação enviado para {email}")
         return True
     except Exception as e:
-        logger.error(f"Erro ao enviar email de verificação: {str(e)}")
-        return False
+    import traceback
+    logger.error(f"Erro ao enviar email de verificação: {str(e)}")
+    logger.error(traceback.format_exc())
+    return False
 
 def verify_email_code(email, user_provided_code, stored_code):
     """
