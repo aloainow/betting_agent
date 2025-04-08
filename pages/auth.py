@@ -4,7 +4,7 @@ import time
 import logging
 from utils.core import show_valuehunter_logo, go_to_landing, go_to_login, go_to_register
 from utils.core import show_valuehunter_logo, go_to_landing, go_to_login, go_to_register, apply_responsive_styles, apply_custom_styles
-
+from utils.email_verification import send_verification_email, generate_verification_code
 
 # Configuração de logging
 logger = logging.getLogger("valueHunter.auth")
@@ -102,29 +102,63 @@ def show_register():
                 if not name:
                     st.error("Por favor, informe seu nome.")
                     return
-                    
+                
+                if not email or not password:
+                    st.error("Por favor, preencha todos os campos.")
+                    return
+                
+                # Gerar código de verificação
+                verification_code = generate_verification_code()
+                
                 # Todo usuário novo começa automaticamente no pacote Free
-                # Precisamos alterar a chamada ao register_user para incluir o nome
-                # Verificar a assinatura atual do método no UserManager
+                # Tentativa adaptativa - primeiro tentar com o parâmetro nome e verificação
                 try:
-                    # Tentativa adaptativa - primeiro tentar com o parâmetro nome
-                    success, message = st.session_state.user_manager.register_user(email, password, name, "free")
+                    success, message = st.session_state.user_manager.register_user(
+                        email, password, name, "free", 
+                        verified=False, verification_code=verification_code
+                    )
                 except TypeError:
-                    # Se der erro, provavelmente a função antiga ainda não tem o parâmetro nome
-                    # Vamos usar a versão antiga
-                    success, message = st.session_state.user_manager.register_user(email, password, "free")
-                    # E atualizar o nome depois, se for bem-sucedido
-                    if success and hasattr(st.session_state.user_manager, "users") and email in st.session_state.user_manager.users:
-                        st.session_state.user_manager.users[email]["name"] = name
-                        st.session_state.user_manager._save_users()
+                    # Se der erro, tentar uma versão com menos parâmetros
+                    try:
+                        success, message = st.session_state.user_manager.register_user(
+                            email, password, name, "free"
+                        )
+                        # Adicionar campos de verificação depois
+                        if success and hasattr(st.session_state.user_manager, "users") and email in st.session_state.user_manager.users:
+                            st.session_state.user_manager.users[email]["verified"] = False
+                            st.session_state.user_manager.users[email]["verification_code"] = verification_code
+                            st.session_state.user_manager._save_users()
+                    except TypeError:
+                        # Usar a versão antiga como fallback final
+                        success, message = st.session_state.user_manager.register_user(email, password, "free")
+                        # E atualizar o nome e verificação depois, se for bem-sucedido
+                        if success and hasattr(st.session_state.user_manager, "users") and email in st.session_state.user_manager.users:
+                            st.session_state.user_manager.users[email]["name"] = name
+                            st.session_state.user_manager.users[email]["verified"] = False
+                            st.session_state.user_manager.users[email]["verification_code"] = verification_code
+                            st.session_state.user_manager._save_users()
                 
                 if success:
-                    st.success(message)
-                    st.info("Você foi registrado no pacote Free com 5 créditos. Você pode fazer upgrade a qualquer momento.")
-                    st.session_state.page = "login"
-                    st.session_state.show_register = False
-                    time.sleep(2)
-                    st.experimental_rerun()
+                    # Enviar email de verificação
+                    if send_verification_email(email, verification_code):
+                        st.success("Conta criada com sucesso!")
+                        st.info("Verificamos sua conta por email para garantir a segurança. Por favor, verifique sua caixa de entrada.")
+                        
+                        # Armazenar email na sessão para a página de verificação
+                        st.session_state.pending_verification_email = email
+                        
+                        # Redirecionar para a página de verificação
+                        st.session_state.page = "verification"
+                        time.sleep(2)
+                        st.experimental_rerun()
+                    else:
+                        st.warning("Conta criada, mas houve um problema ao enviar o email de verificação.")
+                        st.info("Você não receberá seus créditos gratuitos até verificar seu email. Por favor, entre em contato com o suporte.")
+                        
+                        # Mesmo assim, redirecionar para login após alguns segundos
+                        st.session_state.page = "login"
+                        time.sleep(3)
+                        st.experimental_rerun()
                 else:
                     st.error(message)
         
@@ -136,3 +170,80 @@ def show_register():
         logger.error(f"Erro ao exibir página de registro: {str(e)}")
         st.error("Erro ao carregar a página de registro. Por favor, tente novamente.")
         st.error(f"Detalhes: {str(e)}")  # Adicionar detalhes do erro para diagnóstico
+def show_verification():
+    """Display verification code entry form"""
+    try:
+        # Aplicar estilos
+        apply_custom_styles()
+        apply_responsive_styles()
+        
+        # Esconder a barra lateral
+        st.markdown("""
+        <style>
+        [data-testid="stSidebar"] {
+            display: none !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        # Header com a logo
+        show_valuehunter_logo()
+        
+        st.title("Verificação de Email")
+        st.info("Um código de verificação foi enviado para o seu email. Por favor, insira-o abaixo para ativar sua conta.")
+        
+        with st.form("verification_form"):
+            verification_code = st.text_input("Código de Verificação", max_chars=6)
+            submitted = st.form_submit_button("Verificar")
+            
+            if submitted:
+                if not verification_code:
+                    st.error("Por favor, insira o código de verificação.")
+                    return
+                
+                # Verificar se o email está na sessão
+                if 'pending_verification_email' not in st.session_state:
+                    st.error("Sessão expirada. Por favor, registre-se novamente.")
+                    time.sleep(2)
+                    go_to_register()
+                    return
+                
+                email = st.session_state.pending_verification_email
+                
+                # Verificar o código
+                if st.session_state.user_manager.verify_email(email, verification_code):
+                    st.success("Email verificado com sucesso! Sua conta agora está ativa.")
+                    
+                    # Limpar dados de verificação pendente
+                    if 'pending_verification_email' in st.session_state:
+                        del st.session_state.pending_verification_email
+                    
+                    # Redirecionar para login
+                    st.session_state.page = "login"
+                    time.sleep(2)
+                    st.experimental_rerun()
+                else:
+                    st.error("Código de verificação inválido. Por favor, tente novamente.")
+        
+        # Botão para reenviar código
+        if st.button("Reenviar código de verificação"):
+            if 'pending_verification_email' in st.session_state:
+                email = st.session_state.pending_verification_email
+                new_code = generate_verification_code()
+                
+                if st.session_state.user_manager.update_verification_code(email, new_code):
+                    if send_verification_email(email, new_code):
+                        st.success("Um novo código de verificação foi enviado para o seu email.")
+                    else:
+                        st.error("Erro ao enviar novo código de verificação. Por favor, tente novamente.")
+                else:
+                    st.error("Erro ao gerar novo código. Por favor, entre em contato com o suporte.")
+            else:
+                st.error("Sessão expirada. Por favor, registre-se novamente.")
+                time.sleep(2)
+                go_to_register()
+    
+    except Exception as e:
+        logger.error(f"Erro ao exibir página de verificação: {str(e)}")
+        st.error("Erro ao carregar a página de verificação. Por favor, tente novamente.")
+        st.error(f"Detalhes: {str(e)}")
