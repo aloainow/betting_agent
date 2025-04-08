@@ -527,6 +527,9 @@ def route_pages():
         show_login()
     elif st.session_state.page == "register":
         show_register()
+    elif st.session_state.page == "verification":
+        from pages.auth import show_verification
+        show_verification()
     elif st.session_state.page == "main":
         if not st.session_state.authenticated:
             st.warning("Sua sessão expirou. Por favor, faça login novamente.")
