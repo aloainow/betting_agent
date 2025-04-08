@@ -20,8 +20,6 @@ except Exception as e:
 
 # Configurar Streamlit para ocultar mensagens de erro
 st.set_option('client.showErrorDetails', False)
-st.set_option('server.enableCORS', True)
-st.set_option('server.enableXsrfProtection', True)
 
 # CSS para ocultar mensagens de erro do Streamlit
 st.markdown("""
