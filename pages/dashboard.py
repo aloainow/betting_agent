@@ -1417,16 +1417,14 @@ def show_main_dashboard():
                             original_probabilities=original_probabilities,
                             selected_markets=selected_markets,
                             home_team=home_team,
-                            away_team=away_team,
-                            stats_data=stats_data,  # Passando os dados estatísticos
-                            odds_data=odds_data     # Passando as odds
+                            away_team=away_team
                         )
                         
                         if not analysis:
                             status.error("Falha na análise com IA")
                             return
                         
-                       # Etapa 5: Mostrar resultado
+                        # Etapa 5: Mostrar resultado
                         if analysis:
                             # Limpar status
                             status.empty()
@@ -1439,70 +1437,12 @@ def show_main_dashboard():
                                     if "</div>" in analysis:
                                         analysis = analysis.replace("</div>", "")
                             
-                            # IMPORTANTE: Aqui está a modificação principal
-                            # Aplicar apenas UMA vez a formatação e mostrar apenas UMA vez o resultado final
-                            try:
-                                logger.info("Processando análise para exibição")
-                                
-                                # Aplicar formatação da análise
-                                formatted_analysis = format_analysis_response(
-                                    analysis, 
-                                    home_team, 
-                                    away_team, 
-                                    selected_markets, 
-                                    original_probabilities, 
-                                    odds_data, 
-                                    implied_probabilities
-                                )
-                                
-                                # Adicionar justificativas simples se necessário
-                                from utils.ai import add_simple_justifications
-                                justifications_added = add_simple_justifications(formatted_analysis, home_team, away_team)
-                                
-                                # Enriquecer com avaliação de oportunidades
-                                enhanced_analysis = add_opportunity_evaluation(justifications_added)
-                                
-                                # EXIBIR APENAS UMA VEZ - usando st.code
-                                st.code(enhanced_analysis, language=None)
-                                
-                                # Registrar uso após análise bem-sucedida
-                                num_markets = sum(1 for v in selected_markets.values() if v)
-                                
-                                # Registro de uso com dados detalhados
-                                analysis_data = {
-                                    "league": selected_league,
-                                    "home_team": home_team,
-                                    "away_team": away_team,
-                                    "markets_used": [k for k, v in selected_markets.items() if v]
-                                }
-                                
-                                # Chamada para registrar uso (garantir que é feita apenas uma vez)
-                                success = st.session_state.user_manager.record_usage(
-                                    st.session_state.email, 
-                                    num_markets,
-                                    analysis_data
-                                )
-                                
-                                # Atualização do cache e mensagem de sucesso
-                                if success:
-                                    # Forçar atualização do cache de estatísticas
-                                    if hasattr(st.session_state, 'user_stats_cache'):
-                                        del st.session_state.user_stats_cache  # Remover cache para forçar reload
-                                        
-                                    # Mostrar mensagem de sucesso com créditos restantes
-                                    updated_stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
-                                    credits_after = updated_stats['credits_remaining']
-                                    st.success(f"{num_markets} créditos foram consumidos. Agora você tem {credits_after} créditos.")
-                                else:
-                                    st.error("Não foi possível registrar o uso dos créditos. Por favor, tente novamente.")
-                                    
-                            except Exception as processing_error:
-                                logger.error(f"Erro ao processar resultado da análise: {str(processing_error)}")
-                                logger.error(traceback.format_exc())
-                                
-                                # Em caso de erro, mostrar a análise original sem formatação adicional
-                                st.code(analysis, language=None)
-                                st.error(f"Ocorreu um erro ao processar o resultado: {str(processing_error)}")                            
+                            # IMPORTANTE: Aplicar formatação avançada para garantir filtragem por mercados selecionados
+                            from utils.ai import format_analysis_response
+                            
+                            # Adiciona módulo re para expressões regulares caso não esteja importado
+                            import re
+                            
                             # Reconstrução completa da análise
                             def reconstruct_analysis(analysis_text, home_team, away_team, selected_markets, original_probabilities, implied_probabilities, odds_data):
                                 try:
@@ -1963,8 +1903,15 @@ def show_main_dashboard():
                                     return f"Erro ao processar análise: {str(e)}"
                             
                             # Usar a análise de texto da API como base, mas reconstruir completamente as seções críticas
-                            formatted_analysis = analysis
-                         
+                            formatted_analysis = reconstruct_analysis(
+                                analysis,
+                                home_team,
+                                away_team,
+                                selected_markets,
+                                original_probabilities,
+                                implied_probabilities,
+                                odds_data
+                            )
                             
                             # Enriquecer a análise com avaliações de oportunidades
                             enhanced_analysis = add_opportunity_evaluation(formatted_analysis)
