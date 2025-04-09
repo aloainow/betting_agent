@@ -1914,8 +1914,17 @@ def show_main_dashboard():
                                 odds_data
                             )
                             
+                            # Adicionar justificativas à análise
+                            formatted_analysis = add_justifications_to_analysis(
+                                formatted_analysis,
+                                stats_data,
+                                home_team,
+                                away_team
+                            )
+                            
                             # Enriquecer a análise com avaliações de oportunidades
                             enhanced_analysis = add_opportunity_evaluation(formatted_analysis)
+
                             
                             # Exibir apenas a análise enriquecida (não a original)
                             st.code(enhanced_analysis, language=None)
@@ -2172,7 +2181,7 @@ def evaluate_opportunity(real_prob, margin):
         return "BAIXA", "Probabilidade e margem insuficientes"
 
 # Função para adicionar a avaliação ao final da análise
-def add_opportunity_evaluation(analysis_text):
+ef add_opportunity_evaluation(analysis_text):
     """
     Adiciona uma avaliação das oportunidades ao final do texto de análise
     
@@ -2253,6 +2262,12 @@ def add_opportunity_evaluation(analysis_text):
     evaluation_text += "- ⚠️ RAZOÁVEL: Ou boa probabilidade ou boa margem\n"
     evaluation_text += "- ❌ BAIXA: Probabilidade e margem insuficientes\n"
 
+    from utils.opportunity_justification import add_justifications_to_analysis
+    if 'stats_data' in globals() and stats_data and 'home_team' in globals() and 'away_team' in globals():
+        analysis_text = add_justifications_to_analysis(analysis_text, stats_data, home_team, away_team)
+
+
+    # Adicionar justificativas antes de retornar
     from utils.opportunity_justification import add_justifications_to_analysis
     if 'stats_data' in globals() and stats_data and 'home_team' in globals() and 'away_team' in globals():
         analysis_text = add_justifications_to_analysis(analysis_text, stats_data, home_team, away_team)
