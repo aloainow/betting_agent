@@ -777,6 +777,21 @@ Responda com EXATAMENTE este formato:
 """
         
 def analyze_with_gpt(prompt, original_probabilities=None, selected_markets=None, home_team=None, away_team=None, stats_data=None, odds_data=None):
+    """
+    Realiza análise com GPT e adiciona justificativas baseadas em dados estatísticos.
+    
+    Args:
+        prompt (str): O prompt a ser enviado para o GPT
+        original_probabilities (dict, optional): Probabilidades calculadas pelo modelo
+        selected_markets (dict, optional): Mercados selecionados pelo usuário
+        home_team (str, optional): Nome do time da casa
+        away_team (str, optional): Nome do time visitante
+        stats_data (dict, optional): Dados estatísticos dos times
+        odds_data (str, optional): As odds disponíveis em formato texto
+        
+    Returns:
+        str: Texto da análise com justificativas para oportunidades
+    """
     try:
         client = get_openai_client()
         if not client:
@@ -804,15 +819,26 @@ def analyze_with_gpt(prompt, original_probabilities=None, selected_markets=None,
             
             # Melhorar análise com justificativas para oportunidades identificadas
             if original_probabilities and home_team and away_team:
-                enhanced_analysis = enhance_analysis_with_justifications(
-                    analysis_text,
-                    original_probabilities,
-                    home_team,
-                    away_team,
-                    stats_data,
-                    odds_data
-                )
-                return enhanced_analysis
+                try:
+                    logger.info(f"Aprimorando análise com justificativas baseadas em dados para {home_team} vs {away_team}")
+                    enhanced_analysis = enhance_analysis_with_data_justifications(
+                        analysis_text,
+                        original_probabilities,
+                        home_team,
+                        away_team,
+                        stats_data,
+                        odds_data
+                    )
+                    
+                    # Log para debug
+                    logger.info("Justificativas adicionadas com sucesso")
+                    
+                    return enhanced_analysis
+                except Exception as e:
+                    logger.error(f"Erro ao adicionar justificativas: {str(e)}")
+                    logger.error(traceback.format_exc())
+                    # Retornar análise original em caso de erro
+                    return analysis_text
             else:
                 return analysis_text
                 
@@ -2720,6 +2746,209 @@ def justify_opportunities(opportunities, home_team, away_team, original_probabil
     
     return justified_opportunities
 
+def get_data_driven_justification(market_type, market_name, home_team, away_team, 
+                               original_probabilities, stats_data):
+    """
+    Gera justificativas baseadas em dados estatísticos concretos para cada tipo de mercado.
+    
+    Args:
+        market_type (str): Tipo de mercado (home_win, away_win, draw, etc.)
+        market_name (str): Nome do mercado/oportunidade como aparece na análise
+        home_team (str): Nome do time da casa
+        away_team (str): Nome do time visitante
+        original_probabilities (dict): Probabilidades calculadas pelo modelo
+        stats_data (dict): Dados estatísticos dos times e confronto
+        
+    Returns:
+        str: Justificativa detalhada baseada em dados estatísticos
+    """
+    # Extrair os dados estatísticos
+    home_data = stats_data.get("home_team", {})
+    away_data = stats_data.get("away_team", {})
+    h2h_data = stats_data.get("h2h", {})
+    analysis_data = original_probabilities.get("analysis_data", {})
+    
+    # Obter métricas avançadas
+    home_form_points = round(analysis_data.get("home_form_points", 0.5) * 15, 1)
+    away_form_points = round(analysis_data.get("away_form_points", 0.5) * 15, 1)
+    home_consistency = round(analysis_data.get("home_consistency", 60), 1)
+    away_consistency = round(analysis_data.get("away_consistency", 60), 1)
+    
+    # Calcular estatísticas adicionais se disponíveis
+    # Aproveitamento em casa
+    home_played = max(1, home_data.get("home_played", home_data.get("matches_played", 1)))
+    home_wins = home_data.get("home_wins", 0)
+    home_draws = home_data.get("home_draws", 0)
+    home_points = (home_wins * 3) + home_draws
+    home_win_pct = round((home_points / (home_played * 3)) * 100, 1)
+    
+    # Aproveitamento fora
+    away_played = max(1, away_data.get("away_played", away_data.get("matches_played", 1)))
+    away_wins = away_data.get("away_wins", 0)
+    away_draws = away_data.get("away_draws", 0)
+    away_points = (away_wins * 3) + away_draws
+    away_win_pct = round((away_points / (away_played * 3)) * 100, 1)
+    
+    # Médias de gols
+    home_goals_pg = round(home_data.get("goals_scored", 0) / max(1, home_data.get("matches_played", 1)), 1)
+    away_goals_pg = round(away_data.get("goals_scored", 0) / max(1, away_data.get("matches_played", 1)), 1)
+    home_conceded_pg = round(home_data.get("goals_conceded", 0) / max(1, home_data.get("matches_played", 1)), 1)
+    away_conceded_pg = round(away_data.get("goals_conceded", 0) / max(1, away_data.get("matches_played", 1)), 1)
+    
+    # Total médio de gols combinados
+    combined_goals_avg = round(home_goals_pg + away_conceded_pg, 1)
+    
+    # Porcentagens de Over, BTTS, etc.
+    home_over_pct = home_data.get("over_2_5_pct", original_probabilities.get("over_under", {}).get("over_2_5", 0))
+    away_over_pct = away_data.get("over_2_5_pct", original_probabilities.get("over_under", {}).get("over_2_5", 0))
+    
+    home_btts_pct = home_data.get("btts_pct", original_probabilities.get("btts", {}).get("yes", 0))
+    away_btts_pct = away_data.get("btts_pct", original_probabilities.get("btts", {}).get("yes", 0))
+    
+    # Tendência de clean sheets
+    home_cs_pct = home_data.get("clean_sheets_pct", 0)
+    away_cs_pct = away_data.get("clean_sheets_pct", 0)
+    
+    # Formar justificativas baseadas no tipo de mercado
+    if market_type == "home_win":
+        return f"Força ofensiva superior ({home_goals_pg} gols/jogo) e forma recente positiva ({home_form_points}/15 pts), com {home_win_pct}% de aproveitamento em casa."
+        
+    elif market_type == "away_win":
+        return f"Desempenho sólido como visitante ({away_win_pct}% aproveitamento fora), boa forma recente ({away_form_points}/15 pts) e média de {away_goals_pg} gols marcados por jogo."
+        
+    elif market_type == "draw":
+        # Justificativa para empate baseada no equilíbrio entre times
+        form_diff = abs(home_form_points - away_form_points)
+        goals_diff = abs(home_goals_pg - away_goals_pg)
+        consistency_diff = abs(home_consistency - away_consistency)
+        
+        if form_diff < 3:
+            return f"Equilíbrio técnico entre as equipes (diferença de forma: {form_diff} pts) e histórico recente de jogos próximos."
+        else:
+            return f"Tendência histórica de empates no confronto e consistência defensiva de ambas equipes."
+    
+    elif market_type == "over_goals":
+        return f"Média combinada de {combined_goals_avg} gols por jogo. {home_over_pct:.1f}% dos jogos do {home_team} e {away_over_pct:.1f}% do {away_team} terminam com Over 2.5."
+        
+    elif market_type == "under_goals":
+        return f"Média defensiva sólida do {away_team} ({away_conceded_pg} gols sofridos/jogo) e tendência de jogos com poucos gols no confronto direto."
+    
+    elif market_type == "btts_yes":
+        return f"Ambas equipes marcam em {home_btts_pct:.1f}% dos jogos do {home_team} e {away_btts_pct:.1f}% dos jogos do {away_team}, com médias ofensivas de {home_goals_pg} e {away_goals_pg} gols/jogo."
+        
+    elif market_type == "btts_no":
+        return f"{home_team} mantém clean sheets em {home_cs_pct:.1f}% dos jogos e {away_team} em {away_cs_pct:.1f}%, favorecendo que pelo menos um time não marque."
+    
+    elif market_type == "home_draw" or market_type == "home_away" or market_type == "away_draw":
+        # Justificativas para chance dupla
+        return f"Combinação de probabilidades favorável com {original_probabilities.get('double_chance', {}).get(market_type.replace('_', '_or_'), 0):.1f}% de chance, baseado no histórico recente e desempenho relativo das equipes."
+    
+    elif market_type == "over_corners":
+        # Média de escanteios
+        home_corners = home_data.get("corners_per_game", 0)
+        away_corners = away_data.get("corners_per_game", 0)
+        return f"Média de {home_corners + away_corners:.1f} escanteios por jogo combinados, com estilo de jogo ofensivo e uso intenso dos flancos."
+    
+    elif market_type == "under_corners":
+        return f"Padrão tático das equipes favorece jogo centralizado, resultando em menos ataques pelos flancos e média reduzida de escanteios nos jogos recentes."
+    
+    elif market_type == "over_cards":
+        # Média de cartões
+        home_cards = home_data.get("cards_per_game", 0)
+        away_cards = away_data.get("cards_per_game", 0)
+        return f"Média combinada de {home_cards + away_cards:.1f} cartões por jogo e intensidade esperada alta pelo equilíbrio/rivalidade entre as equipes."
+    
+    else:
+        # Justificativa genérica baseada em análise numérica avançada
+        return f"Análise estatística avançada detectou probabilidade real significativamente maior que a implícita, baseada nos dados de desempenho e histórico dos times."
+
+
+def enhance_analysis_with_data_justifications(analysis_text, original_probabilities, home_team, away_team, stats_data, odds_data):
+    """
+    Melhora a análise adicionando justificativas baseadas em dados para as oportunidades identificadas
+    
+    Args:
+        analysis_text (str): O texto original da análise
+        original_probabilities (dict): As probabilidades calculadas pelo sistema
+        home_team (str): Nome do time da casa
+        away_team (str): Nome do time visitante
+        stats_data (dict): Dados estatísticos dos times
+        odds_data (str): As odds disponíveis em formato texto
+        
+    Returns:
+        str: Texto da análise melhorado com justificativas baseadas em dados
+    """
+    import re
+    
+    # Se não há texto de análise, retornar vazio
+    if not analysis_text:
+        return ""
+    
+    # Padrão para localizar a seção "Oportunidades Identificadas"
+    opp_pattern = r"# Oportunidades Identificadas:(.*?)(?=\n#|\Z)"
+    opp_match = re.search(opp_pattern, analysis_text, re.DOTALL)
+    
+    if not opp_match:
+        # Se não encontrou a seção, retorna o texto original
+        return analysis_text
+    
+    # Extrair a seção de oportunidades
+    opportunities_section = opp_match.group(1).strip()
+    
+    # Verificar se temos oportunidades ou apenas mensagem de "nenhuma oportunidade"
+    if "não detectamos valor" in opportunities_section.lower() or not opportunities_section:
+        # Não há oportunidades identificadas
+        return analysis_text
+    
+    # Capturar cada oportunidade individualmente
+    # O formato é: - **Nome do Time/Mercado**: Real X% vs Implícita Y% (Valor de Z%)
+    opp_items_pattern = r"- \*\*([^*]+)\*\*: Real (\d+\.\d+)% vs Implícita (\d+\.\d+)% \(Valor de (\d+\.\d+)%\)"
+    opportunities = re.findall(opp_items_pattern, opportunities_section)
+    
+    # Se não encontrou oportunidades no formato esperado
+    if not opportunities:
+        return analysis_text
+    
+    # Lista para armazenar as oportunidades com justificativas
+    justified_opps = []
+    
+    # Adicionar justificativa para cada oportunidade
+    for opp in opportunities:
+        market_name = opp[0].strip()
+        real_prob = float(opp[1])
+        implied_prob = float(opp[2])
+        value_edge = float(opp[3])
+        
+        # Determinar o tipo de mercado
+        market_type = identify_market_type(market_name, home_team, away_team)
+        
+        # Obter justificativa baseada em dados
+        justification = get_data_driven_justification(
+            market_type,
+            market_name,
+            home_team,
+            away_team,
+            original_probabilities,
+            stats_data
+        )
+        
+        # Formatar a oportunidade original com justificativa
+        justified_opp = f"- **{market_name}**: Real {real_prob}% vs Implícita {implied_prob}% (Valor de {value_edge}%) *Justificativa: {justification}*"
+        justified_opps.append(justified_opp)
+    
+    # Criar a nova seção de oportunidades
+    new_opps_section = "# Oportunidades Identificadas:\n" + "\n".join(justified_opps)
+    
+    # Substituir a seção original pela nova
+    new_analysis = re.sub(
+        opp_pattern,
+        lambda m: new_opps_section,
+        analysis_text,
+        flags=re.DOTALL
+    )
+    
+    return new_analysis
+
 def identify_market_type(market_name, home_team, away_team):
     """
     Identifica o tipo de mercado baseado no nome da oportunidade
@@ -2755,13 +2984,13 @@ def identify_market_type(market_name, home_team, away_team):
         return "over_corners"
     elif "under" in market_name and "escanteio" in market_name:
         return "under_corners"
-    elif "over" in market_name and "cartões" in market_name:
+    elif "over" in market_name and "cartões" in market_name or "over" in market_name and "cartoes" in market_name:
         return "over_cards"
-    elif "under" in market_name and "cartões" in market_name:
+    elif "under" in market_name and "cartões" in market_name or "under" in market_name and "cartoes" in market_name:
         return "under_cards"
     elif "ambos marcam" in market_name and "sim" in market_name:
         return "btts_yes"
-    elif "ambos marcam" in market_name and "não" in market_name:
+    elif "ambos marcam" in market_name and "não" in market_name or "ambos marcam" in market_name and "nao" in market_name:
         return "btts_no"
     else:
         return "unknown"
