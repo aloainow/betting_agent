@@ -7,7 +7,9 @@ import time
 import streamlit as st
 from utils.core import show_valuehunter_logo, go_to_login, update_purchase_button, DATA_DIR, apply_custom_styles
 from utils.data import parse_team_stats, get_odds_data, format_prompt
-from utils.ai import analyze_with_gpt, format_enhanced_prompt, format_highly_optimized_prompt, calculate_advanced_probabilities, add_opportunity_justifications
+from utils.ai import analyze_with_gpt, format_enhanced_prompt, format_highly_optimized_prompt
+from utils.ai import analyze_with_gpt, format_enhanced_prompt, format_highly_optimized_prompt, calculate_advanced_probabilities
+
 # Configuração de logging
 logger = logging.getLogger("valueHunter.dashboard")
 
@@ -1434,15 +1436,6 @@ def show_main_dashboard():
                                     analysis = analysis.replace("<div class=\"analysis-result\">", "")
                                     if "</div>" in analysis:
                                         analysis = analysis.replace("</div>", "")
-                            
-                            # Adicionar justificativas para as oportunidades identificadas
-                            analysis_with_justifications = add_opportunity_justifications(analysis, stats_data)
-                            
-                            # Enriquecer a análise com avaliações de oportunidades
-                            enhanced_analysis = add_opportunity_evaluation(analysis_with_justifications)
-                            
-                            # Exibir apenas a análise enriquecida (não a original)
-                            st.code(enhanced_analysis, language=None)
                             
                             # IMPORTANTE: Aplicar formatação avançada para garantir filtragem por mercados selecionados
                             from utils.ai import format_analysis_response
