@@ -1417,7 +1417,9 @@ def show_main_dashboard():
                             original_probabilities=original_probabilities,
                             selected_markets=selected_markets,
                             home_team=home_team,
-                            away_team=away_team
+                            away_team=away_team,
+                            stats_data=stats_data,  # Passando os dados estatísticos
+                            odds_data=odds_data     # Passando as odds
                         )
                         
                         if not analysis:
