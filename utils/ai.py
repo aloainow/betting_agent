@@ -3484,3 +3484,102 @@ def add_justification_only(analysis_text, home_team, away_team, stats_data=None)
         logger.error(traceback.format_exc())
         # Em caso de erro, retornar o texto original sem modificações
         return analysis_text
+def add_simple_justifications(analysis_text, home_team, away_team):
+    """
+    Adiciona justificativas simples às oportunidades identificadas sem afetar o restante da formatação.
+    
+    Args:
+        analysis_text (str): Texto da análise
+        home_team (str): Nome do time da casa
+        away_team (str): Nome do time visitante
+        
+    Returns:
+        str: Análise com justificativas adicionadas apenas à seção de oportunidades
+    """
+    import re
+    import logging
+    logger = logging.getLogger("valueHunter.ai")
+    
+    try:
+        # Encontrar a seção de oportunidades identificadas
+        opp_pattern = r"# Oportunidades Identificadas:(.*?)(?=\n#|\Z)"
+        opp_match = re.search(opp_pattern, analysis_text, re.DOTALL)
+        
+        if not opp_match:
+            logger.warning("Seção de oportunidades não encontrada")
+            return analysis_text
+            
+        original_section = opp_match.group(0)  # Inclui o cabeçalho
+        opp_content = opp_match.group(1).strip()
+        
+        # Se não há oportunidades identificadas ou já há justificativas
+        if not opp_content or "não detectamos valor" in opp_content.lower() or "*Justificativa:" in original_section:
+            return analysis_text
+        
+        # Processar cada linha da seção de oportunidades
+        new_lines = []
+        
+        for line in opp_content.split('\n'):
+            if not line.strip():
+                new_lines.append(line)
+                continue
+                
+            # Verificar se a linha é uma oportunidade
+            if not line.strip().startswith("- **") or "Real" not in line or "Implícita" not in line:
+                new_lines.append(line)
+                continue
+            
+            # Extrair nome do mercado
+            market_match = re.search(r"\*\*([^*]+)\*\*", line)
+            if not market_match:
+                new_lines.append(line)
+                continue
+                
+            market_name = market_match.group(1).strip()
+            
+            # Tentar extrair probabilidades para enriquecer a justificativa
+            prob_match = re.search(r"Real (\d+\.\d+)% vs Implícita (\d+\.\d+)%.*?Valor de (\d+\.\d+)%", line)
+            real_prob = float(prob_match.group(1)) if prob_match else 0
+            implied_prob = float(prob_match.group(2)) if prob_match else 0
+            edge = float(prob_match.group(3)) if prob_match else 0
+            
+            # Extrair dados adicionais da análise para enriquecer a justificativa
+            # Forma dos times
+            form_match = re.search(r"Forma Recente.*?(\d+)/15.*?(\d+)/15", analysis_text, re.DOTALL)
+            home_form = form_match.group(1) if form_match else "?"
+            away_form = form_match.group(2) if form_match else "?"
+            
+            # Criar justificativa específica por tipo de mercado
+            if home_team.lower() in market_name.lower():
+                justification = f"Forma recente positiva ({home_form}/15 pts) e vantagem de jogar em casa aumentam significativamente as chances reais para {real_prob}%, bem acima dos {implied_prob}% implícitos."
+            elif away_team.lower() in market_name.lower():
+                justification = f"Desempenho consistente como visitante e boa forma atual ({away_form}/15 pts) criam valor estatístico significativo com {edge}% de vantagem sobre as odds."
+            elif "empate" in market_name.lower():
+                justification = f"Equilíbrio técnico entre as equipes (forma {home_form}/15 vs {away_form}/15) aumenta a probabilidade real de empate para {real_prob}%, acima dos {implied_prob}% implícitos."
+            elif "over" in market_name.lower() and "gol" in market_name.lower():
+                justification = f"Potencial ofensivo combinado e tendências recentes indicam probabilidade real de {real_prob}% para mais gols, criando {edge}% de vantagem sobre as odds."
+            elif "under" in market_name.lower() and "gol" in market_name.lower():
+                justification = f"Padrão defensivo e estratégia tática esperada resultam em probabilidade real de {real_prob}%, significativamente maior que os {implied_prob}% implícitos."
+            elif "ambos marcam" in market_name.lower() or "btts" in market_name.lower():
+                justification = f"Histórico ofensivo recente de ambas equipes indica {real_prob}% de chance real, gerando {edge}% de vantagem sobre as odds atuais."
+            else:
+                justification = f"Análise estatística avançada revela probabilidade real de {real_prob}% contra {implied_prob}% implícita, gerando {edge}% de valor estatístico."
+            
+            # Adicionar justificativa à linha original
+            justified_line = f"{line} *Justificativa: {justification}*"
+            new_lines.append(justified_line)
+        
+        # Criar nova seção de oportunidades
+        new_section = "# Oportunidades Identificadas:\n" + "\n".join(new_lines)
+        
+        # Substituir a seção original no texto
+        new_analysis = analysis_text.replace(original_section, new_section)
+        
+        return new_analysis
+        
+    except Exception as e:
+        logger.error(f"Erro ao adicionar justificativas: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        # Em caso de erro, retornar o texto original sem modificações
+        return analysis_text
