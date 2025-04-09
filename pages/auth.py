@@ -11,6 +11,8 @@ logger = logging.getLogger("valueHunter.auth")
 
 # Adicionar à páginas/auth.py
 
+# Modificação na função show_login() em pages/auth.py
+
 def show_login():
     """Display login form"""
     try:
@@ -59,26 +61,12 @@ def show_login():
                     logger.error(f"Erro durante autenticação: {str(e)}")
                     st.error("Erro ao processar login. Por favor, tente novamente.")
         
-        # Link para recuperação de senha
-        st.markdown("<div style='text-align: center;'><a href='#' id='forgot-password-link'>Esqueci minha senha</a></div>", unsafe_allow_html=True)
-        
-        # JavaScript para detectar clique no link e redirecionar para recuperação de senha
-        st.markdown("""
-        <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                document.getElementById('forgot-password-link').addEventListener('click', function(e) {
-                    e.preventDefault();
-                    window.location.search = '?page=password_recovery';
-                });
-            });
-        </script>
-        """, unsafe_allow_html=True)
-        
-        # Verificar parâmetros de consulta para redirecionamento
-        if 'page' in st.query_params and st.query_params['page'] == 'password_recovery':
-            st.session_state.page = "password_recovery"
-            del st.query_params['page']
-            st.experimental_rerun()
+        # Link para recuperação de senha - usando botão Streamlit em vez de JavaScript
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("Esqueci minha senha", use_container_width=True, key="forgot_pwd_btn"):
+                st.session_state.page = "password_recovery"
+                st.experimental_rerun()
         
         # Registration link
         st.markdown("---")
