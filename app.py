@@ -517,6 +517,7 @@ def main():
         traceback.print_exc()
 
 def route_pages():
+if "page" in st.session_state:
     if st.session_state.page == "landing":
         show_landing_page()
     elif st.session_state.page == "login":
@@ -524,23 +525,31 @@ def route_pages():
     elif st.session_state.page == "register":
         show_register()
     elif st.session_state.page == "verification":
-        from pages.auth import show_verification
         show_verification()
+    elif st.session_state.page == "password_recovery":
+        show_password_recovery()
+    elif st.session_state.page == "password_reset_code":
+        show_password_reset_code()
+    elif st.session_state.page == "password_reset":
+        show_password_reset()
     elif st.session_state.page == "main":
-        if not st.session_state.authenticated:
-            st.warning("Sua sessão expirou. Por favor, faça login novamente.")
+        if st.session_state.authenticated:
+            show_main_dashboard()
+        else:
             go_to_login()
-            return
-        show_main_dashboard()
+    elif st.session_state.page == "admin":
+        # Esta é a página admin
+        pass
     elif st.session_state.page == "packages":
-        if not st.session_state.authenticated:
-            st.warning("Você precisa fazer login para acessar os pacotes.")
-            go_to_login()
-            return
         show_packages_page()
     else:
+        # Página desconhecida, voltar para a landing
         st.session_state.page = "landing"
         st.experimental_rerun()
+else:
+    # Estado da sessão não inicializado, voltar para a landing
+    st.session_state.page = "landing"
+    st.experimental_rerun()
 
 # Executar a aplicação
 if __name__ == "__main__":
