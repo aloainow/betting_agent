@@ -2455,8 +2455,25 @@ def show_opportunities_text_only(analysis_text):
     output_text += "- ⚠️ Razoável: Ou boa probabilidade ou boa margem\n"
     output_text += "- ❌ Baixa: Probabilidade e margem insuficientes\n"
     
+    from opportunity_justification import add_justifications_to_analysis
+
+    output_text = format_highly_optimized_prompt(...)
+    
+    # Inserir justificativas automáticas nas oportunidades identificadas
+    output_text = add_justifications_to_analysis(
+        analysis_text=output_text,
+        stats_data={
+            "home_team": optimized_data.get("home_team", {}),
+            "away_team": optimized_data.get("away_team", {}),
+            "h2h": optimized_data.get("h2h", {})
+        },
+        home_team=home_team,
+        away_team=away_team
+    )
+    
     # Mostrar o texto
     st.markdown(output_text)
+
 
 # Versão ultra minimalista usando apenas texto simples (sem markdown)
 def show_opportunities_ultra_simple(analysis_text):
