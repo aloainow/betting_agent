@@ -350,3 +350,138 @@ def generate_opportunity_justification(opportunity_name, real_prob, stats_data, 
                 
                 if justification_parts:
                     justification = "Justificativa: " + ", ".join(justification_parts) + "."
+        
+        # 5. Chance Dupla
+        elif "ou" in opportunity_name or "Chance Dupla" in opportunity_name:
+            # Chance Dupla - identificar qual é
+            is_home_draw = home_team in opportunity_name and "Empate" in opportunity_name  # 1X
+            is_home_away = home_team in opportunity_name and away_team in opportunity_name  # 12
+            is_draw_away = "Empate" in opportunity_name and away_team in opportunity_name  # X2
+            
+            justification_parts = []
+            
+            if is_home_draw:  # 1X
+                home_wins = home_stats.get("wins", 0)
+                home_draws = home_stats.get("draws", 0)
+                home_played = home_stats.get("played", 1)
+                home_not_lose_percent = ((home_wins + home_draws) / home_played) * 100 if home_played > 0 else 0
+                
+                # H2H
+                h2h_home_wins = h2h_stats.get("home_wins", 0)
+                h2h_draws = h2h_stats.get("draws", 0)
+                h2h_matches = h2h_stats.get("matches", 0)
+                h2h_home_not_lose = ((h2h_home_wins + h2h_draws) / h2h_matches) * 100 if h2h_matches > 0 else 0
+                
+                if home_not_lose_percent >= 60:
+                    justification_parts.append(f"{home_team} raramente perde ({home_not_lose_percent:.0f}% sem derrota)")
+                
+                if h2h_matches >= 3 and h2h_home_not_lose >= 60:
+                    justification_parts.append(f"histórico favorável no confronto direto ({h2h_home_not_lose:.0f}% sem derrota)")
+                
+                home_home_wins = home_stats.get("home_wins", 0)
+                home_home_draws = home_stats.get("home_draws", 0)
+                home_home_played = home_stats.get("home_played", 1)
+                
+                if home_home_played > 0:
+                    home_home_not_lose = ((home_home_wins + home_home_draws) / home_home_played) * 100
+                    if home_home_not_lose >= 70:
+                        justification_parts.append(f"força como mandante ({home_home_not_lose:.0f}% sem perder em casa)")
+            
+            elif is_home_away:  # 12
+                home_wins = home_stats.get("wins", 0)
+                away_wins = away_stats.get("wins", 0)
+                home_played = home_stats.get("played", 1)
+                away_played = away_stats.get("played", 1)
+                
+                home_win_percent = (home_wins / home_played) * 100 if home_played > 0 else 0
+                away_win_percent = (away_wins / away_played) * 100 if away_played > 0 else 0
+                
+                combined_win_percent = (home_win_percent + away_win_percent) / 2
+                
+                # H2H
+                h2h_home_wins = h2h_stats.get("home_wins", 0)
+                h2h_away_wins = h2h_stats.get("away_wins", 0)
+                h2h_matches = h2h_stats.get("matches", 0)
+                h2h_no_draw_percent = ((h2h_home_wins + h2h_away_wins) / h2h_matches) * 100 if h2h_matches > 0 else 0
+                
+                if combined_win_percent >= 60:
+                    justification_parts.append(f"ambas equipes têm bom aproveitamento ({home_win_percent:.0f}% e {away_win_percent:.0f}%)")
+                
+                if h2h_matches >= 3 and h2h_no_draw_percent >= 70:
+                    justification_parts.append(f"histórico de decisão sem empates ({h2h_no_draw_percent:.0f}%)")
+                
+                home_draws = home_stats.get("draws", 0)
+                away_draws = away_stats.get("draws", 0)
+                
+                home_draw_percent = (home_draws / home_played) * 100 if home_played > 0 else 0
+                away_draw_percent = (away_draws / away_played) * 100 if away_played > 0 else 0
+                
+                if home_draw_percent < 20 or away_draw_percent < 20:
+                    justification_parts.append("baixa incidência de empates")
+            
+            elif is_draw_away:  # X2
+                away_wins = away_stats.get("wins", 0)
+                away_draws = away_stats.get("draws", 0)
+                away_played = away_stats.get("played", 1)
+                away_not_lose_percent = ((away_wins + away_draws) / away_played) * 100 if away_played > 0 else 0
+                
+                # H2H
+                h2h_away_wins = h2h_stats.get("away_wins", 0)
+                h2h_draws = h2h_stats.get("draws", 0)
+                h2h_matches = h2h_stats.get("matches", 0)
+                h2h_away_not_lose = ((h2h_away_wins + h2h_draws) / h2h_matches) * 100 if h2h_matches > 0 else 0
+                
+                if away_not_lose_percent >= 50:
+                    justification_parts.append(f"{away_team} é resiliente ({away_not_lose_percent:.0f}% sem derrota)")
+                
+                if h2h_matches >= 3 and h2h_away_not_lose >= 50:
+                    justification_parts.append(f"bom histórico no confronto direto ({h2h_away_not_lose:.0f}% sem derrota)")
+                
+                away_away_wins = away_stats.get("away_wins", 0)
+                away_away_draws = away_stats.get("away_draws", 0)
+                away_away_played = away_stats.get("away_played", 1)
+                
+                if away_away_played > 0:
+                    away_away_not_lose = ((away_away_wins + away_away_draws) / away_away_played) * 100
+                    if away_away_not_lose >= 50:
+                        justification_parts.append(f"bom desempenho como visitante ({away_away_not_lose:.0f}% sem perder fora)")
+            
+            if justification_parts:
+                justification = "Justificativa: " + ", ".join(justification_parts) + "."
+        
+        # 6. Escanteios
+        elif "Escanteios" in opportunity_name:
+            # Tentar extrair estatísticas de escanteios
+            if "home_corners" in home_stats and "away_corners" in away_stats:
+                home_corners_scored = home_stats.get("home_corners", 0)
+                away_corners_scored = away_stats.get("away_corners", 0)
+                
+                home_played = home_stats.get("played", 1)
+                away_played = away_stats.get("played", 1)
+                
+                home_corners_avg = home_corners_scored / home_played if home_played > 0 else 0
+                away_corners_avg = away_corners_scored / away_played if away_played > 0 else 0
+                
+                combined_corners_avg = home_corners_avg + away_corners_avg
+                
+                # Extrair valor da linha
+                corners_value = 9.5  # Valor padrão
+                if "Over" in opportunity_name:
+                    match = re.search(r"Over (\d+\.?\d*)", opportunity_name)
+                    if match:
+                        corners_value = float(match.group(1))
+                    
+                    # Justificativa para Over Escanteios
+                    justification_parts = []
+                    
+                    if combined_corners_avg > corners_value:
+                        justification_parts.append(f"média combinada de {combined_corners_avg:.1f} escanteios por jogo")
+                    
+                    if home_corners_avg > 5.5:
+                        justification_parts.append(f"{home_team} produz muitos escanteios ({home_corners_avg:.1f} por jogo)")
+                    
+                    if away_corners_avg > 4.5:
+                        justification_parts.append(f"{away_team} também gera bom volume ({away_corners_avg:.1f} por jogo)")
+                    
+                    if justification_parts:
+                        justification = "Justificativa: " + ", ".join(justification_parts) + "."
