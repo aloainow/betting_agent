@@ -1913,8 +1913,11 @@ def show_main_dashboard():
                                 odds_data
                             )
                             
-                            # Exibir o resultado formatado
-                            st.code(formatted_analysis, language=None)
+                            # Enriquecer a análise com avaliações de oportunidades
+                            enhanced_analysis = add_opportunity_evaluation(formatted_analysis)
+                            
+                            # Exibir apenas a análise enriquecida (não a original)
+                            st.code(enhanced_analysis, language=None)
                             
                             # Registrar uso após análise bem-sucedida
                             num_markets = sum(1 for v in selected_markets.values() if v)
@@ -2153,68 +2156,189 @@ def transform_api_data(stats_data, home_team, away_team, selected_markets):
         
         return result
 
-# Esta função avalia a qualidade da oportunidade com base na probabilidade real e na margem
+# Função de avaliação de oportunidades
 def evaluate_opportunity(real_prob, margin):
+    """Avalia a qualidade da oportunidade com base na probabilidade e margem"""
+    if real_prob >= 70 and margin >= 7:
+        return "EXCELENTE", "Alta probabilidade e grande margem"
+    elif real_prob >= 60 and margin >= 5:
+        return "MUITO BOA", "Boa probabilidade e margem significativa" 
+    elif real_prob >= 50 and margin >= 3:
+        return "BOA", "Probabilidade e margem razoáveis"
+    elif real_prob >= 60 or margin >= 5:
+        return "RAZOÁVEL", "Ou boa probabilidade ou boa margem"
+    else:
+        return "BAIXA", "Probabilidade e margem insuficientes"
+
+# Função para adicionar a avaliação ao final da análise
+def add_opportunity_evaluation(analysis_text):
     """
-    Avalia a qualidade da oportunidade de aposta com base na probabilidade real e na margem
+    Adiciona uma avaliação das oportunidades ao final do texto de análise
     
     Args:
-        real_prob (float): Probabilidade real (0-100)
-        margin (float): Margem (diferença entre prob real e implícita)
+        analysis_text (str): O texto da análise original
         
     Returns:
-        tuple: (classificação, cor, descrição)
+        str: Texto da análise com a avaliação adicionada
     """
-    # Classificação baseada na probabilidade real
-    prob_rating = "Baixa"
-    prob_color = "red"
+    import re
     
-    if real_prob >= 80:
-        prob_rating = "Muito Alta"
-        prob_color = "green"
-    elif real_prob >= 70:
-        prob_rating = "Alta"
-        prob_color = "lightgreen"
-    elif real_prob >= 60:
-        prob_rating = "Média-Alta"
-        prob_color = "yellow"
-    elif real_prob >= 50:
-        prob_rating = "Média"
-        prob_color = "orange"
+    # Extrair as oportunidades com regex
+    pattern = r"\*\*([^*]+)\*\*: Real (\d+\.\d+)% vs Implícita (\d+\.\d+)% \(Valor de (\d+\.\d+)%\)"
+    matches = re.findall(pattern, analysis_text)
     
-    # Classificação baseada na margem
-    margin_rating = "Baixa"
-    margin_color = "red"
+    if not matches:
+        # Se não encontrar oportunidades no formato esperado, tente outro padrão
+        pattern = r"\- \*\*([^*]+)\*\*: Real (\d+\.\d+)% vs Implícita (\d+\.\d+)% \(Valor de (\d+\.\d+)%\)"
+        matches = re.findall(pattern, analysis_text)
+        
+    if not matches:
+        # Tente um padrão mais genérico como último recurso
+        pattern = r"([^-:]+): Real (\d+\.\d+)% vs Implícita (\d+\.\d+)% \(?Valor de (\d+\.\d+)%\)?"
+        matches = re.findall(pattern, analysis_text)
     
-    if margin >= 10:
-        margin_rating = "Excelente"
-        margin_color = "green"
-    elif margin >= 7:
-        margin_rating = "Muito Boa"
-        margin_color = "lightgreen"
-    elif margin >= 5:
-        margin_rating = "Boa"
-        margin_color = "yellow"
-    elif margin >= 3:
-        margin_rating = "Razoável"
-        margin_color = "orange"
+    # Se ainda não encontrou oportunidades, retorna o texto original
+    if not matches:
+        return analysis_text
     
-    # Avaliação combinada
-    if real_prob >= 70 and margin >= 7:
-        return ("Excelente", "green", "Alta probabilidade e grande margem")
-    elif real_prob >= 60 and margin >= 5:
-        return ("Muito Boa", "lightgreen", "Boa probabilidade e margem significativa")
-    elif real_prob >= 50 and margin >= 3:
-        return ("Boa", "yellow", "Probabilidade e margem razoáveis")
-    elif real_prob >= 60 or margin >= 5:
-        return ("Razoável", "orange", "Ou boa probabilidade ou boa margem")
-    else:
-        return ("Baixa", "red", "Probabilidade e margem insuficientes")
+    # Adicionar a seção de avaliação de oportunidades
+    evaluation_text = "\n\n# AVALIAÇÃO DE VIABILIDADE DE APOSTAS\n"
+    
+    for match in matches:
+        opportunity_name, real_prob_str, implicit_prob_str, margin_str = match
+        
+        try:
+            # Converter para números
+            real_prob = float(real_prob_str)
+            margin = float(margin_str)
+            
+            # Avaliar a oportunidade
+            rating, description = evaluate_opportunity(real_prob, margin)
+            
+            # Formatar classificação com símbolos
+            rating_symbol = {
+                "EXCELENTE": "🔥🔥🔥",
+                "MUITO BOA": "🔥🔥",
+                "BOA": "🔥",
+                "RAZOÁVEL": "⚠️",
+                "BAIXA": "❌"
+            }.get(rating, "")
+            
+            # Adicionar à saída
+            evaluation_text += f"\n## {opportunity_name.strip()} - {rating_symbol} {rating}\n"
+            evaluation_text += f"- Probabilidade: {real_prob:.1f}% | Margem: {margin:.1f}%\n"
+            evaluation_text += f"- Avaliação: {description}\n"
+            
+            # Adicionar recomendações específicas com base na classificação
+            if rating == "EXCELENTE":
+                evaluation_text += "- Recomendação: Oportunidade excelente para apostar. Considere uma aposta com valor mais alto.\n"
+            elif rating == "MUITO BOA":
+                evaluation_text += "- Recomendação: Boa oportunidade para apostar. Valor recomendado.\n"
+            elif rating == "BOA":
+                evaluation_text += "- Recomendação: Oportunidade viável para apostar com moderação.\n"
+            elif rating == "RAZOÁVEL":
+                evaluation_text += "- Recomendação: Apostar com cautela e valor reduzido.\n"
+            else:
+                evaluation_text += "- Recomendação: Não recomendamos esta aposta. Valor baixo detectado.\n"
+            
+        except (ValueError, TypeError):
+            continue
+    
+    # Adicionar legenda
+    evaluation_text += "\n# LEGENDA DE VIABILIDADE\n"
+    evaluation_text += "- 🔥🔥🔥 EXCELENTE: Alta probabilidade (>70%) e grande margem (>7%)\n"
+    evaluation_text += "- 🔥🔥 MUITO BOA: Boa probabilidade (>60%) e margem significativa (>5%)\n"
+    evaluation_text += "- 🔥 BOA: Probabilidade e margem razoáveis (>50% e >3%)\n"
+    evaluation_text += "- ⚠️ RAZOÁVEL: Ou boa probabilidade ou boa margem\n"
+    evaluation_text += "- ❌ BAIXA: Probabilidade e margem insuficientes\n"
+    
+    # Retornar o texto original + a avaliação
+    return analysis_text + evaluation_text
 
-# Função para mostrar o indicador visual da oportunidade
-def show_opportunity_indicator(real_prob, margin, opportunity_name):
+# Função alternativa caso os emojis não funcionem bem
+def add_opportunity_evaluation_simple(analysis_text):
     """
-    Mostra um indicador visual da qualidade da oportunidade
+    Versão sem emojis, caso eles não funcionem bem na sua implementação
+    """
+    import re
+    
+    # Extrair as oportunidades com regex
+    pattern = r"\*\*([^*]+)\*\*: Real (\d+\.\d+)% vs Implícita (\d+\.\d+)% \(Valor de (\d+\.\d+)%\)"
+    matches = re.findall(pattern, analysis_text)
+    
+    if not matches:
+        # Se não encontrar oportunidades no formato esperado, tente outro padrão
+        pattern = r"\- \*\*([^*]+)\*\*: Real (\d+\.\d+)% vs Implícita (\d+\.\d+)% \(Valor de (\d+\.\d+)%\)"
+        matches = re.findall(pattern, analysis_text)
+        
+    if not matches:
+        # Tente um padrão mais genérico como último recurso
+        pattern = r"([^-:]+): Real (\d+\.\d+)% vs Implícita (\d+\.\d+)% \(?Valor de (\d+\.\d+)%\)?"
+        matches = re.findall(pattern, analysis_text)
+    
+    # Se ainda não encontrou oportunidades, retorna o texto original
+    if not matches:
+        return analysis_text
+    
+    # Adicionar a seção de avaliação de oportunidades
+    evaluation_text = "\n\n# AVALIAÇÃO DE VIABILIDADE DE APOSTAS\n"
+    
+    for match in matches:
+        opportunity_name, real_prob_str, implicit_prob_str, margin_str = match
+        
+        try:
+            # Converter para números
+            real_prob = float(real_prob_str)
+            margin = float(margin_str)
+            
+            # Avaliar a oportunidade
+            rating, description = evaluate_opportunity(real_prob, margin)
+            
+            # Formatar classificação com símbolos
+            rating_symbol = {
+                "EXCELENTE": "***",
+                "MUITO BOA": "**",
+                "BOA": "*",
+                "RAZOÁVEL": "!",
+                "BAIXA": "X"
+            }.get(rating, "")
+            
+            # Adicionar à saída
+            evaluation_text += f"\n## {opportunity_name.strip()} - {rating_symbol} {rating}\n"
+            evaluation_text += f"- Probabilidade: {real_prob:.1f}% | Margem: {margin:.1f}%\n"
+            evaluation_text += f"- Avaliação: {description}\n"
+            
+            # Adicionar recomendações específicas com base na classificação
+            if rating == "EXCELENTE":
+                evaluation_text += "- Recomendação: Oportunidade excelente para apostar. Considere uma aposta com valor mais alto.\n"
+            elif rating == "MUITO BOA":
+                evaluation_text += "- Recomendação: Boa oportunidade para apostar. Valor recomendado.\n"
+            elif rating == "BOA":
+                evaluation_text += "- Recomendação: Oportunidade viável para apostar com moderação.\n"
+            elif rating == "RAZOÁVEL":
+                evaluation_text += "- Recomendação: Apostar com cautela e valor reduzido.\n"
+            else:
+                evaluation_text += "- Recomendação: Não recomendamos esta aposta. Valor baixo detectado.\n"
+            
+        except (ValueError, TypeError):
+            continue
+    
+    # Adicionar legenda
+    evaluation_text += "\n# LEGENDA DE VIABILIDADE\n"
+    evaluation_text += "- *** EXCELENTE: Alta probabilidade (>70%) e grande margem (>7%)\n"
+    evaluation_text += "- ** MUITO BOA: Boa probabilidade (>60%) e margem significativa (>5%)\n"
+    evaluation_text += "- * BOA: Probabilidade e margem razoáveis (>50% e >3%)\n"
+    evaluation_text += "- ! RAZOÁVEL: Ou boa probabilidade ou boa margem\n"
+    evaluation_text += "- X BAIXA: Probabilidade e margem insuficientes\n"
+    
+    # Retornar o texto original + a avaliação
+    return analysis_text + evaluation_text
+
+
+# Função para mostrar o indicador visual da oportunidade usando componentes do Streamlit
+def show_opportunity_indicator_native(real_prob, margin, opportunity_name):
+    """
+    Mostra um indicador visual da qualidade da oportunidade usando componentes nativos do Streamlit
     
     Args:
         real_prob (float): Probabilidade real (0-100)
@@ -2223,40 +2347,57 @@ def show_opportunity_indicator(real_prob, margin, opportunity_name):
     """
     rating, color, description = evaluate_opportunity(real_prob, margin)
     
-    # Criar HTML para o indicador
-    indicator_html = f"""
-    <div style="margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
-        <div style="padding: 10px; background-color: #333; color: white;">
-            <strong>{opportunity_name}</strong>
-        </div>
-        <div style="padding: 15px; background-color: #444;">
-            <div style="display: flex; align-items: center; margin-bottom: 10px;">
-                <div style="width: 120px; color: #ccc;">Probabilidade:</div>
-                <div style="flex-grow: 1; height: 10px; background-color: #555; border-radius: 5px;">
-                    <div style="width: {min(100, max(0, real_prob))}%; height: 100%; background-color: {color}; border-radius: 5px;"></div>
-                </div>
-                <div style="margin-left: 10px; color: white;">{real_prob:.1f}%</div>
-            </div>
-            <div style="display: flex; align-items: center; margin-bottom: 10px;">
-                <div style="width: 120px; color: #ccc;">Margem:</div>
-                <div style="flex-grow: 1; height: 10px; background-color: #555; border-radius: 5px;">
-                    <div style="width: {min(100, max(0, margin * 10))}%; height: 100%; background-color: {color}; border-radius: 5px;"></div>
-                </div>
-                <div style="margin-left: 10px; color: white;">{margin:.1f}%</div>
-            </div>
-            <div style="margin-top: 10px; padding: 8px; background-color: {color}; color: black; border-radius: 4px; text-align: center;">
-                <strong>Classificação: {rating}</strong> - {description}
-            </div>
-        </div>
-    </div>
-    """
+    # Mapear cores para cores do Streamlit
+    color_map = {
+        "green": "success",
+        "lightgreen": "success",
+        "yellow": "warning",
+        "orange": "warning",
+        "red": "error"
+    }
     
-    st.markdown(indicator_html, unsafe_allow_html=True)
+    st_color = color_map.get(color, "primary")
+    
+    # Criar um container com bordas para o indicador
+    with st.container():
+        # Título da oportunidade
+        st.subheader(opportunity_name)
+        
+        # Mostrar probabilidade com barra de progresso
+        col1, col2 = st.columns([1, 3])
+        with col1:
+            st.write("Probabilidade:")
+        with col2:
+            st.progress(min(1.0, real_prob/100))
+            st.write(f"{real_prob:.1f}%")
+        
+        # Mostrar margem com barra de progresso
+        col1, col2 = st.columns([1, 3])
+        with col1:
+            st.write("Margem:")
+        with col2:
+            # Escalar a margem para melhor visualização (máximo considerado: 20%)
+            st.progress(min(1.0, margin/20))
+            st.write(f"{margin:.1f}%")
+            
+        # Mostrar classificação e descrição
+        if st_color == "success":
+            st.success(f"**Classificação: {rating}** - {description}")
+        elif st_color == "warning":
+            st.warning(f"**Classificação: {rating}** - {description}")
+        elif st_color == "error":
+            st.error(f"**Classificação: {rating}** - {description}")
+        else:
+            st.info(f"**Classificação: {rating}** - {description}")
+            
+        # Adicionar uma linha divisória
+        st.markdown("---")
 
 # Função modificada para extrair oportunidades identificadas e mostrar indicadores
-def extract_and_show_opportunities(analysis_text):
+def extract_and_show_opportunities_native(analysis_text):
     """
     Extrai oportunidades do texto de análise e mostra indicadores visuais
+    usando apenas componentes nativos do Streamlit
     
     Args:
         analysis_text (str): Texto da análise
@@ -2290,6 +2431,7 @@ def extract_and_show_opportunities(analysis_text):
     
     # Mostrar cabeçalho
     st.markdown("## Indicadores de Oportunidades")
+    st.markdown("Analise as oportunidades identificadas e suas classificações:")
     
     # Criar indicador para cada oportunidade
     for match in matches:
@@ -2299,32 +2441,152 @@ def extract_and_show_opportunities(analysis_text):
             real_prob = float(real_prob_str)
             margin = float(margin_str)
             
-            # Mostrar indicador
-            show_opportunity_indicator(real_prob, margin, opportunity_name)
-        except (ValueError, TypeError):
+            # Mostrar indicador usando componentes nativos
+            show_opportunity_indicator_native(real_prob, margin, opportunity_name)
+        except (ValueError, TypeError) as e:
+            st.error(f"Erro ao processar oportunidade: {e}")
             continue
     
     # Adicionar legenda explicativa
-    st.markdown("""
-    ### Legenda de Classificação
-    - **Excelente**: Alta probabilidade (>70%) e grande margem (>7%) - Oportunidade ideal
-    - **Muito Boa**: Boa probabilidade (>60%) e margem significativa (>5%)
-    - **Boa**: Probabilidade e margem razoáveis (>50% e >3%)
-    - **Razoável**: Ou boa probabilidade ou boa margem
-    - **Baixa**: Probabilidade e margem insuficientes
-    """)
+    with st.expander("Legenda de Classificação", expanded=False):
+        st.markdown("""
+        ### Como interpretar as classificações:
+        
+        - **Excelente**: Alta probabilidade (>70%) e grande margem (>7%) - Oportunidade ideal para apostar
+        - **Muito Boa**: Boa probabilidade (>60%) e margem significativa (>5%) - Forte recomendação
+        - **Boa**: Probabilidade e margem razoáveis (>50% e >3%) - Recomendação moderada
+        - **Razoável**: Ou boa probabilidade ou boa margem - Considerar com cautela
+        - **Baixa**: Probabilidade e margem insuficientes - Não recomendado
+        
+        *A probabilidade indica a chance do evento acontecer, enquanto a margem representa a diferença entre a probabilidade real e a implícita nas odds.*
+        """)
 
-# Modificar a exibição do resultado da análise no código existente
-# Procure o local onde você exibe o resultado da análise, geralmente em algum lugar como:
+# Alternativa usando apenas texto formatado (sem elementos visuais)
+def show_opportunities_text_only(analysis_text):
+    """
+    Versão alternativa que usa apenas texto formatado, sem elementos visuais do Streamlit
+    
+    Args:
+        analysis_text (str): Texto da análise
+    """
+    import re
+    
+    # Procurar a seção de Oportunidades Identificadas
+    opportunities_section = None
+    sections = analysis_text.split("#")
+    
+    for section in sections:
+        if "Oportunidades Identificadas" in section:
+            opportunities_section = section
+            break
+    
+    if not opportunities_section:
+        st.write("Não foi possível encontrar oportunidades na análise.")
+        return
+    
+    # Extrair oportunidades individuais
+    pattern = r"\*\*(.*?)\*\*: Real (\d+\.\d+)% vs Implícita (\d+\.\d+)% \(Valor de (\d+\.\d+)%\)"
+    matches = re.findall(pattern, opportunities_section)
+    
+    if not matches:
+        st.write("Nenhuma oportunidade específica encontrada na análise.")
+        return
+    
+    # Preparar o texto de saída
+    output_text = "## AVALIAÇÃO DE OPORTUNIDADES\n\n"
+    
+    for match in matches:
+        opportunity_name, real_prob_str, implicit_prob_str, margin_str = match
+        
+        try:
+            real_prob = float(real_prob_str)
+            margin = float(margin_str)
+            
+            # Avaliar a oportunidade
+            rating, _, description = evaluate_opportunity(real_prob, margin)
+            
+            # Formatar classificação com símbolos
+            rating_symbol = {
+                "Excelente": "🔥🔥🔥",
+                "Muito Boa": "🔥🔥",
+                "Boa": "🔥",
+                "Razoável": "⚠️",
+                "Baixa": "❌"
+            }.get(rating, "")
+            
+            # Adicionar à saída
+            output_text += f"### {opportunity_name} {rating_symbol}\n"
+            output_text += f"- Probabilidade: {real_prob:.1f}% | Margem: {margin:.1f}%\n"
+            output_text += f"- Classificação: **{rating}** - {description}\n\n"
+            
+        except (ValueError, TypeError):
+            continue
+    
+    # Adicionar legenda
+    output_text += "### Legenda:\n"
+    output_text += "- 🔥🔥🔥 Excelente: Alta probabilidade (>70%) e grande margem (>7%)\n"
+    output_text += "- 🔥🔥 Muito Boa: Boa probabilidade (>60%) e margem significativa (>5%)\n"
+    output_text += "- 🔥 Boa: Probabilidade e margem razoáveis (>50% e >3%)\n"
+    output_text += "- ⚠️ Razoável: Ou boa probabilidade ou boa margem\n"
+    output_text += "- ❌ Baixa: Probabilidade e margem insuficientes\n"
+    
+    # Mostrar o texto
+    st.markdown(output_text)
 
-# Exemplo de como você pode integrar:
-'''
-# Exibir o resultado formatado
-st.code(formatted_analysis, language=None)
-
-# ADICIONAR AQUI: Extração e exibição de indicadores de oportunidades
-extract_and_show_opportunities(formatted_analysis)
-
-# Registrar uso após análise bem-sucedida
-num_markets = sum(1 for v in selected_markets.values() if v)
-'''
+# Versão ultra minimalista usando apenas texto simples (sem markdown)
+def show_opportunities_ultra_simple(analysis_text):
+    """
+    Versão ultra minimalista que usa apenas texto simples
+    
+    Args:
+        analysis_text (str): Texto da análise
+    """
+    import re
+    
+    # Extrair oportunidades diretamente do texto completo
+    pattern = r"\*\*(.*?)\*\*: Real (\d+\.\d+)% vs Implícita (\d+\.\d+)% \(Valor de (\d+\.\d+)%\)"
+    matches = re.findall(pattern, analysis_text)
+    
+    if not matches:
+        return
+    
+    # Adicionar as avaliações como texto puro após a análise
+    new_text = analysis_text + "\n\n"
+    new_text += "# AVALIAÇÃO DE OPORTUNIDADES\n\n"
+    
+    for match in matches:
+        opportunity_name, real_prob_str, implicit_prob_str, margin_str = match
+        
+        try:
+            real_prob = float(real_prob_str)
+            margin = float(margin_str)
+            
+            # Avaliar a oportunidade
+            rating, _, description = evaluate_opportunity(real_prob, margin)
+            
+            # Formatar classificação com símbolos
+            rating_symbol = {
+                "Excelente": "***",
+                "Muito Boa": "**",
+                "Boa": "*",
+                "Razoável": "!",
+                "Baixa": "X"
+            }.get(rating, "")
+            
+            # Adicionar à saída
+            new_text += f"{rating_symbol} {opportunity_name}\n"
+            new_text += f"- Probabilidade: {real_prob:.1f}% | Margem: {margin:.1f}%\n"
+            new_text += f"- Classificação: {rating} - {description}\n\n"
+            
+        except (ValueError, TypeError):
+            continue
+    
+    # Adicionar legenda
+    new_text += "Legenda:\n"
+    new_text += "*** Excelente: Alta probabilidade (>70%) e grande margem (>7%)\n"
+    new_text += "** Muito Boa: Boa probabilidade (>60%) e margem significativa (>5%)\n"
+    new_text += "* Boa: Probabilidade e margem razoáveis (>50% e >3%)\n"
+    new_text += "! Razoável: Ou boa probabilidade ou boa margem\n"
+    new_text += "X Baixa: Probabilidade e margem insuficientes\n"
+    
+    return new_text
