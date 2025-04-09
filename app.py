@@ -314,7 +314,7 @@ from utils.core import (
 )
 from pages.dashboard import show_main_dashboard
 from pages.landing import show_landing_page
-from pages.auth import show_login, show_register
+from pages.auth import show_login, show_register, show_verification, show_password_recovery, show_password_reset_code, show_password_reset
 from pages.packages import show_packages_page
 
 # Adicionar script JavaScript para ocultar a navegação dinamicamente
@@ -464,6 +464,66 @@ def remove_loading_screen():
     """
     st.components.v1.html(js_code, height=0)
 
+# Redefina a função init_session_state para incluir as novas variáveis de estado
+def init_session_state():
+    """Initialize session state variables"""
+    from utils.data import UserManager
+    
+    if "page" not in st.session_state:
+        st.session_state.page = "landing"  # Nova variável para controlar a página atual
+        
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+    
+    if "email" not in st.session_state:
+        st.session_state.email = None
+    
+    if "last_activity" not in st.session_state:
+        st.session_state.last_activity = datetime.now()
+    elif (datetime.now() - st.session_state.last_activity).total_seconds() > 3600:  # 1 hora
+        st.session_state.authenticated = False
+        st.session_state.email = None
+        st.warning("Sua sessão expirou. Por favor, faça login novamente.")
+    
+    # Variáveis para a página de landing
+    if "show_register" not in st.session_state:
+        st.session_state.show_register = False
+    
+    # Variáveis para o checkout integrado
+    if "show_checkout" not in st.session_state:
+        st.session_state.show_checkout = False
+    
+    if "checkout_credits" not in st.session_state:
+        st.session_state.checkout_credits = 0
+        
+    if "checkout_amount" not in st.session_state:
+        st.session_state.checkout_amount = 0
+        
+    if "last_stripe_session_id" not in st.session_state:
+        st.session_state.last_stripe_session_id = None
+    
+    # Stripe test mode flag
+    if "stripe_test_mode" not in st.session_state:
+        st.session_state.stripe_test_mode = True
+    
+    # Variáveis para recuperação de senha
+    if "recovery_email" not in st.session_state:
+        st.session_state.recovery_email = None
+    
+    if "code_verified" not in st.session_state:
+        st.session_state.code_verified = False
+    
+    # Modo de depuração
+    if "debug_mode" not in st.session_state:
+        st.session_state.debug_mode = False
+    
+    # UserManager deve ser o último a ser inicializado
+    if "user_manager" not in st.session_state:
+        st.session_state.user_manager = UserManager()
+    
+    # Atualizar timestamp de última atividade
+    st.session_state.last_activity = datetime.now()
+
 # Agora a função main, com sua estrutura corrigida
 def main():
     try:
@@ -517,39 +577,39 @@ def main():
         traceback.print_exc()
 
 def route_pages():
-if "page" in st.session_state:
-    if st.session_state.page == "landing":
-        show_landing_page()
-    elif st.session_state.page == "login":
-        show_login()
-    elif st.session_state.page == "register":
-        show_register()
-    elif st.session_state.page == "verification":
-        show_verification()
-    elif st.session_state.page == "password_recovery":
-        show_password_recovery()
-    elif st.session_state.page == "password_reset_code":
-        show_password_reset_code()
-    elif st.session_state.page == "password_reset":
-        show_password_reset()
-    elif st.session_state.page == "main":
-        if st.session_state.authenticated:
-            show_main_dashboard()
+    if "page" in st.session_state:
+        if st.session_state.page == "landing":
+            show_landing_page()
+        elif st.session_state.page == "login":
+            show_login()
+        elif st.session_state.page == "register":
+            show_register()
+        elif st.session_state.page == "verification":
+            show_verification()
+        elif st.session_state.page == "password_recovery":
+            show_password_recovery()
+        elif st.session_state.page == "password_reset_code":
+            show_password_reset_code()
+        elif st.session_state.page == "password_reset":
+            show_password_reset()
+        elif st.session_state.page == "main":
+            if st.session_state.authenticated:
+                show_main_dashboard()
+            else:
+                go_to_login()
+        elif st.session_state.page == "admin":
+            # Esta é a página admin
+            pass
+        elif st.session_state.page == "packages":
+            show_packages_page()
         else:
-            go_to_login()
-    elif st.session_state.page == "admin":
-        # Esta é a página admin
-        pass
-    elif st.session_state.page == "packages":
-        show_packages_page()
+            # Página desconhecida, voltar para a landing
+            st.session_state.page = "landing"
+            st.experimental_rerun()
     else:
-        # Página desconhecida, voltar para a landing
+        # Estado da sessão não inicializado, voltar para a landing
         st.session_state.page = "landing"
         st.experimental_rerun()
-else:
-    # Estado da sessão não inicializado, voltar para a landing
-    st.session_state.page = "landing"
-    st.experimental_rerun()
 
 # Executar a aplicação
 if __name__ == "__main__":
