@@ -1426,8 +1426,8 @@ def show_main_dashboard():
                             status.error("Falha na análise com IA")
                             return
                         
-                   # Etapa 5: Mostrar resultado
-                   if analysis:
+                       # Etapa 5: Mostrar resultado
+                       if analysis:
                         # Limpar status
                         status.empty()
                         
