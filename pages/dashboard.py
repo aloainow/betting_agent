@@ -1439,11 +1439,23 @@ def show_main_dashboard():
                                     if "</div>" in analysis:
                                         analysis = analysis.replace("</div>", "")
                             
-                            # IMPORTANTE: Aplicar formatação avançada para garantir filtragem por mercados selecionados
-                            from utils.ai import format_analysis_response
+                            # Adicionar justificativas às oportunidades
+                            from utils.ai import add_data_justifications
+                            analysis_with_justifications = add_data_justifications(
+                                analysis, 
+                                home_team, 
+                                away_team, 
+                                stats_data
+                            )
                             
-                            # Adiciona módulo re para expressões regulares caso não esteja importado
-                            import re
+                            # Enriquecer a análise com avaliações de oportunidades
+                            enhanced_analysis = add_opportunity_evaluation(analysis_with_justifications)
+                            
+                            # Exibir apenas a análise enriquecida
+                            st.code(enhanced_analysis, language=None)
+                                    
+                            # Registrar uso após análise bem-sucedida
+                            num_markets = sum(1 for v in selected_markets.values() if v)
                             
                             # Reconstrução completa da análise
                             def reconstruct_analysis(analysis_text, home_team, away_team, selected_markets, original_probabilities, implied_probabilities, odds_data):
@@ -1905,15 +1917,8 @@ def show_main_dashboard():
                                     return f"Erro ao processar análise: {str(e)}"
                             
                             # Usar a análise de texto da API como base, mas reconstruir completamente as seções críticas
-                            formatted_analysis = reconstruct_analysis(
-                                analysis,
-                                home_team,
-                                away_team,
-                                selected_markets,
-                                original_probabilities,
-                                implied_probabilities,
-                                odds_data
-                            )
+                            formatted_analysis = analysis
+                         
                             
                             # Enriquecer a análise com avaliações de oportunidades
                             enhanced_analysis = add_opportunity_evaluation(formatted_analysis)
