@@ -3325,3 +3325,162 @@ def add_data_justifications(analysis_text, home_team, away_team, stats_data=None
     )
     
     return new_analysis
+def add_justification_only(analysis_text, home_team, away_team, stats_data=None):
+    """
+    Adiciona apenas justificativas à seção de oportunidades identificadas
+    sem afetar o restante da formatação do texto, incluindo avaliações de viabilidade.
+    
+    Args:
+        analysis_text (str): Texto da análise
+        home_team (str): Nome do time da casa
+        away_team (str): Nome do time visitante
+        stats_data (dict, optional): Dados estatísticos. Se None, usa justificativas genéricas.
+        
+    Returns:
+        str: Análise com justificativas adicionadas sem afetar outras seções
+    """
+    import re
+    import logging
+    logger = logging.getLogger("valueHunter.ai")
+    
+    # Se não há texto de análise, retornar vazio
+    if not analysis_text:
+        return ""
+    
+    try:
+        # Verificar se já existe uma seção de avaliação de viabilidade
+        has_viability_section = "# AVALIAÇÃO DE VIABILIDADE DE APOSTAS" in analysis_text
+        
+        # Encontrar a seção de oportunidades identificadas
+        opp_pattern = r"# Oportunidades Identificadas:(.*?)(?=\n#|\Z)"
+        opp_match = re.search(opp_pattern, analysis_text, re.DOTALL)
+        
+        if not opp_match:
+            logger.warning("Seção de oportunidades não encontrada")
+            return analysis_text
+            
+        original_opp_section = opp_match.group(0)  # Inclui o cabeçalho
+        opp_content = opp_match.group(1).strip()
+        
+        # Se não há oportunidades identificadas
+        if not opp_content or "não detectamos valor" in opp_content.lower():
+            logger.info("Nenhuma oportunidade para adicionar justificativa")
+            return analysis_text
+        
+        # Verificar se já temos justificativas (para evitar adicionar duplicadas)
+        if "*Justificativa:" in original_opp_section:
+            logger.info("Justificativas já existem na análise")
+            return analysis_text
+        
+        # Encontrar cada oportunidade
+        # Padrão mais flexível para capturar diferentes formatos
+        opp_items_pattern = r"- \*\*([^*]+)\*\*:.*?Real (\d+\.\d+)%.*?Implícita (\d+\.\d+)%.*?Valor de (\d+\.\d+)%"
+        opportunities = re.findall(opp_items_pattern, opp_content, re.DOTALL)
+        
+        if not opportunities:
+            logger.warning("Não foi possível extrair oportunidades no formato esperado")
+            return analysis_text
+        
+        # Extrair dados estatísticos básicos para justificativas
+        home_goals = 0
+        away_goals = 0
+        home_form = "0"
+        away_form = "0"
+        home_win_pct = 70.0
+        away_win_pct = 50.0
+        home_btts = 0
+        away_btts = 0
+        home_over = 0
+        away_over = 0
+        
+        # Tentar extrair forma dos times da análise existente
+        form_match = re.search(r"Forma Recente.*?(\d+)/15.*?(\d+)/15", analysis_text, re.DOTALL)
+        if form_match:
+            home_form = form_match.group(1)
+            away_form = form_match.group(2)
+        
+        # Extrair dados estatísticos se disponíveis
+        if stats_data and isinstance(stats_data, dict):
+            home_data = stats_data.get("home_team", {})
+            away_data = stats_data.get("away_team", {})
+            h2h_data = stats_data.get("h2h", {})
+            
+            # Calcular médias e porcentagens
+            if "matches_played" in home_data and home_data["matches_played"] > 0:
+                if "goals_scored" in home_data:
+                    home_goals = round(home_data["goals_scored"] / home_data["matches_played"], 1)
+                
+                if "home_wins" in home_data:
+                    home_played = max(1, home_data.get("home_played", home_data["matches_played"]/2))
+                    home_wins = home_data.get("home_wins", 0)
+                    home_draws = home_data.get("home_draws", 0)
+                    home_points = (home_wins * 3) + home_draws
+                    home_win_pct = round((home_points / (home_played * 3)) * 100, 1)
+            
+            if "matches_played" in away_data and away_data["matches_played"] > 0:
+                if "goals_scored" in away_data:
+                    away_goals = round(away_data["goals_scored"] / away_data["matches_played"], 1)
+                
+                if "away_wins" in away_data:
+                    away_played = max(1, away_data.get("away_played", away_data["matches_played"]/2))
+                    away_wins = away_data.get("away_wins", 0)
+                    away_draws = away_data.get("away_draws", 0)
+                    away_points = (away_wins * 3) + away_draws
+                    away_win_pct = round((away_points / (away_played * 3)) * 100, 1)
+                    
+            # Extrair estatísticas específicas para justificativas
+            home_btts = home_data.get("btts_pct", 50)
+            away_btts = away_data.get("btts_pct", 50)
+            home_over = home_data.get("over_2_5_pct", 55)
+            away_over = away_data.get("over_2_5_pct", 55)
+        
+        # Lista para armazenar linhas de oportunidades com justificativas
+        justified_opps = []
+        orig_opp_lines = [line for line in opp_content.split('\n') if line.strip()]
+        
+        # Para cada oportunidade encontrada
+        for i, opp_data in enumerate(opportunities):
+            if i >= len(orig_opp_lines):
+                continue  # Segurança para evitar índice fora de limites
+                
+            market_name = opp_data[0].strip()
+            real_prob = float(opp_data[1])
+            implied_prob = float(opp_data[2])
+            value_edge = float(opp_data[3])
+            
+            # Criar justificativa detalhada e específica
+            if home_team.lower() in market_name.lower():
+                justification = f"Força ofensiva superior ({home_goals} gols/jogo) e forma recente positiva ({home_form}/15 pts), com {home_win_pct}% de aproveitamento em casa."
+            elif away_team.lower() in market_name.lower():
+                justification = f"Desempenho sólido como visitante ({away_win_pct}% aproveitamento fora) e boa forma atual ({away_form}/15 pts). Média de {away_goals} gols marcados por jogo."
+            elif "empate" in market_name.lower():
+                justification = f"Equilíbrio técnico entre as equipes com diferença mínima de forma ({home_form}/15 vs {away_form}/15). Histórico recente de jogos equilibrados."
+            elif "over" in market_name.lower() and ("gol" in market_name.lower() or "goal" in market_name.lower()):
+                justification = f"Média combinada de {home_goals + away_goals} gols por jogo. {home_over}% dos jogos do {home_team} e {away_over}% do {away_team} terminam com Over 2.5."
+            elif "under" in market_name.lower() and ("gol" in market_name.lower() or "goal" in market_name.lower()):
+                justification = f"Defesa sólida do {away_team} combinada com táticas cautelosas esperadas. Apenas {100-home_over}% dos jogos do {home_team} terminam abaixo de 2.5 gols."
+            elif "ambos marcam" in market_name.lower() or "btts" in market_name.lower():
+                justification = f"Ambas equipes marcam em {home_btts}% dos jogos do {home_team} e {away_btts}% dos jogos do {away_team}, com médias ofensivas de {home_goals} e {away_goals} gols/jogo."
+            else:
+                justification = f"Análise estatística avançada indica probabilidade real de {real_prob}% contra apenas {implied_prob}% implícita nas odds, gerando valor de {value_edge}%."
+            
+            # Adicionar justificativa à linha original da oportunidade
+            # Usar a linha completa original para preservar formatação
+            orig_line = orig_opp_lines[i]
+            justified_line = f"{orig_line} *Justificativa: {justification}*"
+            justified_opps.append(justified_line)
+        
+        # Criar nova seção de oportunidades
+        new_opp_section = "# Oportunidades Identificadas:\n" + "\n".join(justified_opps)
+        
+        # Substituir a seção original no texto
+        new_analysis = analysis_text.replace(original_opp_section, new_opp_section)
+        
+        return new_analysis
+        
+    except Exception as e:
+        logger.error(f"Erro ao adicionar justificativas: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        # Em caso de erro, retornar o texto original sem modificações
+        return analysis_text
