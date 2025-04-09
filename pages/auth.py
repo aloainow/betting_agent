@@ -78,7 +78,7 @@ def show_login():
         st.error("Erro ao carregar a página de login. Por favor, tente novamente.")
         st.error(f"Detalhes: {str(e)}")  # Adicionar detalhes do erro para diagnóstico
 
-# Nova função para recuperação de senha
+
 def show_password_recovery():
     """Display password recovery form"""
     try:
@@ -123,7 +123,7 @@ def show_password_recovery():
                     return
                 
                 # Gerar código de recuperação
-                from utils.email_verification import generate_verification_code, send_email
+                from utils.email_verification import generate_verification_code, send_password_recovery_email
                 
                 recovery_code = generate_verification_code()
                 
@@ -131,35 +131,54 @@ def show_password_recovery():
                 st.session_state.user_manager.users[email]["recovery_code"] = recovery_code
                 st.session_state.user_manager._save_users()
                 
-                # Enviar email com o código
-                email_subject = "ValueHunter - Recuperação de Senha"
-                email_body = f"""
-                <p>Olá,</p>
-                <p>Você solicitou a recuperação de senha para sua conta no ValueHunter.</p>
-                <p>Use o código abaixo para redefinir sua senha:</p>
-                <h2 style="background-color: #f2f2f2; padding: 10px; text-align: center;">{recovery_code}</h2>
-                <p>Se você não solicitou esta recuperação, por favor ignore este email.</p>
-                <p>Atenciosamente,<br>Equipe ValueHunter</p>
-                """
+                # Registrar evento nos logs
+                logger.info(f"Código de recuperação gerado para {email}: {recovery_code}")
                 
                 try:
-                    # Tentativa de enviar email
-                    send_email(email, email_subject, email_body)
-                    
-                    # Sucesso - redirecionar para a tela de código
-                    st.session_state.recovery_email = email
-                    st.session_state.page = "password_reset_code"
-                    st.success("Email enviado com sucesso! Verifique sua caixa de entrada.")
-                    time.sleep(2)
-                    st.experimental_rerun()
+                    # Tentativa de enviar email usando a função específica para recuperação
+                    if send_password_recovery_email(email, recovery_code):
+                        # Sucesso - redirecionar para a tela de código
+                        st.session_state.recovery_email = email
+                        st.session_state.page = "password_reset_code"
+                        st.success("Email enviado com sucesso! Verifique sua caixa de entrada.")
+                        time.sleep(2)
+                        st.experimental_rerun()
+                    else:
+                        # Se falhar o envio, mostrar o código na tela (apenas para desenvolvimento/teste)
+                        if "debug_mode" in st.session_state and st.session_state.debug_mode:
+                            st.warning(f"Não foi possível enviar o email. Código de recuperação (APENAS PARA TESTE): {recovery_code}")
+                            # Redirecionar mesmo assim
+                            st.session_state.recovery_email = email
+                            st.session_state.page = "password_reset_code"
+                            time.sleep(3)
+                            st.experimental_rerun()
+                        else:
+                            st.error("Não foi possível enviar o email. Por favor, tente novamente mais tarde.")
                 except Exception as e:
                     logger.error(f"Erro ao enviar email de recuperação: {str(e)}")
-                    st.error("Não foi possível enviar o email. Por favor, tente novamente mais tarde.")
+                    
+                    # Mostrar código na tela em modo de depuração
+                    if "debug_mode" in st.session_state and st.session_state.debug_mode:
+                        st.warning(f"Erro no envio: {str(e)}")
+                        st.info(f"Código de recuperação (APENAS PARA TESTE): {recovery_code}")
+                        
+                        # Ainda permitir prosseguir em modo debug
+                        st.session_state.recovery_email = email
+                        if st.button("Continuar mesmo assim"):
+                            st.session_state.page = "password_reset_code"
+                            st.experimental_rerun()
+                    else:
+                        st.error("Erro ao enviar email. Por favor, tente novamente mais tarde.")
                     
     except Exception as e:
         logger.error(f"Erro ao exibir página de recuperação de senha: {str(e)}")
         st.error("Erro ao carregar a página de recuperação. Por favor, tente novamente.")
-        st.error(f"Detalhes: {str(e)}")
+        
+        # Mostrar detalhes em modo debug
+        if "debug_mode" in st.session_state and st.session_state.debug_mode:
+            st.error(f"Detalhes: {str(e)}")
+            import traceback
+            st.code(traceback.format_exc())
 
 def show_password_reset_code():
     """Display password reset code verification page"""
