@@ -1426,33 +1426,47 @@ def show_main_dashboard():
                             status.error("Falha na análise com IA")
                             return
                         
-                        # Etapa 5: Mostrar resultado
-                        if analysis:
-                            # Limpar status
-                            status.empty()
-                            
-                            # Limpar possíveis tags HTML da resposta
-                            if isinstance(analysis, str):
-                                # Verificar se a análise começa com a tag de div
-                                if "<div class=\"analysis-result\">" in analysis:
-                                    analysis = analysis.replace("<div class=\"analysis-result\">", "")
-                                    if "</div>" in analysis:
-                                        analysis = analysis.replace("</div>", "")
-                            
-                            # Adicionar justificativas às oportunidades
-                            from utils.ai import add_data_justifications
-                            analysis_with_justifications = add_data_justifications(
-                                analysis, 
-                                home_team, 
-                                away_team, 
-                                stats_data
-                            )
-                            
-                            # Enriquecer a análise com avaliações de oportunidades
-                            enhanced_analysis = add_opportunity_evaluation(analysis_with_justifications)
-                            
-                            # Exibir apenas a análise enriquecida
-                            st.code(enhanced_analysis, language=None)
+                   # Etapa 5: Mostrar resultado
+                    if analysis:
+                        # Limpar status
+                        status.empty()
+                        
+                        # Limpar possíveis tags HTML da resposta
+                        if isinstance(analysis, str):
+                            # Verificar se a análise começa com a tag de div
+                            if "<div class=\"analysis-result\">" in analysis:
+                                analysis = analysis.replace("<div class=\"analysis-result\">", "")
+                                if "</div>" in analysis:
+                                    analysis = analysis.replace("</div>", "")
+                        
+                        # IMPORTANTE: Aplicar formatação avançada para garantir filtragem por mercados selecionados
+                        from utils.ai import format_analysis_response
+                        
+                        # Reconstrução completa da análise
+                        formatted_analysis = format_analysis_response(
+                            analysis,
+                            home_team,
+                            away_team,
+                            selected_markets,
+                            original_probabilities,
+                            odds_data,
+                            implied_probabilities
+                        )
+                        
+                        # Adicionar justificativas SEM afetar o restante da formatação
+                        from utils.ai import add_justification_only
+                        analysis_with_justifications = add_justification_only(
+                            formatted_analysis,
+                            home_team,
+                            away_team,
+                            stats_data
+                        )
+                        
+                        # Enriquecer a análise com avaliações de oportunidades
+                        enhanced_analysis = add_opportunity_evaluation(analysis_with_justifications)
+                        
+                        # Exibir apenas a análise enriquecida (não a original)
+                        st.code(enhanced_analysis, language=None)
                                     
                             # Registrar uso após análise bem-sucedida
                             num_markets = sum(1 for v in selected_markets.values() if v)
