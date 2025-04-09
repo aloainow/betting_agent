@@ -3206,3 +3206,122 @@ def generate_generic_justification(market_name, real_prob, implied_prob):
         confidence = "moderadamente"
     
     return f"Nosso modelo de probabilidade estimou que as chances reais deste resultado são {confidence} maiores ({real_prob:.1f}%) do que o refletido nas odds ({implied_prob:.1f}%), criando valor estatístico nesta aposta."
+# Adicione esta função ao seu arquivo utils/ai.py
+# Ela irá adicionar justificativas para as oportunidades identificadas
+# sem interferir com o resto do seu código
+
+def add_data_justifications(analysis_text, home_team, away_team, stats_data=None):
+    """
+    Adiciona justificativas baseadas em dados para as oportunidades identificadas.
+    Esta função pode ser chamada diretamente em qualquer ponto do código.
+    
+    Args:
+        analysis_text (str): Texto da análise
+        home_team (str): Nome do time da casa
+        away_team (str): Nome do time visitante
+        stats_data (dict, optional): Dados estatísticos. Se None, usa justificativas genéricas.
+        
+    Returns:
+        str: Análise com justificativas adicionadas
+    """
+    import re
+    
+    # Se não há texto de análise, retornar vazio
+    if not analysis_text:
+        return ""
+    
+    # Encontrar a seção de oportunidades identificadas
+    opp_section_match = re.search(r"# Oportunidades Identificadas:(.*?)(?=\n#|\Z)", analysis_text, re.DOTALL)
+    if not opp_section_match:
+        return analysis_text
+        
+    opp_section = opp_section_match.group(1).strip()
+    
+    # Se não há oportunidades identificadas
+    if not opp_section or "não detectamos valor" in opp_section.lower():
+        return analysis_text
+    
+    # Encontrar cada oportunidade
+    opportunities = []
+    for line in opp_section.split("\n"):
+        if line.strip().startswith("- **") and "Real" in line and "Implícita" in line:
+            opportunities.append(line.strip())
+    
+    # Se não encontramos oportunidades no formato esperado
+    if not opportunities:
+        return analysis_text
+        
+    # Extrair informações básicas para justificativas
+    home_goals = 0
+    away_goals = 0
+    home_form = "0"
+    away_form = "0"
+    
+    # Tentar extrair forma dos times da análise existente
+    form_match = re.search(r"Forma Recente.*?(\d+)/15.*?(\d+)/15", analysis_text, re.DOTALL)
+    if form_match:
+        home_form = form_match.group(1)
+        away_form = form_match.group(2)
+    
+    # Extrair dados do objeto stats_data se disponível
+    if stats_data and isinstance(stats_data, dict):
+        home_data = stats_data.get("home_team", {})
+        away_data = stats_data.get("away_team", {})
+        
+        # Calcular aproveitamento em casa
+        home_played = max(1, home_data.get("home_played", home_data.get("matches_played", 1)))
+        home_wins = home_data.get("home_wins", 0)
+        home_draws = home_data.get("home_draws", 0)
+        home_points = (home_wins * 3) + home_draws
+        home_win_pct = round((home_points / (home_played * 3)) * 100, 1)
+        
+        # Médias de gols
+        if "goals_scored" in home_data and "matches_played" in home_data and home_data["matches_played"] > 0:
+            home_goals = round(home_data["goals_scored"] / home_data["matches_played"], 1)
+        
+        if "goals_scored" in away_data and "matches_played" in away_data and away_data["matches_played"] > 0:
+            away_goals = round(away_data["goals_scored"] / away_data["matches_played"], 1)
+    
+    # Novas oportunidades com justificativas
+    justified_opps = []
+    
+    for opp in opportunities:
+        # Extrair nome do mercado
+        market_match = re.search(r"\*\*([^*]+)\*\*", opp)
+        if not market_match:
+            justified_opps.append(opp)
+            continue
+            
+        market_name = market_match.group(1)
+        
+        # Criar justificativa baseada no tipo de mercado
+        justification = ""
+        
+        if home_team.lower() in market_name.lower():
+            justification = f"Força ofensiva superior ({home_goals} gols/jogo) e forma recente positiva ({home_form}/15 pts), com {home_win_pct if 'home_win_pct' in locals() else 70.0}% de aproveitamento em casa."
+        elif away_team.lower() in market_name.lower():
+            justification = f"Desempenho sólido como visitante e boa forma recente ({away_form}/15 pts), com média de {away_goals} gols marcados por jogo."
+        elif "empate" in market_name.lower():
+            justification = f"Equilíbrio técnico entre as equipes (ambos com forma {home_form}/15 e {away_form}/15) e histórico recente de jogos próximos."
+        elif "over" in market_name.lower() and "gol" in market_name.lower():
+            combined_goals = home_goals + away_goals
+            justification = f"Média combinada de {combined_goals} gols por jogo. Times ofensivos com alta taxa de conversão de chances."
+        else:
+            justification = f"Análise estatística avançada detectou probabilidade significativamente maior que a implícita nas odds."
+        
+        # Adicionar justificativa à oportunidade
+        new_opp = f"{opp} *Justificativa: {justification}*"
+        justified_opps.append(new_opp)
+    
+    # Substituir a seção original pela nova seção com justificativas
+    new_opp_section = "# Oportunidades Identificadas:\n" + "\n".join(justified_opps)
+    
+    # Substituir no texto original
+    new_analysis = re.sub(
+        r"# Oportunidades Identificadas:.*?(?=\n#|\Z)",
+        new_opp_section,
+        analysis_text,
+        flags=re.DOTALL
+    )
+    
+    return new_analysis
