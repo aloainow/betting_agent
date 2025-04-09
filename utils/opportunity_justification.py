@@ -609,7 +609,7 @@ def add_justifications_to_analysis(analysis_text, stats_data, home_team, away_te
     opportunities = []
     
     # Padrão para capturar oportunidades (sem justificativa atual)
-    pattern = r"- \*\*(.*?)\*\*: Real (\d+\.\d+)% vs Implícita (\d+\.\d+)% \(Valor de (\d+\.\d+)%\)(?!\s*\*Justificativa:)"
+    pattern = r"- \*\*(.*?)\*\*: Real (\d+\.\d+)% vs Implícita (\d+\.\d+)% \(Valor de (\d+\.\d+)%\)(?!.*Justificativa)"
     
     matches = re.findall(pattern, opportunities_section)
     
