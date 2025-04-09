@@ -775,7 +775,8 @@ Responda com EXATAMENTE este formato:
 # Nível de Confiança Geral: [Baixo/Médio/Alto]
 [Explique o que significa 'consistência' e 'forma (X.X/15)' ao justificar o nível de confiança]
 """
-def def analyze_with_gpt(prompt, original_probabilities=None, selected_markets=None, home_team=None, away_team=None, stats_data=None, odds_data=None):
+        
+def analyze_with_gpt(prompt, original_probabilities=None, selected_markets=None, home_team=None, away_team=None, stats_data=None, odds_data=None):
     try:
         client = get_openai_client()
         if not client:
