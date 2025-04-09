@@ -485,3 +485,177 @@ def generate_opportunity_justification(opportunity_name, real_prob, stats_data, 
                     
                     if justification_parts:
                         justification = "Justificativa: " + ", ".join(justification_parts) + "."
+                
+                elif "Under" in opportunity_name:
+                    match = re.search(r"Under (\d+\.?\d*)", opportunity_name)
+                    if match:
+                        corners_value = float(match.group(1))            
+        # 7. Cartões
+        elif "Cartões" in opportunity_name:
+            # Tentar extrair estatísticas de cartões
+            home_cards = home_stats.get("yellow_cards", 0) + home_stats.get("red_cards", 0)
+            away_cards = away_stats.get("yellow_cards", 0) + away_stats.get("red_cards", 0)
+            
+            home_played = home_stats.get("played", 1)
+            away_played = away_stats.get("played", 1)
+            
+            home_cards_avg = home_cards / home_played if home_played > 0 else 0
+            away_cards_avg = away_cards / away_played if away_played > 0 else 0
+            
+            combined_cards_avg = home_cards_avg + away_cards_avg
+            
+            # Extrair valor da linha
+            cards_value = 3.5  # Valor padrão
+            if "Over" in opportunity_name:
+                match = re.search(r"Over (\d+\.?\d*)", opportunity_name)
+                if match:
+                    cards_value = float(match.group(1))
+                
+                # Justificativa para Over Cartões
+                justification_parts = []
+                
+                if combined_cards_avg > cards_value:
+                    justification_parts.append(f"média combinada de {combined_cards_avg:.1f} cartões por jogo")
+                
+                if home_cards_avg > 2.0:
+                    justification_parts.append(f"{home_team} recebe muitos cartões ({home_cards_avg:.1f} por jogo)")
+                
+                if away_cards_avg > 2.0:
+                    justification_parts.append(f"{away_team} também é indisciplinado ({away_cards_avg:.1f} por jogo)")
+                
+                # Verificar intensidade do confronto pelo H2H
+                h2h_matches = h2h_stats.get("matches", 0)
+                h2h_cards = h2h_stats.get("total_cards", 0)
+                if h2h_matches > 0 and h2h_cards > 0:
+                    h2h_cards_avg = h2h_cards / h2h_matches
+                    if h2h_cards_avg > 4.0:
+                        justification_parts.append(f"histórico de confrontos intensos ({h2h_cards_avg:.1f} cartões/jogo)")
+                
+                if justification_parts:
+                    justification = "Justificativa: " + ", ".join(justification_parts) + "."
+            
+            elif "Under" in opportunity_name:
+                match = re.search(r"Under (\d+\.?\d*)", opportunity_name)
+                if match:
+                    cards_value = float(match.group(1))
+                
+                # Justificativa para Under Cartões
+                justification_parts = []
+                
+                if combined_cards_avg < cards_value:
+                    justification_parts.append(f"média combinada de apenas {combined_cards_avg:.1f} cartões por jogo")
+                
+                if home_cards_avg < 1.5 and away_cards_avg < 1.5:
+                    justification_parts.append("ambas equipes são disciplinadas")
+                elif home_cards_avg < 1.5 or away_cards_avg < 1.5:
+                    disciplined_team = home_team if home_cards_avg < away_cards_avg else away_team
+                    disciplined_avg = min(home_cards_avg, away_cards_avg)
+                    justification_parts.append(f"{disciplined_team} é disciplinado ({disciplined_avg:.1f} cartões/jogo)")
+                
+                # Verificar intensidade do confronto pelo H2H
+                h2h_matches = h2h_stats.get("matches", 0)
+                h2h_cards = h2h_stats.get("total_cards", 0)
+                if h2h_matches > 0 and h2h_cards > 0:
+                    h2h_cards_avg = h2h_cards / h2h_matches
+                    if h2h_cards_avg < 3.0:
+                        justification_parts.append(f"histórico de confrontos calmos ({h2h_cards_avg:.1f} cartões/jogo)")
+                
+                if justification_parts:
+                    justification = "Justificativa: " + ", ".join(justification_parts) + "."
+        
+        return justification
+        
+    except Exception as e:
+        logger.error(f"Erro ao gerar justificativa: {str(e)}")
+        logger.error(traceback.format_exc())
+        return ""
+
+
+def add_justifications_to_analysis(analysis_text, stats_data, home_team, away_team):
+    """
+    Adiciona justificativas a cada oportunidade identificada na análise
+    
+    Args:
+        analysis_text (str): Texto da análise
+        stats_data (dict): Dados estatísticos completos
+        home_team (str): Nome do time da casa
+        away_team (str): Nome do time visitante
+        
+    Returns:
+        str: Texto da análise com justificativas
+    """
+    import re
+    
+    # Se não temos dados estatísticos, retornar o texto original
+    if not stats_data or "home_team" not in stats_data or "away_team" not in stats_data:
+        return analysis_text
+    
+    # Procurar a seção de Oportunidades Identificadas
+    opportunities_section = None
+    opportunities_start_idx = -1
+    sections = analysis_text.split("# ")
+    
+    for i, section in enumerate(sections):
+        if section.startswith("Oportunidades Identificadas"):
+            opportunities_section = section
+            opportunities_start_idx = i
+            break
+    
+    # Se não encontrou a seção, retornar o texto original
+    if opportunities_section is None or opportunities_start_idx == -1:
+        return analysis_text
+    
+    # Extrair oportunidades individuais
+    opportunities = []
+    
+    # Padrão para capturar oportunidades (sem justificativa atual)
+    pattern = r"- \*\*(.*?)\*\*: Real (\d+\.\d+)% vs Implícita (\d+\.\d+)% \(Valor de (\d+\.\d+)%\)(?!\s*\*Justificativa:)"
+    
+    matches = re.findall(pattern, opportunities_section)
+    
+    # Se não encontrou oportunidades, tentar outro padrão
+    if not matches:
+        # Padrão alternativo com indentação diferente
+        pattern = r"\*\*(.*?)\*\*: Real (\d+\.\d+)% vs Implícita (\d+\.\d+)% \(Valor de (\d+\.\d+)%\)(?!\s*\*Justificativa:)"
+        matches = re.findall(pattern, opportunities_section)
+    
+    # Se ainda não encontrou, retornar o texto original
+    if not matches:
+        return analysis_text
+    
+    # Processar cada oportunidade encontrada
+    updated_section = opportunities_section
+    for match in matches:
+        opportunity_name, real_prob_str, implicit_prob_str, margin_str = match
+        
+        try:
+            # Converter para números
+            real_prob = float(real_prob_str)
+            
+            # Gerar justificativa
+            justification = generate_opportunity_justification(
+                opportunity_name.strip(),
+                real_prob,
+                stats_data,
+                home_team,
+                away_team
+            )
+            
+            if justification:
+                # Texto original da oportunidade (para substituição)
+                original_text = f"**{opportunity_name}**: Real {real_prob_str}% vs Implícita {implicit_prob_str}% (Valor de {margin_str}%)"
+                
+                # Novo texto com justificativa
+                new_text = f"**{opportunity_name}**: Real {real_prob_str}% vs Implícita {implicit_prob_str}% (Valor de {margin_str}%) *{justification}*"
+                
+                # Substituir apenas a ocorrência exata
+                updated_section = updated_section.replace(original_text, new_text)
+        except (ValueError, TypeError) as e:
+            logger.error(f"Erro ao processar oportunidade '{opportunity_name}': {str(e)}")
+            continue
+    
+    # Reconstruir o texto completo da análise
+    sections[opportunities_start_idx] = updated_section
+    updated_analysis = "# ".join(sections)
+    
+    return updated_analysis
