@@ -2621,3 +2621,423 @@ class AdvancedPredictionSystem:
         else:
             raise ValueError("Sem banco de dados para salvar calibração")
         
+def add_opportunity_justifications(analysis_text, stats_data):
+    """
+    Adiciona justificativas para as oportunidades identificadas na análise.
+    
+    Args:
+        analysis_text (str): Texto da análise contendo as oportunidades identificadas
+        stats_data (dict): Dados estatísticos das equipes e da partida
+        
+    Returns:
+        str: Texto da análise com justificativas adicionadas
+    """
+    import re
+    
+    # Verificar se temos os dados necessários
+    if not stats_data or not isinstance(stats_data, dict):
+        return analysis_text
+        
+    # Extrair dados relevantes das equipes
+    home_team_data = stats_data.get("home_team", {})
+    away_team_data = stats_data.get("away_team", {})
+    h2h_data = stats_data.get("h2h", {})
+    
+    home_team_name = stats_data.get("match_info", {}).get("home_team", "Time da Casa")
+    away_team_name = stats_data.get("match_info", {}).get("away_team", "Time Visitante")
+    
+    # Mapeamento para tipos de mercados específicos (para identificação via regex)
+    market_patterns = {
+        "money_line_home": fr"\*\*{re.escape(home_team_name)}\*\*: Real (\d+\.\d+)% vs Implícita (\d+\.\d+)% \(Valor de (\d+\.\d+)%\)",
+        "money_line_draw": r"\*\*Empate\*\*: Real (\d+\.\d+)% vs Implícita (\d+\.\d+)% \(Valor de (\d+\.\d+)%\)",
+        "money_line_away": fr"\*\*{re.escape(away_team_name)}\*\*: Real (\d+\.\d+)% vs Implícita (\d+\.\d+)% \(Valor de (\d+\.\d+)%\)",
+        "double_chance_home_draw": fr"\*\*{re.escape(home_team_name)} ou Empate\*\*: Real (\d+\.\d+)% vs Implícita (\d+\.\d+)% \(Valor de (\d+\.\d+)%\)",
+        "double_chance_home_away": fr"\*\*{re.escape(home_team_name)} ou {re.escape(away_team_name)}\*\*: Real (\d+\.\d+)% vs Implícita (\d+\.\d+)% \(Valor de (\d+\.\d+)%\)",
+        "double_chance_away_draw": fr"\*\*Empate ou {re.escape(away_team_name)}\*\*: Real (\d+\.\d+)% vs Implícita (\d+\.\d+)% \(Valor de (\d+\.\d+)%\)",
+        "btts_yes": r"\*\*Ambos Marcam - Sim\*\*: Real (\d+\.\d+)% vs Implícita (\d+\.\d+)% \(Valor de (\d+\.\d+)%\)",
+        "btts_no": r"\*\*Ambos Marcam - Não\*\*: Real (\d+\.\d+)% vs Implícita (\d+\.\d+)% \(Valor de (\d+\.\d+)%\)",
+        "over": r"\*\*Over (\d+\.?\d*) Gols\*\*: Real (\d+\.\d+)% vs Implícita (\d+\.\d+)% \(Valor de (\d+\.\d+)%\)",
+        "under": r"\*\*Under (\d+\.?\d*) Gols\*\*: Real (\d+\.\d+)% vs Implícita (\d+\.\d+)% \(Valor de (\d+\.\d+)%\)",
+        "corners_over": r"\*\*Over (\d+\.?\d*) Escanteios\*\*: Real (\d+\.\d+)% vs Implícita (\d+\.\d+)% \(Valor de (\d+\.\d+)%\)",
+        "corners_under": r"\*\*Under (\d+\.?\d*) Escanteios\*\*: Real (\d+\.\d+)% vs Implícita (\d+\.\d+)% \(Valor de (\d+\.\d+)%\)",
+        "cards_over": r"\*\*Over (\d+\.?\d*) Cartões\*\*: Real (\d+\.\d+)% vs Implícita (\d+\.\d+)% \(Valor de (\d+\.\d+)%\)",
+        "cards_under": r"\*\*Under (\d+\.?\d*) Cartões\*\*: Real (\d+\.\d+)% vs Implícita (\d+\.\d+)% \(Valor de (\d+\.\d+)%\)",
+    }
+    
+    # Encontrar a seção "Oportunidades Identificadas"
+    sections = analysis_text.split("\n# ")
+    opportunities_section = None
+    section_index = -1
+    
+    for i, section in enumerate(sections):
+        if section.startswith("Oportunidades Identificadas:") or section.startswith("Oportunidades Identificadas\n"):
+            opportunities_section = section
+            section_index = i
+            break
+    
+    if not opportunities_section or section_index == -1:
+        return analysis_text  # Não encontrou a seção de oportunidades
+    
+    # Processar a seção de oportunidades
+    lines = opportunities_section.split("\n")
+    modified_lines = []
+    current_line_i = 0
+    
+    while current_line_i < len(lines):
+        line = lines[current_line_i]
+        modified_lines.append(line)
+        
+        # Verificar se a linha atual contém uma oportunidade
+        if line.strip().startswith("- **") and "Real" in line and "Implícita" in line and "Valor" in line:
+            # Encontrar qual mercado corresponde a esta linha
+            market_type = None
+            match_data = None
+            
+            for market, pattern in market_patterns.items():
+                match = re.search(pattern, line)
+                if match:
+                    market_type = market
+                    match_data = match
+                    break
+            
+            # Se identificamos o mercado, adicionar a justificativa
+            if market_type and match_data:
+                justification = generate_justification(
+                    market_type, 
+                    match_data, 
+                    home_team_data, 
+                    away_team_data, 
+                    h2h_data,
+                    home_team_name,
+                    away_team_name
+                )
+                
+                # Adicionar justificativa na próxima linha
+                if justification:
+                    modified_lines.append(f"  *Justificativa: {justification}*")
+        
+        current_line_i += 1
+    
+    # Reconstituir a seção modificada
+    modified_section = "\n".join(modified_lines)
+    
+    # Substituir a seção original pela modificada
+    sections[section_index] = modified_section
+    
+    # Reconstruir o texto completo
+    modified_text = "\n# ".join(sections)
+    if not modified_text.startswith("# "):
+        modified_text = "# " + modified_text
+    
+    return modified_text
+
+def generate_justification(market_type, match_data, home_team_data, away_team_data, h2h_data, home_team_name, away_team_name):
+    """
+    Gera uma justificativa para um mercado específico com base nos dados estatísticos.
+    
+    Args:
+        market_type (str): Tipo de mercado
+        match_data (re.Match): Objeto Match com os grupos capturados do regex
+        home_team_data (dict): Dados do time da casa
+        away_team_data (dict): Dados do time visitante
+        h2h_data (dict): Dados de confrontos diretos
+        home_team_name (str): Nome do time da casa
+        away_team_name (str): Nome do time visitante
+        
+    Returns:
+        str: Justificativa para o mercado
+    """
+    try:
+        # Extrair dados básicos de cada time
+        home_goals_per_game = get_stat(home_team_data, "goals_per_game") or get_stat(home_team_data, "home_goals_scored", 0) / max(1, get_stat(home_team_data, "home_played", 1))
+        away_goals_per_game = get_stat(away_team_data, "goals_per_game") or get_stat(away_team_data, "away_goals_scored", 0) / max(1, get_stat(away_team_data, "away_played", 1))
+        
+        home_conceded_per_game = get_stat(home_team_data, "conceded_per_game") or get_stat(home_team_data, "home_goals_conceded", 0) / max(1, get_stat(home_team_data, "home_played", 1))
+        away_conceded_per_game = get_stat(away_team_data, "conceded_per_game") or get_stat(away_team_data, "away_goals_conceded", 0) / max(1, get_stat(away_team_data, "away_played", 1))
+        
+        # Calcular pontos de forma (últimos 5 jogos)
+        home_form_str = get_stat(home_team_data, "form", "")
+        away_form_str = get_stat(away_team_data, "form", "")
+        
+        home_form_points = calculate_form_points(home_form_str)
+        away_form_points = calculate_form_points(away_form_str)
+        
+        # Percentuais de resultados
+        home_win_pct = get_stat(home_team_data, "win_pct", 0)
+        home_home_win_pct = get_stat(home_team_data, "home_win_pct", 0) or calculate_percentage(
+            get_stat(home_team_data, "home_wins", 0),
+            get_stat(home_team_data, "home_played", 1)
+        )
+        
+        away_win_pct = get_stat(away_team_data, "win_pct", 0)
+        away_away_win_pct = get_stat(away_team_data, "away_win_pct", 0) or calculate_percentage(
+            get_stat(away_team_data, "away_wins", 0),
+            get_stat(away_team_data, "away_played", 1)
+        )
+        
+        # Dados de over/under e BTTS
+        home_over_2_5_pct = get_stat(home_team_data, "over_2_5_pct", 0)
+        away_over_2_5_pct = get_stat(away_team_data, "over_2_5_pct", 0)
+        h2h_over_2_5_pct = get_stat(h2h_data, "over_2_5_pct", 0)
+        
+        home_btts_pct = get_stat(home_team_data, "btts_pct", 0)
+        away_btts_pct = get_stat(away_team_data, "btts_pct", 0)
+        h2h_btts_pct = get_stat(h2h_data, "btts_pct", 0)
+        
+        # Dados de clean sheets
+        home_clean_sheets_pct = get_stat(home_team_data, "clean_sheets_pct", 0)
+        away_clean_sheets_pct = get_stat(away_team_data, "clean_sheets_pct", 0)
+        
+        # Dados de escanteios
+        home_corners_per_game = get_stat(home_team_data, "corners_per_game", 0)
+        away_corners_per_game = get_stat(away_team_data, "corners_per_game", 0)
+        h2h_avg_corners = get_stat(h2h_data, "avg_corners", 0)
+        
+        # Dados de cartões
+        home_cards_per_game = get_stat(home_team_data, "cards_per_game", 0)
+        away_cards_per_game = get_stat(away_team_data, "cards_per_game", 0)
+        h2h_avg_cards = get_stat(h2h_data, "avg_cards", 0)
+        
+        # Gerar justificativa com base no tipo de mercado
+        if market_type == "money_line_home":
+            # Time da casa vencer
+            justification = f"Força ofensiva ({home_goals_per_game:.1f} gols/jogo) e forma recente positiva ({home_form_points}/15 pts), com {home_home_win_pct:.1f}% de aproveitamento em casa."
+            if home_conceded_per_game < away_goals_per_game:
+                justification += f" Defesa sólida ({home_conceded_per_game:.1f} gols sofridos/jogo) contra ataque visitante ({away_goals_per_game:.1f})."
+            return justification
+        
+        elif market_type == "money_line_away":
+            # Time visitante vencer
+            justification = f"Bom desempenho como visitante ({away_away_win_pct:.1f}% de vitórias) e forma atual ({away_form_points}/15 pts). Marca {away_goals_per_game:.1f} gols/jogo contra defesa que sofre {home_conceded_per_game:.1f}/jogo."
+            return justification
+        
+        elif market_type == "money_line_draw":
+            # Empate
+            home_draw_pct = get_stat(home_team_data, "draw_pct", 0)
+            away_draw_pct = get_stat(away_team_data, "draw_pct", 0)
+            h2h_draw_pct = calculate_percentage(get_stat(h2h_data, "draws", 0), get_stat(h2h_data, "total_matches", 1))
+            
+            justification = f"{home_team_name} tem {home_draw_pct:.1f}% de empates e {away_team_name} {away_draw_pct:.1f}%."
+            if h2h_draw_pct > 20:
+                justification += f" Historicamente, {h2h_draw_pct:.1f}% dos confrontos diretos terminaram empatados."
+            
+            # Se as equipes têm formas semelhantes, destacar isso
+            if abs(home_form_points - away_form_points) <= 3:
+                justification += f" Equipes com forma similar ({home_form_points} vs {away_form_points} pts nos últimos jogos)."
+            
+            return justification
+        
+        elif market_type.startswith("double_chance"):
+            # Chance dupla
+            if market_type == "double_chance_home_draw":
+                justification = f"{home_team_name} vence {home_win_pct:.1f}% e empata {get_stat(home_team_data, 'draw_pct', 0):.1f}% dos jogos. Forte em casa com {home_home_win_pct:.1f}% de vitórias."
+            elif market_type == "double_chance_away_draw":
+                justification = f"{away_team_name} vence {away_win_pct:.1f}% e empata {get_stat(away_team_data, 'draw_pct', 0):.1f}% dos jogos. Fora de casa tem {away_away_win_pct:.1f}% de vitórias."
+            else:  # double_chance_home_away
+                justification = f"Baixa probabilidade de empate ({get_stat(home_team_data, 'draw_pct', 0):.1f}% para {home_team_name}, {get_stat(away_team_data, 'draw_pct', 0):.1f}% para {away_team_name})."
+            
+            return justification
+        
+        elif market_type == "over":
+            # Over X.5 gols
+            line = float(match_data.group(1))
+            
+            # Cálculo de gols esperados
+            total_goals_per_game = home_goals_per_game + away_goals_per_game
+            
+            justification = f"Média combinada de {total_goals_per_game:.1f} gols por jogo. {home_over_2_5_pct:.1f}% dos jogos do {home_team_name} e {away_over_2_5_pct:.1f}% do {away_team_name} terminam com mais de 2.5 gols."
+            
+            if h2h_over_2_5_pct > 0:
+                justification += f" Confrontos diretos: {h2h_over_2_5_pct:.1f}% acima de 2.5 gols."
+            
+            return justification
+        
+        elif market_type == "under":
+            # Under X.5 gols
+            line = float(match_data.group(1))
+            
+            # Cálculo de gols esperados
+            total_goals_per_game = home_goals_per_game + away_goals_per_game
+            
+            justification = f"Média combinada de {total_goals_per_game:.1f} gols por jogo. {100-home_over_2_5_pct:.1f}% dos jogos do {home_team_name} e {100-away_over_2_5_pct:.1f}% do {away_team_name} terminam com menos de 2.5 gols."
+            
+            if home_clean_sheets_pct > 25 or away_clean_sheets_pct > 25:
+                justification += f" {home_team_name} mantém clean sheet em {home_clean_sheets_pct:.1f}% e {away_team_name} em {away_clean_sheets_pct:.1f}% dos jogos."
+            
+            return justification
+        
+        elif market_type == "btts_yes":
+            # Ambos marcam - Sim
+            justification = f"{home_team_name} marca {home_goals_per_game:.1f} gols/jogo e {away_team_name} marca {away_goals_per_game:.1f} gols/jogo. {home_btts_pct:.1f}% dos jogos do {home_team_name} e {away_btts_pct:.1f}% do {away_team_name} terminam com ambos marcando."
+            
+            if h2h_btts_pct > 0:
+                justification += f" Em confrontos diretos, BTTS ocorre em {h2h_btts_pct:.1f}% das partidas."
+            
+            return justification
+        
+        elif market_type == "btts_no":
+            # Ambos marcam - Não
+            justification = f"{home_clean_sheets_pct:.1f}% dos jogos do {home_team_name} e {away_clean_sheets_pct:.1f}% do {away_team_name} terminam com pelo menos um time sem marcar. {100-home_btts_pct:.1f}% dos jogos do {home_team_name} e {100-away_btts_pct:.1f}% do {away_team_name} não têm ambos marcando."
+            return justification
+        
+        elif market_type == "corners_over":
+            # Over X.5 escanteios
+            line = float(match_data.group(1))
+            corners_per_game = home_corners_per_game + away_corners_per_game
+            
+            justification = f"Média combinada de {corners_per_game:.1f} escanteios por jogo ({home_corners_per_game:.1f} para {home_team_name}, {away_corners_per_game:.1f} para {away_team_name})."
+            
+            if h2h_avg_corners > 0:
+                justification += f" Confrontos diretos têm média de {h2h_avg_corners:.1f} escanteios."
+            
+            home_over_corners = get_stat(home_team_data, "over_9_5_corners_pct", 0)
+            away_over_corners = get_stat(away_team_data, "over_9_5_corners_pct", 0)
+            
+            if home_over_corners > 0 or away_over_corners > 0:
+                justification += f" {home_over_corners:.1f}% dos jogos do {home_team_name} e {away_over_corners:.1f}% do {away_team_name} têm mais de 9.5 escanteios."
+            
+            return justification
+        
+        elif market_type == "corners_under":
+            # Under X.5 escanteios
+            line = float(match_data.group(1))
+            corners_per_game = home_corners_per_game + away_corners_per_game
+            
+            justification = f"Média combinada de {corners_per_game:.1f} escanteios por jogo, abaixo da linha de {line} ({home_corners_per_game:.1f} para {home_team_name}, {away_corners_per_game:.1f} para {away_team_name})."
+            
+            home_under_corners = 100 - get_stat(home_team_data, "over_9_5_corners_pct", 0)
+            away_under_corners = 100 - get_stat(away_team_data, "over_9_5_corners_pct", 0)
+            
+            if home_under_corners > 0 or away_under_corners > 0:
+                justification += f" {home_under_corners:.1f}% dos jogos do {home_team_name} e {away_under_corners:.1f}% do {away_team_name} têm menos de 9.5 escanteios."
+            
+            return justification
+        
+        elif market_type == "cards_over":
+            # Over X.5 cartões
+            line = float(match_data.group(1))
+            cards_per_game = home_cards_per_game + away_cards_per_game
+            
+            justification = f"Média combinada de {cards_per_game:.1f} cartões por jogo ({home_cards_per_game:.1f} para {home_team_name}, {away_cards_per_game:.1f} para {away_team_name})."
+            
+            if h2h_avg_cards > 0:
+                justification += f" Confrontos diretos têm média de {h2h_avg_cards:.1f} cartões."
+            
+            home_over_cards = get_stat(home_team_data, "over_3_5_cards_pct", 0)
+            away_over_cards = get_stat(away_team_data, "over_3_5_cards_pct", 0)
+            
+            if home_over_cards > 0 or away_over_cards > 0:
+                justification += f" {home_over_cards:.1f}% dos jogos do {home_team_name} e {away_over_cards:.1f}% do {away_team_name} têm mais de 3.5 cartões."
+            
+            return justification
+        
+        elif market_type == "cards_under":
+            # Under X.5 cartões
+            line = float(match_data.group(1))
+            cards_per_game = home_cards_per_game + away_cards_per_game
+            
+            justification = f"Média combinada de {cards_per_game:.1f} cartões por jogo, abaixo da linha de {line} ({home_cards_per_game:.1f} para {home_team_name}, {away_cards_per_game:.1f} para {away_team_name})."
+            
+            home_under_cards = 100 - get_stat(home_team_data, "over_3_5_cards_pct", 0)
+            away_under_cards = 100 - get_stat(away_team_data, "over_3_5_cards_pct", 0)
+            
+            if home_under_cards > 0 or away_under_cards > 0:
+                justification += f" {home_under_cards:.1f}% dos jogos do {home_team_name} e {away_under_cards:.1f}% do {away_team_name} têm menos de 3.5 cartões."
+            
+            return justification
+        
+        # Caso não identifique o mercado específico
+        return None
+    
+    except Exception as e:
+        print(f"Erro ao gerar justificativa: {str(e)}")
+        return None
+
+def get_stat(data_dict, key, default=0):
+    """
+    Extrai estatística do dicionário de dados com tratamento de erros
+    
+    Args:
+        data_dict (dict): Dicionário de dados
+        key (str): Chave a buscar
+        default: Valor padrão caso não encontre
+        
+    Returns:
+        Valor da estatística ou valor padrão
+    """
+    if not isinstance(data_dict, dict):
+        return default
+        
+    value = data_dict.get(key, default)
+    
+    # Converter para numérico se for string
+    if isinstance(value, str):
+        try:
+            value = float(value)
+        except (ValueError, TypeError):
+            return default
+    
+    # Verificar valores válidos
+    if isinstance(value, (int, float)) and not (value == 0 and default != 0):
+        return value
+        
+    return default
+
+def calculate_form_points(form_str):
+    """
+    Calcula pontos baseados na forma recente (W=3, D=1, L=0)
+    
+    Args:
+        form_str (str): String de forma (ex: "WDLWW")
+        
+    Returns:
+        int: Pontos totais (máximo 15)
+    """
+    if not form_str or not isinstance(form_str, str):
+        return 7  # Valor médio padrão
+        
+    points = 0
+    count = 0
+    
+    # Pegar apenas os últimos 5 resultados
+    recent_form = form_str[-5:] if len(form_str) >= 5 else form_str
+    
+    for result in recent_form:
+        result = result.upper()
+        if result == 'W':
+            points += 3
+            count += 1
+        elif result == 'D':
+            points += 1
+            count += 1
+        elif result == 'L':
+            count += 1
+            
+    # Se não encontrou resultados W/D/L suficientes, usar valor padrão proporcional
+    if count < 3:
+        return 7
+        
+    # Retornar pontuação
+    return points
+
+def calculate_percentage(numerator, denominator):
+    """
+    Calcula porcentagem com tratamento de erros
+    
+    Args:
+        numerator: Numerador
+        denominator: Denominador
+        
+    Returns:
+        float: Porcentagem calculada
+    """
+    try:
+        numerator = float(numerator)
+        denominator = float(denominator)
+        
+        if denominator <= 0:
+            return 0
+            
+        return (numerator / denominator) * 100
+    except:
+        return 0
