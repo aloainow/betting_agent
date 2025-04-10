@@ -2321,35 +2321,36 @@ def show_main_dashboard():
                                     else:
                                         st.error("Não foi possível registrar o uso dos créditos. Por favor, tente novamente.")
                                             
-                            except Exception as analysis_error:
-                                logger.error(f"Erro durante a análise: {str(analysis_error)}")
+                                    except Exception as analysis_error:
+                                        logger.error(f"Erro durante a análise: {str(analysis_error)}")
+                                        logger.error(traceback.format_exc())
+                                        status.error(f"Erro durante a análise: {str(analysis_error)}")
+                                        if st.session_state.debug_mode:
+                                            st.code(traceback.format_exc())
+                                            
+                            except Exception as button_error:
+                                logger.error(f"Erro no botão de análise: {str(button_error)}")
                                 logger.error(traceback.format_exc())
-                                status.error(f"Erro durante a análise: {str(analysis_error)}")
+                                st.error(f"Erro no botão de análise: {str(button_error)}")
                                 if st.session_state.debug_mode:
                                     st.code(traceback.format_exc())
                                     
-                    except Exception as button_error:
-                        logger.error(f"Erro no botão de análise: {str(button_error)}")
-                        logger.error(traceback.format_exc())
-                        st.error(f"Erro no botão de análise: {str(button_error)}")
-                        if st.session_state.debug_mode:
-                            st.code(traceback.format_exc())
+                        except Exception as content_error:
+                            logger.error(f"Erro fatal no conteúdo principal: {str(content_error)}")
+                            logger.error(traceback.format_exc())
+                            st.error("Erro ao carregar o conteúdo principal. Detalhes no log.")
+                            st.error(f"Detalhes: {str(content_error)}")
+                            if st.session_state.debug_mode:
+                                st.code(traceback.format_exc())
                             
-                except Exception as content_error:
-                    logger.error(f"Erro fatal no conteúdo principal: {str(content_error)}")
-                    logger.error(traceback.format_exc())
-                    st.error("Erro ao carregar o conteúdo principal. Detalhes no log.")
-                    st.error(f"Detalhes: {str(content_error)}")
-                    if st.session_state.debug_mode:
-                        st.code(traceback.format_exc())
+                    except Exception as e:
+                        logger.error(f"Erro crítico ao exibir painel principal: {str(e)}")
+                        logger.error(traceback.format_exc())
+                        st.error("Erro ao carregar o painel principal. Por favor, tente novamente.")
+                        st.error(f"Erro: {str(e)}")
+                        if st.session_state.debug_mode:
+                            st.code(traceback.format_exc())    
                     
-            except Exception as e:
-                logger.error(f"Erro crítico ao exibir painel principal: {str(e)}")
-                logger.error(traceback.format_exc())
-                st.error("Erro ao carregar o painel principal. Por favor, tente novamente.")
-                st.error(f"Erro: {str(e)}")
-                if st.session_state.debug_mode:
-                    st.code(traceback.format_exc())    
 # Função auxiliar para extração de dados avançada
 def extract_direct_team_stats(source, target, team_type):
     """
