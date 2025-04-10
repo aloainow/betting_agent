@@ -2620,3 +2620,4 @@ class AdvancedPredictionSystem:
             self.calibration_data = new_calibration
         else:
             raise ValueError("Sem banco de dados para salvar calibração")
+        
