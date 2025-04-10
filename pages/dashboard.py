@@ -1447,6 +1447,21 @@ def show_main_dashboard():
     
     # Reconstrução completa da análise
                             def reconstruct_analysis(analysis_text, home_team, away_team, selected_markets, original_probabilities, implied_probabilities, odds_data):
+                                """
+                                Reconstrói a análise completa de uma partida com base nos dados fornecidos
+                                
+                                Args:
+                                    analysis_text (str): Texto da análise original
+                                    home_team (str): Nome do time da casa
+                                    away_team (str): Nome do time visitante
+                                    selected_markets (dict): Mercados selecionados para análise
+                                    original_probabilities (dict): Probabilidades calculadas
+                                    implied_probabilities (dict): Probabilidades implícitas nas odds
+                                    odds_data (str): Texto contendo as odds configuradas
+                                    
+                                Returns:
+                                    str: Texto da análise reconstruída
+                                """
                                 try:
                                     # Logs para depuração
                                     print(f"Selected markets: {selected_markets}")
@@ -2244,10 +2259,9 @@ def show_main_dashboard():
                                     return final_analysis
                                     
                                 except Exception as e:
-                                    # Bloco except que estava faltando
+                                    # Tratamento para erros durante a reconstrução da análise
                                     import logging
                                     import traceback
-                                    import inspect  # Adicionar import para a função inspect
                                     logger = logging.getLogger("valueHunter.dashboard")
                                     logger.error(f"Erro ao reconstruir análise: {str(e)}")
                                     logger.error(traceback.format_exc())
