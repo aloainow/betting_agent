@@ -2181,7 +2181,7 @@ def evaluate_opportunity(real_prob, margin):
         return "BAIXA", "Probabilidade e margem insuficientes"
 
 # Função para adicionar a avaliação ao final da análise
-ef add_opportunity_evaluation(analysis_text):
+def add_opportunity_evaluation(analysis_text):
     """
     Adiciona uma avaliação das oportunidades ao final do texto de análise
     
