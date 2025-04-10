@@ -5,12 +5,10 @@ import json
 import os
 import time
 import streamlit as st
-import inspect
 from utils.core import show_valuehunter_logo, go_to_login, update_purchase_button, DATA_DIR, apply_custom_styles
 from utils.data import parse_team_stats, get_odds_data, format_prompt
 from utils.ai import analyze_with_gpt, format_enhanced_prompt, format_highly_optimized_prompt
 from utils.ai import analyze_with_gpt, format_enhanced_prompt, format_highly_optimized_prompt, calculate_advanced_probabilities
-from utils.opportunity_justification import add_justifications_to_analysis
 
 # Configuração de logging
 logger = logging.getLogger("valueHunter.dashboard")
@@ -1444,29 +1442,14 @@ def show_main_dashboard():
                             
                             # Adiciona módulo re para expressões regulares caso não esteja importado
                             import re
-    
-    # Reconstrução completa da análise
+                            
+                            # Reconstrução completa da análise
                             def reconstruct_analysis(analysis_text, home_team, away_team, selected_markets, original_probabilities, implied_probabilities, odds_data):
-                                """
-                                Reconstrói a análise completa de uma partida com base nos dados fornecidos.
-                                
-                                Args:
-                                    analysis_text (str): Texto da análise original
-                                    home_team (str): Nome do time da casa
-                                    away_team (str): Nome do time visitante
-                                    selected_markets (dict): Mercados selecionados para análise
-                                    original_probabilities (dict): Probabilidades calculadas
-                                    implied_probabilities (dict): Probabilidades implícitas nas odds
-                                    odds_data (str): Texto contendo as odds configuradas
-                                    
-                                Returns:
-                                    str: Texto da análise reconstruída
-                                """
                                 try:
                                     # Logs para depuração
                                     print(f"Selected markets: {selected_markets}")
-                                    print(f"Original probabilities keys: {list(original_probabilities.keys()) if original_probabilities else 'None'}")
-                                    print(f"Implied probabilities keys: {list(implied_probabilities.keys()) if implied_probabilities else 'None'}")
+                                    print(f"Original probabilities keys: {original_probabilities.keys() if original_probabilities else 'None'}")
+                                    print(f"Implied probabilities keys: {implied_probabilities.keys() if implied_probabilities else 'None'}")
                                     print(f"Odds data: {odds_data}")
                                     
                                     # Iniciar construção da análise
@@ -1478,10 +1461,12 @@ def show_main_dashboard():
                                     # Adicionar análise de mercados disponíveis
                                     markets_section = "# Análise de Mercados Disponíveis:\n"
                                 
-                                    # --- Moneyline ---
+                                    # Moneyline
                                     if selected_markets.get("money_line"):
                                         markets_section += "- **Money Line (1X2):**\n"
-                                        home_odd = draw_odd = away_odd = 0
+                                        home_odd = 0
+                                        draw_odd = 0
+                                        away_odd = 0
                                     
                                         # Extrair odds do texto original
                                         home_match = re.search(r"Casa.*?@(\d+\.?\d*)", odds_data)
@@ -1507,11 +1492,14 @@ def show_main_dashboard():
                                         if away_odd > 0:
                                             implied_probabilities["away"] = 100.0 / away_odd
                                     
-                                    # --- Chance Dupla ---
+                                    # Chance Dupla
                                     if selected_markets.get("chance_dupla"):
                                         markets_section += "- **Chance Dupla:**\n"
-                                        home_draw_odd = home_away_odd = draw_away_odd = 0
+                                        home_draw_odd = 0
+                                        home_away_odd = 0
+                                        draw_away_odd = 0
                                     
+                                        # Extrair odds do texto original
                                         hd_match = re.search(r"1X.*?@(\d+\.?\d*)", odds_data)
                                         if hd_match:
                                             home_draw_odd = float(hd_match.group(1))
@@ -1535,11 +1523,13 @@ def show_main_dashboard():
                                         if draw_away_odd > 0:
                                             implied_probabilities["draw_away"] = 100.0 / draw_away_odd
                                     
-                                    # --- Ambos Marcam (BTTS) ---
+                                    # Ambos Marcam
                                     if selected_markets.get("ambos_marcam"):
                                         markets_section += "- **Ambos Marcam (BTTS):**\n"
-                                        btts_yes_odd = btts_no_odd = 0
+                                        btts_yes_odd = 0
+                                        btts_no_odd = 0
                                     
+                                        # Extrair odds do texto original
                                         yes_match = re.search(r"Sim.*?@(\d+\.?\d*)", odds_data)
                                         if yes_match:
                                             btts_yes_odd = float(yes_match.group(1))
@@ -1550,14 +1540,17 @@ def show_main_dashboard():
                                             btts_no_odd = float(no_match.group(1))
                                             markets_section += f"  - Não: @{btts_no_odd}\n"
                                         
+                                        # Atualizar probabilidades implícitas
                                         if btts_yes_odd > 0:
                                             implied_probabilities["btts_yes"] = 100.0 / btts_yes_odd
                                         if btts_no_odd > 0:
                                             implied_probabilities["btts_no"] = 100.0 / btts_no_odd
                                     
-                                    # --- Over/Under Gols ---
+                                    # Over/Under
                                     if selected_markets.get("over_under"):
                                         markets_section += "- **Over/Under:**\n"
+                                        
+                                        # Extrair linha e odds
                                         line_match = re.search(r"Over\s+(\d+\.?\d*)\s+Gols", odds_data)
                                         over_match = re.search(r"Over\s+\d+\.?\d*\s+Gols:.*?@(\d+\.?\d*)", odds_data)
                                         under_match = re.search(r"Under\s+\d+\.?\d*\s+Gols:.*?@(\d+\.?\d*)", odds_data)
@@ -1575,9 +1568,11 @@ def show_main_dashboard():
                                                 markets_section += f"  - Under {line} Gols: @{under_odd}\n"
                                                 implied_probabilities[f"under_{str(line).replace('.', '_')}"] = 100.0 / under_odd
                                     
-                                    # --- Escanteios ---
+                                    # Escanteios
                                     if selected_markets.get("escanteios"):
                                         markets_section += "- **Escanteios:**\n"
+                                        
+                                        # Extrair linha e odds
                                         line_match = re.search(r"Over\s+(\d+\.?\d*)\s+Escanteios", odds_data)
                                         over_match = re.search(r"Over\s+\d+\.?\d*\s+Escanteios:.*?@(\d+\.?\d*)", odds_data)
                                         under_match = re.search(r"Under\s+\d+\.?\d*\s+Escanteios:.*?@(\d+\.?\d*)", odds_data)
@@ -1595,9 +1590,11 @@ def show_main_dashboard():
                                                 markets_section += f"  - Under {line} Escanteios: @{under_odd}\n"
                                                 implied_probabilities[f"corners_under_{str(line).replace('.', '_')}"] = 100.0 / under_odd
                                     
-                                    # --- Cartões ---
+                                    # Cartões
                                     if selected_markets.get("cartoes"):
                                         markets_section += "- **Cartões:**\n"
+                                        
+                                        # Extrair linha e odds
                                         line_match = re.search(r"Over\s+(\d+\.?\d*)\s+Cartões", odds_data)
                                         over_match = re.search(r"Over\s+\d+\.?\d*\s+Cartões:.*?@(\d+\.?\d*)", odds_data)
                                         under_match = re.search(r"Under\s+\d+\.?\d*\s+Cartões:.*?@(\d+\.?\d*)", odds_data)
@@ -1617,436 +1614,275 @@ def show_main_dashboard():
                                     
                                     new_analysis.append(markets_section)
                                     
-                                    # --- Probabilidades Calculadas ---
+                                    # Probabilidades calculadas
                                     probs_section = "# Probabilidades Calculadas (REAL vs IMPLÍCITA):\n"
                                     opportunities = []
                                     
                                     # Money Line
                                     if selected_markets.get("money_line") and "moneyline" in original_probabilities:
                                         probs_section += "## Money Line (1X2):\n"
+                                        
                                         # Casa
                                         home_real = original_probabilities["moneyline"].get("home_win", 0)
                                         home_implicit = implied_probabilities.get("home", 0)
                                         home_value = home_real > home_implicit + 2
+                                        
                                         probs_section += f"- **{home_team}**: Real {home_real:.1f}% vs Implícita {home_implicit:.1f}%{' (Valor)' if home_value else ''}\n"
+                                        
                                         if home_value:
-                                            opportunities.append(f"- **{home_team}**: Real {home_real:.1f}% vs Implícita {home_implicit:.1f}% (Valor de {home_real - home_implicit:.1f}%)")
+                                            opportunities.append(f"- **{home_team}**: Real {home_real:.1f}% vs Implícita {home_implicit:.1f}% (Valor de {home_real-home_implicit:.1f}%)")
                                         
                                         # Empate
                                         draw_real = original_probabilities["moneyline"].get("draw", 0)
                                         draw_implicit = implied_probabilities.get("draw", 0)
                                         draw_value = draw_real > draw_implicit + 2
+                                        
                                         probs_section += f"- **Empate**: Real {draw_real:.1f}% vs Implícita {draw_implicit:.1f}%{' (Valor)' if draw_value else ''}\n"
+                                        
                                         if draw_value:
-                                            opportunities.append(f"- **Empate**: Real {draw_real:.1f}% vs Implícita {draw_implicit:.1f}% (Valor de {draw_real - draw_implicit:.1f}%)")
+                                            opportunities.append(f"- **Empate**: Real {draw_real:.1f}% vs Implícita {draw_implicit:.1f}% (Valor de {draw_real-draw_implicit:.1f}%)")
                                         
                                         # Fora
                                         away_real = original_probabilities["moneyline"].get("away_win", 0)
                                         away_implicit = implied_probabilities.get("away", 0)
                                         away_value = away_real > away_implicit + 2
+                                        
                                         probs_section += f"- **{away_team}**: Real {away_real:.1f}% vs Implícita {away_implicit:.1f}%{' (Valor)' if away_value else ''}\n"
+                                        
                                         if away_value:
-                                            opportunities.append(f"- **{away_team}**: Real {away_real:.1f}% vs Implícita {away_implicit:.1f}% (Valor de {away_real - away_implicit:.1f}%)")
+                                            opportunities.append(f"- **{away_team}**: Real {away_real:.1f}% vs Implícita {away_implicit:.1f}% (Valor de {away_real-away_implicit:.1f}%)")
                                     
-                                    # Chance Dupla
+                                    # Double Chance
                                     if selected_markets.get("chance_dupla") and "double_chance" in original_probabilities:
                                         probs_section += "## Chance Dupla (Double Chance):\n"
+                                        
                                         # 1X
                                         hd_real = original_probabilities["double_chance"].get("home_or_draw", 0)
                                         hd_implicit = implied_probabilities.get("home_draw", 0)
                                         hd_value = hd_real > hd_implicit + 2
+                                        
                                         probs_section += f"- **{home_team} ou Empate**: Real {hd_real:.1f}% vs Implícita {hd_implicit:.1f}%{' (Valor)' if hd_value else ''}\n"
+                                        
                                         if hd_value:
-                                            opportunities.append(f"- **{home_team} ou Empate**: Real {hd_real:.1f}% vs Implícita {hd_implicit:.1f}% (Valor de {hd_real - hd_implicit:.1f}%)")
+                                            opportunities.append(f"- **{home_team} ou Empate**: Real {hd_real:.1f}% vs Implícita {hd_implicit:.1f}% (Valor de {hd_real-hd_implicit:.1f}%)")
                                         
                                         # 12
                                         ha_real = original_probabilities["double_chance"].get("home_or_away", 0)
                                         ha_implicit = implied_probabilities.get("home_away", 0)
                                         ha_value = ha_real > ha_implicit + 2
+                                        
                                         probs_section += f"- **{home_team} ou {away_team}**: Real {ha_real:.1f}% vs Implícita {ha_implicit:.1f}%{' (Valor)' if ha_value else ''}\n"
+                                        
                                         if ha_value:
-                                            opportunities.append(f"- **{home_team} ou {away_team}**: Real {ha_real:.1f}% vs Implícita {ha_implicit:.1f}% (Valor de {ha_real - ha_implicit:.1f}%)")
+                                            opportunities.append(f"- **{home_team} ou {away_team}**: Real {ha_real:.1f}% vs Implícita {ha_implicit:.1f}% (Valor de {ha_real-ha_implicit:.1f}%)")
                                         
                                         # X2
                                         da_real = original_probabilities["double_chance"].get("away_or_draw", 0)
                                         da_implicit = implied_probabilities.get("draw_away", 0)
                                         da_value = da_real > da_implicit + 2
+                                        
                                         probs_section += f"- **Empate ou {away_team}**: Real {da_real:.1f}% vs Implícita {da_implicit:.1f}%{' (Valor)' if da_value else ''}\n"
+                                        
                                         if da_value:
-                                            opportunities.append(f"- **Empate ou {away_team}**: Real {da_real:.1f}% vs Implícita {da_implicit:.1f}% (Valor de {da_real - da_implicit:.1f}%)")
+                                            opportunities.append(f"- **Empate ou {away_team}**: Real {da_real:.1f}% vs Implícita {da_implicit:.1f}% (Valor de {da_real-da_implicit:.1f}%)")
                                     
                                     # BTTS
                                     if selected_markets.get("ambos_marcam") and "btts" in original_probabilities:
                                         probs_section += "## Ambos Marcam (BTTS):\n"
+                                        
                                         # Sim
                                         yes_real = original_probabilities["btts"].get("yes", 0)
                                         yes_implicit = implied_probabilities.get("btts_yes", 0)
                                         yes_value = yes_real > yes_implicit + 2
+                                        
                                         probs_section += f"- **Sim**: Real {yes_real:.1f}% vs Implícita {yes_implicit:.1f}%{' (Valor)' if yes_value else ''}\n"
+                                        
                                         if yes_value:
-                                            opportunities.append(f"- **Ambos Marcam - Sim**: Real {yes_real:.1f}% vs Implícita {yes_implicit:.1f}% (Valor de {yes_real - yes_implicit:.1f}%)")
+                                            opportunities.append(f"- **Ambos Marcam - Sim**: Real {yes_real:.1f}% vs Implícita {yes_implicit:.1f}% (Valor de {yes_real-yes_implicit:.1f}%)")
                                         
                                         # Não
                                         no_real = original_probabilities["btts"].get("no", 0)
                                         no_implicit = implied_probabilities.get("btts_no", 0)
                                         no_value = no_real > no_implicit + 2
+                                        
                                         probs_section += f"- **Não**: Real {no_real:.1f}% vs Implícita {no_implicit:.1f}%{' (Valor)' if no_value else ''}\n"
+                                        
                                         if no_value:
-                                            opportunities.append(f"- **Ambos Marcam - Não**: Real {no_real:.1f}% vs Implícita {no_implicit:.1f}% (Valor de {no_real - no_implicit:.1f}%)")
+                                            opportunities.append(f"- **Ambos Marcam - Não**: Real {no_real:.1f}% vs Implícita {no_implicit:.1f}% (Valor de {no_real-no_implicit:.1f}%)")
                                     
-                                    # Over/Under Gols - extração da linha e atualização de oportunidades
+                                    # Over/Under
                                     if selected_markets.get("over_under") and "over_under" in original_probabilities:
                                         probs_section += "## Over/Under Gols:\n"
+                                        
+                                        # Extrair linha do texto de odds
                                         line_match = re.search(r"Over\s+(\d+\.?\d*)\s+Gols", odds_data)
                                         if line_match:
                                             line = float(line_match.group(1))
                                             line_str = str(line).replace('.', '_')
+                                            
                                             # Over
-                                            over_real = original_probabilities["over_under"].get("over_2_5", 0)
+                                            over_real = original_probabilities["over_under"].get("over_2_5", 0)  # Padrão para 2.5
                                             if line == 0.5:
-                                                over_real = 90.0
+                                                over_real = 90.0  # Aproximação para over 0.5
                                             elif line == 1.5:
-                                                over_real = 75.0
+                                                over_real = 75.0  # Aproximação para over 1.5
                                             elif line == 3.5:
-                                                over_real = 40.0
+                                                over_real = 40.0  # Aproximação para over 3.5
                                             elif line == 4.5:
-                                                over_real = 25.0
+                                                over_real = 25.0  # Aproximação para over 4.5
+                                            
                                             over_implicit = implied_probabilities.get(f"over_{line_str}", 0)
                                             over_value = over_real > over_implicit + 2
+                                            
                                             probs_section += f"- **Over {line} Gols**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}%{' (Valor)' if over_value else ''}\n"
+                                            
                                             if over_value:
-                                                opportunities.append(f"- **Over {line} Gols**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}% (Valor de {over_real - over_implicit:.1f}%)")
+                                                opportunities.append(f"- **Over {line} Gols**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}% (Valor de {over_real-over_implicit:.1f}%)")
+                                            
                                             # Under
                                             under_real = 100.0 - over_real
                                             under_implicit = implied_probabilities.get(f"under_{line_str}", 0)
                                             under_value = under_real > under_implicit + 2
+                                            
                                             probs_section += f"- **Under {line} Gols**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}%{' (Valor)' if under_value else ''}\n"
+                                            
                                             if under_value:
-                                                opportunities.append(f"- **Under {line} Gols**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real - under_implicit:.1f}%)")
-                                    
-                                    # Escanteios
+                                                opportunities.append(f"- **Under {line} Gols**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real-under_implicit:.1f}%)")
+                                            # Escanteios
                                     if selected_markets.get("escanteios") and "corners" in original_probabilities:
                                         probs_section += "## Escanteios:\n"
+                                        
+                                        # Extrair linha do texto de odds
                                         line_match = re.search(r"Over\s+(\d+\.?\d*)\s+Escanteios", odds_data)
                                         if line_match:
                                             line = float(line_match.group(1))
                                             line_str = str(line).replace('.', '_')
-                                            if line == 9.5:
+                                            
+                                            # Ajustar as probabilidades reais com base na linha
+                                            if line == 9.5:  # Linha padrão
                                                 over_real = original_probabilities["corners"].get("over_9_5", 0)
                                             else:
+                                                # Ajustes para outras linhas
                                                 base_over = original_probabilities["corners"].get("over_9_5", 50)
                                                 if line < 9.5:
-                                                    over_real = min(95, base_over + ((9.5 - line) * 10))
+                                                    over_real = min(95, base_over + ((9.5 - line) * 10))  # +10% por cada ponto abaixo de 9.5
                                                 else:
-                                                    over_real = max(5, base_over - ((line - 9.5) * 10))
+                                                    over_real = max(5, base_over - ((line - 9.5) * 10))   # -10% por cada ponto acima de 9.5
+                                            
                                             over_implicit = implied_probabilities.get(f"corners_over_{line_str}", 0)
                                             over_value = over_real > over_implicit + 2
+                                            
                                             probs_section += f"- **Over {line} Escanteios**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}%{' (Valor)' if over_value else ''}\n"
+                                            
                                             if over_value:
-                                                opportunities.append(f"- **Over {line} Escanteios**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}% (Valor de {over_real - over_implicit:.1f}%)")
+                                                opportunities.append(f"- **Over {line} Escanteios**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}% (Valor de {over_real-over_implicit:.1f}%)")
+                                            
+                                            # Under
                                             under_real = 100.0 - over_real
                                             under_implicit = implied_probabilities.get(f"corners_under_{line_str}", 0)
                                             under_value = under_real > under_implicit + 2
+                                            
                                             probs_section += f"- **Under {line} Escanteios**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}%{' (Valor)' if under_value else ''}\n"
+                                            
                                             if under_value:
-                                                opportunities.append(f"- **Under {line} Escanteios**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real - under_implicit:.1f}%)")
+                                                opportunities.append(f"- **Under {line} Escanteios**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real-under_implicit:.1f}%)")
                                     
                                     # Cartões
                                     if selected_markets.get("cartoes") and "cards" in original_probabilities:
                                         probs_section += "## Cartões:\n"
+                                        
+                                        # Extrair linha do texto de odds
                                         line_match = re.search(r"Over\s+(\d+\.?\d*)\s+Cartões", odds_data)
                                         if line_match:
                                             line = float(line_match.group(1))
                                             line_str = str(line).replace('.', '_')
-                                            if line == 3.5:
+                                            
+                                            # Ajustar as probabilidades reais com base na linha
+                                            if line == 3.5:  # Linha padrão
                                                 over_real = original_probabilities["cards"].get("over_3_5", 0)
                                             else:
+                                                # Ajustes para outras linhas
                                                 base_over = original_probabilities["cards"].get("over_3_5", 50)
                                                 if line < 3.5:
-                                                    over_real = min(95, base_over + ((3.5 - line) * 15))
+                                                    over_real = min(95, base_over + ((3.5 - line) * 15))  # +15% por cada ponto abaixo de 3.5
                                                 else:
-                                                    over_real = max(5, base_over - ((line - 3.5) * 15))
+                                                    over_real = max(5, base_over - ((line - 3.5) * 15))   # -15% por cada ponto acima de 3.5
+                                            
                                             over_implicit = implied_probabilities.get(f"cards_over_{line_str}", 0)
                                             over_value = over_real > over_implicit + 2
+                                            
                                             probs_section += f"- **Over {line} Cartões**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}%{' (Valor)' if over_value else ''}\n"
+                                            
                                             if over_value:
-                                                opportunities.append(f"- **Over {line} Cartões**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}% (Valor de {over_real - over_implicit:.1f}%)")
+                                                opportunities.append(f"- **Over {line} Cartões**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}% (Valor de {over_real-over_implicit:.1f}%)")
+                                            
+                                            # Under
                                             under_real = 100.0 - over_real
                                             under_implicit = implied_probabilities.get(f"cards_under_{line_str}", 0)
                                             under_value = under_real > under_implicit + 2
+                                            
                                             probs_section += f"- **Under {line} Cartões**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}%{' (Valor)' if under_value else ''}\n"
+                                            
                                             if under_value:
-                                                opportunities.append(f"- **Under {line} Cartões**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real - under_implicit:.1f}%)")
+                                                opportunities.append(f"- **Under {line} Cartões**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real-under_implicit:.1f}%)")
                                     
                                     new_analysis.append(probs_section)
                                     
-                                    # --- Oportunidades Identificadas com Justificativas ---
+                                    # Oportunidades identificadas
                                     if opportunities:
-                                        opportunities_section = "# Oportunidades Identificadas:\n"
-                                        enhanced_opportunities = []
-                                        for opp in opportunities:
-                                            try:
-                                                match = re.search(r"\*\*(.*?)\*\*", opp)
-                                                if match:
-                                                    opportunity_name = match.group(1).strip()
-                                                    justification = ""
-                                                    # Justificativa para o time da casa
-                                                    if opportunity_name == home_team:
-                                                        home_goals_per_game = 0
-                                                        home_form_points = 0
-                                                        home_home_win_pct = 0
-                                                        if "analysis_data" in original_probabilities:
-                                                            home_form_points = int(original_probabilities["analysis_data"].get("home_form_points", 0) * 15)
-                                                        stats_data = None
-                                                        frame = inspect.currentframe()
-                                                        try:
-                                                            if 'stats_data' in frame.f_back.f_locals:
-                                                                stats_data = frame.f_back.f_locals['stats_data']
-                                                            elif 'stats_data' in globals():
-                                                                stats_data = globals()['stats_data']
-                                                        finally:
-                                                            del frame
-                                                        if stats_data and isinstance(stats_data, dict) and "home_team" in stats_data:
-                                                            home_team_stats = stats_data["home_team"]
-                                                            if isinstance(home_team_stats, dict):
-                                                                if "goals_per_game" in home_team_stats:
-                                                                    home_goals_per_game = home_team_stats["goals_per_game"]
-                                                                elif "avg_goals_scored" in home_team_stats:
-                                                                    home_goals_per_game = home_team_stats["avg_goals_scored"]
-                                                                elif "goals_scored" in home_team_stats and "played" in home_team_stats and home_team_stats["played"] > 0:
-                                                                    home_goals_per_game = home_team_stats["goals_scored"] / home_team_stats["played"]
-                                                                if "home_win_pct" in home_team_stats:
-                                                                    home_home_win_pct = home_team_stats["home_win_pct"]
-                                                                elif "home_wins" in home_team_stats and "home_played" in home_team_stats and home_team_stats["home_played"] > 0:
-                                                                    home_home_win_pct = (home_team_stats["home_wins"] / home_team_stats["home_played"]) * 100
-                                                        justification_parts = []
-                                                        if home_goals_per_game >= 1.5:
-                                                            justification_parts.append(f"força ofensiva superior ({home_goals_per_game:.1f} gols/jogo)")
-                                                        if home_form_points >= 9:
-                                                            justification_parts.append(f"forma recente positiva ({home_form_points}/15 pts)")
-                                                        if home_home_win_pct >= 60:
-                                                            justification_parts.append(f"{home_home_win_pct:.1f}% de aproveitamento em casa")
-                                                        if not justification_parts:
-                                                            justification = "*Justificativa: Forte desempenho como mandante.*"
-                                                        else:
-                                                            justification = f"*Justificativa: {', '.join(justification_parts)}.*"
-                                                    
-                                                    # Justificativa para o time visitante
-                                                    elif opportunity_name == away_team:
-                                                        away_goals_per_game = 0
-                                                        away_form_points = 0
-                                                        away_away_win_pct = 0
-                                                        if "analysis_data" in original_probabilities:
-                                                            away_form_points = int(original_probabilities["analysis_data"].get("away_form_points", 0) * 15)
-                                                        stats_data = None
-                                                        frame = inspect.currentframe()
-                                                        try:
-                                                            if 'stats_data' in frame.f_back.f_locals:
-                                                                stats_data = frame.f_back.f_locals['stats_data']
-                                                            elif 'stats_data' in globals():
-                                                                stats_data = globals()['stats_data']
-                                                        finally:
-                                                            del frame
-                                                        if stats_data and isinstance(stats_data, dict) and "away_team" in stats_data:
-                                                            away_team_stats = stats_data["away_team"]
-                                                            if isinstance(away_team_stats, dict):
-                                                                if "goals_per_game" in away_team_stats:
-                                                                    away_goals_per_game = away_team_stats["goals_per_game"]
-                                                                elif "avg_goals_scored" in away_team_stats:
-                                                                    away_goals_per_game = away_team_stats["avg_goals_scored"]
-                                                                elif "goals_scored" in away_team_stats and "played" in away_team_stats and away_team_stats["played"] > 0:
-                                                                    away_goals_per_game = away_team_stats["goals_scored"] / away_team_stats["played"]
-                                                                if "away_win_pct" in away_team_stats:
-                                                                    away_away_win_pct = away_team_stats["away_win_pct"]
-                                                                elif "away_wins" in away_team_stats and "away_played" in away_team_stats and away_team_stats["away_played"] > 0:
-                                                                    away_away_win_pct = (away_team_stats["away_wins"] / away_team_stats["away_played"]) * 100
-                                                        justification_parts = []
-                                                        if away_goals_per_game >= 1.5:
-                                                            justification_parts.append(f"ataque produtivo ({away_goals_per_game:.1f} gols/jogo)")
-                                                        if away_form_points >= 9:
-                                                            justification_parts.append(f"boa sequência recente ({away_form_points}/15 pts)")
-                                                        if away_away_win_pct >= 50:
-                                                            justification_parts.append(f"bom aproveitamento como visitante ({away_away_win_pct:.1f}%)")
-                                                        if not justification_parts:
-                                                            justification = "*Justificativa: Bom desempenho como visitante.*"
-                                                        else:
-                                                            justification = f"*Justificativa: {', '.join(justification_parts)}.*"
-                                                    
-                                                    # Justificativa para Empate
-                                                    elif opportunity_name == "Empate":
-                                                        justification = "*Justificativa: Equilíbrio técnico entre as equipes com tendência de jogos equilibrados.*"
-                                                        # Possível extração de dados H2H se disponíveis
-                                                        h2h_draw_pct = 0
-                                                        stats_data = None
-                                                        frame = inspect.currentframe()
-                                                        try:
-                                                            if 'stats_data' in frame.f_back.f_locals:
-                                                                stats_data = frame.f_back.f_locals['stats_data']
-                                                            elif 'stats_data' in globals():
-                                                                stats_data = globals()['stats_data']
-                                                        finally:
-                                                            del frame
-                                                        if stats_data and isinstance(stats_data, dict) and "h2h" in stats_data:
-                                                            h2h_stats = stats_data["h2h"]
-                                                            if isinstance(h2h_stats, dict) and "draws" in h2h_stats and "total_matches" in h2h_stats and h2h_stats["total_matches"] > 0:
-                                                                h2h_draw_pct = (h2h_stats["draws"] / h2h_stats["total_matches"]) * 100
-                                                                if h2h_draw_pct >= 30:
-                                                                    justification = f"*Justificativa: Histórico de empates entre os times ({h2h_draw_pct:.1f}%) e equilíbrio técnico.*"
-                                                    
-                                                    # Justificativa para Over/Under Gols
-                                                    elif "Over" in opportunity_name and "Gols" in opportunity_name:
-                                                        combined_avg_goals = 0
-                                                        home_over_pct = 0
-                                                        away_over_pct = 0
-                                                        line_value = 2.5
-                                                        match_line = re.search(r"Over (\d+\.?\d*)", opportunity_name)
-                                                        if match_line:
-                                                            line_value = float(match_line.group(1))
-                                                        stats_data = None
-                                                        frame = inspect.currentframe()
-                                                        try:
-                                                            if 'stats_data' in frame.f_back.f_locals:
-                                                                stats_data = frame.f_back.f_locals['stats_data']
-                                                            elif 'stats_data' in globals():
-                                                                stats_data = globals()['stats_data']
-                                                        finally:
-                                                            del frame
-                                                        if stats_data and isinstance(stats_data, dict):
-                                                            home_team_stats = stats_data.get("home_team", {})
-                                                            away_team_stats = stats_data.get("away_team", {})
-                                                            home_goals_per_game = home_team_stats.get("goals_per_game", 0)
-                                                            if home_goals_per_game == 0 and "goals_scored" in home_team_stats and "played" in home_team_stats and home_team_stats["played"] > 0:
-                                                                home_goals_per_game = home_team_stats["goals_scored"] / home_team_stats["played"]
-                                                            away_goals_per_game = away_team_stats.get("goals_per_game", 0)
-                                                            if away_goals_per_game == 0 and "goals_scored" in away_team_stats and "played" in away_team_stats and away_team_stats["played"] > 0:
-                                                                away_goals_per_game = away_team_stats["goals_scored"] / away_team_stats["played"]
-                                                            combined_avg_goals = home_goals_per_game + away_goals_per_game
-                                                            over_key = f"over_{str(line_value).replace('.', '_')}"
-                                                            home_over_pct = home_team_stats.get(over_key, 0)
-                                                            if home_over_pct == 0 and line_value == 2.5:
-                                                                home_over_pct = home_team_stats.get("over_2_5", 0)
-                                                            if home_over_pct == 0 and line_value == 2.5:
-                                                                home_over_pct = home_team_stats.get("over_2_5_pct", 0)
-                                                            away_over_pct = away_team_stats.get(over_key, 0)
-                                                            if away_over_pct == 0 and line_value == 2.5:
-                                                                away_over_pct = away_team_stats.get("over_2_5", 0)
-                                                            if away_over_pct == 0 and line_value == 2.5:
-                                                                away_over_pct = away_team_stats.get("over_2_5_pct", 0)
-                                                            if isinstance(home_over_pct, float) and home_over_pct <= 1:
-                                                                home_over_pct *= 100
-                                                            if isinstance(away_over_pct, float) and away_over_pct <= 1:
-                                                                away_over_pct *= 100
-                                                        justification_parts = []
-                                                        if combined_avg_goals > line_value:
-                                                            justification_parts.append(f"média combinada de {combined_avg_goals:.1f} gols por jogo")
-                                                        if home_over_pct >= 50 and away_over_pct >= 40:
-                                                            justification_parts.append(f"{home_over_pct:.0f}% dos jogos do {home_team} e {away_over_pct:.0f}% do {away_team} terminam com Over {line_value}")
-                                                        if home_goals_per_game > 1.5 and away_goals_per_game > 1.0:
-                                                            justification_parts.append(f"ambas equipes têm bom ataque ({home_goals_per_game:.1f} e {away_goals_per_game:.1f} gols/jogo)")
-                                                        if not justification_parts:
-                                                            justification = f"*Justificativa: Tendência de jogos com mais de {line_value} gols.*"
-                                                        else:
-                                                            justification = f"*Justificativa: {', '.join(justification_parts)}.*"
-                                                    
-                                                    elif "Under" in opportunity_name and "Gols" in opportunity_name:
-                                                        justification = "*Justificativa: Defesas sólidas e tendência de jogos com poucos gols.*"
-                                                    
-                                                    elif "Ambos Marcam - Sim" in opportunity_name:
-                                                        home_btts_pct = away_btts_pct = 0
-                                                        stats_data = None
-                                                        frame = inspect.currentframe()
-                                                        try:
-                                                            if 'stats_data' in frame.f_back.f_locals:
-                                                                stats_data = frame.f_back.f_locals['stats_data']
-                                                            elif 'stats_data' in globals():
-                                                                stats_data = globals()['stats_data']
-                                                        finally:
-                                                            del frame
-                                                        if stats_data and isinstance(stats_data, dict):
-                                                            home_team_stats = stats_data.get("home_team", {})
-                                                            away_team_stats = stats_data.get("away_team", {})
-                                                            if "btts" in home_team_stats:
-                                                                home_btts_pct = home_team_stats["btts"] * 100 if isinstance(home_team_stats["btts"], float) and home_team_stats["btts"] <= 1 else home_team_stats["btts"]
-                                                            elif "btts_pct" in home_team_stats:
-                                                                home_btts_pct = home_team_stats["btts_pct"]
-                                                            if "btts" in away_team_stats:
-                                                                away_btts_pct = away_team_stats["btts"] * 100 if isinstance(away_team_stats["btts"], float) and away_team_stats["btts"] <= 1 else away_team_stats["btts"]
-                                                            elif "btts_pct" in away_team_stats:
-                                                                away_btts_pct = away_team_stats["btts_pct"]
-                                                        if home_btts_pct >= 50 and away_btts_pct >= 50:
-                                                            justification = f"*Justificativa: Alta incidência de BTTS para ambas equipes ({home_btts_pct:.0f}% e {away_btts_pct:.0f}%).*"
-                                                        else:
-                                                            justification = "*Justificativa: Ambos os times costumam marcar e sofrer gols regularmente.*"
-                                                    
-                                                    elif "Ambos Marcam - Não" in opportunity_name:
-                                                        justification = "*Justificativa: Pelo menos um dos times apresenta boa solidez defensiva.*"
-                                                    
-                                                    elif opportunity_name == f"{home_team} ou Empate":
-                                                        justification = f"*Justificativa: Força do {home_team} jogando em casa, raramente perde em seu estádio.*"
-                                                    elif opportunity_name == f"{home_team} ou {away_team}":
-                                                        justification = "*Justificativa: Baixa probabilidade de empate entre as equipes.*"
-                                                    elif opportunity_name == f"Empate ou {away_team}":
-                                                        justification = f"*Justificativa: {away_team} tem bom desempenho como visitante e dificilmente perderá.*"
-                                                    
-                                                    elif "Escanteios" in opportunity_name:
-                                                        justification = "*Justificativa: Estatísticas apontam para volume esperado de escanteios acima da média.*"
-                                                    elif "Cartões" in opportunity_name:
-                                                        justification = "*Justificativa: Confronto deve apresentar alta intensidade e disputas, gerando cartões.*"
-                                                    
-                                                    if not justification:
-                                                        justification = "*Justificativa: Análise estatística indica valor significativo para este mercado.*"
-                                                    
-                                                    enhanced_opp = opp + " " + justification
-                                                    enhanced_opportunities.append(enhanced_opp)
-                                                else:
-                                                    enhanced_opportunities.append(opp)
-                                            except Exception as e:
-                                                print(f"Erro ao processar justificativa: {str(e)}")
-                                                enhanced_opportunities.append(opp)
-                                        opportunities_section += "\n".join(enhanced_opportunities)
-                                        new_analysis.append(opportunities_section)
+                                        new_analysis.append("# Oportunidades Identificadas:\n" + "\n".join(opportunities))
                                     else:
                                         new_analysis.append("# Oportunidades Identificadas:\nInfelizmente não detectamos valor em nenhuma dos seus inputs.")
                                     
-                                    # --- Nível de Confiança Geral ---
+                                    # Nível de confiança
                                     confidence_section = "# Nível de Confiança Geral: Médio\n"
+                            
+                                    # Extrair dados da forma e consistência
                                     if "analysis_data" in original_probabilities:
                                         analysis_data = original_probabilities["analysis_data"]
-                                        home_consistency = analysis_data.get("home_consistency", 0)
-                                        away_consistency = analysis_data.get("away_consistency", 0)
-                                        home_form_raw = away_form_raw = None
-                                        stats_data = None
-                                        frame = inspect.currentframe()
-                                        try:
-                                            if 'stats_data' in frame.f_back.f_locals:
-                                                stats_data = frame.f_back.f_locals['stats_data']
-                                            elif 'stats_data' in globals():
-                                                stats_data = globals()['stats_data']
-                                        finally:
-                                            del frame
-                                        if stats_data and isinstance(stats_data, dict):
-                                            home_form_raw = stats_data.get("home_team", {}).get("formRun_overall", "")
-                                            away_form_raw = stats_data.get("away_team", {}).get("formRun_overall", "")
-                                        home_form_points = away_form_points = 0
+                                        home_consistency = analysis_data.get("home_consistency", 0) * 100
+                                        away_consistency = analysis_data.get("away_consistency", 0) * 100
+                                        
+                                        # Verificar se temos dados de forma bruta
+                                        home_form_raw = stats_data["home_team"].get("formRun_overall", "") if "stats_data" in locals() and isinstance(stats_data, dict) else ""
+                                        away_form_raw = stats_data["away_team"].get("formRun_overall", "") if "stats_data" in locals() and isinstance(stats_data, dict) else ""
+                                        
+                                        # Calcular a forma diretamente a partir dos dados brutos se disponíveis
+                                        home_form_points = 0
+                                        away_form_points = 0
+                                        
+                                        # Função simplificada para calcular pontos da forma
                                         def calculate_form_points(form_str):
                                             if not form_str or not isinstance(form_str, str):
                                                 return 0
+                                            
                                             points = 0
+                                            # Pegar apenas os últimos 5 caracteres
                                             recent_form = form_str[-5:] if len(form_str) >= 5 else form_str
-                                            for result in recent_form.upper():
+                                            
+                                            for result in recent_form:
+                                                result = result.upper()
                                                 if result == 'W':
                                                     points += 3
                                                 elif result == 'D':
                                                     points += 1
+                                                # L ou outros caracteres = 0 pontos
+                                            
                                             return points
+                                        
+                                        # Calcular pontos para cada time
                                         if home_form_raw:
                                             home_form_points = calculate_form_points(home_form_raw)
                                         else:
+                                            # Tentar calcular a partir do analysis_data se disponível
                                             home_form_points = int(analysis_data.get("home_form_points", 0) * 15)
+                                        
                                         if away_form_raw:
                                             away_form_points = calculate_form_points(away_form_raw)
                                         else:
+                                            # Tentar calcular a partir do analysis_data se disponível
                                             away_form_points = int(analysis_data.get("away_form_points", 0) * 15)
+                                        
                                         confidence_section += f"- **Consistência**: {home_team}: {home_consistency:.1f}%, {away_team}: {away_consistency:.1f}%. Consistência é uma medida que indica quão previsível é o desempenho da equipe.\n"
                                         confidence_section += f"- **Forma Recente**: {home_team}: {home_form_points}/15, {away_team}: {away_form_points}/15. Forma representa a pontuação dos últimos 5 jogos (vitória=3pts, empate=1pt, derrota=0pts).\n"
                                         confidence_section += "- Valores mais altos em ambas métricas aumentam a confiança na previsão."
@@ -2056,15 +1892,89 @@ def show_main_dashboard():
                                         confidence_section += "- Valores mais altos em ambas métricas aumentam a confiança na previsão."
                                     
                                     new_analysis.append(confidence_section)
-                                    final_analysis = "\n\n".join(new_analysis)
-                                    return final_analysis
-                            
+                                    
+                                    return "\n\n".join(new_analysis)
+                                
                                 except Exception as e:
-                                    logger = logging.getLogger("valueHunter.dashboard")
+                                    # Bloco except que estava faltando
                                     logger.error(f"Erro ao reconstruir análise: {str(e)}")
+                                    import traceback
                                     logger.error(traceback.format_exc())
-                                    return f"Erro ao processar análise: {str(e)}"  
+                                    return f"Erro ao processar análise: {str(e)}"
+                            
+                            # Usar a análise de texto da API como base, mas reconstruir completamente as seções críticas
+                            formatted_analysis = reconstruct_analysis(
+                                analysis,
+                                home_team,
+                                away_team,
+                                selected_markets,
+                                original_probabilities,
+                                implied_probabilities,
+                                odds_data
+                            )
+                            
+                            # Enriquecer a análise com avaliações de oportunidades
+                            enhanced_analysis = add_opportunity_evaluation(formatted_analysis)
+                            
+                            # Exibir apenas a análise enriquecida (não a original)
+                            st.code(enhanced_analysis, language=None)
+                            
+                            # Registrar uso após análise bem-sucedida
+                            num_markets = sum(1 for v in selected_markets.values() if v)
+                            
+                            # Registro de uso com dados detalhados
+                            analysis_data = {
+                                "league": selected_league,
+                                "home_team": home_team,
+                                "away_team": away_team,
+                                "markets_used": [k for k, v in selected_markets.items() if v]
+                            }
+                            success = st.session_state.user_manager.record_usage(
+                                st.session_state.email, 
+                                num_markets,
+                                analysis_data
+                            )
+                            
+                            if success:
+                                # Forçar atualização do cache de estatísticas
+                                if hasattr(st.session_state, 'user_stats_cache'):
+                                    del st.session_state.user_stats_cache  # Remover cache para forçar reload
+                                
+                                # Mostrar mensagem de sucesso com créditos restantes
+                                updated_stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
+                                credits_after = updated_stats['credits_remaining']
+                                st.success(f"{num_markets} créditos foram consumidos. Agora você tem {credits_after} créditos.")
+                            else:
+                                st.error("Não foi possível registrar o uso dos créditos. Por favor, tente novamente.")
+                                    
+                    except Exception as analysis_error:
+                        logger.error(f"Erro durante a análise: {str(analysis_error)}")
+                        logger.error(traceback.format_exc())
+                        status.error(f"Erro durante a análise: {str(analysis_error)}")
+                        if st.session_state.debug_mode:
+                            st.code(traceback.format_exc())
+            except Exception as button_error:
+                logger.error(f"Erro no botão de análise: {str(button_error)}")
+                logger.error(traceback.format_exc())
+                st.error(f"Erro no botão de análise: {str(button_error)}")
+                if st.session_state.debug_mode:
+                    st.code(traceback.format_exc())
                     
+        except Exception as content_error:
+            logger.error(f"Erro fatal no conteúdo principal: {str(content_error)}")
+            logger.error(traceback.format_exc())
+            st.error("Erro ao carregar o conteúdo principal. Detalhes no log.")
+            st.error(f"Detalhes: {str(content_error)}")
+            if st.session_state.debug_mode:
+                st.code(traceback.format_exc())
+            
+    except Exception as e:
+        logger.error(f"Erro crítico ao exibir painel principal: {str(e)}")
+        logger.error(traceback.format_exc())
+        st.error("Erro ao carregar o painel principal. Por favor, tente novamente.")
+        st.error(f"Erro: {str(e)}")
+        if st.session_state.debug_mode:
+            st.code(traceback.format_exc())    
 # Função auxiliar para extração de dados avançada
 def extract_direct_team_stats(source, target, team_type):
     """
@@ -2341,19 +2251,89 @@ def add_opportunity_evaluation(analysis_text):
     evaluation_text += "- 🔥 BOA: Probabilidade e margem razoáveis (>50% e >3%)\n"
     evaluation_text += "- ⚠️ RAZOÁVEL: Ou boa probabilidade ou boa margem\n"
     evaluation_text += "- ❌ BAIXA: Probabilidade e margem insuficientes\n"
-
-    from utils.opportunity_justification import add_justifications_to_analysis
-    if 'stats_data' in globals() and stats_data and 'home_team' in globals() and 'away_team' in globals():
-        analysis_text = add_justifications_to_analysis(analysis_text, stats_data, home_team, away_team)
-
-
-    # Adicionar justificativas antes de retornar
-    from utils.opportunity_justification import add_justifications_to_analysis
-    if 'stats_data' in globals() and stats_data and 'home_team' in globals() and 'away_team' in globals():
-        analysis_text = add_justifications_to_analysis(analysis_text, stats_data, home_team, away_team)
     
-    #Retornar o texto original + a avaliação
+    # Retornar o texto original + a avaliação
     return analysis_text + evaluation_text
+
+# Função alternativa caso os emojis não funcionem bem
+def add_opportunity_evaluation_simple(analysis_text):
+    """
+    Versão sem emojis, caso eles não funcionem bem na sua implementação
+    """
+    import re
+    
+    # Extrair as oportunidades com regex
+    pattern = r"\*\*([^*]+)\*\*: Real (\d+\.\d+)% vs Implícita (\d+\.\d+)% \(Valor de (\d+\.\d+)%\)"
+    matches = re.findall(pattern, analysis_text)
+    
+    if not matches:
+        # Se não encontrar oportunidades no formato esperado, tente outro padrão
+        pattern = r"\- \*\*([^*]+)\*\*: Real (\d+\.\d+)% vs Implícita (\d+\.\d+)% \(Valor de (\d+\.\d+)%\)"
+        matches = re.findall(pattern, analysis_text)
+        
+    if not matches:
+        # Tente um padrão mais genérico como último recurso
+        pattern = r"([^-:]+): Real (\d+\.\d+)% vs Implícita (\d+\.\d+)% \(?Valor de (\d+\.\d+)%\)?"
+        matches = re.findall(pattern, analysis_text)
+    
+    # Se ainda não encontrou oportunidades, retorna o texto original
+    if not matches:
+        return analysis_text
+    
+    # Adicionar a seção de avaliação de oportunidades
+    evaluation_text = "\n\n# AVALIAÇÃO DE VIABILIDADE DE APOSTAS\n"
+    
+    for match in matches:
+        opportunity_name, real_prob_str, implicit_prob_str, margin_str = match
+        
+        try:
+            # Converter para números
+            real_prob = float(real_prob_str)
+            margin = float(margin_str)
+            
+            # Avaliar a oportunidade
+            rating, description = evaluate_opportunity(real_prob, margin)
+            
+            # Formatar classificação com símbolos
+            rating_symbol = {
+                "EXCELENTE": "***",
+                "MUITO BOA": "**",
+                "BOA": "*",
+                "RAZOÁVEL": "!",
+                "BAIXA": "X"
+            }.get(rating, "")
+            
+            # Adicionar à saída
+            evaluation_text += f"\n## {opportunity_name.strip()} - {rating_symbol} {rating}\n"
+            evaluation_text += f"- Probabilidade: {real_prob:.1f}% | Margem: {margin:.1f}%\n"
+            evaluation_text += f"- Avaliação: {description}\n"
+            
+            # Adicionar recomendações específicas com base na classificação
+            if rating == "EXCELENTE":
+                evaluation_text += "- Recomendação: Oportunidade excelente para apostar. Considere uma aposta com valor mais alto.\n"
+            elif rating == "MUITO BOA":
+                evaluation_text += "- Recomendação: Boa oportunidade para apostar. Valor recomendado.\n"
+            elif rating == "BOA":
+                evaluation_text += "- Recomendação: Oportunidade viável para apostar com moderação.\n"
+            elif rating == "RAZOÁVEL":
+                evaluation_text += "- Recomendação: Apostar com cautela e valor reduzido.\n"
+            else:
+                evaluation_text += "- Recomendação: Não recomendamos esta aposta. Valor baixo detectado.\n"
+            
+        except (ValueError, TypeError):
+            continue
+    
+    # Adicionar legenda
+    evaluation_text += "\n# LEGENDA DE VIABILIDADE\n"
+    evaluation_text += "- *** EXCELENTE: Alta probabilidade (>70%) e grande margem (>7%)\n"
+    evaluation_text += "- ** MUITO BOA: Boa probabilidade (>60%) e margem significativa (>5%)\n"
+    evaluation_text += "- * BOA: Probabilidade e margem razoáveis (>50% e >3%)\n"
+    evaluation_text += "- ! RAZOÁVEL: Ou boa probabilidade ou boa margem\n"
+    evaluation_text += "- X BAIXA: Probabilidade e margem insuficientes\n"
+    
+    # Retornar o texto original + a avaliação
+    return analysis_text + evaluation_text
+
 
 # Função para mostrar o indicador visual da oportunidade usando componentes do Streamlit
 def show_opportunity_indicator_native(real_prob, margin, opportunity_name):
@@ -2550,25 +2530,8 @@ def show_opportunities_text_only(analysis_text):
     output_text += "- ⚠️ Razoável: Ou boa probabilidade ou boa margem\n"
     output_text += "- ❌ Baixa: Probabilidade e margem insuficientes\n"
     
-    from opportunity_justification import add_justifications_to_analysis
-
-    output_text = format_highly_optimized_prompt(...)
-    
-    # Inserir justificativas automáticas nas oportunidades identificadas
-    output_text = add_justifications_to_analysis(
-        analysis_text=output_text,
-        stats_data={
-            "home_team": optimized_data.get("home_team", {}),
-            "away_team": optimized_data.get("away_team", {}),
-            "h2h": optimized_data.get("h2h", {})
-        },
-        home_team=home_team,
-        away_team=away_team
-    )
-    
     # Mostrar o texto
     st.markdown(output_text)
-
 
 # Versão ultra minimalista usando apenas texto simples (sem markdown)
 def show_opportunities_ultra_simple(analysis_text):
