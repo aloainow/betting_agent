@@ -1444,9 +1444,9 @@ def show_main_dashboard():
                             
                             # Adiciona módulo re para expressões regulares caso não esteja importado
                             import re
-                            
-                            # Reconstrução completa da análise
-                      def reconstruct_analysis(analysis_text, home_team, away_team, selected_markets, original_probabilities, implied_probabilities, odds_data):
+    
+    # Reconstrução completa da análise
+def reconstruct_analysis(analysis_text, home_team, away_team, selected_markets, original_probabilities, implied_probabilities, odds_data):
     try:
         # Logs para depuração
         print(f"Selected markets: {selected_markets}")
