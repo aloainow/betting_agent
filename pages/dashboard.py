@@ -2065,39 +2065,39 @@ def show_main_dashboard():
                                     logger.error(traceback.format_exc())
                                     return f"Erro ao processar análise: {str(e)}"  
                     
-                                        # Função auxiliar para extração de dados avançada
-                                        def extract_direct_team_stats(source, target, team_type):
-                                            """
-                                            Extrai estatísticas de equipe diretamente da fonte para o destino
-                                            com mapeamento de nomes de campos.
-                                            
-                                            Args:
-                                                source (dict): Dados de origem
-                                                target (dict): Dicionário de destino para armazenar os dados
-                                                team_type (str): Tipo de equipe ('home' ou 'away')
-                                            """
-                                            if not isinstance(source, dict) or not isinstance(target, dict):
-                                                return
-                                            
-                                            # Campos essenciais para extração
-                                            essential_fields = [
-                                                "played", "wins", "draws", "losses", 
-                                                "goals_scored", "goals_conceded", 
-                                                "clean_sheets", "failed_to_score",
-                                                "avg_goals_scored", "avg_goals_conceded",
-                                                "btts", "over_1_5", "over_2_5", "over_3_5"
-                                            ]
-                                            
-                                            # Procurar e copiar campos essenciais
-                                            for field in essential_fields:
-                                                if field in source and source[field] not in [0, "0", "", "?????"]:
-                                                    target[field] = source[field]
-                                            
-                                            # Extrair outros campos não-zero
-                                            for key, value in source.items():
-                                                if key not in target and value not in [0, "0", "", "?????"]:
-                                                    if isinstance(value, (int, float, str)):
-                                                        target[key] = value
+# Função auxiliar para extração de dados avançada
+def extract_direct_team_stats(source, target, team_type):
+    """
+    Extrai estatísticas de equipe diretamente da fonte para o destino
+    com mapeamento de nomes de campos.
+    
+    Args:
+        source (dict): Dados de origem
+        target (dict): Dicionário de destino para armazenar os dados
+        team_type (str): Tipo de equipe ('home' ou 'away')
+    """
+    if not isinstance(source, dict) or not isinstance(target, dict):
+        return
+    
+    # Campos essenciais para extração
+    essential_fields = [
+        "played", "wins", "draws", "losses", 
+        "goals_scored", "goals_conceded", 
+        "clean_sheets", "failed_to_score",
+        "avg_goals_scored", "avg_goals_conceded",
+        "btts", "over_1_5", "over_2_5", "over_3_5"
+    ]
+    
+    # Procurar e copiar campos essenciais
+    for field in essential_fields:
+        if field in source and source[field] not in [0, "0", "", "?????"]:
+            target[field] = source[field]
+    
+    # Extrair outros campos não-zero
+    for key, value in source.items():
+        if key not in target and value not in [0, "0", "", "?????"]:
+            if isinstance(value, (int, float, str)):
+                target[key] = value
 
 # Função auxiliar para transformação de dados da API
 def transform_api_data(stats_data, home_team, away_team, selected_markets):
