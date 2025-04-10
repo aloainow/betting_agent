@@ -3,6 +3,7 @@ import logging
 import sys
 import streamlit as st
 from datetime import datetime
+import base64
 # Configuração de logging
 logging.basicConfig(
     level=logging.INFO,
@@ -29,10 +30,21 @@ os.makedirs(DATA_DIR, exist_ok=True)
 logger.info(f"Diretório de dados configurado: {DATA_DIR}")
 logger.info(f"Conteúdo do diretório de dados: {os.listdir(DATA_DIR) if os.path.exists(DATA_DIR) else 'Diretório não existe'}")
 
+# Definir o favicon SVG inline baseado na logo do ValueHunter
+favicon_svg = """
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="5" fill="#fd7014"/>
+  <text x="8" y="24" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="#3F3F45">V</text>
+</svg>
+"""
+
+# Converter SVG para base64
+favicon_base64 = base64.b64encode(favicon_svg.encode()).decode()
+
 # Configuração do Streamlit DEVE ser o primeiro comando Streamlit
 st.set_page_config(
     page_title="ValueHunter - Análise de Apostas Esportivas",
-    page_icon="⚽",
+    page_icon=f"data:image/svg+xml;base64,{favicon_base64}",
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items=None  # Tenta remover o menu
@@ -619,4 +631,5 @@ if __name__ == "__main__":
     except Exception as e:
         logger.critical(f"Erro fatal na aplicação: {str(e)}")
         st.error("Ocorreu um erro inesperado. Por favor, recarregue a página e tente novamente.")
+        st.error(f"Detalhes do erro: {str(e)}")
         st.error(f"Detalhes do erro: {str(e)}")
