@@ -2253,88 +2253,88 @@ def show_main_dashboard():
                                     logger.error(traceback.format_exc())
                                     return f"Erro ao processar análise: {str(e)}"    
                                                         
-                                                        # Usar a análise de texto da API como base, mas reconstruir completamente as seções críticas
-                                                        formatted_analysis = reconstruct_analysis(
-                                                            analysis,
-                                                            home_team,
-                                                            away_team,
-                                                            selected_markets,
-                                                            original_probabilities,
-                                                            implied_probabilities,
-                                                            odds_data
-                                                        )
-                                                        
-                                                        # Adicionar justificativas à análise
-                                                        formatted_analysis = add_justifications_to_analysis(
-                                                            formatted_analysis,
-                                                            stats_data,
-                                                            home_team,
-                                                            away_team
-                                                        )
-                                                        
-                                                        # Enriquecer a análise com avaliações de oportunidades
-                                                        enhanced_analysis = add_opportunity_evaluation(formatted_analysis)
-                            
-                                                        
-                                                        # Exibir apenas a análise enriquecida (não a original)
-                                                        st.code(enhanced_analysis, language=None)
-                                                        
-                                                        # Registrar uso após análise bem-sucedida
-                                                        num_markets = sum(1 for v in selected_markets.values() if v)
-                                                        
-                                                        # Registro de uso com dados detalhados
-                                                        analysis_data = {
-                                                            "league": selected_league,
-                                                            "home_team": home_team,
-                                                            "away_team": away_team,
-                                                            "markets_used": [k for k, v in selected_markets.items() if v]
-                                                        }
-                                                        success = st.session_state.user_manager.record_usage(
-                                                            st.session_state.email, 
-                                                            num_markets,
-                                                            analysis_data
-                                                        )
-                                                        
-                                                        if success:
-                                                            # Forçar atualização do cache de estatísticas
-                                                            if hasattr(st.session_state, 'user_stats_cache'):
-                                                                del st.session_state.user_stats_cache  # Remover cache para forçar reload
-                                                            
-                                                            # Mostrar mensagem de sucesso com créditos restantes
-                                                            updated_stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
-                                                            credits_after = updated_stats['credits_remaining']
-                                                            st.success(f"{num_markets} créditos foram consumidos. Agora você tem {credits_after} créditos.")
-                                                        else:
-                                                            st.error("Não foi possível registrar o uso dos créditos. Por favor, tente novamente.")
-                                                                
-                                                except Exception as analysis_error:
-                                                    logger.error(f"Erro durante a análise: {str(analysis_error)}")
-                                                    logger.error(traceback.format_exc())
-                                                    status.error(f"Erro durante a análise: {str(analysis_error)}")
-                                                    if st.session_state.debug_mode:
-                                                        st.code(traceback.format_exc())
-                                        except Exception as button_error:
-                                            logger.error(f"Erro no botão de análise: {str(button_error)}")
-                                            logger.error(traceback.format_exc())
-                                            st.error(f"Erro no botão de análise: {str(button_error)}")
-                                            if st.session_state.debug_mode:
-                                                st.code(traceback.format_exc())
-                                                
-                                    except Exception as content_error:
-                                        logger.error(f"Erro fatal no conteúdo principal: {str(content_error)}")
-                                        logger.error(traceback.format_exc())
-                                        st.error("Erro ao carregar o conteúdo principal. Detalhes no log.")
-                                        st.error(f"Detalhes: {str(content_error)}")
-                                        if st.session_state.debug_mode:
-                                            st.code(traceback.format_exc())
+                                    # Usar a análise de texto da API como base, mas reconstruir completamente as seções críticas
+                                    formatted_analysis = reconstruct_analysis(
+                                        analysis,
+                                        home_team,
+                                        away_team,
+                                        selected_markets,
+                                        original_probabilities,
+                                        implied_probabilities,
+                                        odds_data
+                                    )
+                                    
+                                    # Adicionar justificativas à análise
+                                    formatted_analysis = add_justifications_to_analysis(
+                                        formatted_analysis,
+                                        stats_data,
+                                        home_team,
+                                        away_team
+                                    )
+                                    
+                                    # Enriquecer a análise com avaliações de oportunidades
+                                    enhanced_analysis = add_opportunity_evaluation(formatted_analysis)
+        
+                                    
+                                    # Exibir apenas a análise enriquecida (não a original)
+                                    st.code(enhanced_analysis, language=None)
+                                    
+                                    # Registrar uso após análise bem-sucedida
+                                    num_markets = sum(1 for v in selected_markets.values() if v)
+                                    
+                                    # Registro de uso com dados detalhados
+                                    analysis_data = {
+                                        "league": selected_league,
+                                        "home_team": home_team,
+                                        "away_team": away_team,
+                                        "markets_used": [k for k, v in selected_markets.items() if v]
+                                    }
+                                    success = st.session_state.user_manager.record_usage(
+                                        st.session_state.email, 
+                                        num_markets,
+                                        analysis_data
+                                    )
+                                    
+                                    if success:
+                                        # Forçar atualização do cache de estatísticas
+                                        if hasattr(st.session_state, 'user_stats_cache'):
+                                            del st.session_state.user_stats_cache  # Remover cache para forçar reload
                                         
-                                except Exception as e:
-                                    logger.error(f"Erro crítico ao exibir painel principal: {str(e)}")
-                                    logger.error(traceback.format_exc())
-                                    st.error("Erro ao carregar o painel principal. Por favor, tente novamente.")
-                                    st.error(f"Erro: {str(e)}")
-                                    if st.session_state.debug_mode:
-                                        st.code(traceback.format_exc())    
+                                        # Mostrar mensagem de sucesso com créditos restantes
+                                        updated_stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
+                                        credits_after = updated_stats['credits_remaining']
+                                        st.success(f"{num_markets} créditos foram consumidos. Agora você tem {credits_after} créditos.")
+                                    else:
+                                        st.error("Não foi possível registrar o uso dos créditos. Por favor, tente novamente.")
+                                            
+                            except Exception as analysis_error:
+                                logger.error(f"Erro durante a análise: {str(analysis_error)}")
+                                logger.error(traceback.format_exc())
+                                status.error(f"Erro durante a análise: {str(analysis_error)}")
+                                if st.session_state.debug_mode:
+                                    st.code(traceback.format_exc())
+                    except Exception as button_error:
+                        logger.error(f"Erro no botão de análise: {str(button_error)}")
+                        logger.error(traceback.format_exc())
+                        st.error(f"Erro no botão de análise: {str(button_error)}")
+                        if st.session_state.debug_mode:
+                            st.code(traceback.format_exc())
+                            
+                except Exception as content_error:
+                    logger.error(f"Erro fatal no conteúdo principal: {str(content_error)}")
+                    logger.error(traceback.format_exc())
+                    st.error("Erro ao carregar o conteúdo principal. Detalhes no log.")
+                    st.error(f"Detalhes: {str(content_error)}")
+                    if st.session_state.debug_mode:
+                        st.code(traceback.format_exc())
+                    
+            except Exception as e:
+                logger.error(f"Erro crítico ao exibir painel principal: {str(e)}")
+                logger.error(traceback.format_exc())
+                st.error("Erro ao carregar o painel principal. Por favor, tente novamente.")
+                st.error(f"Erro: {str(e)}")
+                if st.session_state.debug_mode:
+                    st.code(traceback.format_exc())    
 # Função auxiliar para extração de dados avançada
 def extract_direct_team_stats(source, target, team_type):
     """
