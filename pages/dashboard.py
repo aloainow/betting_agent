@@ -1630,7 +1630,12 @@ def show_main_dashboard():
                                         probs_section += f"- **{home_team}**: Real {home_real:.1f}% vs Implícita {home_implicit:.1f}%{' (Valor)' if home_value else ''}\n"
                                         
                                         if home_value:
-                                            opportunities.append(f"- **{home_team}**: Real {home_real:.1f}% vs Implícita {home_implicit:.1f}% (Valor de {home_real-home_implicit:.1f}%)")
+                                            # Adicionar justificativa
+                                            home_justification = generate_justification(
+                                                "moneyline", "home_win", home_team, home_real, home_implicit,
+                                                original_probabilities, home_team, away_team
+                                            )
+                                            opportunities.append(f"- **{home_team}**: Real {home_real:.1f}% vs Implícita {home_implicit:.1f}% (Valor de {home_real-home_implicit:.1f}%)\n  *Justificativa: {home_justification}*")
                                         
                                         # Empate
                                         draw_real = original_probabilities["moneyline"].get("draw", 0)
@@ -1640,7 +1645,12 @@ def show_main_dashboard():
                                         probs_section += f"- **Empate**: Real {draw_real:.1f}% vs Implícita {draw_implicit:.1f}%{' (Valor)' if draw_value else ''}\n"
                                         
                                         if draw_value:
-                                            opportunities.append(f"- **Empate**: Real {draw_real:.1f}% vs Implícita {draw_implicit:.1f}% (Valor de {draw_real-draw_implicit:.1f}%)")
+                                            # Adicionar justificativa
+                                            draw_justification = generate_justification(
+                                                "moneyline", "draw", "Empate", draw_real, draw_implicit,
+                                                original_probabilities, home_team, away_team
+                                            )
+                                            opportunities.append(f"- **Empate**: Real {draw_real:.1f}% vs Implícita {draw_implicit:.1f}% (Valor de {draw_real-draw_implicit:.1f}%)\n  *Justificativa: {draw_justification}*")
                                         
                                         # Fora
                                         away_real = original_probabilities["moneyline"].get("away_win", 0)
@@ -1650,7 +1660,12 @@ def show_main_dashboard():
                                         probs_section += f"- **{away_team}**: Real {away_real:.1f}% vs Implícita {away_implicit:.1f}%{' (Valor)' if away_value else ''}\n"
                                         
                                         if away_value:
-                                            opportunities.append(f"- **{away_team}**: Real {away_real:.1f}% vs Implícita {away_implicit:.1f}% (Valor de {away_real-away_implicit:.1f}%)")
+                                            # Adicionar justificativa
+                                            away_justification = generate_justification(
+                                                "moneyline", "away_win", away_team, away_real, away_implicit,
+                                                original_probabilities, home_team, away_team
+                                            )
+                                            opportunities.append(f"- **{away_team}**: Real {away_real:.1f}% vs Implícita {away_implicit:.1f}% (Valor de {away_real-away_implicit:.1f}%)\n  *Justificativa: {away_justification}*")
                                     
                                     # Double Chance
                                     if selected_markets.get("chance_dupla") and "double_chance" in original_probabilities:
@@ -1664,7 +1679,12 @@ def show_main_dashboard():
                                         probs_section += f"- **{home_team} ou Empate**: Real {hd_real:.1f}% vs Implícita {hd_implicit:.1f}%{' (Valor)' if hd_value else ''}\n"
                                         
                                         if hd_value:
-                                            opportunities.append(f"- **{home_team} ou Empate**: Real {hd_real:.1f}% vs Implícita {hd_implicit:.1f}% (Valor de {hd_real-hd_implicit:.1f}%)")
+                                            # Adicionar justificativa
+                                            hd_justification = generate_justification(
+                                                "double_chance", "home_or_draw", f"{home_team} ou Empate", hd_real, hd_implicit,
+                                                original_probabilities, home_team, away_team
+                                            )
+                                            opportunities.append(f"- **{home_team} ou Empate**: Real {hd_real:.1f}% vs Implícita {hd_implicit:.1f}% (Valor de {hd_real-hd_implicit:.1f}%)\n  *Justificativa: {hd_justification}*")
                                         
                                         # 12
                                         ha_real = original_probabilities["double_chance"].get("home_or_away", 0)
@@ -1674,7 +1694,12 @@ def show_main_dashboard():
                                         probs_section += f"- **{home_team} ou {away_team}**: Real {ha_real:.1f}% vs Implícita {ha_implicit:.1f}%{' (Valor)' if ha_value else ''}\n"
                                         
                                         if ha_value:
-                                            opportunities.append(f"- **{home_team} ou {away_team}**: Real {ha_real:.1f}% vs Implícita {ha_implicit:.1f}% (Valor de {ha_real-ha_implicit:.1f}%)")
+                                            # Adicionar justificativa
+                                            ha_justification = generate_justification(
+                                                "double_chance", "home_or_away", f"{home_team} ou {away_team}", ha_real, ha_implicit,
+                                                original_probabilities, home_team, away_team
+                                            )
+                                            opportunities.append(f"- **{home_team} ou {away_team}**: Real {ha_real:.1f}% vs Implícita {ha_implicit:.1f}% (Valor de {ha_real-ha_implicit:.1f}%)\n  *Justificativa: {ha_justification}*")
                                         
                                         # X2
                                         da_real = original_probabilities["double_chance"].get("away_or_draw", 0)
@@ -1684,7 +1709,12 @@ def show_main_dashboard():
                                         probs_section += f"- **Empate ou {away_team}**: Real {da_real:.1f}% vs Implícita {da_implicit:.1f}%{' (Valor)' if da_value else ''}\n"
                                         
                                         if da_value:
-                                            opportunities.append(f"- **Empate ou {away_team}**: Real {da_real:.1f}% vs Implícita {da_implicit:.1f}% (Valor de {da_real-da_implicit:.1f}%)")
+                                            # Adicionar justificativa
+                                            da_justification = generate_justification(
+                                                "double_chance", "away_or_draw", f"Empate ou {away_team}", da_real, da_implicit,
+                                                original_probabilities, home_team, away_team
+                                            )
+                                            opportunities.append(f"- **Empate ou {away_team}**: Real {da_real:.1f}% vs Implícita {da_implicit:.1f}% (Valor de {da_real-da_implicit:.1f}%)\n  *Justificativa: {da_justification}*")
                                     
                                     # BTTS
                                     if selected_markets.get("ambos_marcam") and "btts" in original_probabilities:
@@ -1698,7 +1728,12 @@ def show_main_dashboard():
                                         probs_section += f"- **Sim**: Real {yes_real:.1f}% vs Implícita {yes_implicit:.1f}%{' (Valor)' if yes_value else ''}\n"
                                         
                                         if yes_value:
-                                            opportunities.append(f"- **Ambos Marcam - Sim**: Real {yes_real:.1f}% vs Implícita {yes_implicit:.1f}% (Valor de {yes_real-yes_implicit:.1f}%)")
+                                            # Adicionar justificativa
+                                            yes_justification = generate_justification(
+                                                "btts", "yes", "Ambos Marcam - Sim", yes_real, yes_implicit,
+                                                original_probabilities, home_team, away_team
+                                            )
+                                            opportunities.append(f"- **Ambos Marcam - Sim**: Real {yes_real:.1f}% vs Implícita {yes_implicit:.1f}% (Valor de {yes_real-yes_implicit:.1f}%)\n  *Justificativa: {yes_justification}*")
                                         
                                         # Não
                                         no_real = original_probabilities["btts"].get("no", 0)
@@ -1708,7 +1743,12 @@ def show_main_dashboard():
                                         probs_section += f"- **Não**: Real {no_real:.1f}% vs Implícita {no_implicit:.1f}%{' (Valor)' if no_value else ''}\n"
                                         
                                         if no_value:
-                                            opportunities.append(f"- **Ambos Marcam - Não**: Real {no_real:.1f}% vs Implícita {no_implicit:.1f}% (Valor de {no_real-no_implicit:.1f}%)")
+                                            # Adicionar justificativa
+                                            no_justification = generate_justification(
+                                                "btts", "no", "Ambos Marcam - Não", no_real, no_implicit,
+                                                original_probabilities, home_team, away_team
+                                            )
+                                            opportunities.append(f"- **Ambos Marcam - Não**: Real {no_real:.1f}% vs Implícita {no_implicit:.1f}% (Valor de {no_real-no_implicit:.1f}%)\n  *Justificativa: {no_justification}*")
                                     
                                     # Over/Under
                                     if selected_markets.get("over_under") and "over_under" in original_probabilities:
@@ -1737,7 +1777,12 @@ def show_main_dashboard():
                                             probs_section += f"- **Over {line} Gols**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}%{' (Valor)' if over_value else ''}\n"
                                             
                                             if over_value:
-                                                opportunities.append(f"- **Over {line} Gols**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}% (Valor de {over_real-over_implicit:.1f}%)")
+                                                # Adicionar justificativa
+                                                over_justification = generate_justification(
+                                                    "over_under", f"over_{line_str}", f"Over {line} Gols", over_real, over_implicit,
+                                                    original_probabilities, home_team, away_team
+                                                )
+                                                opportunities.append(f"- **Over {line} Gols**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}% (Valor de {over_real-over_implicit:.1f}%)\n  *Justificativa: {over_justification}*")
                                             
                                             # Under
                                             under_real = 100.0 - over_real
@@ -1747,8 +1792,14 @@ def show_main_dashboard():
                                             probs_section += f"- **Under {line} Gols**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}%{' (Valor)' if under_value else ''}\n"
                                             
                                             if under_value:
-                                                opportunities.append(f"- **Under {line} Gols**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real-under_implicit:.1f}%)")
-                                            # Escanteios
+                                                # Adicionar justificativa
+                                                under_justification = generate_justification(
+                                                    "over_under", f"under_{line_str}", f"Under {line} Gols", under_real, under_implicit,
+                                                    original_probabilities, home_team, away_team
+                                                )
+                                                opportunities.append(f"- **Under {line} Gols**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real-under_implicit:.1f}%)\n  *Justificativa: {under_justification}*")
+                                    
+                                    # Escanteios
                                     if selected_markets.get("escanteios") and "corners" in original_probabilities:
                                         probs_section += "## Escanteios:\n"
                                         
@@ -1773,9 +1824,14 @@ def show_main_dashboard():
                                             over_value = over_real > over_implicit + 2
                                             
                                             probs_section += f"- **Over {line} Escanteios**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}%{' (Valor)' if over_value else ''}\n"
-                                            
+                            
                                             if over_value:
-                                                opportunities.append(f"- **Over {line} Escanteios**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}% (Valor de {over_real-over_implicit:.1f}%)")
+                                                # Adicionar justificativa
+                                                over_corners_justification = generate_justification(
+                                                    "corners", f"over_{line_str}", f"Over {line} Escanteios", over_real, over_implicit,
+                                                    original_probabilities, home_team, away_team
+                                                )
+                                                opportunities.append(f"- **Over {line} Escanteios**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}% (Valor de {over_real-over_implicit:.1f}%)\n  *Justificativa: {over_corners_justification}*")
                                             
                                             # Under
                                             under_real = 100.0 - over_real
@@ -1785,7 +1841,12 @@ def show_main_dashboard():
                                             probs_section += f"- **Under {line} Escanteios**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}%{' (Valor)' if under_value else ''}\n"
                                             
                                             if under_value:
-                                                opportunities.append(f"- **Under {line} Escanteios**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real-under_implicit:.1f}%)")
+                                                # Adicionar justificativa
+                                                under_corners_justification = generate_justification(
+                                                    "corners", f"under_{line_str}", f"Under {line} Escanteios", under_real, under_implicit,
+                                                    original_probabilities, home_team, away_team
+                                                )
+                                                opportunities.append(f"- **Under {line} Escanteios**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real-under_implicit:.1f}%)\n  *Justificativa: {under_corners_justification}*")
                                     
                                     # Cartões
                                     if selected_markets.get("cartoes") and "cards" in original_probabilities:
@@ -1814,7 +1875,12 @@ def show_main_dashboard():
                                             probs_section += f"- **Over {line} Cartões**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}%{' (Valor)' if over_value else ''}\n"
                                             
                                             if over_value:
-                                                opportunities.append(f"- **Over {line} Cartões**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}% (Valor de {over_real-over_implicit:.1f}%)")
+                                                # Adicionar justificativa
+                                                over_cards_justification = generate_justification(
+                                                    "cards", f"over_{line_str}", f"Over {line} Cartões", over_real, over_implicit,
+                                                    original_probabilities, home_team, away_team
+                                                )
+                                                opportunities.append(f"- **Over {line} Cartões**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}% (Valor de {over_real-over_implicit:.1f}%)\n  *Justificativa: {over_cards_justification}*")
                                             
                                             # Under
                                             under_real = 100.0 - over_real
@@ -1824,7 +1890,12 @@ def show_main_dashboard():
                                             probs_section += f"- **Under {line} Cartões**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}%{' (Valor)' if under_value else ''}\n"
                                             
                                             if under_value:
-                                                opportunities.append(f"- **Under {line} Cartões**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real-under_implicit:.1f}%)")
+                                                # Adicionar justificativa
+                                                under_cards_justification = generate_justification(
+                                                    "cards", f"under_{line_str}", f"Under {line} Cartões", under_real, under_implicit,
+                                                    original_probabilities, home_team, away_team
+                                                )
+                                                opportunities.append(f"- **Under {line} Cartões**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real-under_implicit:.1f}%)\n  *Justificativa: {under_cards_justification}*")
                                     
                                     new_analysis.append(probs_section)
                                     
@@ -2590,3 +2661,94 @@ def show_opportunities_ultra_simple(analysis_text):
     new_text += "X Baixa: Probabilidade e margem insuficientes\n"
     
     return new_text
+def generate_justification(market_type, bet_type, team_name, real_prob, implicit_prob, 
+                          original_probabilities, home_team, away_team):
+    """
+    Gera uma justificativa personalizada para uma oportunidade com base nos dados disponíveis
+    
+    Args:
+        market_type (str): Tipo de mercado (moneyline, over_under, etc.)
+        bet_type (str): Tipo específico de aposta (home_win, over_2_5, etc.)
+        team_name (str): Nome do time (quando aplicável)
+        real_prob (float): Probabilidade real calculada
+        implicit_prob (float): Probabilidade implícita das odds
+        original_probabilities (dict): Probabilidades originais calculadas
+        home_team (str): Nome do time da casa
+        away_team (str): Nome do time visitante
+        
+    Returns:
+        str: Justificativa personalizada para a oportunidade
+    """
+    try:
+        # Dados de análise para extrair informações adicionais
+        analysis_data = original_probabilities.get("analysis_data", {})
+        margin = real_prob - implicit_prob
+        
+        # Justificativas específicas por tipo de mercado
+        if market_type == "moneyline":
+            if bet_type == "home_win":
+                home_form = analysis_data.get("home_form_points", 0) * 15
+                home_consistency = analysis_data.get("home_consistency", 0)
+                return f"Vantagem estatística para {team_name} com forma recente forte ({home_form:.1f}/15 pts) e consistência de {home_consistency:.1f}%."
+                
+            elif bet_type == "away_win":
+                away_form = analysis_data.get("away_form_points", 0) * 15
+                away_consistency = analysis_data.get("away_consistency", 0)
+                return f"Desempenho superior do {team_name} como visitante, com forma recente de {away_form:.1f}/15 pts e consistência de {away_consistency:.1f}%."
+                
+            elif bet_type == "draw":
+                home_consistency = analysis_data.get("home_consistency", 0)
+                away_consistency = analysis_data.get("away_consistency", 0)
+                avg_consistency = (home_consistency + away_consistency) / 2
+                return f"Equilíbrio estatístico entre as equipes com consistência média de {avg_consistency:.1f}%."
+                
+        elif market_type == "double_chance":
+            if bet_type == "home_or_draw":
+                home_form = analysis_data.get("home_form_points", 0) * 15
+                return f"{home_team} com vantagem de jogar em casa e forma recente de {home_form:.1f}/15 pts."
+                
+            elif bet_type == "away_or_draw":
+                away_form = analysis_data.get("away_form_points", 0) * 15
+                return f"{away_team} com boa performance como visitante e forma recente de {away_form:.1f}/15 pts."
+                
+            elif bet_type == "home_or_away":
+                return f"Baixa probabilidade de empate entre {home_team} e {away_team}."
+                
+        elif market_type == "over_under":
+            if "over_under" in original_probabilities:
+                expected_goals = original_probabilities["over_under"].get("expected_goals", 0)
+                if bet_type == "over_2_5":
+                    return f"Projeção de {expected_goals:.2f} gols na partida, acima do threshold de 2.5."
+                else:
+                    return f"Projeção de {expected_goals:.2f} gols na partida, abaixo do threshold de 2.5."
+                    
+        elif market_type == "btts":
+            if "btts" in original_probabilities:
+                if bet_type == "yes":
+                    return f"Ambas equipes têm alto poder ofensivo e devem marcar com {real_prob:.1f}% de probabilidade."
+                else:
+                    return f"Pelo menos uma das equipes deve manter sua defesa sem sofrer gols com {real_prob:.1f}% de probabilidade."
+                    
+        elif market_type == "corners":
+            if "corners" in original_probabilities:
+                expected_corners = original_probabilities["corners"].get("expected_corners", 0)
+                if bet_type == "over_9_5":
+                    return f"Projeção de {expected_corners:.1f} escanteios na partida, acima do threshold de 9.5."
+                else:
+                    return f"Projeção de {expected_corners:.1f} escanteios na partida, abaixo do threshold de 9.5."
+                    
+        elif market_type == "cards":
+            if "cards" in original_probabilities:
+                expected_cards = original_probabilities["cards"].get("expected_cards", 0)
+                if bet_type == "over_3_5" or bet_type == "over_4_5":
+                    return f"Projeção de {expected_cards:.1f} cartões na partida, acima do threshold especificado."
+                else:
+                    return f"Projeção de {expected_cards:.1f} cartões na partida, abaixo do threshold especificado."
+        
+        # Justificativa genérica se nenhuma específica se aplicar
+        quality, description = evaluate_opportunity(real_prob, margin)
+        return f"Oportunidade classificada como {quality} - {description}."
+        
+    except Exception as e:
+        # Em caso de erro, retornar uma justificativa genérica
+        return f"Valor estatístico significativo de {margin:.1f}% acima da probabilidade implícita."
