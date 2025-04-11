@@ -143,8 +143,8 @@ def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_da
 
 ### Métricas Expected Goals (xG)
 * {home_team}: 
-  - xG total: {home.get('xg', 0)} | xG em casa: {home.get('home_xg', 0)}
-  - xGA total: {home.get('xga', 0)} | xGA em casa: {home.get('home_xga', 0)}
+  - xG total: {home.get('xg', 0)} | xG em casa: {home.get('', 0)}
+  - xGA total: {home.get('xga', 0)} | xGA em casa: {home.get('a', 0)}
   - xG médio por jogo: {home.get('xg_for_avg_overall', 0)}
 
 * {away_team}: 
@@ -387,6 +387,15 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
         away_xg = away.get('xg', 0)
         away_xga = away.get('xga', 0)
         
+        # Calcular pontos da forma (35%)
+        home_form_points = form_to_points(home_form)
+        away_form_points = form_to_points(away_form)
+        
+        # Normalizar para uso nos cálculos (0-1)
+        home_form_normalized = home_form_points / 15.0
+        away_form_normalized = away_form_points / 15.0
+        
+        # Team stats score (25%)
         max_xg = max(home_xg, away_xg, 60)
         
         home_offensive = (home_xg / max(max_xg, 1)) * 0.6 + (home.get('goals_per_game', 0) / 3) * 0.4
@@ -408,19 +417,19 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
         home_creation = home_offensive * 0.7 + home_possession * 0.3
         away_creation = away_offensive * 0.7 + away_possession * 0.3
         
-        # APPLY WEIGHTS
+        # APPLY WEIGHTS - Agora podemos usar todas as variáveis corretamente
         home_total_score = (
-            (home_form_points / 15) * 0.35 +      # Normalizar para 0-1
-            home_stats_score * 0.25 +      # Estatísticas: 25%
-            home_position_score * 0.20 +   # Posição: 20%
-            home_creation * 0.20           # Criação: 20%
+            home_form_normalized * 0.35 +      # Forma recente: 35%
+            home_stats_score * 0.25 +          # Estatísticas: 25%
+            home_position_score * 0.20 +       # Posição: 20%
+            home_creation * 0.20               # Criação: 20%
         )
         
         away_total_score = (
-            away_form_points * 0.35 +      # Recent form: 35%
-            away_stats_score * 0.25 +      # Team stats: 25%
-            away_position_score * 0.20 +   # Position: 20%
-            away_creation * 0.20           # Creation: 20%
+            away_form_normalized * 0.35 +      # Forma recente: 35%
+            away_stats_score * 0.25 +          # Estatísticas: 25%
+            away_position_score * 0.20 +       # Posição: 20%
+            away_creation * 0.20               # Criação: 20%
         )
         
         # 1. Moneyline calculation
