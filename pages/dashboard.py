@@ -3084,17 +3084,21 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
         analysis_data = original_probabilities.get("analysis_data", {})
         margin = real_prob - implicit_prob
         
-        # Obter dados de forma diretamente de analysis_data
-        # Vamos usar os mesmos valores que são mostrados no nível de confiança
-        # CORREÇÃO: Usar int em vez de round para manter consistência exata com nível de confiança
-        home_form_points = analysis_data.get("home_form_points", 0)
-        if home_form_points <= 1.0:  # Se estiver normalizado (0-1)
-            home_form_points = int(home_form_points * 15)
-            
-        away_form_points = analysis_data.get("away_form_points", 0)
-        if away_form_points <= 1.0:  # Se estiver normalizado (0-1)
-            away_form_points = int(away_form_points * 15)
-            
+        # CORREÇÃO CRÍTICA: Para garantir consistência entre justificativa e nível de confiança,
+        # usamos exatamente o mesmo método para calcular os pontos de forma
+        
+        # Para forma recente, vamos usar os valores exatos (não arredondados) como são usados
+        # na seção de nível de confiança
+        home_form_normalized = analysis_data.get("home_form_points", 0)
+        away_form_normalized = analysis_data.get("away_form_points", 0)
+        
+        # Converter para pontos reais (0-15 range)
+        # Importante: Usar exatamente a mesma lógica que é usada na seção de 
+        # nível de confiança para garantir valores idênticos
+        home_form_points = int(home_form_normalized * 15)
+        away_form_points = int(away_form_normalized * 15)
+        
+        # Para consistência
         home_consistency = analysis_data.get("home_consistency", 0)
         if home_consistency <= 1.0:
             home_consistency = home_consistency * 100
@@ -3151,6 +3155,7 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
                 justification += f"Chance de {real_prob:.1f}% de algum time vencer, "
                 justification += f"contra apenas {implicit_prob:.1f}% implicada pelas odds."
         
+        # Resto da função permanece igual...
         # 3. OVER/UNDER
         elif market_type == "over_under":
             if "over_under" in original_probabilities:
