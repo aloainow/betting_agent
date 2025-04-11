@@ -198,7 +198,8 @@ def update_opportunities_format(opportunities_section):
 def format_opportunities_section(section):
     """
     Formata especificamente a seção de Oportunidades Identificadas
-    para garantir que as justificativas não sejam truncadas
+    para garantir que as justificativas sejam preservadas integralmente,
+    inclusive a primeira letra.
     
     Args:
         section (str): Texto da seção de oportunidades
@@ -231,27 +232,56 @@ def format_opportunities_section(section):
             formatted_lines.append(line)
             
             # Verificar se a próxima linha contém a justificativa
-            if i + 1 < len(lines) and lines[i + 1].strip().startswith('*Justificativa:'):
-                justification = lines[i + 1].strip()
-                # Remover prefixo
-                justification_text = justification.replace('*Justificativa:', '').strip()
+            if i + 1 < len(lines) and '*Justificativa:' in lines[i + 1]:
+                original_justification = lines[i + 1].strip()
                 
-                # Adicionar a justificativa com formatação adequada
-                formatted_justification = "  *Justificativa: " + justification_text
-                
-                # Dividir em múltiplas linhas se necessário
-                if len(formatted_justification) > 70:
-                    # Primeira linha
-                    formatted_lines.append(formatted_justification[:70])
+                # Extrair corretamente o prefixo e o texto da justificativa
+                prefix_parts = original_justification.split('*Justificativa:', 1)
+                if len(prefix_parts) > 1:
+                    justification_text = prefix_parts[1].strip()
                     
-                    # Linhas subsequentes com indentação
-                    remaining = formatted_justification[70:]
-                    while remaining:
-                        next_line = "    " + remaining[:66]  # 4 espaços + 66 caracteres = 70 total
-                        formatted_lines.append(next_line)
-                        remaining = remaining[66:]
+                    # Construir a justificativa completa com prefixo
+                    full_justification = "  *Justificativa: " + justification_text
+                    
+                    # Dividir em múltiplas linhas se necessário
+                    if len(full_justification) > 70:
+                        # Primeira linha com pelo menos 2 palavras
+                        words = full_justification.split()
+                        first_line = words[0] + " " + words[1]  # Prefixo + primeira palavra
+                        
+                        # Adicionar mais palavras até atingir o limite
+                        word_index = 2
+                        while word_index < len(words) and len(first_line + " " + words[word_index]) <= 70:
+                            first_line += " " + words[word_index]
+                            word_index += 1
+                        
+                        formatted_lines.append(first_line)
+                        
+                        # Construir linhas subsequentes
+                        if word_index < len(words):
+                            # Criar uma string com as palavras restantes
+                            remaining_words = words[word_index:]
+                            current_line = "    "  # 4 espaços de indentação
+                            
+                            for word in remaining_words:
+                                if len(current_line + word) + 1 <= 70:  # +1 para o espaço
+                                    if current_line == "    ":
+                                        current_line += word
+                                    else:
+                                        current_line += " " + word
+                                else:
+                                    # Adicionar linha atual e iniciar nova
+                                    formatted_lines.append(current_line)
+                                    current_line = "    " + word
+                            
+                            # Adicionar a última linha se necessário
+                            if current_line != "    ":
+                                formatted_lines.append(current_line)
+                    else:
+                        formatted_lines.append(full_justification)
                 else:
-                    formatted_lines.append(formatted_justification)
+                    # Se houver problema ao extrair, adicionar a linha original
+                    formatted_lines.append(original_justification)
                 
                 # Avançar para pular a linha da justificativa
                 i += 2
@@ -3034,7 +3064,7 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
                           original_probabilities, home_team, away_team):
     """
     Gera uma justificativa com embasamento estatístico específico para cada mercado
-    com verificação de consistência lógica dos dados
+    garantindo que o texto completo seja preservado.
     
     Args:
         market_type (str): Tipo de mercado (moneyline, over_under, etc.)
@@ -3122,7 +3152,7 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
                 if away_form <= 1.0:
                     away_form = away_form * 15
                 
-                justification = f"{away_team} competitivo como visitante (forma: {away_form:.1f}/15 pts). "
+                justification = f"Vantagem para {away_team} visitante (forma: {away_form:.1f}/15 pts). "
                 justification += f"Probabilidade de {real_prob:.1f}% do time visitante não perder, "
                 justification += f"contra apenas {implicit_prob:.1f}% implicada pelas odds."
                 
@@ -3285,7 +3315,6 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
             else:
                 justification = f"Vantagem estatística de {margin:.1f}% entre probabilidade real ({real_prob:.1f}%) e odds oferecidas ({implicit_prob:.1f}%)."
         
-        # Não é necessário formatar a justificativa aqui - isso será feito posteriormente
         return justification
         
     except Exception as e:
@@ -3300,7 +3329,7 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
 def update_opportunities_format(opportunities_section):
     """
     Atualiza a formatação da seção de oportunidades para evitar linhas muito longas
-    que exijam rolagem horizontal.
+    que exijam rolagem horizontal e preserva a primeira letra das justificativas.
     
     Args:
         opportunities_section (str): Texto da seção de oportunidades
@@ -3320,38 +3349,41 @@ def update_opportunities_format(opportunities_section):
         if line.startswith('- **'):
             # Manter a primeira linha como está (título da oportunidade)
             formatted_lines.append(line)
-        # Se for uma justificativa (começa com '  *Justificativa:')
-        elif line.strip().startswith('*Justificativa:'):
+        # Se for uma justificativa (contém "*Justificativa:")
+        elif '*Justificativa:' in line:
             # Verificar se já está dividida em múltiplas linhas
             if '\n' in line:
                 # Já está formatada, adicionar todas as linhas
                 formatted_lines.extend(line.split('\n'))
             else:
-                # Separar a parte inicial "*Justificativa:" do resto do texto
-                prefix = "  *Justificativa:"
-                content = line.strip()[len(prefix):].strip()
+                # Dividir em prefixo e conteúdo, preservando a primeira letra
+                parts = line.split('*Justificativa:', 1)
+                prefix = parts[0] + "*Justificativa:"
+                content = parts[1].strip() if len(parts) > 1 else ""
                 
                 # Formatar o conteúdo da justificativa
-                current_line = prefix + " "
-                words = content.split()
-                
-                for word in words:
-                    # Se adicionar a palavra não ultrapassar a largura máxima
-                    if len(current_line) + len(word) + 1 <= max_width:
-                        # Adicionar palavra à linha atual
-                        if current_line.endswith(" "):
-                            current_line += word
-                        else:
+                if content:
+                    # Palavra por palavra para garantir que nenhuma letra seja perdida
+                    words = content.split()
+                    current_line = prefix + " " + words[0]  # Garantir que a primeira palavra esteja completa
+                    
+                    for word in words[1:]:
+                        # Se adicionar a palavra não ultrapassar a largura máxima
+                        if len(current_line) + len(word) + 1 <= max_width:
+                            # Adicionar palavra à linha atual
                             current_line += " " + word
-                    else:
-                        # Adicionar a linha atual e começar uma nova
+                        else:
+                            # Adicionar a linha atual e começar uma nova
+                            formatted_lines.append(current_line)
+                            # Alinhar a nova linha com a justificativa (espaços antes)
+                            current_line = "    " + word
+                    
+                    # Adicionar a última linha da justificativa
+                    if current_line:
                         formatted_lines.append(current_line)
-                        # Alinhar a nova linha com a justificativa (espaços antes)
-                        current_line = "    " + word
-                
-                # Adicionar a última linha da justificativa
-                if current_line:
-                    formatted_lines.append(current_line)
+                else:
+                    # Se não houver conteúdo, adicionar apenas o prefixo
+                    formatted_lines.append(prefix)
         else:
             # Outras linhas são mantidas como estão
             formatted_lines.append(line)
