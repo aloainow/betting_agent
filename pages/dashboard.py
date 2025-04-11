@@ -17,6 +17,332 @@ logger = logging.getLogger("valueHunter.dashboard")
 TEAMS_CACHE_DIR = os.path.join(DATA_DIR, "teams_cache")
 os.makedirs(TEAMS_CACHE_DIR, exist_ok=True)
 
+# Adicione todas essas funções no início do arquivo pages/dashboard.py,
+# antes das outras funções que as utilizam
+
+def format_text_for_display(text, max_width=70):
+    """
+    Formata um texto para garantir que nenhuma linha exceda o comprimento máximo especificado.
+    
+    Args:
+        text (str): Texto a ser formatado
+        max_width (int): Largura máxima de cada linha em caracteres
+        
+    Returns:
+        str: Texto formatado com quebras de linha
+    """
+    lines = []
+    for line in text.split('\n'):
+        if len(line) <= max_width:
+            lines.append(line)
+        else:
+            # Quebrar linhas muito longas
+            current_line = ""
+            words = line.split()
+            
+            for word in words:
+                if len(current_line) + len(word) + 1 <= max_width:
+                    # Adicionar palavra à linha atual
+                    if current_line:
+                        current_line += " " + word
+                    else:
+                        current_line = word
+                else:
+                    # Iniciar nova linha
+                    lines.append(current_line)
+                    current_line = word
+            
+            # Adicionar a última linha
+            if current_line:
+                lines.append(current_line)
+    
+    return '\n'.join(lines)
+
+def format_generic_section(section):
+    """
+    Formata seções genéricas da análise
+    
+    Args:
+        section (str): Texto da seção
+        
+    Returns:
+        str: Seção formatada
+    """
+    lines = section.split('\n')
+    formatted_lines = []
+    
+    # Cabeçalho sempre permanece igual
+    if lines and lines[0].startswith('# '):
+        formatted_lines.append(lines[0])
+        start_idx = 1
+    else:
+        start_idx = 0
+    
+    # Formatar as demais linhas
+    for i in range(start_idx, len(lines)):
+        formatted_lines.append(format_text_for_display(lines[i], max_width=70))
+    
+    return '\n'.join(formatted_lines)
+
+def format_confidence_section(section):
+    """
+    Formata especificamente a seção de Nível de Confiança
+    
+    Args:
+        section (str): Texto da seção de confiança
+        
+    Returns:
+        str: Seção de confiança formatada
+    """
+    lines = section.split('\n')
+    formatted_lines = []
+    
+    # Cabeçalho sempre permanece igual
+    if lines and lines[0].startswith('# '):
+        formatted_lines.append(lines[0])
+        start_idx = 1
+    else:
+        start_idx = 0
+    
+    # Formatar cada linha de conteúdo
+    for i in range(start_idx, len(lines)):
+        line = lines[i]
+        
+        # Se a linha começa com um marcador, processar especialmente
+        if line.strip().startswith('- **'):
+            # Dividir em marcador e conteúdo
+            parts = line.split(':', 1)
+            
+            if len(parts) > 1:
+                # Adicionar o marcador
+                formatted_lines.append(parts[0] + ':')
+                
+                # Formatar o conteúdo com indentação
+                content = parts[1].strip()
+                formatted_content = format_text_for_display(content, max_width=65)
+                
+                # Adicionar indentação às linhas de conteúdo
+                for content_line in formatted_content.split('\n'):
+                    formatted_lines.append('  ' + content_line)
+            else:
+                # Se não conseguir dividir, adicionar linha inteira formatada
+                formatted_lines.append(format_text_for_display(line, max_width=70))
+        else:
+            # Para outras linhas, simplesmente formatar
+            formatted_lines.append(format_text_for_display(line, max_width=70))
+    
+    return '\n'.join(formatted_lines)
+
+def update_opportunities_format(opportunities_section):
+    """
+    Atualiza a formatação da seção de oportunidades para evitar linhas muito longas
+    que exijam rolagem horizontal.
+    
+    Args:
+        opportunities_section (str): Texto da seção de oportunidades
+        
+    Returns:
+        str: Texto reformatado para limitar a largura
+    """
+    # Dividir o texto em linhas
+    lines = opportunities_section.split('\n')
+    formatted_lines = []
+    
+    # Largura máxima por linha (ajuste conforme necessário)
+    max_width = 70
+    
+    for line in lines:
+        # Se a linha for uma oportunidade (começa com '- **')
+        if line.startswith('- **'):
+            # Manter a primeira linha como está (título da oportunidade)
+            formatted_lines.append(line)
+        # Se for uma justificativa (começa com '  *Justificativa:')
+        elif line.strip().startswith('*Justificativa:'):
+            # Verificar se já está dividida em múltiplas linhas
+            if '\n' in line:
+                # Já está formatada, adicionar todas as linhas
+                formatted_lines.extend(line.split('\n'))
+            else:
+                # Separar a parte inicial "*Justificativa:" do resto do texto
+                prefix = "  *Justificativa:"
+                content = line.strip()[len(prefix):].strip()
+                
+                # Formatar o conteúdo da justificativa
+                current_line = prefix + " "
+                words = content.split()
+                
+                for word in words:
+                    # Se adicionar a palavra não ultrapassar a largura máxima
+                    if len(current_line) + len(word) + 1 <= max_width:
+                        # Adicionar palavra à linha atual
+                        if current_line.endswith(" "):
+                            current_line += word
+                        else:
+                            current_line += " " + word
+                    else:
+                        # Adicionar a linha atual e começar uma nova
+                        formatted_lines.append(current_line)
+                        # Alinhar a nova linha com a justificativa (espaços antes)
+                        current_line = "    " + word
+                
+                # Adicionar a última linha da justificativa
+                if current_line:
+                    formatted_lines.append(current_line)
+        else:
+            # Outras linhas são mantidas como estão
+            formatted_lines.append(line)
+    
+    # Juntar as linhas formatadas
+    return '\n'.join(formatted_lines)
+
+def format_opportunities_section(section):
+    """
+    Formata especificamente a seção de Oportunidades Identificadas
+    
+    Args:
+        section (str): Texto da seção de oportunidades
+        
+    Returns:
+        str: Seção de oportunidades formatada
+    """
+    # Se não houver oportunidades ou apenas a mensagem de que não há valor
+    if "Infelizmente não detectamos valor" in section:
+        return section
+    
+    lines = section.split('\n')
+    formatted_lines = []
+    
+    # Cabeçalho sempre permanece igual
+    if lines and lines[0].startswith('# '):
+        formatted_lines.append(lines[0])
+        start_idx = 1
+    else:
+        start_idx = 0
+    
+    # Inicializar variáveis de controle
+    in_opportunity = False
+    opportunity_header = ""
+    opportunity_content = ""
+    
+    for i in range(start_idx, len(lines)):
+        line = lines[i].strip()
+        
+        # Se for o início de uma nova oportunidade
+        if line.startswith('- **'):
+            # Se já estávamos em uma oportunidade, processar e adicionar a anterior
+            if in_opportunity:
+                formatted_lines.append(opportunity_header)
+                
+                # Formatar a justificativa em múltiplas linhas
+                if opportunity_content:
+                    prefix = "  *Justificativa:"
+                    content = opportunity_content[len(prefix):].strip()
+                    
+                    # Adicionar prefixo
+                    formatted_content = prefix + " " + content[:1]  # Primeiro caractere
+                    remaining_content = content[1:]  # Resto do conteúdo
+                    
+                    # Formatar o resto com indentação
+                    formatted_remaining = format_text_for_display(remaining_content, max_width=65)
+                    for content_line in formatted_remaining.split('\n'):
+                        if content_line.strip():  # Se não for linha vazia
+                            if not formatted_content.endswith(" "):
+                                formatted_content += " " + content_line
+                            else:
+                                formatted_content += content_line
+                            
+                            # Adicionar à lista formatada
+                            formatted_lines.append(formatted_content)
+                            # Reiniciar com indentação para próximas linhas
+                            formatted_content = "    "
+            
+            # Iniciar nova oportunidade
+            in_opportunity = True
+            opportunity_header = line
+            opportunity_content = ""
+        
+        # Se for parte da justificativa
+        elif line.startswith('*Justificativa:'):
+            opportunity_content = line
+        
+        # Para a última oportunidade
+        if i == len(lines) - 1 and in_opportunity:
+            formatted_lines.append(opportunity_header)
+            
+            # Formatar a justificativa em múltiplas linhas
+            if opportunity_content:
+                prefix = "  *Justificativa:"
+                content = opportunity_content[len(prefix):].strip()
+                
+                # Adicionar prefixo na primeira linha
+                first_line = prefix + " "
+                words = content.split()
+                
+                for word in words:
+                    if len(first_line) + len(word) + 1 <= 70:
+                        if first_line.endswith(" "):
+                            first_line += word
+                        else:
+                            first_line += " " + word
+                    else:
+                        # Adicionar primeira linha e iniciar nova
+                        formatted_lines.append(first_line)
+                        first_line = "    " + word  # 4 espaços de indentação
+                
+                # Adicionar última linha
+                if first_line and not first_line.isspace():
+                    formatted_lines.append(first_line)
+    
+    return '\n'.join(formatted_lines)
+
+def format_all_analysis_sections(analysis_text):
+    """
+    Formata todas as seções da análise para evitar linhas muito longas.
+    
+    Args:
+        analysis_text (str): Texto completo da análise
+        
+    Returns:
+        str: Texto da análise com todas as seções formatadas
+    """
+    # Quebrar o texto em seções principais
+    sections = []
+    current_section = []
+    
+    for line in analysis_text.split('\n'):
+        # Se for um cabeçalho de seção (começa com #)
+        if line.startswith('# '):
+            # Se já temos uma seção anterior, adicionar às seções
+            if current_section:
+                sections.append('\n'.join(current_section))
+                current_section = []
+            
+            # Iniciar nova seção com o cabeçalho
+            current_section.append(line)
+        else:
+            # Adicionar linha à seção atual
+            current_section.append(line)
+    
+    # Adicionar a última seção se existir
+    if current_section:
+        sections.append('\n'.join(current_section))
+    
+    # Formatar cada seção individualmente
+    formatted_sections = []
+    
+    for section in sections:
+        # Identificar seções especiais para tratamento específico
+        if section.startswith('# Nível de Confiança Geral'):
+            formatted_sections.append(format_confidence_section(section))
+        elif section.startswith('# Oportunidades Identificadas'):
+            formatted_sections.append(format_opportunities_section(section))
+        else:
+            # Formatar seções genéricas
+            formatted_sections.append(format_generic_section(section))
+    
+    # Juntar todas as seções formatadas
+    return '\n\n'.join(formatted_sections)
+
 # Funções auxiliares para seleção de ligas (ADICIONADAS NO INÍCIO)
 def get_league_selection():
     """
