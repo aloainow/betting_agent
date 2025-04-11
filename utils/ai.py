@@ -373,14 +373,6 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
             "away_total_score": away_total_score
         }
         
-        # E para cálculos, se necessário:
-        home_total_score = (
-            (home_form_points / 15.0) * 0.35 +  # Normalizar para escala 0-1
-            home_stats_score * 0.25 +
-            home_position_score * 0.20 +
-            home_creation * 0.20
-        )
-        
         # Team stats score (25%)
         home_xg = home.get('xg', 0)
         home_xga = home.get('xga', 0)
