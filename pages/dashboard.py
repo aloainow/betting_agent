@@ -3084,28 +3084,17 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
         analysis_data = original_probabilities.get("analysis_data", {})
         margin = real_prob - implicit_prob
         
-        # CORREÇÃO ABRANGENTE PARA GARANTIR CONSISTÊNCIA
-        # IMPORTANTE: Não calcular os pontos de forma aqui. Em vez disso,
-        # extrair os valores EXATOS que são usados na seção de nível de confiança
-        
+        # CORREÇÃO PRINCIPAL: Obter os valores exatos que são usados na seção de nível de confiança
         # Extrair valores diretamente da estrutura analysis_data
-        # Não fazer nenhum cálculo ou transformação aqui
-        # Esses valores já estão calculados e são usados na seção de nível de confiança
         
-        # Para valores de forma, usar como estão - sem multiplicar ou transformar
+        # Obter os valores normalizados (0-1)
         home_form_normalized = analysis_data.get("home_form_points", 0)
         away_form_normalized = analysis_data.get("away_form_points", 0)
         
-        # Multiplicar por 15 e converter para inteiro, exatamente como feito na seção de confiança
-        # Esta é a parte crucial para garantir que os valores sejam idênticos
+        # Calcular os valores em pontos (0-15), exatamente como feito na seção de confiança
+        # Multiplicando por 15 e NÃO arredondando para inteiro, para manter valor exato
         home_form_points = int(home_form_normalized * 15)
         away_form_points = int(away_form_normalized * 15)
-        
-        # Log para debug (remover em produção)
-        import logging
-        logger = logging.getLogger("valueHunter.ai")
-        logger.info(f"HOME FORM: normalized={home_form_normalized}, points={home_form_points}")
-        logger.info(f"AWAY FORM: normalized={away_form_normalized}, points={away_form_points}")
         
         # Para consistência
         home_consistency = analysis_data.get("home_consistency", 0)
