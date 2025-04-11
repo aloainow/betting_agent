@@ -2664,7 +2664,7 @@ def show_opportunities_ultra_simple(analysis_text):
 def generate_justification(market_type, bet_type, team_name, real_prob, implicit_prob, 
                           original_probabilities, home_team, away_team):
     """
-    Gera uma justificativa personalizada e mais realista para uma oportunidade com base nos dados
+    Gera uma justificativa com embasamento estatístico específico para cada mercado
     
     Args:
         market_type (str): Tipo de mercado (moneyline, over_under, etc.)
@@ -2684,105 +2684,171 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
         analysis_data = original_probabilities.get("analysis_data", {})
         margin = real_prob - implicit_prob
         
-        # Justificativas específicas por tipo de mercado
+        # 1. MONEYLINE (1X2)
         if market_type == "moneyline":
+            # Verificar formato dos dados
+            home_form = analysis_data.get("home_form_points", 0)
+            if home_form <= 1.0:
+                home_form = home_form * 15
+                
+            away_form = analysis_data.get("away_form_points", 0)
+            if away_form <= 1.0:
+                away_form = away_form * 15
+                
+            home_consistency = analysis_data.get("home_consistency", 0)
+            if home_consistency <= 1.0:
+                home_consistency = home_consistency * 100
+                
+            away_consistency = analysis_data.get("away_consistency", 0)
+            if away_consistency <= 1.0:
+                away_consistency = away_consistency * 100
+            
+            # Obter estatísticas quando disponíveis
+            home_wins = original_probabilities.get("moneyline", {}).get("home_win", 0)
+            away_wins = original_probabilities.get("moneyline", {}).get("away_win", 0)
+            
             if bet_type == "home_win":
-                # CORREÇÃO: Verificar se home_form_points já é um número entre 0 e 15 ou se precisa ser multiplicado
-                home_form = analysis_data.get("home_form_points", 0)
-                if home_form <= 1.0:  # Se for uma porcentagem (entre 0 e 1), multiplicar por 15
-                    home_form = home_form * 15
+                # Vitória do time da casa
+                justification = f"Time da casa com {home_form:.1f}/15 pts na forma recente e {home_consistency:.1f}% de consistência. "
                 
-                # CORREÇÃO: Verificar se home_consistency já é uma porcentagem ou se precisa ser multiplicado por 100
-                home_consistency = analysis_data.get("home_consistency", 0)
-                if home_consistency <= 1.0:  # Se for um decimal (entre 0 e 1), multiplicar por 100
-                    home_consistency = home_consistency * 100
+                # Adicionar estatísticas de gols se disponíveis
+                if "over_under" in original_probabilities:
+                    expected_goals = original_probabilities["over_under"].get("expected_goals", 0)
+                    justification += f"Previsão de {expected_goals:.2f} gols na partida favorece time ofensivo. "
                 
-                # Ajustar descrição baseada nos valores reais
-                if home_form >= 10:
-                    form_desc = f"excelente forma recente ({home_form:.1f}/15 pts)"
-                elif home_form >= 7:
-                    form_desc = f"boa forma recente ({home_form:.1f}/15 pts)"
-                else:
-                    form_desc = f"forma recente de {home_form:.1f}/15 pts"
-                
-                if home_consistency >= 70:
-                    cons_desc = f"alta consistência de {home_consistency:.1f}%"
-                elif home_consistency >= 50:
-                    cons_desc = f"consistência moderada de {home_consistency:.1f}%"
-                else:
-                    cons_desc = f"consistência de {home_consistency:.1f}%"
-                
-                # Valor da probabilidade real é mais importante
-                if real_prob >= 60:
-                    return f"Probabilidade real significativa ({real_prob:.1f}%) para {team_name} vencer em casa, com {form_desc} e {cons_desc}."
-                elif real_prob >= 40:
-                    return f"Probabilidade moderada ({real_prob:.1f}%) para {team_name} vencer em casa, com {form_desc} e {cons_desc}."
-                else:
-                    return f"Possibilidade de surpresa com {team_name} em casa ({real_prob:.1f}%), odds subestimam em {margin:.1f}% as chances reais."
+                justification += f"Odds de {implicit_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
                 
             elif bet_type == "away_win":
-                # CORREÇÃO: Verificar se away_form_points já é um número entre 0 e 15 ou se precisa ser multiplicado
-                away_form = analysis_data.get("away_form_points", 0)
-                if away_form <= 1.0:  # Se for uma porcentagem (entre 0 e 1), multiplicar por 15
-                    away_form = away_form * 15
+                # Vitória do time visitante
+                justification = f"Time visitante com {away_form:.1f}/15 pts na forma recente e {away_consistency:.1f}% de consistência. "
                 
-                # CORREÇÃO: Verificar se away_consistency já é uma porcentagem ou se precisa ser multiplicado por 100
-                away_consistency = analysis_data.get("away_consistency", 0)
-                if away_consistency <= 1.0:  # Se for um decimal (entre 0 e 1), multiplicar por 100
-                    away_consistency = away_consistency * 100
-                
-                # Ajustar descrição baseada nos valores reais
-                if away_form >= 10:
-                    form_desc = f"excelente forma recente ({away_form:.1f}/15 pts)"
-                elif away_form >= 7:
-                    form_desc = f"boa forma recente ({away_form:.1f}/15 pts)"
-                else:
-                    form_desc = f"forma recente de {away_form:.1f}/15 pts"
-                
-                if away_consistency >= 70:
-                    cons_desc = f"alta consistência de {away_consistency:.1f}%"
-                elif away_consistency >= 50:
-                    cons_desc = f"consistência moderada de {away_consistency:.1f}%"
-                else:
-                    cons_desc = f"consistência de {away_consistency:.1f}%"
-                
-                # Valor da probabilidade real é mais importante
-                if real_prob >= 50:
-                    return f"Probabilidade significativa ({real_prob:.1f}%) para {team_name} vencer fora de casa, com {form_desc} e {cons_desc}."
-                elif real_prob >= 30:
-                    return f"Probabilidade moderada ({real_prob:.1f}%) para {team_name} vencer fora de casa, com {form_desc} e {cons_desc}."
-                else:
-                    return f"Possibilidade de surpresa com {team_name} fora ({real_prob:.1f}%), odds subestimam em {margin:.1f}% as chances reais."
+                if "over_under" in original_probabilities:
+                    expected_goals = original_probabilities["over_under"].get("expected_goals", 0)
+                    justification += f"Previsão de {expected_goals:.2f} gols na partida. "
+                    
+                justification += f"Odds de {implicit_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
                 
             elif bet_type == "draw":
-                # CORREÇÃO: Verificar se consistência já é uma porcentagem ou se precisa ser multiplicado por 100
-                home_consistency = analysis_data.get("home_consistency", 0)
-                if home_consistency <= 1.0:  # Se for um decimal (entre 0 e 1), multiplicar por 100
-                    home_consistency = home_consistency * 100
-                
-                away_consistency = analysis_data.get("away_consistency", 0)
-                if away_consistency <= 1.0:  # Se for um decimal (entre 0 e 1), multiplicar por 100
-                    away_consistency = away_consistency * 100
-                
+                # Empate
                 avg_consistency = (home_consistency + away_consistency) / 2
+                justification = f"Equilíbrio entre as equipes, consistência média de {avg_consistency:.1f}%. "
+                justification += f"Odds de {implicit_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
                 
-                if avg_consistency < 50:
-                    cons_desc = "baixa consistência de ambas as equipes"
-                else:
-                    cons_desc = "consistência moderada de ambas as equipes"
+        # 2. CHANCE DUPLA (DOUBLE CHANCE)
+        elif market_type == "double_chance":
+            if bet_type == "home_or_draw":
+                home_form = analysis_data.get("home_form_points", 0)
+                if home_form <= 1.0:
+                    home_form = home_form * 15
+                
+                justification = f"Vantagem de jogar em casa para {home_team} (forma: {home_form:.1f}/15 pts). "
+                justification += f"Probabilidade de {real_prob:.1f}% do time da casa não perder, "
+                justification += f"contra apenas {implicit_prob:.1f}% implicada pelas odds."
+                
+            elif bet_type == "away_or_draw":
+                away_form = analysis_data.get("away_form_points", 0)
+                if away_form <= 1.0:
+                    away_form = away_form * 15
+                
+                justification = f"{away_team} competitivo como visitante (forma: {away_form:.1f}/15 pts). "
+                justification += f"Probabilidade de {real_prob:.1f}% do time visitante não perder, "
+                justification += f"contra apenas {implicit_prob:.1f}% implicada pelas odds."
+                
+            elif bet_type == "home_or_away":
+                justification = f"Baixa probabilidade de empate entre as equipes. "
+                justification += f"Chance de {real_prob:.1f}% de algum time vencer, "
+                justification += f"contra apenas {implicit_prob:.1f}% implicada pelas odds."
+                
+        # 3. OVER/UNDER
+        elif market_type == "over_under":
+            if "over_under" in original_probabilities:
+                expected_goals = original_probabilities["over_under"].get("expected_goals", 0)
+                
+                if bet_type.startswith("over_"):
+                    threshold = bet_type.replace("over_", "").replace("_", ".")
                     
-                return f"Probabilidade de empate ({real_prob:.1f}%) subestimada pelas odds em {margin:.1f}%, considerando {cons_desc}."
-                
-        # Resto da função continua igual ao código anterior
-        # ... 
+                    justification = f"Previsão de {expected_goals:.2f} gols na partida, acima do threshold de {threshold}. "
+                    
+                    if "home_team" in original_probabilities and "away_team" in original_probabilities:
+                        justification += f"Times com tendência ofensiva combinada. "
+                        
+                    justification += f"Probabilidade real de {real_prob:.1f}% vs implícita de {implicit_prob:.1f}%."
+                    
+                else:  # Under
+                    threshold = bet_type.replace("under_", "").replace("_", ".")
+                    
+                    justification = f"Previsão de {expected_goals:.2f} gols na partida, abaixo do threshold de {threshold}. "
+                    
+                    if "home_team" in original_probabilities and "away_team" in original_probabilities:
+                        justification += f"Times com tendência defensiva combinada. "
+                        
+                    justification += f"Probabilidade real de {real_prob:.1f}% vs implícita de {implicit_prob:.1f}%."
         
-        # Justificativa genérica baseada na diferença de probabilidade
-        if margin > 15:
-            return f"Discrepância significativa de {margin:.1f}% entre probabilidade real e odds oferecidas."
-        elif margin > 8:
-            return f"Boa diferença de {margin:.1f}% entre a probabilidade calculada e a implícita nas odds."
+        # 4. BTTS (AMBOS MARCAM)
+        elif market_type == "btts":
+            if "btts" in original_probabilities:
+                if bet_type == "yes":
+                    justification = f"Ambas equipes com potencial ofensivo para marcar. "
+                    
+                    if "over_under" in original_probabilities:
+                        expected_goals = original_probabilities["over_under"].get("expected_goals", 0)
+                        justification += f"Previsão de {expected_goals:.2f} gols totais na partida. "
+                        
+                    justification += f"Probabilidade real de {real_prob:.1f}% vs implícita de {implicit_prob:.1f}%."
+                    
+                else:  # No
+                    justification = f"Pelo menos uma equipe deve manter clean sheet. "
+                    
+                    if "over_under" in original_probabilities:
+                        expected_goals = original_probabilities["over_under"].get("expected_goals", 0)
+                        justification += f"Previsão de apenas {expected_goals:.2f} gols totais na partida. "
+                        
+                    justification += f"Probabilidade real de {real_prob:.1f}% vs implícita de {implicit_prob:.1f}%."
+        
+        # 5. ESCANTEIOS
+        elif market_type == "corners":
+            if "corners" in original_probabilities:
+                expected_corners = original_probabilities["corners"].get("expected_corners", 0)
+                
+                if bet_type.startswith("over_"):
+                    threshold = bet_type.replace("over_", "").replace("_", ".")
+                    
+                    justification = f"Previsão de {expected_corners:.1f} escanteios na partida, acima do threshold de {threshold}. "
+                    justification += f"Probabilidade real de {real_prob:.1f}% vs implícita de {implicit_prob:.1f}%."
+                    
+                else:  # Under
+                    threshold = bet_type.replace("under_", "").replace("_", ".")
+                    
+                    justification = f"Previsão de {expected_corners:.1f} escanteios na partida, abaixo do threshold de {threshold}. "
+                    justification += f"Probabilidade real de {real_prob:.1f}% vs implícita de {implicit_prob:.1f}%."
+        
+        # 6. CARTÕES
+        elif market_type == "cards":
+            if "cards" in original_probabilities:
+                expected_cards = original_probabilities["cards"].get("expected_cards", 0)
+                
+                if bet_type.startswith("over_"):
+                    threshold = bet_type.replace("over_", "").replace("_", ".")
+                    
+                    justification = f"Previsão de {expected_cards:.1f} cartões na partida, acima do threshold de {threshold}. "
+                    justification += f"Probabilidade real de {real_prob:.1f}% vs implícita de {implicit_prob:.1f}%."
+                    
+                else:  # Under
+                    threshold = bet_type.replace("under_", "").replace("_", ".")
+                    
+                    justification = f"Previsão de {expected_cards:.1f} cartões na partida, abaixo do threshold de {threshold}. "
+                    justification += f"Probabilidade real de {real_prob:.1f}% vs implícita de {implicit_prob:.1f}%."
+        
+        # JUSTIFICATIVA GENÉRICA PARA OUTROS MERCADOS
         else:
-            return f"Vantagem estatística de {margin:.1f}% acima da probabilidade implícita nas odds."
+            if margin > 15:
+                justification = f"Discrepância significativa de {margin:.1f}% entre probabilidade real ({real_prob:.1f}%) e odds oferecidas ({implicit_prob:.1f}%)."
+            elif margin > 8:
+                justification = f"Boa diferença de {margin:.1f}% entre probabilidade calculada ({real_prob:.1f}%) e odds oferecidas ({implicit_prob:.1f}%)."
+            else:
+                justification = f"Vantagem estatística de {margin:.1f}% entre probabilidade real ({real_prob:.1f}%) e odds oferecidas ({implicit_prob:.1f}%)."
+        
+        return justification
         
     except Exception as e:
         # Retornar uma justificativa genérica em caso de erro
