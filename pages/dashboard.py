@@ -198,6 +198,7 @@ def update_opportunities_format(opportunities_section):
 def format_opportunities_section(section):
     """
     Formata especificamente a seção de Oportunidades Identificadas
+    para garantir que as justificativas não sejam truncadas
     
     Args:
         section (str): Texto da seção de oportunidades
@@ -219,79 +220,47 @@ def format_opportunities_section(section):
     else:
         start_idx = 0
     
-    # Inicializar variáveis de controle
-    in_opportunity = False
-    opportunity_header = ""
-    opportunity_content = ""
-    
-    for i in range(start_idx, len(lines)):
+    # Para cada linha, detectar e formatar oportunidades e justificativas
+    i = start_idx
+    while i < len(lines):
         line = lines[i].strip()
         
-        # Se for o início de uma nova oportunidade
+        # Se for uma linha de oportunidade
         if line.startswith('- **'):
-            # Se já estávamos em uma oportunidade, processar e adicionar a anterior
-            if in_opportunity:
-                formatted_lines.append(opportunity_header)
-                
-                # Formatar a justificativa em múltiplas linhas
-                if opportunity_content:
-                    prefix = "  *Justificativa:"
-                    content = opportunity_content[len(prefix):].strip()
-                    
-                    # Adicionar prefixo
-                    formatted_content = prefix + " " + content[:1]  # Primeiro caractere
-                    remaining_content = content[1:]  # Resto do conteúdo
-                    
-                    # Formatar o resto com indentação
-                    formatted_remaining = format_text_for_display(remaining_content, max_width=65)
-                    for content_line in formatted_remaining.split('\n'):
-                        if content_line.strip():  # Se não for linha vazia
-                            if not formatted_content.endswith(" "):
-                                formatted_content += " " + content_line
-                            else:
-                                formatted_content += content_line
-                            
-                            # Adicionar à lista formatada
-                            formatted_lines.append(formatted_content)
-                            # Reiniciar com indentação para próximas linhas
-                            formatted_content = "    "
+            # Adicionar a linha de oportunidade como está
+            formatted_lines.append(line)
             
-            # Iniciar nova oportunidade
-            in_opportunity = True
-            opportunity_header = line
-            opportunity_content = ""
+            # Verificar se a próxima linha contém a justificativa
+            if i + 1 < len(lines) and lines[i + 1].strip().startswith('*Justificativa:'):
+                justification = lines[i + 1].strip()
+                # Remover prefixo
+                justification_text = justification.replace('*Justificativa:', '').strip()
+                
+                # Adicionar a justificativa com formatação adequada
+                formatted_justification = "  *Justificativa: " + justification_text
+                
+                # Dividir em múltiplas linhas se necessário
+                if len(formatted_justification) > 70:
+                    # Primeira linha
+                    formatted_lines.append(formatted_justification[:70])
+                    
+                    # Linhas subsequentes com indentação
+                    remaining = formatted_justification[70:]
+                    while remaining:
+                        next_line = "    " + remaining[:66]  # 4 espaços + 66 caracteres = 70 total
+                        formatted_lines.append(next_line)
+                        remaining = remaining[66:]
+                else:
+                    formatted_lines.append(formatted_justification)
+                
+                # Avançar para pular a linha da justificativa
+                i += 2
+                continue
+        else:
+            # Adicionar outras linhas como estão
+            formatted_lines.append(line)
         
-        # Se for parte da justificativa
-        elif line.startswith('*Justificativa:'):
-            opportunity_content = line
-        
-        # Para a última oportunidade
-        if i == len(lines) - 1 and in_opportunity:
-            formatted_lines.append(opportunity_header)
-            
-            # Formatar a justificativa em múltiplas linhas
-            if opportunity_content:
-                prefix = "  *Justificativa:"
-                content = opportunity_content[len(prefix):].strip()
-                
-                # Adicionar prefixo na primeira linha
-                first_line = prefix + " "
-                words = content.split()
-                
-                for word in words:
-                    if len(first_line) + len(word) + 1 <= 70:
-                        if first_line.endswith(" "):
-                            first_line += word
-                        else:
-                            first_line += " " + word
-                    else:
-                        # Adicionar primeira linha e iniciar nova
-                        formatted_lines.append(first_line)
-                        first_line = "    " + word  # 4 espaços de indentação
-                
-                # Adicionar última linha
-                if first_line and not first_line.isspace():
-                    formatted_lines.append(first_line)
+        i += 1
     
     return '\n'.join(formatted_lines)
 
@@ -3065,7 +3034,7 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
                           original_probabilities, home_team, away_team):
     """
     Gera uma justificativa com embasamento estatístico específico para cada mercado
-    com verificação de consistência lógica dos dados e formatação para evitar linhas muito longas
+    com verificação de consistência lógica dos dados
     
     Args:
         market_type (str): Tipo de mercado (moneyline, over_under, etc.)
@@ -3316,8 +3285,8 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
             else:
                 justification = f"Vantagem estatística de {margin:.1f}% entre probabilidade real ({real_prob:.1f}%) e odds oferecidas ({implicit_prob:.1f}%)."
         
-        # IMPORTANTE: Formatar a justificativa para limitar o comprimento das linhas
-        return format_text_for_display(justification, max_width=70)
+        # Não é necessário formatar a justificativa aqui - isso será feito posteriormente
+        return justification
         
     except Exception as e:
         # Log do erro (opcional)
@@ -3326,8 +3295,7 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
         print(traceback.format_exc())
         
         # Retornar uma justificativa genérica em caso de erro
-        basic_justification = f"Valor estatístico significativo de {real_prob-implicit_prob:.1f}% acima da probabilidade implícita nas odds."
-        return format_text_for_display(basic_justification, max_width=70)
+        return f"Valor estatístico significativo de {real_prob-implicit_prob:.1f}% acima da probabilidade implícita nas odds."
 
 def update_opportunities_format(opportunities_section):
     """
