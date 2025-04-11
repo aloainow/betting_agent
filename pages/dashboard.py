@@ -3086,14 +3086,14 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
         
         # Obter dados de forma diretamente de analysis_data
         # Vamos usar os mesmos valores que são mostrados no nível de confiança
-        # Multiplicamos por 15 para obter a pontuação bruta em escala de 0-15
+        # CORREÇÃO: Usar int em vez de round para manter consistência exata com nível de confiança
         home_form_points = analysis_data.get("home_form_points", 0)
         if home_form_points <= 1.0:  # Se estiver normalizado (0-1)
-            home_form_points = round(home_form_points * 15, 0)
+            home_form_points = int(home_form_points * 15)
             
         away_form_points = analysis_data.get("away_form_points", 0)
         if away_form_points <= 1.0:  # Se estiver normalizado (0-1)
-            away_form_points = round(away_form_points * 15, 0)
+            away_form_points = int(away_form_points * 15)
             
         home_consistency = analysis_data.get("home_consistency", 0)
         if home_consistency <= 1.0:
@@ -3107,7 +3107,7 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
         if market_type == "moneyline":
             # Vitória do time da casa
             if bet_type == "home_win":
-                justification = f"Time da casa com {home_form_points:.0f}/15 pts na forma recente e {home_consistency:.1f}% de consistência. "
+                justification = f"Time da casa com {home_form_points}/15 pts na forma recente e {home_consistency:.1f}% de consistência. "
                 
                 # Adicionar estatísticas de gols se disponíveis
                 if "over_under" in original_probabilities:
@@ -3119,7 +3119,7 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
                 
             # Vitória do time visitante
             elif bet_type == "away_win":
-                justification = f"Time visitante com {away_form_points:.0f}/15 pts na forma recente e {away_consistency:.1f}% de consistência. "
+                justification = f"Time visitante com {away_form_points}/15 pts na forma recente e {away_consistency:.1f}% de consistência. "
                 
                 if "over_under" in original_probabilities:
                     expected_goals = original_probabilities["over_under"].get("expected_goals", 0)
@@ -3137,12 +3137,12 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
         # 2. CHANCE DUPLA (DOUBLE CHANCE)
         elif market_type == "double_chance":
             if bet_type == "home_or_draw":
-                justification = f"Vantagem de jogar em casa para {home_team} (forma: {home_form_points:.0f}/15 pts). "
+                justification = f"Vantagem de jogar em casa para {home_team} (forma: {home_form_points}/15 pts). "
                 justification += f"Probabilidade de {real_prob:.1f}% do time da casa não perder, "
                 justification += f"contra apenas {implicit_prob:.1f}% implicada pelas odds."
                 
             elif bet_type == "away_or_draw":
-                justification = f"Vantagem para {away_team} visitante (forma: {away_form_points:.0f}/15 pts). "
+                justification = f"Vantagem para {away_team} visitante (forma: {away_form_points}/15 pts). "
                 justification += f"Probabilidade de {real_prob:.1f}% do time visitante não perder, "
                 justification += f"contra apenas {implicit_prob:.1f}% implicada pelas odds."
                 
@@ -3151,7 +3151,6 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
                 justification += f"Chance de {real_prob:.1f}% de algum time vencer, "
                 justification += f"contra apenas {implicit_prob:.1f}% implicada pelas odds."
         
-        # Resto da função permanece igual...
         # 3. OVER/UNDER
         elif market_type == "over_under":
             if "over_under" in original_probabilities:
