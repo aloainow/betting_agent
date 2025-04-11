@@ -329,57 +329,8 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
             logger.debug(f"Pontuação final da forma: {points}")
             return points  # Valor inteiro
         
-        # Extrair últimos 5 jogos do formRun_overall se disponível
-        home_formRun = home.get('formRun_overall', '')
-        away_formRun = away.get('formRun_overall', '')
-        
-        # Formatar string de forma corretamente
-        if home_formRun and len(home_formRun) >= 5:
-            home_form = home_formRun[-5:].upper()
-        else:
-            home_form = home.get('form', '?????')
-            
-        if away_formRun and len(away_formRun) >= 5:
-            away_form = away_formRun[-5:].upper()
-        else:
-            away_form = away.get('form', '?????')
-        
-        # E então, ao calcular os pontos, use a função form_to_points atualizada
-        # Modificar onde o cálculo é feito:
-        # Calcular pontos brutos (0-15)
-        # Calcular pontos brutos (0-15)
-        home_form_raw_points = form_to_points(home_form)
-        away_form_raw_points = form_to_points(away_form)
-        
-        # Normalizar para uso nos cálculos (0-1)
-        home_form_normalized = home_form_raw_points / 15.0
-        away_form_normalized = away_form_raw_points / 15.0
-        
-        # Usar nas ponderações
-        home_total_score = (
-            home_form_normalized * 0.35 +      # Normalizar para 0-1
-            home_stats_score * 0.25 +      # Estatísticas: 25%
-            home_position_score * 0.20 +   # Posição: 20%
-            home_creation * 0.20           # Criação: 20%
-        )
-        
-        # Armazenar os valores brutos e normalizados para uso posterior
-        analysis_data = {
-            "home_consistency": home_consistency,
-            "away_consistency": away_consistency,
-            "home_form_points": home_form_raw_points / 15.0,  # Armazenar como normalizado, mas o valor bruto é usado na exibição
-            "away_form_points": away_form_raw_points / 15.0,
-            "home_total_score": home_total_score,
-            "away_total_score": away_total_score
-        }
-        
-        # Team stats score (25%)
-        home_xg = home.get('xg', 0)
-        home_xga = home.get('xga', 0)
-        away_xg = away.get('xg', 0)
-        away_xga = away.get('xga', 0)
-        
-        # Calcular pontos da forma (35%)
+        # IMPORTANTE: Calcular todas as variáveis antes de usá-las
+        # Primeiro, calculamos os pontos de forma
         home_form_points = form_to_points(home_form)
         away_form_points = form_to_points(away_form)
         
@@ -388,6 +339,11 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
         away_form_normalized = away_form_points / 15.0
         
         # Team stats score (25%)
+        home_xg = home.get('xg', 0)
+        home_xga = home.get('xga', 0)
+        away_xg = away.get('xg', 0)
+        away_xga = away.get('xga', 0)
+        
         max_xg = max(home_xg, away_xg, 60)
         
         home_offensive = (home_xg / max(max_xg, 1)) * 0.6 + (home.get('goals_per_game', 0) / 3) * 0.4
@@ -395,6 +351,7 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
         away_offensive = (away_xg / max(max_xg, 1)) * 0.6 + (away.get('goals_per_game', 0) / 3) * 0.4
         away_defensive = (1 - min(1, away_xga / max(max_xg, 1))) * 0.6 + (1 - min(1, away.get('conceded_per_game', 0) / 3)) * 0.4
         
+        # IMPORTANTE: Calcular home_stats_score e away_stats_score ANTES de usá-los
         home_stats_score = home_offensive * 0.6 + home_defensive * 0.4
         away_stats_score = away_offensive * 0.6 + away_defensive * 0.4
         
@@ -409,7 +366,7 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
         home_creation = home_offensive * 0.7 + home_possession * 0.3
         away_creation = away_offensive * 0.7 + away_possession * 0.3
         
-        # APPLY WEIGHTS - Agora podemos usar todas as variáveis corretamente
+        # ONLY NOW - APPLY WEIGHTS with all variables correctly defined
         home_total_score = (
             home_form_normalized * 0.35 +      # Forma recente: 35%
             home_stats_score * 0.25 +          # Estatísticas: 25%
@@ -423,28 +380,6 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
             away_position_score * 0.20 +       # Posição: 20%
             away_creation * 0.20               # Criação: 20%
         )
-        
-        # 1. Moneyline calculation
-        raw_home_win = home_total_score / (home_total_score + away_total_score) * 0.8
-        raw_away_win = away_total_score / (home_total_score + away_total_score) * 0.8
-        raw_draw = 1 - (raw_home_win + raw_away_win)
-        
-        # Home advantage adjustment
-        home_advantage = 0.12
-        adjusted_home_win = raw_home_win + home_advantage
-        adjusted_away_win = raw_away_win - (home_advantage * 0.5)
-        adjusted_draw = raw_draw - (home_advantage * 0.5)
-        
-        # Normalize to sum to 1
-        total = adjusted_home_win + adjusted_draw + adjusted_away_win
-        home_win_prob = (adjusted_home_win / total) * 100
-        draw_prob = (adjusted_draw / total) * 100
-        away_win_prob = (adjusted_away_win / total) * 100
-        
-        # Round values
-        home_win_prob = round(home_win_prob, 1)
-        draw_prob = round(draw_prob, 1)
-        away_win_prob = round(away_win_prob, 1)
         
         # Calculate team consistency (dispersion)
         home_results = [
@@ -471,6 +406,38 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
             # Fallback if numpy isn't available
             home_consistency = 50
             away_consistency = 50
+        
+        # Armazenar os valores para uso posterior
+        analysis_data = {
+            "home_consistency": home_consistency,
+            "away_consistency": away_consistency,
+            "home_form_points": home_form_points / 15.0,  # Armazenar como normalizado, mas o valor bruto é usado na exibição
+            "away_form_points": away_form_points / 15.0,
+            "home_total_score": home_total_score,
+            "away_total_score": away_total_score
+        }
+        
+        # 1. Moneyline calculation
+        raw_home_win = home_total_score / (home_total_score + away_total_score) * 0.8
+        raw_away_win = away_total_score / (home_total_score + away_total_score) * 0.8
+        raw_draw = 1 - (raw_home_win + raw_away_win)
+        
+        # Home advantage adjustment
+        home_advantage = 0.12
+        adjusted_home_win = raw_home_win + home_advantage
+        adjusted_away_win = raw_away_win - (home_advantage * 0.5)
+        adjusted_draw = raw_draw - (home_advantage * 0.5)
+        
+        # Normalize to sum to 1
+        total = adjusted_home_win + adjusted_draw + adjusted_away_win
+        home_win_prob = (adjusted_home_win / total) * 100
+        draw_prob = (adjusted_draw / total) * 100
+        away_win_prob = (adjusted_away_win / total) * 100
+        
+        # Round values
+        home_win_prob = round(home_win_prob, 1)
+        draw_prob = round(draw_prob, 1)
+        away_win_prob = round(away_win_prob, 1)
         
         # 2. Over/Under 2.5 Goals
         # Use a combination of team goal stats and xG
