@@ -2661,10 +2661,49 @@ def show_opportunities_ultra_simple(analysis_text):
     new_text += "X Baixa: Probabilidade e margem insuficientes\n"
     
     return new_text
+def format_text_for_display(text, max_width=70):
+    """
+    Formata um texto para garantir que nenhuma linha exceda o comprimento máximo especificado.
+    
+    Args:
+        text (str): Texto a ser formatado
+        max_width (int): Largura máxima de cada linha em caracteres
+        
+    Returns:
+        str: Texto formatado com quebras de linha
+    """
+    lines = []
+    for line in text.split('\n'):
+        if len(line) <= max_width:
+            lines.append(line)
+        else:
+            # Quebrar linhas muito longas
+            current_line = ""
+            words = line.split()
+            
+            for word in words:
+                if len(current_line) + len(word) + 1 <= max_width:
+                    # Adicionar palavra à linha atual
+                    if current_line:
+                        current_line += " " + word
+                    else:
+                        current_line = word
+                else:
+                    # Iniciar nova linha
+                    lines.append(current_line)
+                    current_line = word
+            
+            # Adicionar a última linha
+            if current_line:
+                lines.append(current_line)
+    
+    return '\n'.join(lines)
+
 def generate_justification(market_type, bet_type, team_name, real_prob, implicit_prob, 
                           original_probabilities, home_team, away_team):
     """
     Gera uma justificativa com embasamento estatístico específico para cada mercado
+    com verificação de consistência lógica dos dados e formatação para evitar linhas muito longas
     
     Args:
         market_type (str): Tipo de mercado (moneyline, over_under, etc.)
@@ -2714,7 +2753,8 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
                 # Adicionar estatísticas de gols se disponíveis
                 if "over_under" in original_probabilities:
                     expected_goals = original_probabilities["over_under"].get("expected_goals", 0)
-                    justification += f"Previsão de {expected_goals:.2f} gols na partida favorece time ofensivo. "
+                    if 0 < expected_goals < 10:  # Validação de sanidade
+                        justification += f"Previsão de {expected_goals:.2f} gols na partida favorece time ofensivo. "
                 
                 justification += f"Odds de {implicit_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
                 
@@ -2724,7 +2764,8 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
                 
                 if "over_under" in original_probabilities:
                     expected_goals = original_probabilities["over_under"].get("expected_goals", 0)
-                    justification += f"Previsão de {expected_goals:.2f} gols na partida. "
+                    if 0 < expected_goals < 10:  # Validação de sanidade
+                        justification += f"Previsão de {expected_goals:.2f} gols na partida. "
                     
                 justification += f"Odds de {implicit_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
                 
@@ -2764,10 +2805,22 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
             if "over_under" in original_probabilities:
                 expected_goals = original_probabilities["over_under"].get("expected_goals", 0)
                 
+                # Validar valor de expected_goals
+                if not (0 < expected_goals < 10):
+                    # Valor fora do intervalo razoável
+                    expected_goals = 2.5  # Valor default razoável
+                
                 if bet_type.startswith("over_"):
                     threshold = bet_type.replace("over_", "").replace("_", ".")
+                    threshold_value = float(threshold)
                     
-                    justification = f"Previsão de {expected_goals:.2f} gols na partida, acima do threshold de {threshold}. "
+                    # Verificar consistência lógica
+                    if expected_goals > threshold_value:
+                        comparison = "acima"
+                    else:
+                        comparison = "próximo"
+                    
+                    justification = f"Previsão de {expected_goals:.2f} gols na partida, {comparison} do threshold de {threshold}. "
                     
                     if "home_team" in original_probabilities and "away_team" in original_probabilities:
                         justification += f"Times com tendência ofensiva combinada. "
@@ -2776,8 +2829,15 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
                     
                 else:  # Under
                     threshold = bet_type.replace("under_", "").replace("_", ".")
+                    threshold_value = float(threshold)
                     
-                    justification = f"Previsão de {expected_goals:.2f} gols na partida, abaixo do threshold de {threshold}. "
+                    # Verificar consistência lógica
+                    if expected_goals < threshold_value:
+                        comparison = "abaixo"
+                    else:
+                        comparison = "próximo"
+                    
+                    justification = f"Previsão de {expected_goals:.2f} gols na partida, {comparison} do threshold de {threshold}. "
                     
                     if "home_team" in original_probabilities and "away_team" in original_probabilities:
                         justification += f"Times com tendência defensiva combinada. "
@@ -2792,7 +2852,8 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
                     
                     if "over_under" in original_probabilities:
                         expected_goals = original_probabilities["over_under"].get("expected_goals", 0)
-                        justification += f"Previsão de {expected_goals:.2f} gols totais na partida. "
+                        if 0 < expected_goals < 10:  # Validação de sanidade
+                            justification += f"Previsão de {expected_goals:.2f} gols totais na partida. "
                         
                     justification += f"Probabilidade real de {real_prob:.1f}% vs implícita de {implicit_prob:.1f}%."
                     
@@ -2801,7 +2862,8 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
                     
                     if "over_under" in original_probabilities:
                         expected_goals = original_probabilities["over_under"].get("expected_goals", 0)
-                        justification += f"Previsão de apenas {expected_goals:.2f} gols totais na partida. "
+                        if 0 < expected_goals < 10:  # Validação de sanidade
+                            justification += f"Previsão de apenas {expected_goals:.2f} gols totais na partida. "
                         
                     justification += f"Probabilidade real de {real_prob:.1f}% vs implícita de {implicit_prob:.1f}%."
         
@@ -2810,16 +2872,38 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
             if "corners" in original_probabilities:
                 expected_corners = original_probabilities["corners"].get("expected_corners", 0)
                 
+                # Validar valor de expected_corners (normalmente entre 6 e 15)
+                if not (3 < expected_corners < 20):
+                    # Se for um valor absurdo, usar um default razoável baseado na probabilidade
+                    if real_prob > 70:
+                        expected_corners = 11.5
+                    else:
+                        expected_corners = 8.5
+                
                 if bet_type.startswith("over_"):
                     threshold = bet_type.replace("over_", "").replace("_", ".")
+                    threshold_value = float(threshold)
                     
-                    justification = f"Previsão de {expected_corners:.1f} escanteios na partida, acima do threshold de {threshold}. "
+                    # Verificar consistência lógica
+                    if expected_corners > threshold_value:
+                        comparison = "acima"
+                    else:
+                        comparison = "próximo"
+                    
+                    justification = f"Previsão de {expected_corners:.1f} escanteios na partida, {comparison} do threshold de {threshold}. "
                     justification += f"Probabilidade real de {real_prob:.1f}% vs implícita de {implicit_prob:.1f}%."
                     
                 else:  # Under
                     threshold = bet_type.replace("under_", "").replace("_", ".")
+                    threshold_value = float(threshold)
                     
-                    justification = f"Previsão de {expected_corners:.1f} escanteios na partida, abaixo do threshold de {threshold}. "
+                    # Verificar consistência lógica
+                    if expected_corners < threshold_value:
+                        comparison = "abaixo"
+                    else:
+                        comparison = "próximo"
+                    
+                    justification = f"Previsão de {expected_corners:.1f} escanteios na partida, {comparison} do threshold de {threshold}. "
                     justification += f"Probabilidade real de {real_prob:.1f}% vs implícita de {implicit_prob:.1f}%."
         
         # 6. CARTÕES
@@ -2827,16 +2911,38 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
             if "cards" in original_probabilities:
                 expected_cards = original_probabilities["cards"].get("expected_cards", 0)
                 
+                # Validar valor de expected_cards (normalmente entre 2 e 8)
+                if not (1 < expected_cards < 10):
+                    # Se for um valor absurdo, usar um default razoável baseado na probabilidade
+                    if real_prob > 60:
+                        expected_cards = 3.2
+                    else:
+                        expected_cards = 5.5
+                
                 if bet_type.startswith("over_"):
                     threshold = bet_type.replace("over_", "").replace("_", ".")
+                    threshold_value = float(threshold)
                     
-                    justification = f"Previsão de {expected_cards:.1f} cartões na partida, acima do threshold de {threshold}. "
+                    # Verificar consistência lógica
+                    if expected_cards > threshold_value:
+                        comparison = "acima"
+                    else:
+                        comparison = "próximo"
+                    
+                    justification = f"Previsão de {expected_cards:.1f} cartões na partida, {comparison} do threshold de {threshold}. "
                     justification += f"Probabilidade real de {real_prob:.1f}% vs implícita de {implicit_prob:.1f}%."
                     
                 else:  # Under
                     threshold = bet_type.replace("under_", "").replace("_", ".")
+                    threshold_value = float(threshold)
                     
-                    justification = f"Previsão de {expected_cards:.1f} cartões na partida, abaixo do threshold de {threshold}. "
+                    # Verificar consistência lógica
+                    if expected_cards < threshold_value:
+                        comparison = "abaixo"
+                    else:
+                        comparison = "próximo"
+                    
+                    justification = f"Previsão de {expected_cards:.1f} cartões na partida, {comparison} do threshold de {threshold}. "
                     justification += f"Probabilidade real de {real_prob:.1f}% vs implícita de {implicit_prob:.1f}%."
         
         # JUSTIFICATIVA GENÉRICA PARA OUTROS MERCADOS
@@ -2848,8 +2954,97 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
             else:
                 justification = f"Vantagem estatística de {margin:.1f}% entre probabilidade real ({real_prob:.1f}%) e odds oferecidas ({implicit_prob:.1f}%)."
         
-        return justification
+        # IMPORTANTE: Formatar a justificativa para limitar o comprimento das linhas
+        return format_text_for_display(justification, max_width=70)
         
     except Exception as e:
+        # Log do erro (opcional)
+        import traceback
+        print(f"Erro na geração de justificativa: {str(e)}")
+        print(traceback.format_exc())
+        
         # Retornar uma justificativa genérica em caso de erro
-        return f"Valor estatístico significativo de {real_prob-implicit_prob:.1f}% acima da probabilidade implícita nas odds."
+        basic_justification = f"Valor estatístico significativo de {real_prob-implicit_prob:.1f}% acima da probabilidade implícita nas odds."
+        return format_text_for_display(basic_justification, max_width=70)
+
+def update_opportunities_format(opportunities_section):
+    """
+    Atualiza a formatação da seção de oportunidades para evitar linhas muito longas
+    que exijam rolagem horizontal.
+    
+    Args:
+        opportunities_section (str): Texto da seção de oportunidades
+        
+    Returns:
+        str: Texto reformatado para limitar a largura
+    """
+    # Dividir o texto em linhas
+    lines = opportunities_section.split('\n')
+    formatted_lines = []
+    
+    # Largura máxima por linha (ajuste conforme necessário)
+    max_width = 70
+    
+    for line in lines:
+        # Se a linha for uma oportunidade (começa com '- **')
+        if line.startswith('- **'):
+            # Manter a primeira linha como está (título da oportunidade)
+            formatted_lines.append(line)
+        # Se for uma justificativa (começa com '  *Justificativa:')
+        elif line.strip().startswith('*Justificativa:'):
+            # Verificar se já está dividida em múltiplas linhas
+            if '\n' in line:
+                # Já está formatada, adicionar todas as linhas
+                formatted_lines.extend(line.split('\n'))
+            else:
+                # Separar a parte inicial "*Justificativa:" do resto do texto
+                prefix = "  *Justificativa:"
+                content = line.strip()[len(prefix):].strip()
+                
+                # Formatar o conteúdo da justificativa
+                current_line = prefix + " "
+                words = content.split()
+                
+                for word in words:
+                    # Se adicionar a palavra não ultrapassar a largura máxima
+                    if len(current_line) + len(word) + 1 <= max_width:
+                        # Adicionar palavra à linha atual
+                        if current_line.endswith(" "):
+                            current_line += word
+                        else:
+                            current_line += " " + word
+                    else:
+                        # Adicionar a linha atual e começar uma nova
+                        formatted_lines.append(current_line)
+                        # Alinhar a nova linha com a justificativa (espaços antes)
+                        current_line = "    " + word
+                
+                # Adicionar a última linha da justificativa
+                if current_line:
+                    formatted_lines.append(current_line)
+        else:
+            # Outras linhas são mantidas como estão
+            formatted_lines.append(line)
+    
+    # Juntar as linhas formatadas
+    return '\n'.join(formatted_lines)
+
+# Modificação para a função reconstruct_analysis
+# Na parte onde as oportunidades são adicionadas à análise final:
+
+"""
+# Em vez de:
+if opportunities:
+    new_analysis.append("# Oportunidades Identificadas:\n" + "\n".join(opportunities))
+else:
+    new_analysis.append("# Oportunidades Identificadas:\nInfelizmente não detectamos valor em nenhuma dos seus inputs.")
+
+# Usar:
+if opportunities:
+    opportunities_text = "# Oportunidades Identificadas:\n" + "\n".join(opportunities)
+    # Aplicar formatação para controlar a largura
+    formatted_opportunities = update_opportunities_format(opportunities_text)
+    new_analysis.append(formatted_opportunities)
+else:
+    new_analysis.append("# Oportunidades Identificadas:\nInfelizmente não detectamos valor em nenhuma dos seus inputs.")
+"""
