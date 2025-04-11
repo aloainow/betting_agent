@@ -1445,6 +1445,21 @@ def show_main_dashboard():
                             
                             # Reconstrução completa da análise
                             def reconstruct_analysis(analysis_text, home_team, away_team, selected_markets, original_probabilities, implied_probabilities, odds_data):
+                                """
+                                Reconstrução completa da análise com justificativas detalhadas e formatação adequada.
+                                
+                                Args:
+                                    analysis_text (str): Texto original da análise
+                                    home_team (str): Nome do time da casa
+                                    away_team (str): Nome do time visitante
+                                    selected_markets (dict): Mercados selecionados pelo usuário
+                                    original_probabilities (dict): Probabilidades calculadas
+                                    implied_probabilities (dict): Probabilidades implícitas das odds
+                                    odds_data (str): Dados das odds
+                                    
+                                Returns:
+                                    str: Análise reconstruída e formatada
+                                """
                                 try:
                                     # Logs para depuração
                                     print(f"Selected markets: {selected_markets}")
@@ -1824,7 +1839,7 @@ def show_main_dashboard():
                                             over_value = over_real > over_implicit + 2
                                             
                                             probs_section += f"- **Over {line} Escanteios**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}%{' (Valor)' if over_value else ''}\n"
-                            
+                                            
                                             if over_value:
                                                 # Adicionar justificativa
                                                 over_corners_justification = generate_justification(
@@ -1901,7 +1916,10 @@ def show_main_dashboard():
                                     
                                     # Oportunidades identificadas
                                     if opportunities:
-                                        new_analysis.append("# Oportunidades Identificadas:\n" + "\n".join(opportunities))
+                                        opportunities_text = "# Oportunidades Identificadas:\n" + "\n".join(opportunities)
+                                        # Aplicar formatação para controlar a largura
+                                        formatted_opportunities = update_opportunities_format(opportunities_text)
+                                        new_analysis.append(formatted_opportunities)
                                     else:
                                         new_analysis.append("# Oportunidades Identificadas:\nInfelizmente não detectamos valor em nenhuma dos seus inputs.")
                                     
@@ -1911,12 +1929,21 @@ def show_main_dashboard():
                                     # Extrair dados da forma e consistência
                                     if "analysis_data" in original_probabilities:
                                         analysis_data = original_probabilities["analysis_data"]
-                                        home_consistency = analysis_data.get("home_consistency", 0) * 100
-                                        away_consistency = analysis_data.get("away_consistency", 0) * 100
+                                        home_consistency = analysis_data.get("home_consistency", 0)
+                                        away_consistency = analysis_data.get("away_consistency", 0)
+                                        
+                                        # Ajustar para valores percentuais se necessário
+                                        if home_consistency <= 1.0:
+                                            home_consistency = home_consistency * 100
+                                        if away_consistency <= 1.0:
+                                            away_consistency = away_consistency * 100
                                         
                                         # Verificar se temos dados de forma bruta
-                                        home_form_raw = stats_data["home_team"].get("formRun_overall", "") if "stats_data" in locals() and isinstance(stats_data, dict) else ""
-                                        away_form_raw = stats_data["away_team"].get("formRun_overall", "") if "stats_data" in locals() and isinstance(stats_data, dict) else ""
+                                        home_form_raw = ""
+                                        away_form_raw = ""
+                                        if "stats_data" in locals() and isinstance(stats_data, dict):
+                                            home_form_raw = stats_data["home_team"].get("formRun_overall", "")
+                                            away_form_raw = stats_data["away_team"].get("formRun_overall", "")
                                         
                                         # Calcular a forma diretamente a partir dos dados brutos se disponíveis
                                         home_form_points = 0
@@ -1946,13 +1973,17 @@ def show_main_dashboard():
                                             home_form_points = calculate_form_points(home_form_raw)
                                         else:
                                             # Tentar calcular a partir do analysis_data se disponível
-                                            home_form_points = int(analysis_data.get("home_form_points", 0) * 15)
+                                            home_form_points = analysis_data.get("home_form_points", 0)
+                                            if home_form_points <= 1.0:  # Se for valor normalizado (0-1)
+                                                home_form_points = int(home_form_points * 15)
                                         
                                         if away_form_raw:
                                             away_form_points = calculate_form_points(away_form_raw)
                                         else:
                                             # Tentar calcular a partir do analysis_data se disponível
-                                            away_form_points = int(analysis_data.get("away_form_points", 0) * 15)
+                                            away_form_points = analysis_data.get("away_form_points", 0)
+                                            if away_form_points <= 1.0:  # Se for valor normalizado (0-1)
+                                                away_form_points = int(away_form_points * 15)
                                         
                                         confidence_section += f"- **Consistência**: {home_team}: {home_consistency:.1f}%, {away_team}: {away_consistency:.1f}%. Consistência é uma medida que indica quão previsível é o desempenho da equipe.\n"
                                         confidence_section += f"- **Forma Recente**: {home_team}: {home_form_points}/15, {away_team}: {away_form_points}/15. Forma representa a pontuação dos últimos 5 jogos (vitória=3pts, empate=1pt, derrota=0pts).\n"
@@ -1964,10 +1995,15 @@ def show_main_dashboard():
                                     
                                     new_analysis.append(confidence_section)
                                     
-                                    return "\n\n".join(new_analysis)
+                                    # IMPLEMENTAÇÃO: Formatar todas as seções para evitar linhas muito largas
+                                    final_analysis = "\n\n".join(new_analysis)
+                                    formatted_final_analysis = format_all_analysis_sections(final_analysis)
+                                    
+                                    # Retornar a análise formatada em vez do texto original
+                                    return formatted_final_analysis
                                 
                                 except Exception as e:
-                                    # Bloco except que estava faltando
+                                    # Log de erro detalhado
                                     logger.error(f"Erro ao reconstruir análise: {str(e)}")
                                     import traceback
                                     logger.error(traceback.format_exc())
