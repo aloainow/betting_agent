@@ -1273,18 +1273,40 @@ def calculate_advanced_probabilities(home_team, away_team, league_id='generic', 
     try:
         import math
         import numpy as np  # Adicione esta importação se necessário
+        import logging
+        
+        logger = logging.getLogger("valueHunter.ai")
+        logger.info(f"Calculando probabilidades avançadas para times: {home_team.get('name', 'Home')} vs {away_team.get('name', 'Away')}")
+        
+        # NOVO: Extrair forma específica dos times
+        # Usar a nova função extract_team_specific_form
+        home_specific_form = extract_team_specific_form(home_team, is_home=True)
+        away_specific_form = extract_team_specific_form(away_team, is_home=False)
+        
+        logger.info(f"Forma específica - Casa: {home_specific_form}, Fora: {away_specific_form}")
         
         # 1. Obter fatores específicos da liga
         league_factors = calculate_league_factors(league_id, None)
-        
         
         # 2. Calcular forma recente (35%)
         home_form_points = calculate_form_points(home_team.get('form', 'DLWDL'))
         away_form_points = calculate_form_points(away_team.get('form', 'DWLDL'))
         
-        # Normalizar para 0-1
+        # Normalizar para uso nos cálculos (0-1)
         home_form_normalized = home_form_points / 15.0
         away_form_normalized = away_form_points / 15.0
+        
+        # NOVO: Calcular também pontos específicos
+        home_specific_points = 0
+        away_specific_points = 0
+        
+        if home_specific_form:
+            # Usar função form_sequence_to_points
+            home_specific_points, _ = form_sequence_to_points(home_specific_form)
+        
+        if away_specific_form:
+            # Usar função form_sequence_to_points
+            away_specific_points, _ = form_sequence_to_points(away_specific_form)
         
         # 3. Calcular consistência
         home_consistency = calculate_team_consistency(home_team) / 100.0
@@ -1381,7 +1403,30 @@ def calculate_advanced_probabilities(home_team, away_team, league_id='generic', 
             abs(home_total_score - away_total_score)
         )
         
-        # 11. Retornar resultados completos
+        # NOVO: Extrair ou calcular dados de H2H mais detalhados
+        h2h_data = {}
+        
+        # Se temos acesso direto a dados de H2H
+        if 'h2h' in home_team:
+            h2h_data = home_team['h2h']
+        elif 'head_to_head' in home_team:
+            h2h_data = home_team['head_to_head']
+        # Se precisamos construir a partir de dados básicos
+        else:
+            h2h_total = home_team.get('h2h_matches', 0)
+            h2h_data = {
+                'matches': h2h_total,
+                'home_wins': home_team.get('h2h_home_wins', 0),
+                'away_wins': home_team.get('h2h_away_wins', 0),
+                'draws': home_team.get('h2h_draws', 0),
+                'avg_goals': home_team.get('h2h_avg_goals', 2.5),
+                'over_2_5_percentage': home_team.get('h2h_over_2_5_pct', 50),
+                'btts_percentage': home_team.get('h2h_btts_pct', 50),
+                'avg_corners': home_team.get('h2h_avg_corners', 9.5),
+                'avg_cards': home_team.get('h2h_avg_cards', 4.5)
+            }
+        
+        # 11. Retornar resultados completos, agora incluindo forma específica e H2H detalhado
         return {
             "moneyline": {
                 "home_win": round(home_win_prob * 100, 1),
@@ -1417,11 +1462,32 @@ def calculate_advanced_probabilities(home_team, away_team, league_id='generic', 
                 "under_9_5": round(under_corners_prob * 100, 1),
                 "expected_corners": round(expected_corners, 1)
             },
+            # NOVIDADE 1: Incluir dados específicos do mandante
+            "home_specific": {
+                "home_form": home_specific_form,
+                "home_form_points": home_specific_points,
+                # Adicionar mais campos específicos se desejar
+                "home_wins": home_team.get("home_wins", 0),
+                "home_draws": home_team.get("home_draws", 0),
+                "home_losses": home_team.get("home_losses", 0)
+            },
+            # NOVIDADE 2: Incluir dados específicos do visitante
+            "away_specific": {
+                "away_form": away_specific_form,
+                "away_form_points": away_specific_points,
+                # Adicionar mais campos específicos se desejar
+                "away_wins": away_team.get("away_wins", 0),
+                "away_draws": away_team.get("away_draws", 0),
+                "away_losses": away_team.get("away_losses", 0)
+            },
+            # NOVIDADE 3: Incluir dados de H2H mais detalhados
+            "h2h": h2h_data,
+            # Manter os dados de análise existentes
             "analysis_data": {
                 "home_consistency": round(home_consistency * 100, 1),
                 "away_consistency": round(away_consistency * 100, 1),
-                "home_form_points": home_form_points / 15.0,
-                "away_form_points": away_form_points / 15.0,
+                "home_form_points": home_form_normalized,
+                "away_form_points": away_form_normalized,
                 "home_total_score": round(home_total_score, 2),
                 "away_total_score": round(away_total_score, 2),
                 "home_fatigue": round(home_fatigue * 100, 1),
@@ -2593,3 +2659,90 @@ class AdvancedPredictionSystem:
         else:
             raise ValueError("Sem banco de dados para salvar calibração")
         
+# Função para extrair forma específica do time
+def extract_team_specific_form(team_data, is_home=True):
+    """
+    Extrai a forma específica do time (como mandante ou visitante)
+    
+    Args:
+        team_data (dict): Dados do time
+        is_home (bool): Se True, extrai forma como mandante; se False, como visitante
+        
+    Returns:
+        str: Sequência de forma (ex: "WDLWW")
+    """
+    try:
+        # Verificar dados específicos para casa/fora
+        form_key = "home_form" if is_home else "away_form"
+        
+        # Tentar diferentes chaves possíveis onde a forma pode estar armazenada
+        possible_keys = [
+            form_key,
+            "formRun_" + ("home" if is_home else "away"),
+            "form_" + ("home" if is_home else "away"),
+            "recent_" + ("home" if is_home else "away") + "_results"
+        ]
+        
+        # Procurar em todas as chaves possíveis
+        for key in possible_keys:
+            if key in team_data and team_data[key]:
+                return team_data[key]
+        
+        # Se não encontrou em nenhuma chave específica, tentar extrair da forma geral
+        # se houver um padrão que indique jogos em casa vs fora
+        if "form_detailed" in team_data:
+            detailed_form = team_data["form_detailed"]
+            if isinstance(detailed_form, list):
+                # Filtrar apenas jogos em casa ou fora
+                filtered_games = [
+                    game["result"] for game in detailed_form 
+                    if ("venue" in game and 
+                        ((is_home and game["venue"] == "home") or 
+                         (not is_home and game["venue"] == "away")))
+                ]
+                
+                if filtered_games:
+                    return "".join(filtered_games[-5:])  # últimos 5 jogos
+        
+        # Como fallback, usar a forma geral, mas adicionar um marcador 
+        # para indicar que não é específica
+        if "form" in team_data and team_data["form"]:
+            general_form = team_data["form"]
+            # Adicionar '?' para indicar que não é específica para casa/fora
+            return general_form + "?"
+            
+        # Se tudo falhar, retornar vazio
+        return ""
+        
+    except Exception as e:
+        import logging
+        logger = logging.getLogger("valueHunter.ai")
+        logger.error(f"Erro ao extrair forma específica: {str(e)}")
+        return ""
+
+# Função para calcular pontos da forma
+def form_sequence_to_points(form_sequence):
+    """
+    Converte uma sequência de resultados em pontos
+    
+    Args:
+        form_sequence (str): Sequência de resultados (ex: "WDLWW")
+        
+    Returns:
+        tuple: (pontos, sequência recente)
+    """
+    if not form_sequence or len(form_sequence) == 0:
+        return 0, ""
+    
+    points = 0
+    # Pegar apenas os últimos 5 jogos
+    recent_form = form_sequence[-5:] if len(form_sequence) >= 5 else form_sequence
+    
+    for result in recent_form:
+        result = result.upper()
+        if result == 'W':
+            points += 3
+        elif result == 'D':
+            points += 1
+    
+    return points, recent_form
