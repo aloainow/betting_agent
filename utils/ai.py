@@ -937,27 +937,39 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
             probs_section += f"- **{home_team}**: Real {home_real:.1f}% vs Implícita {home_implicit:.1f}%{' (Valor)' if home_value else ''}\n"
             
             if home_value:
-                opportunities.append(f"- **{home_team}**: Real {home_real:.1f}% vs Implícita {home_implicit:.1f}% (Valor de {home_real-home_implicit:.1f}%)")
-            
+                # Extrair os valores corretos de análise para justificativa
+                home_form_points = int(analysis_data.get("home_form_points", 0) * 15)
+                opportunities.append(f"- **{home_team}**: Real {home_real:.1f}% vs Implícita {home_implicit:.1f}% (Valor de {home_real-home_implicit:.1f}%)\n"
+                                    f"  *Justificativa: Time da casa com {home_form_points}/15 pts na forma recente e {home_consistency:.1f}% de consistência. "
+                                    f"Previsão de {expected_goals:.2f} gols na partida favorece time ofensivo. "
+                                    f"Odds de {home_implicit:.1f}% subestimam probabilidade real de {home_real:.1f}%.*")
+                        
             # Empate
             draw_real = moneyline.get("draw", 0)
             draw_implicit = implied_probabilities.get("draw", 0)
             draw_value = draw_real > draw_implicit + 2
-            
+                        
             probs_section += f"- **Empate**: Real {draw_real:.1f}% vs Implícita {draw_implicit:.1f}%{' (Valor)' if draw_value else ''}\n"
-            
+                        
             if draw_value:
-                opportunities.append(f"- **Empate**: Real {draw_real:.1f}% vs Implícita {draw_implicit:.1f}% (Valor de {draw_real-draw_implicit:.1f}%)")
-            
+                avg_consistency = (home_consistency + away_consistency) / 2
+                opportunities.append(f"- **Empate**: Real {draw_real:.1f}% vs Implícita {draw_implicit:.1f}% (Valor de {draw_real-draw_implicit:.1f}%)\n"
+                                    f"  *Justificativa: Equilíbrio entre as equipes, consistência média de {avg_consistency:.1f}%. "
+                                    f"Odds de {draw_implicit:.1f}% subestimam probabilidade real de {draw_real:.1f}%.*")
+                        
             # Fora
             away_real = moneyline.get("away_win", 0)
             away_implicit = implied_probabilities.get("away", 0)
             away_value = away_real > away_implicit + 2
-            
+                        
             probs_section += f"- **{away_team}**: Real {away_real:.1f}% vs Implícita {away_implicit:.1f}%{' (Valor)' if away_value else ''}\n"
-            
+                        
             if away_value:
-                opportunities.append(f"- **{away_team}**: Real {away_real:.1f}% vs Implícita {away_implicit:.1f}% (Valor de {away_real-away_implicit:.1f}%)")
+                # Extrair os valores corretos de análise para justificativa
+                away_form_points = int(analysis_data.get("away_form_points", 0) * 15)
+                opportunities.append(f"- **{away_team}**: Real {away_real:.1f}% vs Implícita {away_implicit:.1f}% (Valor de {away_real-away_implicit:.1f}%)\n"
+                                    f"  *Justificativa: Time visitante com {away_form_points}/15 pts na forma recente e {away_consistency:.1f}% de consistência. "
+                                    f"Odds de {away_implicit:.1f}% subestimam probabilidade real de {away_real:.1f}%.*")
         
         # Double Chance
         if selected_markets.get("chance_dupla") and "double_chance" in original_probabilities:
