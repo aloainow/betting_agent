@@ -3095,6 +3095,21 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
         home_form_points = int(home_form_normalized * 15)
         away_form_points = int(away_form_normalized * 15)
         
+        # CORREÇÃO: Se temos forma específica disponível, usar seu valor para a forma geral também
+        if "home_specific" in original_probabilities and "home_form" in original_probabilities["home_specific"]:
+            home_specific_form = original_probabilities["home_specific"]["home_form"]
+            home_specific_points, _ = form_sequence_to_points(home_specific_form)
+            # Considerar usar o valor específico para a forma geral também
+            if home_specific_points > 0:
+                home_form_points = home_specific_points
+        
+        if "away_specific" in original_probabilities and "away_form" in original_probabilities["away_specific"]:
+            away_specific_form = original_probabilities["away_specific"]["away_form"]
+            away_specific_points, _ = form_sequence_to_points(away_specific_form)
+            # Considerar usar o valor específico para a forma geral também
+            if away_specific_points > 0:
+                away_form_points = away_specific_points
+        
         # Obter consistência
         home_consistency = analysis_data.get("home_consistency", 0)
         if home_consistency <= 1.0:
