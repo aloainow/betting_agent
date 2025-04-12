@@ -9,7 +9,7 @@ from utils.core import show_valuehunter_logo, go_to_login, update_purchase_butto
 from utils.data import parse_team_stats, get_odds_data, format_prompt
 from utils.ai import analyze_with_gpt, format_enhanced_prompt, format_highly_optimized_prompt
 from utils.ai import analyze_with_gpt, format_enhanced_prompt, format_highly_optimized_prompt, calculate_advanced_probabilities
-from utils.ai import form_sequence_to_points, extract_team_specific_form
+from utils.opportunity_justification import add_justifications_to_analysis
 
 # Configuração de logging
 logger = logging.getLogger("valueHunter.dashboard")
@@ -17,331 +17,6 @@ logger = logging.getLogger("valueHunter.dashboard")
 # Diretório para cache de times
 TEAMS_CACHE_DIR = os.path.join(DATA_DIR, "teams_cache")
 os.makedirs(TEAMS_CACHE_DIR, exist_ok=True)
-
-# Adicione todas essas funções no início do arquivo pages/dashboard.py,
-# antes das outras funções que as utilizam
-
-def format_text_for_display(text, max_width=70):
-    """
-    Formata um texto para garantir que nenhuma linha exceda o comprimento máximo especificado.
-    
-    Args:
-        text (str): Texto a ser formatado
-        max_width (int): Largura máxima de cada linha em caracteres
-        
-    Returns:
-        str: Texto formatado com quebras de linha
-    """
-    lines = []
-    for line in text.split('\n'):
-        if len(line) <= max_width:
-            lines.append(line)
-        else:
-            # Quebrar linhas muito longas
-            current_line = ""
-            words = line.split()
-            
-            for word in words:
-                if len(current_line) + len(word) + 1 <= max_width:
-                    # Adicionar palavra à linha atual
-                    if current_line:
-                        current_line += " " + word
-                    else:
-                        current_line = word
-                else:
-                    # Iniciar nova linha
-                    lines.append(current_line)
-                    current_line = word
-            
-            # Adicionar a última linha
-            if current_line:
-                lines.append(current_line)
-    
-    return '\n'.join(lines)
-
-def format_generic_section(section):
-    """
-    Formata seções genéricas da análise
-    
-    Args:
-        section (str): Texto da seção
-        
-    Returns:
-        str: Seção formatada
-    """
-    lines = section.split('\n')
-    formatted_lines = []
-    
-    # Cabeçalho sempre permanece igual
-    if lines and lines[0].startswith('# '):
-        formatted_lines.append(lines[0])
-        start_idx = 1
-    else:
-        start_idx = 0
-    
-    # Formatar as demais linhas
-    for i in range(start_idx, len(lines)):
-        formatted_lines.append(format_text_for_display(lines[i], max_width=70))
-    
-    return '\n'.join(formatted_lines)
-
-def format_confidence_section(section):
-    """
-    Formata especificamente a seção de Nível de Confiança
-    
-    Args:
-        section (str): Texto da seção de confiança
-        
-    Returns:
-        str: Seção de confiança formatada
-    """
-    lines = section.split('\n')
-    formatted_lines = []
-    
-    # Cabeçalho sempre permanece igual
-    if lines and lines[0].startswith('# '):
-        formatted_lines.append(lines[0])
-        start_idx = 1
-    else:
-        start_idx = 0
-    
-    # Formatar cada linha de conteúdo
-    for i in range(start_idx, len(lines)):
-        line = lines[i]
-        
-        # Se a linha começa com um marcador, processar especialmente
-        if line.strip().startswith('- **'):
-            # Dividir em marcador e conteúdo
-            parts = line.split(':', 1)
-            
-            if len(parts) > 1:
-                # Adicionar o marcador
-                formatted_lines.append(parts[0] + ':')
-                
-                # Formatar o conteúdo com indentação
-                content = parts[1].strip()
-                formatted_content = format_text_for_display(content, max_width=65)
-                
-                # Adicionar indentação às linhas de conteúdo
-                for content_line in formatted_content.split('\n'):
-                    formatted_lines.append('  ' + content_line)
-            else:
-                # Se não conseguir dividir, adicionar linha inteira formatada
-                formatted_lines.append(format_text_for_display(line, max_width=70))
-        else:
-            # Para outras linhas, simplesmente formatar
-            formatted_lines.append(format_text_for_display(line, max_width=70))
-    
-    return '\n'.join(formatted_lines)
-
-def update_opportunities_format(opportunities_section):
-    """
-    Atualiza a formatação da seção de oportunidades para evitar linhas muito longas
-    que exijam rolagem horizontal.
-    
-    Args:
-        opportunities_section (str): Texto da seção de oportunidades
-        
-    Returns:
-        str: Texto reformatado para limitar a largura
-    """
-    # Dividir o texto em linhas
-    lines = opportunities_section.split('\n')
-    formatted_lines = []
-    
-    # Largura máxima por linha (ajuste conforme necessário)
-    max_width = 70
-    
-    for line in lines:
-        # Se a linha for uma oportunidade (começa com '- **')
-        if line.startswith('- **'):
-            # Manter a primeira linha como está (título da oportunidade)
-            formatted_lines.append(line)
-        # Se for uma justificativa (começa com '  *Justificativa:')
-        elif line.strip().startswith('*Justificativa:'):
-            # Verificar se já está dividida em múltiplas linhas
-            if '\n' in line:
-                # Já está formatada, adicionar todas as linhas
-                formatted_lines.extend(line.split('\n'))
-            else:
-                # Separar a parte inicial "*Justificativa:" do resto do texto
-                prefix = "  *Justificativa:"
-                content = line.strip()[len(prefix):].strip()
-                
-                # Formatar o conteúdo da justificativa
-                current_line = prefix + " "
-                words = content.split()
-                
-                for word in words:
-                    # Se adicionar a palavra não ultrapassar a largura máxima
-                    if len(current_line) + len(word) + 1 <= max_width:
-                        # Adicionar palavra à linha atual
-                        if current_line.endswith(" "):
-                            current_line += word
-                        else:
-                            current_line += " " + word
-                    else:
-                        # Adicionar a linha atual e começar uma nova
-                        formatted_lines.append(current_line)
-                        # Alinhar a nova linha com a justificativa (espaços antes)
-                        current_line = "    " + word
-                
-                # Adicionar a última linha da justificativa
-                if current_line:
-                    formatted_lines.append(current_line)
-        else:
-            # Outras linhas são mantidas como estão
-            formatted_lines.append(line)
-    
-    # Juntar as linhas formatadas
-    return '\n'.join(formatted_lines)
-
-def format_opportunities_section(section):
-    """
-    Formata especificamente a seção de Oportunidades Identificadas
-    para garantir que as justificativas sejam preservadas integralmente,
-    inclusive a primeira letra.
-    
-    Args:
-        section (str): Texto da seção de oportunidades
-        
-    Returns:
-        str: Seção de oportunidades formatada
-    """
-    # Se não houver oportunidades ou apenas a mensagem de que não há valor
-    if "Infelizmente não detectamos valor" in section:
-        return section
-    
-    lines = section.split('\n')
-    formatted_lines = []
-    
-    # Cabeçalho sempre permanece igual
-    if lines and lines[0].startswith('# '):
-        formatted_lines.append(lines[0])
-        start_idx = 1
-    else:
-        start_idx = 0
-    
-    # Para cada linha, detectar e formatar oportunidades e justificativas
-    i = start_idx
-    while i < len(lines):
-        line = lines[i].strip()
-        
-        # Se for uma linha de oportunidade
-        if line.startswith('- **'):
-            # Adicionar a linha de oportunidade como está
-            formatted_lines.append(line)
-            
-            # Verificar se a próxima linha contém a justificativa
-            if i + 1 < len(lines) and '*Justificativa:' in lines[i + 1]:
-                original_justification = lines[i + 1].strip()
-                
-                # Extrair corretamente o prefixo e o texto da justificativa
-                prefix_parts = original_justification.split('*Justificativa:', 1)
-                if len(prefix_parts) > 1:
-                    justification_text = prefix_parts[1].strip()
-                    
-                    # Construir a justificativa completa com prefixo
-                    full_justification = "  *Justificativa: " + justification_text
-                    
-                    # Dividir em múltiplas linhas se necessário
-                    if len(full_justification) > 70:
-                        # Primeira linha com pelo menos 2 palavras
-                        words = full_justification.split()
-                        first_line = words[0] + " " + words[1]  # Prefixo + primeira palavra
-                        
-                        # Adicionar mais palavras até atingir o limite
-                        word_index = 2
-                        while word_index < len(words) and len(first_line + " " + words[word_index]) <= 70:
-                            first_line += " " + words[word_index]
-                            word_index += 1
-                        
-                        formatted_lines.append(first_line)
-                        
-                        # Construir linhas subsequentes
-                        if word_index < len(words):
-                            # Criar uma string com as palavras restantes
-                            remaining_words = words[word_index:]
-                            current_line = "    "  # 4 espaços de indentação
-                            
-                            for word in remaining_words:
-                                if len(current_line + word) + 1 <= 70:  # +1 para o espaço
-                                    if current_line == "    ":
-                                        current_line += word
-                                    else:
-                                        current_line += " " + word
-                                else:
-                                    # Adicionar linha atual e iniciar nova
-                                    formatted_lines.append(current_line)
-                                    current_line = "    " + word
-                            
-                            # Adicionar a última linha se necessário
-                            if current_line != "    ":
-                                formatted_lines.append(current_line)
-                    else:
-                        formatted_lines.append(full_justification)
-                else:
-                    # Se houver problema ao extrair, adicionar a linha original
-                    formatted_lines.append(original_justification)
-                
-                # Avançar para pular a linha da justificativa
-                i += 2
-                continue
-        else:
-            # Adicionar outras linhas como estão
-            formatted_lines.append(line)
-        
-        i += 1
-    
-    return '\n'.join(formatted_lines)
-
-def format_all_analysis_sections(analysis_text):
-    """
-    Formata todas as seções da análise para evitar linhas muito longas.
-    
-    Args:
-        analysis_text (str): Texto completo da análise
-        
-    Returns:
-        str: Texto da análise com todas as seções formatadas
-    """
-    # Quebrar o texto em seções principais
-    sections = []
-    current_section = []
-    
-    for line in analysis_text.split('\n'):
-        # Se for um cabeçalho de seção (começa com #)
-        if line.startswith('# '):
-            # Se já temos uma seção anterior, adicionar às seções
-            if current_section:
-                sections.append('\n'.join(current_section))
-                current_section = []
-            
-            # Iniciar nova seção com o cabeçalho
-            current_section.append(line)
-        else:
-            # Adicionar linha à seção atual
-            current_section.append(line)
-    
-    # Adicionar a última seção se existir
-    if current_section:
-        sections.append('\n'.join(current_section))
-    
-    # Formatar cada seção individualmente
-    formatted_sections = []
-    
-    for section in sections:
-        # Identificar seções especiais para tratamento específico
-        if section.startswith('# Nível de Confiança Geral'):
-            formatted_sections.append(format_confidence_section(section))
-        elif section.startswith('# Oportunidades Identificadas'):
-            formatted_sections.append(format_opportunities_section(section))
-        else:
-            # Formatar seções genéricas
-            formatted_sections.append(format_generic_section(section))
-    
-    # Juntar todas as seções formatadas
-    return '\n\n'.join(formatted_sections)
 
 # Funções auxiliares para seleção de ligas (ADICIONADAS NO INÍCIO)
 def get_league_selection():
@@ -1771,21 +1446,6 @@ def show_main_dashboard():
                             
                             # Reconstrução completa da análise
                             def reconstruct_analysis(analysis_text, home_team, away_team, selected_markets, original_probabilities, implied_probabilities, odds_data):
-                                """
-                                Reconstrução completa da análise com justificativas detalhadas e formatação adequada.
-                                
-                                Args:
-                                    analysis_text (str): Texto original da análise
-                                    home_team (str): Nome do time da casa
-                                    away_team (str): Nome do time visitante
-                                    selected_markets (dict): Mercados selecionados pelo usuário
-                                    original_probabilities (dict): Probabilidades calculadas
-                                    implied_probabilities (dict): Probabilidades implícitas das odds
-                                    odds_data (str): Dados das odds
-                                    
-                                Returns:
-                                    str: Análise reconstruída e formatada
-                                """
                                 try:
                                     # Logs para depuração
                                     print(f"Selected markets: {selected_markets}")
@@ -1971,12 +1631,7 @@ def show_main_dashboard():
                                         probs_section += f"- **{home_team}**: Real {home_real:.1f}% vs Implícita {home_implicit:.1f}%{' (Valor)' if home_value else ''}\n"
                                         
                                         if home_value:
-                                            # Adicionar justificativa
-                                            home_justification = generate_justification(
-                                                "moneyline", "home_win", home_team, home_real, home_implicit,
-                                                original_probabilities, home_team, away_team
-                                            )
-                                            opportunities.append(f"- **{home_team}**: Real {home_real:.1f}% vs Implícita {home_implicit:.1f}% (Valor de {home_real-home_implicit:.1f}%)\n  *Justificativa: {home_justification}*")
+                                            opportunities.append(f"- **{home_team}**: Real {home_real:.1f}% vs Implícita {home_implicit:.1f}% (Valor de {home_real-home_implicit:.1f}%)")
                                         
                                         # Empate
                                         draw_real = original_probabilities["moneyline"].get("draw", 0)
@@ -1986,12 +1641,7 @@ def show_main_dashboard():
                                         probs_section += f"- **Empate**: Real {draw_real:.1f}% vs Implícita {draw_implicit:.1f}%{' (Valor)' if draw_value else ''}\n"
                                         
                                         if draw_value:
-                                            # Adicionar justificativa
-                                            draw_justification = generate_justification(
-                                                "moneyline", "draw", "Empate", draw_real, draw_implicit,
-                                                original_probabilities, home_team, away_team
-                                            )
-                                            opportunities.append(f"- **Empate**: Real {draw_real:.1f}% vs Implícita {draw_implicit:.1f}% (Valor de {draw_real-draw_implicit:.1f}%)\n  *Justificativa: {draw_justification}*")
+                                            opportunities.append(f"- **Empate**: Real {draw_real:.1f}% vs Implícita {draw_implicit:.1f}% (Valor de {draw_real-draw_implicit:.1f}%)")
                                         
                                         # Fora
                                         away_real = original_probabilities["moneyline"].get("away_win", 0)
@@ -2001,12 +1651,7 @@ def show_main_dashboard():
                                         probs_section += f"- **{away_team}**: Real {away_real:.1f}% vs Implícita {away_implicit:.1f}%{' (Valor)' if away_value else ''}\n"
                                         
                                         if away_value:
-                                            # Adicionar justificativa
-                                            away_justification = generate_justification(
-                                                "moneyline", "away_win", away_team, away_real, away_implicit,
-                                                original_probabilities, home_team, away_team
-                                            )
-                                            opportunities.append(f"- **{away_team}**: Real {away_real:.1f}% vs Implícita {away_implicit:.1f}% (Valor de {away_real-away_implicit:.1f}%)\n  *Justificativa: {away_justification}*")
+                                            opportunities.append(f"- **{away_team}**: Real {away_real:.1f}% vs Implícita {away_implicit:.1f}% (Valor de {away_real-away_implicit:.1f}%)")
                                     
                                     # Double Chance
                                     if selected_markets.get("chance_dupla") and "double_chance" in original_probabilities:
@@ -2020,12 +1665,7 @@ def show_main_dashboard():
                                         probs_section += f"- **{home_team} ou Empate**: Real {hd_real:.1f}% vs Implícita {hd_implicit:.1f}%{' (Valor)' if hd_value else ''}\n"
                                         
                                         if hd_value:
-                                            # Adicionar justificativa
-                                            hd_justification = generate_justification(
-                                                "double_chance", "home_or_draw", f"{home_team} ou Empate", hd_real, hd_implicit,
-                                                original_probabilities, home_team, away_team
-                                            )
-                                            opportunities.append(f"- **{home_team} ou Empate**: Real {hd_real:.1f}% vs Implícita {hd_implicit:.1f}% (Valor de {hd_real-hd_implicit:.1f}%)\n  *Justificativa: {hd_justification}*")
+                                            opportunities.append(f"- **{home_team} ou Empate**: Real {hd_real:.1f}% vs Implícita {hd_implicit:.1f}% (Valor de {hd_real-hd_implicit:.1f}%)")
                                         
                                         # 12
                                         ha_real = original_probabilities["double_chance"].get("home_or_away", 0)
@@ -2035,12 +1675,7 @@ def show_main_dashboard():
                                         probs_section += f"- **{home_team} ou {away_team}**: Real {ha_real:.1f}% vs Implícita {ha_implicit:.1f}%{' (Valor)' if ha_value else ''}\n"
                                         
                                         if ha_value:
-                                            # Adicionar justificativa
-                                            ha_justification = generate_justification(
-                                                "double_chance", "home_or_away", f"{home_team} ou {away_team}", ha_real, ha_implicit,
-                                                original_probabilities, home_team, away_team
-                                            )
-                                            opportunities.append(f"- **{home_team} ou {away_team}**: Real {ha_real:.1f}% vs Implícita {ha_implicit:.1f}% (Valor de {ha_real-ha_implicit:.1f}%)\n  *Justificativa: {ha_justification}*")
+                                            opportunities.append(f"- **{home_team} ou {away_team}**: Real {ha_real:.1f}% vs Implícita {ha_implicit:.1f}% (Valor de {ha_real-ha_implicit:.1f}%)")
                                         
                                         # X2
                                         da_real = original_probabilities["double_chance"].get("away_or_draw", 0)
@@ -2050,12 +1685,7 @@ def show_main_dashboard():
                                         probs_section += f"- **Empate ou {away_team}**: Real {da_real:.1f}% vs Implícita {da_implicit:.1f}%{' (Valor)' if da_value else ''}\n"
                                         
                                         if da_value:
-                                            # Adicionar justificativa
-                                            da_justification = generate_justification(
-                                                "double_chance", "away_or_draw", f"Empate ou {away_team}", da_real, da_implicit,
-                                                original_probabilities, home_team, away_team
-                                            )
-                                            opportunities.append(f"- **Empate ou {away_team}**: Real {da_real:.1f}% vs Implícita {da_implicit:.1f}% (Valor de {da_real-da_implicit:.1f}%)\n  *Justificativa: {da_justification}*")
+                                            opportunities.append(f"- **Empate ou {away_team}**: Real {da_real:.1f}% vs Implícita {da_implicit:.1f}% (Valor de {da_real-da_implicit:.1f}%)")
                                     
                                     # BTTS
                                     if selected_markets.get("ambos_marcam") and "btts" in original_probabilities:
@@ -2069,12 +1699,7 @@ def show_main_dashboard():
                                         probs_section += f"- **Sim**: Real {yes_real:.1f}% vs Implícita {yes_implicit:.1f}%{' (Valor)' if yes_value else ''}\n"
                                         
                                         if yes_value:
-                                            # Adicionar justificativa
-                                            yes_justification = generate_justification(
-                                                "btts", "yes", "Ambos Marcam - Sim", yes_real, yes_implicit,
-                                                original_probabilities, home_team, away_team
-                                            )
-                                            opportunities.append(f"- **Ambos Marcam - Sim**: Real {yes_real:.1f}% vs Implícita {yes_implicit:.1f}% (Valor de {yes_real-yes_implicit:.1f}%)\n  *Justificativa: {yes_justification}*")
+                                            opportunities.append(f"- **Ambos Marcam - Sim**: Real {yes_real:.1f}% vs Implícita {yes_implicit:.1f}% (Valor de {yes_real-yes_implicit:.1f}%)")
                                         
                                         # Não
                                         no_real = original_probabilities["btts"].get("no", 0)
@@ -2084,12 +1709,7 @@ def show_main_dashboard():
                                         probs_section += f"- **Não**: Real {no_real:.1f}% vs Implícita {no_implicit:.1f}%{' (Valor)' if no_value else ''}\n"
                                         
                                         if no_value:
-                                            # Adicionar justificativa
-                                            no_justification = generate_justification(
-                                                "btts", "no", "Ambos Marcam - Não", no_real, no_implicit,
-                                                original_probabilities, home_team, away_team
-                                            )
-                                            opportunities.append(f"- **Ambos Marcam - Não**: Real {no_real:.1f}% vs Implícita {no_implicit:.1f}% (Valor de {no_real-no_implicit:.1f}%)\n  *Justificativa: {no_justification}*")
+                                            opportunities.append(f"- **Ambos Marcam - Não**: Real {no_real:.1f}% vs Implícita {no_implicit:.1f}% (Valor de {no_real-no_implicit:.1f}%)")
                                     
                                     # Over/Under
                                     if selected_markets.get("over_under") and "over_under" in original_probabilities:
@@ -2118,12 +1738,7 @@ def show_main_dashboard():
                                             probs_section += f"- **Over {line} Gols**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}%{' (Valor)' if over_value else ''}\n"
                                             
                                             if over_value:
-                                                # Adicionar justificativa
-                                                over_justification = generate_justification(
-                                                    "over_under", f"over_{line_str}", f"Over {line} Gols", over_real, over_implicit,
-                                                    original_probabilities, home_team, away_team
-                                                )
-                                                opportunities.append(f"- **Over {line} Gols**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}% (Valor de {over_real-over_implicit:.1f}%)\n  *Justificativa: {over_justification}*")
+                                                opportunities.append(f"- **Over {line} Gols**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}% (Valor de {over_real-over_implicit:.1f}%)")
                                             
                                             # Under
                                             under_real = 100.0 - over_real
@@ -2133,14 +1748,8 @@ def show_main_dashboard():
                                             probs_section += f"- **Under {line} Gols**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}%{' (Valor)' if under_value else ''}\n"
                                             
                                             if under_value:
-                                                # Adicionar justificativa
-                                                under_justification = generate_justification(
-                                                    "over_under", f"under_{line_str}", f"Under {line} Gols", under_real, under_implicit,
-                                                    original_probabilities, home_team, away_team
-                                                )
-                                                opportunities.append(f"- **Under {line} Gols**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real-under_implicit:.1f}%)\n  *Justificativa: {under_justification}*")
-                                    
-                                    # Escanteios
+                                                opportunities.append(f"- **Under {line} Gols**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real-under_implicit:.1f}%)")
+                                            # Escanteios
                                     if selected_markets.get("escanteios") and "corners" in original_probabilities:
                                         probs_section += "## Escanteios:\n"
                                         
@@ -2167,12 +1776,7 @@ def show_main_dashboard():
                                             probs_section += f"- **Over {line} Escanteios**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}%{' (Valor)' if over_value else ''}\n"
                                             
                                             if over_value:
-                                                # Adicionar justificativa
-                                                over_corners_justification = generate_justification(
-                                                    "corners", f"over_{line_str}", f"Over {line} Escanteios", over_real, over_implicit,
-                                                    original_probabilities, home_team, away_team
-                                                )
-                                                opportunities.append(f"- **Over {line} Escanteios**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}% (Valor de {over_real-over_implicit:.1f}%)\n  *Justificativa: {over_corners_justification}*")
+                                                opportunities.append(f"- **Over {line} Escanteios**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}% (Valor de {over_real-over_implicit:.1f}%)")
                                             
                                             # Under
                                             under_real = 100.0 - over_real
@@ -2182,12 +1786,7 @@ def show_main_dashboard():
                                             probs_section += f"- **Under {line} Escanteios**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}%{' (Valor)' if under_value else ''}\n"
                                             
                                             if under_value:
-                                                # Adicionar justificativa
-                                                under_corners_justification = generate_justification(
-                                                    "corners", f"under_{line_str}", f"Under {line} Escanteios", under_real, under_implicit,
-                                                    original_probabilities, home_team, away_team
-                                                )
-                                                opportunities.append(f"- **Under {line} Escanteios**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real-under_implicit:.1f}%)\n  *Justificativa: {under_corners_justification}*")
+                                                opportunities.append(f"- **Under {line} Escanteios**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real-under_implicit:.1f}%)")
                                     
                                     # Cartões
                                     if selected_markets.get("cartoes") and "cards" in original_probabilities:
@@ -2216,12 +1815,7 @@ def show_main_dashboard():
                                             probs_section += f"- **Over {line} Cartões**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}%{' (Valor)' if over_value else ''}\n"
                                             
                                             if over_value:
-                                                # Adicionar justificativa
-                                                over_cards_justification = generate_justification(
-                                                    "cards", f"over_{line_str}", f"Over {line} Cartões", over_real, over_implicit,
-                                                    original_probabilities, home_team, away_team
-                                                )
-                                                opportunities.append(f"- **Over {line} Cartões**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}% (Valor de {over_real-over_implicit:.1f}%)\n  *Justificativa: {over_cards_justification}*")
+                                                opportunities.append(f"- **Over {line} Cartões**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}% (Valor de {over_real-over_implicit:.1f}%)")
                                             
                                             # Under
                                             under_real = 100.0 - over_real
@@ -2231,21 +1825,13 @@ def show_main_dashboard():
                                             probs_section += f"- **Under {line} Cartões**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}%{' (Valor)' if under_value else ''}\n"
                                             
                                             if under_value:
-                                                # Adicionar justificativa
-                                                under_cards_justification = generate_justification(
-                                                    "cards", f"under_{line_str}", f"Under {line} Cartões", under_real, under_implicit,
-                                                    original_probabilities, home_team, away_team
-                                                )
-                                                opportunities.append(f"- **Under {line} Cartões**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real-under_implicit:.1f}%)\n  *Justificativa: {under_cards_justification}*")
+                                                opportunities.append(f"- **Under {line} Cartões**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real-under_implicit:.1f}%)")
                                     
                                     new_analysis.append(probs_section)
                                     
                                     # Oportunidades identificadas
                                     if opportunities:
-                                        opportunities_text = "# Oportunidades Identificadas:\n" + "\n".join(opportunities)
-                                        # Aplicar formatação para controlar a largura
-                                        formatted_opportunities = update_opportunities_format(opportunities_text)
-                                        new_analysis.append(formatted_opportunities)
+                                        new_analysis.append("# Oportunidades Identificadas:\n" + "\n".join(opportunities))
                                     else:
                                         new_analysis.append("# Oportunidades Identificadas:\nInfelizmente não detectamos valor em nenhuma dos seus inputs.")
                                     
@@ -2255,21 +1841,12 @@ def show_main_dashboard():
                                     # Extrair dados da forma e consistência
                                     if "analysis_data" in original_probabilities:
                                         analysis_data = original_probabilities["analysis_data"]
-                                        home_consistency = analysis_data.get("home_consistency", 0)
-                                        away_consistency = analysis_data.get("away_consistency", 0)
-                                        
-                                        # Ajustar para valores percentuais se necessário
-                                        if home_consistency <= 1.0:
-                                            home_consistency = home_consistency * 100
-                                        if away_consistency <= 1.0:
-                                            away_consistency = away_consistency * 100
+                                        home_consistency = analysis_data.get("home_consistency", 0) * 100
+                                        away_consistency = analysis_data.get("away_consistency", 0) * 100
                                         
                                         # Verificar se temos dados de forma bruta
-                                        home_form_raw = ""
-                                        away_form_raw = ""
-                                        if "stats_data" in locals() and isinstance(stats_data, dict):
-                                            home_form_raw = stats_data["home_team"].get("formRun_overall", "")
-                                            away_form_raw = stats_data["away_team"].get("formRun_overall", "")
+                                        home_form_raw = stats_data["home_team"].get("formRun_overall", "") if "stats_data" in locals() and isinstance(stats_data, dict) else ""
+                                        away_form_raw = stats_data["away_team"].get("formRun_overall", "") if "stats_data" in locals() and isinstance(stats_data, dict) else ""
                                         
                                         # Calcular a forma diretamente a partir dos dados brutos se disponíveis
                                         home_form_points = 0
@@ -2299,17 +1876,13 @@ def show_main_dashboard():
                                             home_form_points = calculate_form_points(home_form_raw)
                                         else:
                                             # Tentar calcular a partir do analysis_data se disponível
-                                            home_form_points = analysis_data.get("home_form_points", 0)
-                                            if home_form_points <= 1.0:  # Se for valor normalizado (0-1)
-                                                home_form_points = int(home_form_points * 15)
+                                            home_form_points = int(analysis_data.get("home_form_points", 0) * 15)
                                         
                                         if away_form_raw:
                                             away_form_points = calculate_form_points(away_form_raw)
                                         else:
                                             # Tentar calcular a partir do analysis_data se disponível
-                                            away_form_points = analysis_data.get("away_form_points", 0)
-                                            if away_form_points <= 1.0:  # Se for valor normalizado (0-1)
-                                                away_form_points = int(away_form_points * 15)
+                                            away_form_points = int(analysis_data.get("away_form_points", 0) * 15)
                                         
                                         confidence_section += f"- **Consistência**: {home_team}: {home_consistency:.1f}%, {away_team}: {away_consistency:.1f}%. Consistência é uma medida que indica quão previsível é o desempenho da equipe.\n"
                                         confidence_section += f"- **Forma Recente**: {home_team}: {home_form_points}/15, {away_team}: {away_form_points}/15. Forma representa a pontuação dos últimos 5 jogos (vitória=3pts, empate=1pt, derrota=0pts).\n"
@@ -2321,15 +1894,10 @@ def show_main_dashboard():
                                     
                                     new_analysis.append(confidence_section)
                                     
-                                    # IMPLEMENTAÇÃO: Formatar todas as seções para evitar linhas muito largas
-                                    final_analysis = "\n\n".join(new_analysis)
-                                    formatted_final_analysis = format_all_analysis_sections(final_analysis)
-                                    
-                                    # Retornar a análise formatada em vez do texto original
-                                    return formatted_final_analysis
+                                    return "\n\n".join(new_analysis)
                                 
                                 except Exception as e:
-                                    # Log de erro detalhado
+                                    # Bloco except que estava faltando
                                     logger.error(f"Erro ao reconstruir análise: {str(e)}")
                                     import traceback
                                     logger.error(traceback.format_exc())
@@ -2684,89 +2252,13 @@ def add_opportunity_evaluation(analysis_text):
     evaluation_text += "- 🔥 BOA: Probabilidade e margem razoáveis (>50% e >3%)\n"
     evaluation_text += "- ⚠️ RAZOÁVEL: Ou boa probabilidade ou boa margem\n"
     evaluation_text += "- ❌ BAIXA: Probabilidade e margem insuficientes\n"
-    
-    # Retornar o texto original + a avaliação
-    return analysis_text + evaluation_text
 
-# Função alternativa caso os emojis não funcionem bem
-def add_opportunity_evaluation_simple(analysis_text):
-    """
-    Versão sem emojis, caso eles não funcionem bem na sua implementação
-    """
-    import re
+    from utils.opportunity_justification import add_justifications_to_analysis
+    if 'stats_data' in globals() and stats_data and 'home_team' in globals() and 'away_team' in globals():
+        analysis_text = add_justifications_to_analysis(analysis_text, stats_data, home_team, away_team)
     
-    # Extrair as oportunidades com regex
-    pattern = r"\*\*([^*]+)\*\*: Real (\d+\.\d+)% vs Implícita (\d+\.\d+)% \(Valor de (\d+\.\d+)%\)"
-    matches = re.findall(pattern, analysis_text)
-    
-    if not matches:
-        # Se não encontrar oportunidades no formato esperado, tente outro padrão
-        pattern = r"\- \*\*([^*]+)\*\*: Real (\d+\.\d+)% vs Implícita (\d+\.\d+)% \(Valor de (\d+\.\d+)%\)"
-        matches = re.findall(pattern, analysis_text)
-        
-    if not matches:
-        # Tente um padrão mais genérico como último recurso
-        pattern = r"([^-:]+): Real (\d+\.\d+)% vs Implícita (\d+\.\d+)% \(?Valor de (\d+\.\d+)%\)?"
-        matches = re.findall(pattern, analysis_text)
-    
-    # Se ainda não encontrou oportunidades, retorna o texto original
-    if not matches:
-        return analysis_text
-    
-    # Adicionar a seção de avaliação de oportunidades
-    evaluation_text = "\n\n# AVALIAÇÃO DE VIABILIDADE DE APOSTAS\n"
-    
-    for match in matches:
-        opportunity_name, real_prob_str, implicit_prob_str, margin_str = match
-        
-        try:
-            # Converter para números
-            real_prob = float(real_prob_str)
-            margin = float(margin_str)
-            
-            # Avaliar a oportunidade
-            rating, description = evaluate_opportunity(real_prob, margin)
-            
-            # Formatar classificação com símbolos
-            rating_symbol = {
-                "EXCELENTE": "***",
-                "MUITO BOA": "**",
-                "BOA": "*",
-                "RAZOÁVEL": "!",
-                "BAIXA": "X"
-            }.get(rating, "")
-            
-            # Adicionar à saída
-            evaluation_text += f"\n## {opportunity_name.strip()} - {rating_symbol} {rating}\n"
-            evaluation_text += f"- Probabilidade: {real_prob:.1f}% | Margem: {margin:.1f}%\n"
-            evaluation_text += f"- Avaliação: {description}\n"
-            
-            # Adicionar recomendações específicas com base na classificação
-            if rating == "EXCELENTE":
-                evaluation_text += "- Recomendação: Oportunidade excelente para apostar. Considere uma aposta com valor mais alto.\n"
-            elif rating == "MUITO BOA":
-                evaluation_text += "- Recomendação: Boa oportunidade para apostar. Valor recomendado.\n"
-            elif rating == "BOA":
-                evaluation_text += "- Recomendação: Oportunidade viável para apostar com moderação.\n"
-            elif rating == "RAZOÁVEL":
-                evaluation_text += "- Recomendação: Apostar com cautela e valor reduzido.\n"
-            else:
-                evaluation_text += "- Recomendação: Não recomendamos esta aposta. Valor baixo detectado.\n"
-            
-        except (ValueError, TypeError):
-            continue
-    
-    # Adicionar legenda
-    evaluation_text += "\n# LEGENDA DE VIABILIDADE\n"
-    evaluation_text += "- *** EXCELENTE: Alta probabilidade (>70%) e grande margem (>7%)\n"
-    evaluation_text += "- ** MUITO BOA: Boa probabilidade (>60%) e margem significativa (>5%)\n"
-    evaluation_text += "- * BOA: Probabilidade e margem razoáveis (>50% e >3%)\n"
-    evaluation_text += "- ! RAZOÁVEL: Ou boa probabilidade ou boa margem\n"
-    evaluation_text += "- X BAIXA: Probabilidade e margem insuficientes\n"
-    
-    # Retornar o texto original + a avaliação
+    #Retornar o texto original + a avaliação
     return analysis_text + evaluation_text
-
 
 # Função para mostrar o indicador visual da oportunidade usando componentes do Streamlit
 def show_opportunity_indicator_native(real_prob, margin, opportunity_name):
@@ -3023,609 +2515,3 @@ def show_opportunities_ultra_simple(analysis_text):
     new_text += "X Baixa: Probabilidade e margem insuficientes\n"
     
     return new_text
-def format_text_for_display(text, max_width=70):
-    """
-    Formata um texto para garantir que nenhuma linha exceda o comprimento máximo especificado.
-    
-    Args:
-        text (str): Texto a ser formatado
-        max_width (int): Largura máxima de cada linha em caracteres
-        
-    Returns:
-        str: Texto formatado com quebras de linha
-    """
-    lines = []
-    for line in text.split('\n'):
-        if len(line) <= max_width:
-            lines.append(line)
-        else:
-            # Quebrar linhas muito longas
-            current_line = ""
-            words = line.split()
-            
-            for word in words:
-                if len(current_line) + len(word) + 1 <= max_width:
-                    # Adicionar palavra à linha atual
-                    if current_line:
-                        current_line += " " + word
-                    else:
-                        current_line = word
-                else:
-                    # Iniciar nova linha
-                    lines.append(current_line)
-                    current_line = word
-            
-            # Adicionar a última linha
-            if current_line:
-                lines.append(current_line)
-    
-    return '\n'.join(lines)
-# Adicione estas duas funções no arquivo dashboard.py, 
-# logo antes da função generate_justification
-
-def extract_team_specific_form(team_data, is_home=True):
-    """
-    Extrai a forma específica do time (como mandante ou visitante)
-    
-    Args:
-        team_data (dict): Dados do time
-        is_home (bool): Se True, extrai forma como mandante; se False, como visitante
-        
-    Returns:
-        str: Sequência de forma (ex: "WDLWW")
-    """
-    try:
-        # Verificar dados específicos para casa/fora
-        form_key = "home_form" if is_home else "away_form"
-        
-        # Tentar diferentes chaves possíveis onde a forma pode estar armazenada
-        possible_keys = [
-            form_key,
-            "formRun_" + ("home" if is_home else "away"),
-            "form_" + ("home" if is_home else "away")
-        ]
-        
-        # Procurar em todas as chaves possíveis
-        for key in possible_keys:
-            if key in team_data and team_data[key]:
-                return team_data[key]
-        
-        # Se não encontrou, retorna vazio
-        return ""
-        
-    except Exception as e:
-        logger.error(f"Erro ao extrair forma específica: {str(e)}")
-        return ""
-
-def form_sequence_to_points(form_sequence):
-    """
-    Converte uma sequência de resultados em pontos
-    
-    Args:
-        form_sequence (str): Sequência de resultados (ex: "WDLWW")
-        
-    Returns:
-        tuple: (pontos, sequência recente)
-    """
-    if not form_sequence or len(form_sequence) == 0:
-        return 0, ""
-    
-    points = 0
-    # Pegar apenas os últimos 5 jogos
-    recent_form = form_sequence[-5:] if len(form_sequence) >= 5 else form_sequence
-    
-    for result in recent_form:
-        result = result.upper()
-        if result == 'W':
-            points += 3
-        elif result == 'D':
-            points += 1
-    
-    return points, recent_form
-    
-def generate_justification(market_type, bet_type, team_name, real_prob, implicit_prob, 
-                          original_probabilities, home_team, away_team):
-    """
-    Gera uma justificativa com embasamento estatístico específico para cada mercado,
-    incluindo forma como mandante/visitante e retrospecto de confrontos.
-    
-    Args:
-        market_type (str): Tipo de mercado (moneyline, over_under, etc.)
-        bet_type (str): Tipo específico de aposta (home_win, over_2_5, etc.)
-        team_name (str): Nome do time (quando aplicável)
-        real_prob (float): Probabilidade real calculada
-        implicit_prob (float): Probabilidade implícita das odds
-        original_probabilities (dict): Probabilidades originais calculadas
-        home_team (str): Nome do time da casa
-        away_team (str): Nome do time visitante
-        
-    Returns:
-        str: Justificativa personalizada para a oportunidade
-    """
-    try:
-        import logging
-        logger = logging.getLogger("valueHunter.ai")
-        
-        # Dados de análise para extrair informações adicionais
-        analysis_data = original_probabilities.get("analysis_data", {})
-        margin = real_prob - implicit_prob
-        
-        # Obter dados gerais de forma e consistência
-        home_form_normalized = analysis_data.get("home_form_points", 0)
-        away_form_normalized = analysis_data.get("away_form_points", 0)
-        
-        # Converter para pontos (0-15)
-        home_form_points = int(home_form_normalized * 15)
-        away_form_points = int(away_form_normalized * 15)
-        
-        # CORREÇÃO: Se temos forma específica disponível, usar seu valor para a forma geral também
-        if "home_specific" in original_probabilities and "home_form" in original_probabilities["home_specific"]:
-            home_specific_form = original_probabilities["home_specific"]["home_form"]
-            home_specific_points, _ = form_sequence_to_points(home_specific_form)
-            # Considerar usar o valor específico para a forma geral também
-            if home_specific_points > 0:
-                home_form_points = home_specific_points
-        
-        if "away_specific" in original_probabilities and "away_form" in original_probabilities["away_specific"]:
-            away_specific_form = original_probabilities["away_specific"]["away_form"]
-            away_specific_points, _ = form_sequence_to_points(away_specific_form)
-            # Considerar usar o valor específico para a forma geral também
-            if away_specific_points > 0:
-                away_form_points = away_specific_points
-        
-        # Obter consistência
-        home_consistency = analysis_data.get("home_consistency", 0)
-        if home_consistency <= 1.0:
-            home_consistency = home_consistency * 100
-            
-        away_consistency = analysis_data.get("away_consistency", 0)
-        if away_consistency <= 1.0:
-            away_consistency = away_consistency * 100
-        
-        # NOVIDADE: Extrair forma específica (casa/fora) se disponível
-        home_home_form = original_probabilities.get("home_specific", {}).get("home_form", "")
-        away_away_form = original_probabilities.get("away_specific", {}).get("away_form", "")
-        
-        # NOVIDADE: Converter sequência de resultados para pontos
-        def form_sequence_to_points(form_sequence):
-            if not form_sequence or len(form_sequence) == 0:
-                return 0, ""
-            
-            points = 0
-            # Pegar apenas os últimos 5 jogos
-            recent_form = form_sequence[-5:] if len(form_sequence) >= 5 else form_sequence
-            
-            for result in recent_form:
-                result = result.upper()
-                if result == 'W':
-                    points += 3
-                elif result == 'D':
-                    points += 1
-            
-            return points, recent_form
-        
-        # Calcular pontos para forma específica
-        home_home_points, home_home_sequence = form_sequence_to_points(home_home_form)
-        away_away_points, away_away_sequence = form_sequence_to_points(away_away_form)
-        
-        # NOVIDADE: Obter dados de confrontos diretos
-        h2h_data = original_probabilities.get("h2h", {})
-        h2h_total = h2h_data.get("matches", 0)
-        h2h_home_wins = h2h_data.get("home_wins", 0)
-        h2h_away_wins = h2h_data.get("away_wins", 0)
-        h2h_draws = h2h_data.get("draws", 0)
-        
-        # 1. MONEYLINE (1X2)
-        if market_type == "moneyline":
-            # Vitória do time da casa
-            if bet_type == "home_win":
-                justification = f"Time da casa com {home_form_points}/15 pts na forma geral e {home_consistency:.1f}% de consistência. "
-                
-                # NOVIDADE: Adicionar forma específica em casa se disponível
-                if home_home_sequence:
-                    justification += f"Como mandante: sequência {home_home_sequence} ({home_home_points}/15 pts). "
-                
-                # NOVIDADE: Adicionar retrospecto se houver dados suficientes
-                if h2h_total >= 3:
-                    justification += f"No histórico de {h2h_total} confrontos: {h2h_home_wins} vitórias do {home_team}, {h2h_draws} empates e {h2h_away_wins} vitórias do {away_team}. "
-                
-                # Adicionar estatísticas de gols se disponíveis
-                if "over_under" in original_probabilities:
-                    expected_goals = original_probabilities["over_under"].get("expected_goals", 0)
-                    if 0 < expected_goals < 10:
-                        justification += f"Previsão de {expected_goals:.2f} gols na partida favorece time ofensivo. "
-                
-                justification += f"Odds de {implicit_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
-                
-            # Vitória do time visitante
-            elif bet_type == "away_win":
-                justification = f"Time visitante com {away_form_points}/15 pts na forma geral e {away_consistency:.1f}% de consistência. "
-                
-                # NOVIDADE: Adicionar forma específica fora de casa se disponível
-                if away_away_sequence:
-                    justification += f"Como visitante: sequência {away_away_sequence} ({away_away_points}/15 pts). "
-                
-                # NOVIDADE: Adicionar retrospecto se houver dados suficientes
-                if h2h_total >= 3:
-                    justification += f"No histórico de {h2h_total} confrontos: {h2h_home_wins} vitórias do {home_team}, {h2h_draws} empates e {h2h_away_wins} vitórias do {away_team}. "
-                
-                if "over_under" in original_probabilities:
-                    expected_goals = original_probabilities["over_under"].get("expected_goals", 0)
-                    if 0 < expected_goals < 10:
-                        justification += f"Previsão de {expected_goals:.2f} gols na partida. "
-                    
-                justification += f"Odds de {implicit_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
-                
-            # Empate
-            elif bet_type == "draw":
-                avg_consistency = (home_consistency + away_consistency) / 2
-                justification = f"Equilíbrio entre as equipes, consistência média de {avg_consistency:.1f}%. "
-                
-                # NOVIDADE: Adicionar retrospecto de empates se houver dados suficientes
-                if h2h_total >= 3:
-                    draw_pct = (h2h_draws / h2h_total) * 100 if h2h_total > 0 else 0
-                    justification += f"Histórico de {h2h_draws} empates em {h2h_total} confrontos ({draw_pct:.1f}%). "
-                
-                justification += f"Odds de {implicit_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
-        
-        # 2. CHANCE DUPLA (DOUBLE CHANCE)
-        elif market_type == "double_chance":
-            if bet_type == "home_or_draw":
-                justification = f"Vantagem de jogar em casa para {home_team} (forma geral: {home_form_points}/15 pts). "
-                
-                # NOVIDADE: Adicionar forma específica em casa se disponível
-                if home_home_sequence:
-                    justification += f"Como mandante: sequência {home_home_sequence} ({home_home_points}/15 pts). "
-                
-                # NOVIDADE: Adicionar retrospecto se houver dados suficientes
-                if h2h_total >= 3:
-                    home_or_draw_pct = ((h2h_home_wins + h2h_draws) / h2h_total) * 100 if h2h_total > 0 else 0
-                    justification += f"Histórico: {home_team} não perdeu em {h2h_home_wins + h2h_draws} de {h2h_total} confrontos ({home_or_draw_pct:.1f}%). "
-                
-                justification += f"Probabilidade de {real_prob:.1f}% do time da casa não perder, "
-                justification += f"contra apenas {implicit_prob:.1f}% implicada pelas odds."
-                
-            elif bet_type == "away_or_draw":
-                justification = f"Vantagem para {away_team} visitante (forma geral: {away_form_points}/15 pts). "
-                
-                # NOVIDADE: Adicionar forma específica fora de casa se disponível
-                if away_away_sequence:
-                    justification += f"Como visitante: sequência {away_away_sequence} ({away_away_points}/15 pts). "
-                
-                # NOVIDADE: Adicionar retrospecto se houver dados suficientes
-                if h2h_total >= 3:
-                    away_or_draw_pct = ((h2h_away_wins + h2h_draws) / h2h_total) * 100 if h2h_total > 0 else 0
-                    justification += f"Histórico: {away_team} não perdeu em {h2h_away_wins + h2h_draws} de {h2h_total} confrontos ({away_or_draw_pct:.1f}%). "
-                
-                justification += f"Probabilidade de {real_prob:.1f}% do time visitante não perder, "
-                justification += f"contra apenas {implicit_prob:.1f}% implicada pelas odds."
-                
-            elif bet_type == "home_or_away":
-                justification = f"Baixa probabilidade de empate entre as equipes. "
-                
-                # NOVIDADE: Adicionar retrospecto se houver dados suficientes
-                if h2h_total >= 3:
-                    no_draw_pct = ((h2h_home_wins + h2h_away_wins) / h2h_total) * 100 if h2h_total > 0 else 0
-                    justification += f"Histórico: Apenas {h2h_draws} empates em {h2h_total} confrontos ({100-no_draw_pct:.1f}% de empates). "
-                
-                justification += f"Chance de {real_prob:.1f}% de algum time vencer, "
-                justification += f"contra apenas {implicit_prob:.1f}% implicada pelas odds."
-        
-        # O resto da função permanece igual para os outros mercados...
-        # 3. OVER/UNDER
-        elif market_type == "over_under":
-            if "over_under" in original_probabilities:
-                expected_goals = original_probabilities["over_under"].get("expected_goals", 0)
-                
-                # Validar valor de expected_goals
-                if not (0 < expected_goals < 10):
-                    # Valor fora do intervalo razoável
-                    expected_goals = 2.5  # Valor default razoável
-                
-                # NOVIDADE: Adicionar retrospecto de gols se disponível
-                h2h_avg_goals = h2h_data.get("avg_goals", 0)
-                h2h_over_pct = h2h_data.get("over_2_5_percentage", 0)
-                
-                if bet_type.startswith("over_"):
-                    threshold = bet_type.replace("over_", "").replace("_", ".")
-                    threshold_value = float(threshold)
-                    
-                    # Verificar consistência lógica
-                    if expected_goals > threshold_value:
-                        comparison = "acima"
-                    else:
-                        comparison = "próximo"
-                    
-                    justification = f"Previsão de {expected_goals:.2f} gols na partida, {comparison} do threshold de {threshold}. "
-                    
-                    # NOVIDADE: Adicionar dados de H2H
-                    if h2h_total >= 3 and h2h_avg_goals > 0:
-                        justification += f"Média de {h2h_avg_goals:.1f} gols nos confrontos diretos. "
-                        if threshold_value == 2.5 and h2h_over_pct > 0:
-                            justification += f"Over {threshold} ocorreu em {h2h_over_pct:.1f}% dos confrontos. "
-                    
-                    if "home_team" in original_probabilities and "away_team" in original_probabilities:
-                        justification += f"Times com tendência ofensiva combinada. "
-                        
-                    justification += f"Probabilidade real de {real_prob:.1f}% vs implícita de {implicit_prob:.1f}%."
-                    
-                else:  # Under
-                    threshold = bet_type.replace("under_", "").replace("_", ".")
-                    threshold_value = float(threshold)
-                    
-                    # Verificar consistência lógica
-                    if expected_goals < threshold_value:
-                        comparison = "abaixo"
-                    else:
-                        comparison = "próximo"
-                    
-                    justification = f"Previsão de {expected_goals:.2f} gols na partida, {comparison} do threshold de {threshold}. "
-                    
-                    # NOVIDADE: Adicionar dados de H2H
-                    if h2h_total >= 3 and h2h_avg_goals > 0:
-                        justification += f"Média de {h2h_avg_goals:.1f} gols nos confrontos diretos. "
-                        if threshold_value == 2.5 and h2h_over_pct > 0:
-                            under_pct = 100 - h2h_over_pct
-                            justification += f"Under {threshold} ocorreu em {under_pct:.1f}% dos confrontos. "
-                    
-                    if "home_team" in original_probabilities and "away_team" in original_probabilities:
-                        justification += f"Times com tendência defensiva combinada. "
-                        
-                    justification += f"Probabilidade real de {real_prob:.1f}% vs implícita de {implicit_prob:.1f}%."
-        
-        # 4. BTTS (AMBOS MARCAM)
-        elif market_type == "btts":
-            if "btts" in original_probabilities:
-                # NOVIDADE: Adicionar retrospecto de BTTS se disponível
-                h2h_btts_pct = h2h_data.get("btts_percentage", 0)
-                
-                if bet_type == "yes":
-                    justification = f"Ambas equipes com potencial ofensivo para marcar. "
-                    
-                    # NOVIDADE: Adicionar dados de H2H para BTTS
-                    if h2h_total >= 3 and h2h_btts_pct > 0:
-                        justification += f"Ambos marcaram em {h2h_btts_pct:.1f}% dos confrontos diretos. "
-                    
-                    if "over_under" in original_probabilities:
-                        expected_goals = original_probabilities["over_under"].get("expected_goals", 0)
-                        if 0 < expected_goals < 10:  # Validação de sanidade
-                            justification += f"Previsão de {expected_goals:.2f} gols totais na partida. "
-                        
-                    justification += f"Probabilidade real de {real_prob:.1f}% vs implícita de {implicit_prob:.1f}%."
-                    
-                else:  # No
-                    justification = f"Pelo menos uma equipe deve manter clean sheet. "
-                    
-                    # NOVIDADE: Adicionar dados de H2H para não BTTS
-                    if h2h_total >= 3 and h2h_btts_pct > 0:
-                        no_btts_pct = 100 - h2h_btts_pct
-                        justification += f"Pelo menos um time não marcou em {no_btts_pct:.1f}% dos confrontos diretos. "
-                    
-                    if "over_under" in original_probabilities:
-                        expected_goals = original_probabilities["over_under"].get("expected_goals", 0)
-                        if 0 < expected_goals < 10:  # Validação de sanidade
-                            justification += f"Previsão de apenas {expected_goals:.2f} gols totais na partida. "
-                        
-                    justification += f"Probabilidade real de {real_prob:.1f}% vs implícita de {implicit_prob:.1f}%."
-        
-        # 5. ESCANTEIOS
-        elif market_type == "corners":
-            if "corners" in original_probabilities:
-                expected_corners = original_probabilities["corners"].get("expected_corners", 0)
-                
-                # NOVIDADE: Adicionar retrospecto de escanteios se disponível
-                h2h_avg_corners = h2h_data.get("avg_corners", 0)
-                
-                # Validar valor de expected_corners (normalmente entre 6 e 15)
-                if not (3 < expected_corners < 20):
-                    # Se for um valor absurdo, usar um default razoável baseado na probabilidade
-                    if real_prob > 70:
-                        expected_corners = 11.5
-                    else:
-                        expected_corners = 8.5
-                
-                if bet_type.startswith("over_"):
-                    threshold = bet_type.replace("over_", "").replace("_", ".")
-                    threshold_value = float(threshold)
-                    
-                    # Verificar consistência lógica
-                    if expected_corners > threshold_value:
-                        comparison = "acima"
-                    else:
-                        comparison = "próximo"
-                    
-                    justification = f"Previsão de {expected_corners:.1f} escanteios na partida, {comparison} do threshold de {threshold}. "
-                    
-                    # NOVIDADE: Adicionar dados de H2H para escanteios
-                    if h2h_total >= 3 and h2h_avg_corners > 0:
-                        justification += f"Média de {h2h_avg_corners:.1f} escanteios nos confrontos diretos. "
-                    
-                    justification += f"Probabilidade real de {real_prob:.1f}% vs implícita de {implicit_prob:.1f}%."
-                    
-                else:  # Under
-                    threshold = bet_type.replace("under_", "").replace("_", ".")
-                    threshold_value = float(threshold)
-                    
-                    # Verificar consistência lógica
-                    if expected_corners < threshold_value:
-                        comparison = "abaixo"
-                    else:
-                        comparison = "próximo"
-                    
-                    justification = f"Previsão de {expected_corners:.1f} escanteios na partida, {comparison} do threshold de {threshold}. "
-                    
-                    # NOVIDADE: Adicionar dados de H2H para escanteios
-                    if h2h_total >= 3 and h2h_avg_corners > 0:
-                        justification += f"Média de {h2h_avg_corners:.1f} escanteios nos confrontos diretos. "
-                    
-                    justification += f"Probabilidade real de {real_prob:.1f}% vs implícita de {implicit_prob:.1f}%."
-        
-        # 6. CARTÕES
-        elif market_type == "cards":
-            if "cards" in original_probabilities:
-                expected_cards = original_probabilities["cards"].get("expected_cards", 0)
-                
-                # NOVIDADE: Adicionar retrospecto de cartões se disponível
-                h2h_avg_cards = h2h_data.get("avg_cards", 0)
-                
-                # Validar valor de expected_cards (normalmente entre 2 e 8)
-                if not (1 < expected_cards < 10):
-                    # Se for um valor absurdo, usar um default razoável baseado na probabilidade
-                    if real_prob > 60:
-                        expected_cards = 3.2
-                    else:
-                        expected_cards = 5.5
-                
-                if bet_type.startswith("over_"):
-                    threshold = bet_type.replace("over_", "").replace("_", ".")
-                    threshold_value = float(threshold)
-                    
-                    # Verificar consistência lógica
-                    if expected_cards > threshold_value:
-                        comparison = "acima"
-                    else:
-                        comparison = "próximo"
-                    
-                    justification = f"Previsão de {expected_cards:.1f} cartões na partida, {comparison} do threshold de {threshold}. "
-                    
-                    # NOVIDADE: Adicionar dados de H2H para cartões
-                    if h2h_total >= 3 and h2h_avg_cards > 0:
-                        justification += f"Média de {h2h_avg_cards:.1f} cartões nos confrontos diretos. "
-                    
-                    justification += f"Probabilidade real de {real_prob:.1f}% vs implícita de {implicit_prob:.1f}%."
-                    
-                else:  # Under
-                    threshold = bet_type.replace("under_", "").replace("_", ".")
-                    threshold_value = float(threshold)
-                    
-                    # Verificar consistência lógica
-                    if expected_cards < threshold_value:
-                        comparison = "abaixo"
-                    else:
-                        comparison = "próximo"
-                    
-                    justification = f"Previsão de {expected_cards:.1f} cartões na partida, {comparison} do threshold de {threshold}. "
-                    
-                    # NOVIDADE: Adicionar dados de H2H para cartões
-                    if h2h_total >= 3 and h2h_avg_cards > 0:
-                        justification += f"Média de {h2h_avg_cards:.1f} cartões nos confrontos diretos. "
-                    
-                    justification += f"Probabilidade real de {real_prob:.1f}% vs implícita de {implicit_prob:.1f}%."
-        
-        # JUSTIFICATIVA GENÉRICA PARA OUTROS MERCADOS
-        else:
-            if margin > 15:
-                justification = f"Discrepância significativa de {margin:.1f}% entre probabilidade real ({real_prob:.1f}%) e odds oferecidas ({implicit_prob:.1f}%)."
-            elif margin > 8:
-                justification = f"Boa diferença de {margin:.1f}% entre probabilidade calculada ({real_prob:.1f}%) e odds oferecidas ({implicit_prob:.1f}%)."
-            else:
-                justification = f"Vantagem estatística de {margin:.1f}% entre probabilidade real ({real_prob:.1f}%) e odds oferecidas ({implicit_prob:.1f}%)."
-        
-        return justification
-        
-    except Exception as e:
-        # Log do erro (opcional)
-        import traceback
-        import logging
-        logger = logging.getLogger("valueHunter.ai")
-        logger.error(f"Erro na geração de justificativa: {str(e)}")
-        logger.error(traceback.format_exc())
-        
-        # Retornar uma justificativa genérica em caso de erro
-        return f"Valor estatístico significativo de {real_prob-implicit_prob:.1f}% acima da probabilidade implícita nas odds."
-        
-    except Exception as e:
-        # Log do erro (opcional)
-        import traceback
-        import logging
-        logger = logging.getLogger("valueHunter.ai")
-        logger.error(f"Erro na geração de justificativa: {str(e)}")
-        logger.error(traceback.format_exc())
-        
-        # Retornar uma justificativa genérica em caso de erro
-        return f"Valor estatístico significativo de {real_prob-implicit_prob:.1f}% acima da probabilidade implícita nas odds."
-
-def update_opportunities_format(opportunities_section):
-    """
-    Atualiza a formatação da seção de oportunidades para evitar linhas muito longas
-    que exijam rolagem horizontal e preserva a primeira letra das justificativas.
-    
-    Args:
-        opportunities_section (str): Texto da seção de oportunidades
-        
-    Returns:
-        str: Texto reformatado para limitar a largura
-    """
-    # Dividir o texto em linhas
-    lines = opportunities_section.split('\n')
-    formatted_lines = []
-    
-    # Largura máxima por linha (ajuste conforme necessário)
-    max_width = 70
-    
-    for line in lines:
-        # Se a linha for uma oportunidade (começa com '- **')
-        if line.startswith('- **'):
-            # Manter a primeira linha como está (título da oportunidade)
-            formatted_lines.append(line)
-        # Se for uma justificativa (contém "*Justificativa:")
-        elif '*Justificativa:' in line:
-            # Verificar se já está dividida em múltiplas linhas
-            if '\n' in line:
-                # Já está formatada, adicionar todas as linhas
-                formatted_lines.extend(line.split('\n'))
-            else:
-                # Dividir em prefixo e conteúdo, preservando a primeira letra
-                parts = line.split('*Justificativa:', 1)
-                prefix = parts[0] + "*Justificativa:"
-                content = parts[1].strip() if len(parts) > 1 else ""
-                
-                # Formatar o conteúdo da justificativa
-                if content:
-                    # Palavra por palavra para garantir que nenhuma letra seja perdida
-                    words = content.split()
-                    current_line = prefix + " " + words[0]  # Garantir que a primeira palavra esteja completa
-                    
-                    for word in words[1:]:
-                        # Se adicionar a palavra não ultrapassar a largura máxima
-                        if len(current_line) + len(word) + 1 <= max_width:
-                            # Adicionar palavra à linha atual
-                            current_line += " " + word
-                        else:
-                            # Adicionar a linha atual e começar uma nova
-                            formatted_lines.append(current_line)
-                            # Alinhar a nova linha com a justificativa (espaços antes)
-                            current_line = "    " + word
-                    
-                    # Adicionar a última linha da justificativa
-                    if current_line:
-                        formatted_lines.append(current_line)
-                else:
-                    # Se não houver conteúdo, adicionar apenas o prefixo
-                    formatted_lines.append(prefix)
-        else:
-            # Outras linhas são mantidas como estão
-            formatted_lines.append(line)
-    
-    # Juntar as linhas formatadas
-    return '\n'.join(formatted_lines)
-
-# Modificação para a função reconstruct_analysis
-# Na parte onde as oportunidades são adicionadas à análise final:
-
-"""
-# Em vez de:
-if opportunities:
-    new_analysis.append("# Oportunidades Identificadas:\n" + "\n".join(opportunities))
-else:
-    new_analysis.append("# Oportunidades Identificadas:\nInfelizmente não detectamos valor em nenhuma dos seus inputs.")
-
-# Usar:
-if opportunities:
-    opportunities_text = "# Oportunidades Identificadas:\n" + "\n".join(opportunities)
-    # Aplicar formatação para controlar a largura
-    formatted_opportunities = update_opportunities_format(opportunities_text)
-    new_analysis.append(formatted_opportunities)
-else:
-    new_analysis.append("# Oportunidades Identificadas:\nInfelizmente não detectamos valor em nenhuma dos seus inputs.")
-"""
