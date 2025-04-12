@@ -5,8 +5,10 @@ import streamlit as st
 import json
 import math
 import numpy as np  # Se você também estiver usando numpy
-# REMOVER ESTA LINHA: from utils.ai import format_highly_optimized_prompt
-
+from utils.justifications import (
+    generate_justifications_for_opportunities,
+    format_justifications_section
+)
 # Configuração de logging
 logger = logging.getLogger("valueHunter.ai")
 
@@ -868,13 +870,16 @@ def check_data_quality(stats_dict):
 
 def format_analysis_response(analysis_text, home_team, away_team, selected_markets=None, original_probabilities=None, odds_data=None, implied_probabilities=None):
     """
-    Formato atualizado que usa dados pré-calculados de probabilidades implícitas, ignorando a tentativa de extrair do texto.
+    Formato atualizado que usa dados pré-calculados de probabilidades implícitas e
+    separa as oportunidades das justificativas detalhadas.
     """
     try:
         # Verificar se temos informações suficientes
         if not analysis_text or not original_probabilities or not implied_probabilities:
             logger.warning("Informações insuficientes para formatação completa")
             return analysis_text
+        
+        selected_markets = selected_markets or {}
         
         # Criar uma análise completamente nova a partir dos dados que temos
         new_analysis = []
@@ -922,14 +927,16 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
                 if "btts_no" in implied_probabilities:
                     btts_no_odd = 100.0 / implied_probabilities["btts_no"]
                     markets_section += f"  - Não: @{btts_no_odd:.2f}\n"
-        
         new_analysis.append(markets_section)
         
         # Probabilidades Calculadas vs Implícitas
         probs_section = "# Probabilidades Calculadas (REAL vs IMPLÍCITA):\n"
         opportunities = []
         
-        # Money Line
+        # Extrair dados de análise comuns
+        analysis_data = original_probabilities.get("analysis_data", {})
+        
+        # Processar Money Line (1X2)
         if selected_markets.get("money_line") and "moneyline" in original_probabilities:
             probs_section += "## Money Line (1X2):\n"
             
@@ -943,42 +950,31 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
             probs_section += f"- **{home_team}**: Real {home_real:.1f}% vs Implícita {home_implicit:.1f}%{' (Valor)' if home_value else ''}\n"
             
             if home_value:
-                # Usar exatamente o mesmo método que está funcionando no Nível de Confiança
-                home_form_points = int(analysis_data.get("home_form_points", 0) * 15)
-                
-                opportunities.append(f"- **{home_team}**: Real {home_real:.1f}% vs Implícita {home_implicit:.1f}% (Valor de {home_real-home_implicit:.1f}%)\n"
-                                    f"  *Justificativa: Time da casa com {home_form_points}/15 pts na forma recente e {home_consistency:.1f}% de consistência. "
-                                    f"Previsão de {expected_goals:.2f} gols na partida favorece time ofensivo. "
-                                    f"Odds de {home_implicit:.1f}% subestimam probabilidade real de {home_real:.1f}%.*")
-
-                        
+                # Adicionar à lista de oportunidades (sem justificativa)
+                opportunities.append(f"- **{home_team}**: Real {home_real:.1f}% vs Implícita {home_implicit:.1f}% (Valor de {home_real-home_implicit:.1f}%)")
+            
             # Empate
             draw_real = moneyline.get("draw", 0)
             draw_implicit = implied_probabilities.get("draw", 0)
             draw_value = draw_real > draw_implicit + 2
-                        
+            
             probs_section += f"- **Empate**: Real {draw_real:.1f}% vs Implícita {draw_implicit:.1f}%{' (Valor)' if draw_value else ''}\n"
-                        
+            
             if draw_value:
-                avg_consistency = (home_consistency + away_consistency) / 2
-                opportunities.append(f"- **Empate**: Real {draw_real:.1f}% vs Implícita {draw_implicit:.1f}% (Valor de {draw_real-draw_implicit:.1f}%)\n"
-                                    f"  *Justificativa: Equilíbrio entre as equipes, consistência média de {avg_consistency:.1f}%. "
-                                    f"Odds de {draw_implicit:.1f}% subestimam probabilidade real de {draw_real:.1f}%.*")
-                        
+                # Adicionar à lista de oportunidades (sem justificativa)
+                opportunities.append(f"- **Empate**: Real {draw_real:.1f}% vs Implícita {draw_implicit:.1f}% (Valor de {draw_real-draw_implicit:.1f}%)")
+            
             # Fora
             away_real = moneyline.get("away_win", 0)
             away_implicit = implied_probabilities.get("away", 0)
             away_value = away_real > away_implicit + 2
-                        
+            
             probs_section += f"- **{away_team}**: Real {away_real:.1f}% vs Implícita {away_implicit:.1f}%{' (Valor)' if away_value else ''}\n"
-                        
+            
             if away_value:
-                # Usar exatamente o mesmo método que está funcionando no Nível de Confiança
-                away_form_points = int(analysis_data.get("away_form_points", 0) * 15)
-                
-                opportunities.append(f"- **{away_team}**: Real {away_real:.1f}% vs Implícita {away_implicit:.1f}% (Valor de {away_real-away_implicit:.1f}%)\n"
-                                    f"  *Justificativa: Time visitante com {away_form_points}/15 pts na forma recente e {away_consistency:.1f}% de consistência. "
-                                    f"Odds de {away_implicit:.1f}% subestimam probabilidade real de {away_real:.1f}%.*")
+                # Adicionar à lista de oportunidades (sem justificativa)
+                opportunities.append(f"- **{away_team}**: Real {away_real:.1f}% vs Implícita {away_implicit:.1f}% (Valor de {away_real-away_implicit:.1f}%)")
+     
         
         # Double Chance
         if selected_markets.get("chance_dupla") and "double_chance" in original_probabilities:
@@ -1041,22 +1037,30 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
             
             if no_value:
                 opportunities.append(f"- **Ambos Marcam - Não**: Real {no_real:.1f}% vs Implícita {no_implicit:.1f}% (Valor de {no_real-no_implicit:.1f}%)")
-        
         new_analysis.append(probs_section)
         
-        # Oportunidades Identificadas
+        # Oportunidades Identificadas (sem justificativas)
         if opportunities:
             new_analysis.append("# Oportunidades Identificadas:\n" + "\n".join(opportunities))
         else:
             new_analysis.append("# Oportunidades Identificadas:\nInfelizmente não detectamos valor em nenhuma dos seus inputs.")
         
+        # Adicionar seção de justificativas usando o novo módulo
+        justifications = generate_justifications_for_opportunities(
+            opportunities, home_team, away_team, original_probabilities, implied_probabilities
+        )
+        
+        justifications_section = format_justifications_section(justifications)
+        if justifications_section:
+            new_analysis.append(justifications_section)
+        
         # Nível de Confiança
         if "analysis_data" in original_probabilities:
             analysis_data = original_probabilities["analysis_data"]
-            home_consistency = analysis_data.get("home_consistency", 0) * 100
-            away_consistency = analysis_data.get("away_consistency", 0) * 100
-            home_form_points = int(analysis_data.get("home_form_points", 0) * 15)
-            away_form_points = int(analysis_data.get("away_form_points", 0) * 15)
+            home_consistency = analysis_data.get("home_consistency", 0)
+            away_consistency = analysis_data.get("away_consistency", 0)
+            home_form_points = analysis_data.get("home_form_points", 0)
+            away_form_points = analysis_data.get("away_form_points", 0)
             
             confidence_text = "# Nível de Confiança Geral: Médio\n"
             confidence_text += f"- **Consistência**: {home_team}: {home_consistency:.1f}%, {away_team}: {away_consistency:.1f}%. Consistência é uma medida que indica quão previsível é o desempenho da equipe.\n"
@@ -1071,6 +1075,7 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
         return '\n\n'.join(new_analysis)
     
     except Exception as e:
+        import traceback
         logger.error(f"Erro ao formatar resposta de análise: {str(e)}")
         logger.error(traceback.format_exc())
         return analysis_text  # Retornar o texto original em caso de erro  # Retornar o texto original em caso de erro  # Retornar o texto original em caso de erro
