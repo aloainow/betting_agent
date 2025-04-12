@@ -943,12 +943,14 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
             probs_section += f"- **{home_team}**: Real {home_real:.1f}% vs Implícita {home_implicit:.1f}%{' (Valor)' if home_value else ''}\n"
             
             if home_value:
-                # Extrair os valores corretos de análise para justificativa
-                home_form_str = home_team.get("home_form", "")[-5:]  # Últimos 5 resultados
-                home_form_points = calculate_form_points(home_form_str)
-                opportunities.append(f"- **{away_team}**: Real {away_real:.1f}% vs Implícita {away_implicit:.1f}% (Valor de {away_real-away_implicit:.1f}%)\n"
-                    f"  *Justificativa: Time visitante com {away_form_points}/15 pts na forma recente e {away_consistency:.1f}% de consistência. "
-                    f"Odds de {away_implicit:.1f}% subestimam probabilidade real de {away_real:.1f}%.*")
+                # Usar exatamente o mesmo método que está funcionando no Nível de Confiança
+                home_form_points = int(analysis_data.get("home_form_points", 0) * 15)
+                
+                opportunities.append(f"- **{home_team}**: Real {home_real:.1f}% vs Implícita {home_implicit:.1f}% (Valor de {home_real-home_implicit:.1f}%)\n"
+                                    f"  *Justificativa: Time da casa com {home_form_points}/15 pts na forma recente e {home_consistency:.1f}% de consistência. "
+                                    f"Previsão de {expected_goals:.2f} gols na partida favorece time ofensivo. "
+                                    f"Odds de {home_implicit:.1f}% subestimam probabilidade real de {home_real:.1f}%.*")
+
                         
             # Empate
             draw_real = moneyline.get("draw", 0)
@@ -971,9 +973,9 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
             probs_section += f"- **{away_team}**: Real {away_real:.1f}% vs Implícita {away_implicit:.1f}%{' (Valor)' if away_value else ''}\n"
                         
             if away_value:
-                # Extrair os valores corretos de análise para justificativa
-                away_form_str = away_team.get("away_form", "")[-5:]  # Últimos 5 resultados
-                away_form_points = calculate_form_points(away_form_str)
+                # Usar exatamente o mesmo método que está funcionando no Nível de Confiança
+                away_form_points = int(analysis_data.get("away_form_points", 0) * 15)
+                
                 opportunities.append(f"- **{away_team}**: Real {away_real:.1f}% vs Implícita {away_implicit:.1f}% (Valor de {away_real-away_implicit:.1f}%)\n"
                                     f"  *Justificativa: Time visitante com {away_form_points}/15 pts na forma recente e {away_consistency:.1f}% de consistência. "
                                     f"Odds de {away_implicit:.1f}% subestimam probabilidade real de {away_real:.1f}%.*")
