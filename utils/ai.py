@@ -1,3 +1,4 @@
+
 import os
 import logging
 import streamlit as st
@@ -329,7 +330,9 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
             logger.debug(f"Pontuação final da forma: {points}")
             return points  # Valor inteiro
         
-        # IMPORTANTE: Calcular todas as variáveis antes de usá-las
+        
+        home_form = "WDLWW"  # Exemplo de string representando os últimos 5 jogos do time da casa
+        away_form = "WDWWL"  # Exemplo para o time visitante
         # Primeiro, calculamos os pontos de forma
         home_form_points = form_to_points(home_form)
         away_form_points = form_to_points(away_form)
