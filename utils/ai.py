@@ -331,11 +331,17 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
             return points  # Valor inteiro
         
         
-        home_form = "WDLWW"  # Exemplo de string representando os últimos 5 jogos do time da casa
-        away_form = "WDWWL"  # Exemplo para o time visitante
+        # Obter a forma real dos times dos dados fornecidos
+        home_form = home.get("form", "WDLWW")  # Usar os dados reais, com fallback para exemplo
+        away_form = away.get("form", "WDWWL")  # Usar os dados reais, com fallback para exemplo
+        
         # Primeiro, calculamos os pontos de forma
         home_form_points = form_to_points(home_form)
         away_form_points = form_to_points(away_form)
+        
+        # Log para depuração
+        logger.info(f"Forma do time da casa ({home_team}): {home_form} = {home_form_points}/15 pontos")
+        logger.info(f"Forma do time visitante ({away_team}): {away_form} = {away_form_points}/15 pontos")
         
         # Normalizar para uso nos cálculos (0-1)
         home_form_normalized = home_form_points / 15.0
@@ -940,10 +946,9 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
                 # Extrair os valores corretos de análise para justificativa
                 home_form_str = home_team.get("home_form", "")[-5:]  # Últimos 5 resultados
                 home_form_points = calculate_form_points(home_form_str)
-                opportunities.append(f"- **{home_team}**: Real {home_real:.1f}% vs Implícita {home_implicit:.1f}% (Valor de {home_real-home_implicit:.1f}%)\n"
-                                    f"  *Justificativa: Time da casa com {home_form_points}/15 pts na forma recente e {home_consistency:.1f}% de consistência. "
-                                    f"Previsão de {expected_goals:.2f} gols na partida favorece time ofensivo. "
-                                    f"Odds de {home_implicit:.1f}% subestimam probabilidade real de {home_real:.1f}%.*")
+                opportunities.append(f"- **{away_team}**: Real {away_real:.1f}% vs Implícita {away_implicit:.1f}% (Valor de {away_real-away_implicit:.1f}%)\n"
+                    f"  *Justificativa: Time visitante com {away_form_points}/15 pts na forma recente e {away_consistency:.1f}% de consistência. "
+                    f"Odds de {away_implicit:.1f}% subestimam probabilidade real de {away_real:.1f}%.*")
                         
             # Empate
             draw_real = moneyline.get("draw", 0)
