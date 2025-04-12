@@ -3060,7 +3060,69 @@ def format_text_for_display(text, max_width=70):
                 lines.append(current_line)
     
     return '\n'.join(lines)
+# Adicione estas duas funções no arquivo dashboard.py, 
+# logo antes da função generate_justification
 
+def extract_team_specific_form(team_data, is_home=True):
+    """
+    Extrai a forma específica do time (como mandante ou visitante)
+    
+    Args:
+        team_data (dict): Dados do time
+        is_home (bool): Se True, extrai forma como mandante; se False, como visitante
+        
+    Returns:
+        str: Sequência de forma (ex: "WDLWW")
+    """
+    try:
+        # Verificar dados específicos para casa/fora
+        form_key = "home_form" if is_home else "away_form"
+        
+        # Tentar diferentes chaves possíveis onde a forma pode estar armazenada
+        possible_keys = [
+            form_key,
+            "formRun_" + ("home" if is_home else "away"),
+            "form_" + ("home" if is_home else "away")
+        ]
+        
+        # Procurar em todas as chaves possíveis
+        for key in possible_keys:
+            if key in team_data and team_data[key]:
+                return team_data[key]
+        
+        # Se não encontrou, retorna vazio
+        return ""
+        
+    except Exception as e:
+        logger.error(f"Erro ao extrair forma específica: {str(e)}")
+        return ""
+
+def form_sequence_to_points(form_sequence):
+    """
+    Converte uma sequência de resultados em pontos
+    
+    Args:
+        form_sequence (str): Sequência de resultados (ex: "WDLWW")
+        
+    Returns:
+        tuple: (pontos, sequência recente)
+    """
+    if not form_sequence or len(form_sequence) == 0:
+        return 0, ""
+    
+    points = 0
+    # Pegar apenas os últimos 5 jogos
+    recent_form = form_sequence[-5:] if len(form_sequence) >= 5 else form_sequence
+    
+    for result in recent_form:
+        result = result.upper()
+        if result == 'W':
+            points += 3
+        elif result == 'D':
+            points += 1
+    
+    return points, recent_form
+    
 def generate_justification(market_type, bet_type, team_name, real_prob, implicit_prob, 
                           original_probabilities, home_team, away_team):
     """
