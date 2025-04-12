@@ -143,8 +143,8 @@ def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_da
 
 ### Métricas Expected Goals (xG)
 * {home_team}: 
-  - xG total: {home.get('xg', 0)} | xG em casa: {home.get('', 0)}
-  - xGA total: {home.get('xga', 0)} | xGA em casa: {home.get('a', 0)}
+  - xG total: {home.get('xg', 0)} | xG em casa: {home.get('home_xg', 0)}
+  - xGA total: {home.get('xga', 0)} | xGA em casa: {home.get('home_xga', 0)}
   - xG médio por jogo: {home.get('xg_for_avg_overall', 0)}
 
 * {away_team}: 
@@ -329,18 +329,57 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
             logger.debug(f"Pontuação final da forma: {points}")
             return points  # Valor inteiro
         
+        # Extrair últimos 5 jogos do formRun_overall se disponível
+        home_formRun = home.get('formRun_overall', '')
+        away_formRun = away.get('formRun_overall', '')
         
-        # Definindo as variáveis com os resultados dos últimos jogos
-        home_form = "WDLWW"  # Exemplo para o time da casa
-        away_form = "WDWWL"  # Exemplo para o time visitante
-        # IMPORTANTE: Calcular todas as variáveis antes de usá-las
-        # Primeiro, calculamos os pontos de forma
-        home_form_points = form_to_points(home_form)
-        away_form_points = form_to_points(away_form)
+        # Formatar string de forma corretamente
+        if home_formRun and len(home_formRun) >= 5:
+            home_form = home_formRun[-5:].upper()
+        else:
+            home_form = home.get('form', '?????')
+            
+        if away_formRun and len(away_formRun) >= 5:
+            away_form = away_formRun[-5:].upper()
+        else:
+            away_form = away.get('form', '?????')
+        
+        # E então, ao calcular os pontos, use a função form_to_points atualizada
+        # Modificar onde o cálculo é feito:
+        # Calcular pontos brutos (0-15)
+        # Calcular pontos brutos (0-15)
+        home_form_raw_points = form_to_points(home_form)
+        away_form_raw_points = form_to_points(away_form)
         
         # Normalizar para uso nos cálculos (0-1)
-        home_form_normalized = home_form_points / 15.0
-        away_form_normalized = away_form_points / 15.0
+        home_form_normalized = home_form_raw_points / 15.0
+        away_form_normalized = away_form_raw_points / 15.0
+        
+        # Usar nas ponderações
+        home_total_score = (
+            home_form_normalized * 0.35 +      # Normalizar para 0-1
+            home_stats_score * 0.25 +      # Estatísticas: 25%
+            home_position_score * 0.20 +   # Posição: 20%
+            home_creation * 0.20           # Criação: 20%
+        )
+        
+        # Armazenar os valores brutos e normalizados para uso posterior
+        analysis_data = {
+            "home_consistency": home_consistency,
+            "away_consistency": away_consistency,
+            "home_form_points": home_form_raw_points / 15.0,  # Armazenar como normalizado, mas o valor bruto é usado na exibição
+            "away_form_points": away_form_raw_points / 15.0,
+            "home_total_score": home_total_score,
+            "away_total_score": away_total_score
+        }
+        
+        # E para cálculos, se necessário:
+        home_total_score = (
+            (home_form_points / 15.0) * 0.35 +  # Normalizar para escala 0-1
+            home_stats_score * 0.25 +
+            home_position_score * 0.20 +
+            home_creation * 0.20
+        )
         
         # Team stats score (25%)
         home_xg = home.get('xg', 0)
@@ -355,7 +394,6 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
         away_offensive = (away_xg / max(max_xg, 1)) * 0.6 + (away.get('goals_per_game', 0) / 3) * 0.4
         away_defensive = (1 - min(1, away_xga / max(max_xg, 1))) * 0.6 + (1 - min(1, away.get('conceded_per_game', 0) / 3)) * 0.4
         
-        # IMPORTANTE: Calcular home_stats_score e away_stats_score ANTES de usá-los
         home_stats_score = home_offensive * 0.6 + home_defensive * 0.4
         away_stats_score = away_offensive * 0.6 + away_defensive * 0.4
         
@@ -370,20 +408,42 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
         home_creation = home_offensive * 0.7 + home_possession * 0.3
         away_creation = away_offensive * 0.7 + away_possession * 0.3
         
-        # ONLY NOW - APPLY WEIGHTS with all variables correctly defined
+        # APPLY WEIGHTS
         home_total_score = (
-            home_form_normalized * 0.35 +      # Forma recente: 35%
-            home_stats_score * 0.25 +          # Estatísticas: 25%
-            home_position_score * 0.20 +       # Posição: 20%
-            home_creation * 0.20               # Criação: 20%
+            (home_form_points / 15) * 0.35 +      # Normalizar para 0-1
+            home_stats_score * 0.25 +      # Estatísticas: 25%
+            home_position_score * 0.20 +   # Posição: 20%
+            home_creation * 0.20           # Criação: 20%
         )
         
         away_total_score = (
-            away_form_normalized * 0.35 +      # Forma recente: 35%
-            away_stats_score * 0.25 +          # Estatísticas: 25%
-            away_position_score * 0.20 +       # Posição: 20%
-            away_creation * 0.20               # Criação: 20%
+            away_form_points * 0.35 +      # Recent form: 35%
+            away_stats_score * 0.25 +      # Team stats: 25%
+            away_position_score * 0.20 +   # Position: 20%
+            away_creation * 0.20           # Creation: 20%
         )
+        
+        # 1. Moneyline calculation
+        raw_home_win = home_total_score / (home_total_score + away_total_score) * 0.8
+        raw_away_win = away_total_score / (home_total_score + away_total_score) * 0.8
+        raw_draw = 1 - (raw_home_win + raw_away_win)
+        
+        # Home advantage adjustment
+        home_advantage = 0.12
+        adjusted_home_win = raw_home_win + home_advantage
+        adjusted_away_win = raw_away_win - (home_advantage * 0.5)
+        adjusted_draw = raw_draw - (home_advantage * 0.5)
+        
+        # Normalize to sum to 1
+        total = adjusted_home_win + adjusted_draw + adjusted_away_win
+        home_win_prob = (adjusted_home_win / total) * 100
+        draw_prob = (adjusted_draw / total) * 100
+        away_win_prob = (adjusted_away_win / total) * 100
+        
+        # Round values
+        home_win_prob = round(home_win_prob, 1)
+        draw_prob = round(draw_prob, 1)
+        away_win_prob = round(away_win_prob, 1)
         
         # Calculate team consistency (dispersion)
         home_results = [
@@ -410,38 +470,6 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
             # Fallback if numpy isn't available
             home_consistency = 50
             away_consistency = 50
-        
-        # Armazenar os valores para uso posterior
-        analysis_data = {
-            "home_consistency": home_consistency,
-            "away_consistency": away_consistency,
-            "home_form_points": home_form_points / 15.0,  # Armazenar como normalizado, mas o valor bruto é usado na exibição
-            "away_form_points": away_form_points / 15.0,
-            "home_total_score": home_total_score,
-            "away_total_score": away_total_score
-        }
-        
-        # 1. Moneyline calculation
-        raw_home_win = home_total_score / (home_total_score + away_total_score) * 0.8
-        raw_away_win = away_total_score / (home_total_score + away_total_score) * 0.8
-        raw_draw = 1 - (raw_home_win + raw_away_win)
-        
-        # Home advantage adjustment
-        home_advantage = 0.12
-        adjusted_home_win = raw_home_win + home_advantage
-        adjusted_away_win = raw_away_win - (home_advantage * 0.5)
-        adjusted_draw = raw_draw - (home_advantage * 0.5)
-        
-        # Normalize to sum to 1
-        total = adjusted_home_win + adjusted_draw + adjusted_away_win
-        home_win_prob = (adjusted_home_win / total) * 100
-        draw_prob = (adjusted_draw / total) * 100
-        away_win_prob = (adjusted_away_win / total) * 100
-        
-        # Round values
-        home_win_prob = round(home_win_prob, 1)
-        draw_prob = round(draw_prob, 1)
-        away_win_prob = round(away_win_prob, 1)
         
         # 2. Over/Under 2.5 Goals
         # Use a combination of team goal stats and xG
@@ -1273,40 +1301,18 @@ def calculate_advanced_probabilities(home_team, away_team, league_id='generic', 
     try:
         import math
         import numpy as np  # Adicione esta importação se necessário
-        import logging
-        
-        logger = logging.getLogger("valueHunter.ai")
-        logger.info(f"Calculando probabilidades avançadas para times: {home_team.get('name', 'Home')} vs {away_team.get('name', 'Away')}")
-        
-        # NOVO: Extrair forma específica dos times
-        # Usar a nova função extract_team_specific_form
-        home_specific_form = extract_team_specific_form(home_team, is_home=True)
-        away_specific_form = extract_team_specific_form(away_team, is_home=False)
-        
-        logger.info(f"Forma específica - Casa: {home_specific_form}, Fora: {away_specific_form}")
         
         # 1. Obter fatores específicos da liga
         league_factors = calculate_league_factors(league_id, None)
+        
         
         # 2. Calcular forma recente (35%)
         home_form_points = calculate_form_points(home_team.get('form', 'DLWDL'))
         away_form_points = calculate_form_points(away_team.get('form', 'DWLDL'))
         
-        # Normalizar para uso nos cálculos (0-1)
+        # Normalizar para 0-1
         home_form_normalized = home_form_points / 15.0
         away_form_normalized = away_form_points / 15.0
-        
-        # NOVO: Calcular também pontos específicos
-        home_specific_points = 0
-        away_specific_points = 0
-        
-        if home_specific_form:
-            # Usar função form_sequence_to_points
-            home_specific_points, _ = form_sequence_to_points(home_specific_form)
-        
-        if away_specific_form:
-            # Usar função form_sequence_to_points
-            away_specific_points, _ = form_sequence_to_points(away_specific_form)
         
         # 3. Calcular consistência
         home_consistency = calculate_team_consistency(home_team) / 100.0
@@ -1403,30 +1409,7 @@ def calculate_advanced_probabilities(home_team, away_team, league_id='generic', 
             abs(home_total_score - away_total_score)
         )
         
-        # NOVO: Extrair ou calcular dados de H2H mais detalhados
-        h2h_data = {}
-        
-        # Se temos acesso direto a dados de H2H
-        if 'h2h' in home_team:
-            h2h_data = home_team['h2h']
-        elif 'head_to_head' in home_team:
-            h2h_data = home_team['head_to_head']
-        # Se precisamos construir a partir de dados básicos
-        else:
-            h2h_total = home_team.get('h2h_matches', 0)
-            h2h_data = {
-                'matches': h2h_total,
-                'home_wins': home_team.get('h2h_home_wins', 0),
-                'away_wins': home_team.get('h2h_away_wins', 0),
-                'draws': home_team.get('h2h_draws', 0),
-                'avg_goals': home_team.get('h2h_avg_goals', 2.5),
-                'over_2_5_percentage': home_team.get('h2h_over_2_5_pct', 50),
-                'btts_percentage': home_team.get('h2h_btts_pct', 50),
-                'avg_corners': home_team.get('h2h_avg_corners', 9.5),
-                'avg_cards': home_team.get('h2h_avg_cards', 4.5)
-            }
-        
-        # 11. Retornar resultados completos, agora incluindo forma específica e H2H detalhado
+        # 11. Retornar resultados completos
         return {
             "moneyline": {
                 "home_win": round(home_win_prob * 100, 1),
@@ -1462,32 +1445,11 @@ def calculate_advanced_probabilities(home_team, away_team, league_id='generic', 
                 "under_9_5": round(under_corners_prob * 100, 1),
                 "expected_corners": round(expected_corners, 1)
             },
-            # NOVIDADE 1: Incluir dados específicos do mandante
-            "home_specific": {
-                "home_form": home_specific_form,
-                "home_form_points": home_specific_points,
-                # Adicionar mais campos específicos se desejar
-                "home_wins": home_team.get("home_wins", 0),
-                "home_draws": home_team.get("home_draws", 0),
-                "home_losses": home_team.get("home_losses", 0)
-            },
-            # NOVIDADE 2: Incluir dados específicos do visitante
-            "away_specific": {
-                "away_form": away_specific_form,
-                "away_form_points": away_specific_points,
-                # Adicionar mais campos específicos se desejar
-                "away_wins": away_team.get("away_wins", 0),
-                "away_draws": away_team.get("away_draws", 0),
-                "away_losses": away_team.get("away_losses", 0)
-            },
-            # NOVIDADE 3: Incluir dados de H2H mais detalhados
-            "h2h": h2h_data,
-            # Manter os dados de análise existentes
             "analysis_data": {
                 "home_consistency": round(home_consistency * 100, 1),
                 "away_consistency": round(away_consistency * 100, 1),
-                "home_form_points": home_form_normalized,
-                "away_form_points": away_form_normalized,
+                "home_form_points": home_form_points / 15.0,
+                "away_form_points": away_form_points / 15.0,
                 "home_total_score": round(home_total_score, 2),
                 "away_total_score": round(away_total_score, 2),
                 "home_fatigue": round(home_fatigue * 100, 1),
@@ -2658,91 +2620,3 @@ class AdvancedPredictionSystem:
             self.calibration_data = new_calibration
         else:
             raise ValueError("Sem banco de dados para salvar calibração")
-        
-# Função para extrair forma específica do time
-def extract_team_specific_form(team_data, is_home=True):
-    """
-    Extrai a forma específica do time (como mandante ou visitante)
-    
-    Args:
-        team_data (dict): Dados do time
-        is_home (bool): Se True, extrai forma como mandante; se False, como visitante
-        
-    Returns:
-        str: Sequência de forma (ex: "WDLWW")
-    """
-    try:
-        # Verificar dados específicos para casa/fora
-        form_key = "home_form" if is_home else "away_form"
-        
-        # Tentar diferentes chaves possíveis onde a forma pode estar armazenada
-        possible_keys = [
-            form_key,
-            "formRun_" + ("home" if is_home else "away"),
-            "form_" + ("home" if is_home else "away"),
-            "recent_" + ("home" if is_home else "away") + "_results"
-        ]
-        
-        # Procurar em todas as chaves possíveis
-        for key in possible_keys:
-            if key in team_data and team_data[key]:
-                return team_data[key]
-        
-        # Se não encontrou em nenhuma chave específica, tentar extrair da forma geral
-        # se houver um padrão que indique jogos em casa vs fora
-        if "form_detailed" in team_data:
-            detailed_form = team_data["form_detailed"]
-            if isinstance(detailed_form, list):
-                # Filtrar apenas jogos em casa ou fora
-                filtered_games = [
-                    game["result"] for game in detailed_form 
-                    if ("venue" in game and 
-                        ((is_home and game["venue"] == "home") or 
-                         (not is_home and game["venue"] == "away")))
-                ]
-                
-                if filtered_games:
-                    return "".join(filtered_games[-5:])  # últimos 5 jogos
-        
-        # Como fallback, usar a forma geral, mas adicionar um marcador 
-        # para indicar que não é específica
-        if "form" in team_data and team_data["form"]:
-            general_form = team_data["form"]
-            # Adicionar '?' para indicar que não é específica para casa/fora
-            return general_form + "?"
-            
-        # Se tudo falhar, retornar vazio
-        return ""
-        
-    except Exception as e:
-        import logging
-        logger = logging.getLogger("valueHunter.ai")
-        logger.error(f"Erro ao extrair forma específica: {str(e)}")
-        return ""
-
-# Função para calcular pontos da forma
-def form_sequence_to_points(form_sequence):
-    """
-    Converte uma sequência de resultados em pontos
-    
-    Args:
-        form_sequence (str): Sequência de resultados (ex: "WDLWW")
-        
-    Returns:
-        tuple: (pontos, sequência recente)
-    """
-    if not form_sequence or len(form_sequence) == 0:
-        return 0, ""
-    
-    points = 0
-    # Pegar apenas os últimos 5 jogos
-    recent_form = form_sequence[-5:] if len(form_sequence) >= 5 else form_sequence
-    
-    for result in recent_form:
-        result = result.upper()
-        if result == 'W':
-            points += 3
-        elif result == 'D':
-            points += 1
-    
-    return points, recent_form
