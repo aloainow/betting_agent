@@ -3063,8 +3063,8 @@ def format_text_for_display(text, max_width=70):
 def generate_justification(market_type, bet_type, team_name, real_prob, implicit_prob, 
                           original_probabilities, home_team, away_team):
     """
-    Gera uma justificativa com embasamento estatístico específico para cada mercado
-    garantindo que o texto completo seja preservado e usa os valores corretos de forma.
+    Gera uma justificativa com embasamento estatístico específico para cada mercado,
+    incluindo forma como mandante/visitante e retrospecto de confrontos.
     
     Args:
         market_type (str): Tipo de mercado (moneyline, over_under, etc.)
@@ -3080,23 +3080,22 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
         str: Justificativa personalizada para a oportunidade
     """
     try:
+        import logging
+        logger = logging.getLogger("valueHunter.ai")
+        
         # Dados de análise para extrair informações adicionais
         analysis_data = original_probabilities.get("analysis_data", {})
         margin = real_prob - implicit_prob
         
-        # CORREÇÃO PRINCIPAL: Obter os valores exatos que são usados na seção de nível de confiança
-        # Extrair valores diretamente da estrutura analysis_data
-        
-        # Obter os valores normalizados (0-1)
+        # Obter dados gerais de forma e consistência
         home_form_normalized = analysis_data.get("home_form_points", 0)
         away_form_normalized = analysis_data.get("away_form_points", 0)
         
-        # Calcular os valores em pontos (0-15), exatamente como feito na seção de confiança
-        # Multiplicando por 15 e NÃO arredondando para inteiro, para manter valor exato
+        # Converter para pontos (0-15)
         home_form_points = int(home_form_normalized * 15)
         away_form_points = int(away_form_normalized * 15)
         
-        # Para consistência
+        # Obter consistência
         home_consistency = analysis_data.get("home_consistency", 0)
         if home_consistency <= 1.0:
             home_consistency = home_consistency * 100
@@ -3105,27 +3104,76 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
         if away_consistency <= 1.0:
             away_consistency = away_consistency * 100
         
+        # NOVIDADE: Extrair forma específica (casa/fora) se disponível
+        home_home_form = original_probabilities.get("home_specific", {}).get("home_form", "")
+        away_away_form = original_probabilities.get("away_specific", {}).get("away_form", "")
+        
+        # NOVIDADE: Converter sequência de resultados para pontos
+        def form_sequence_to_points(form_sequence):
+            if not form_sequence or len(form_sequence) == 0:
+                return 0, ""
+            
+            points = 0
+            # Pegar apenas os últimos 5 jogos
+            recent_form = form_sequence[-5:] if len(form_sequence) >= 5 else form_sequence
+            
+            for result in recent_form:
+                result = result.upper()
+                if result == 'W':
+                    points += 3
+                elif result == 'D':
+                    points += 1
+            
+            return points, recent_form
+        
+        # Calcular pontos para forma específica
+        home_home_points, home_home_sequence = form_sequence_to_points(home_home_form)
+        away_away_points, away_away_sequence = form_sequence_to_points(away_away_form)
+        
+        # NOVIDADE: Obter dados de confrontos diretos
+        h2h_data = original_probabilities.get("h2h", {})
+        h2h_total = h2h_data.get("matches", 0)
+        h2h_home_wins = h2h_data.get("home_wins", 0)
+        h2h_away_wins = h2h_data.get("away_wins", 0)
+        h2h_draws = h2h_data.get("draws", 0)
+        
         # 1. MONEYLINE (1X2)
         if market_type == "moneyline":
             # Vitória do time da casa
             if bet_type == "home_win":
-                justification = f"Time da casa com {home_form_points}/15 pts na forma recente e {home_consistency:.1f}% de consistência. "
+                justification = f"Time da casa com {home_form_points}/15 pts na forma geral e {home_consistency:.1f}% de consistência. "
+                
+                # NOVIDADE: Adicionar forma específica em casa se disponível
+                if home_home_sequence:
+                    justification += f"Como mandante: sequência {home_home_sequence} ({home_home_points}/15 pts). "
+                
+                # NOVIDADE: Adicionar retrospecto se houver dados suficientes
+                if h2h_total >= 3:
+                    justification += f"No histórico de {h2h_total} confrontos: {h2h_home_wins} vitórias do {home_team}, {h2h_draws} empates e {h2h_away_wins} vitórias do {away_team}. "
                 
                 # Adicionar estatísticas de gols se disponíveis
                 if "over_under" in original_probabilities:
                     expected_goals = original_probabilities["over_under"].get("expected_goals", 0)
-                    if 0 < expected_goals < 10:  # Validação de sanidade
+                    if 0 < expected_goals < 10:
                         justification += f"Previsão de {expected_goals:.2f} gols na partida favorece time ofensivo. "
                 
                 justification += f"Odds de {implicit_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
                 
             # Vitória do time visitante
             elif bet_type == "away_win":
-                justification = f"Time visitante com {away_form_points}/15 pts na forma recente e {away_consistency:.1f}% de consistência. "
+                justification = f"Time visitante com {away_form_points}/15 pts na forma geral e {away_consistency:.1f}% de consistência. "
+                
+                # NOVIDADE: Adicionar forma específica fora de casa se disponível
+                if away_away_sequence:
+                    justification += f"Como visitante: sequência {away_away_sequence} ({away_away_points}/15 pts). "
+                
+                # NOVIDADE: Adicionar retrospecto se houver dados suficientes
+                if h2h_total >= 3:
+                    justification += f"No histórico de {h2h_total} confrontos: {h2h_home_wins} vitórias do {home_team}, {h2h_draws} empates e {h2h_away_wins} vitórias do {away_team}. "
                 
                 if "over_under" in original_probabilities:
                     expected_goals = original_probabilities["over_under"].get("expected_goals", 0)
-                    if 0 < expected_goals < 10:  # Validação de sanidade
+                    if 0 < expected_goals < 10:
                         justification += f"Previsão de {expected_goals:.2f} gols na partida. "
                     
                 justification += f"Odds de {implicit_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
@@ -3134,26 +3182,58 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
             elif bet_type == "draw":
                 avg_consistency = (home_consistency + away_consistency) / 2
                 justification = f"Equilíbrio entre as equipes, consistência média de {avg_consistency:.1f}%. "
+                
+                # NOVIDADE: Adicionar retrospecto de empates se houver dados suficientes
+                if h2h_total >= 3:
+                    draw_pct = (h2h_draws / h2h_total) * 100 if h2h_total > 0 else 0
+                    justification += f"Histórico de {h2h_draws} empates em {h2h_total} confrontos ({draw_pct:.1f}%). "
+                
                 justification += f"Odds de {implicit_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
         
         # 2. CHANCE DUPLA (DOUBLE CHANCE)
         elif market_type == "double_chance":
             if bet_type == "home_or_draw":
-                justification = f"Vantagem de jogar em casa para {home_team} (forma: {home_form_points}/15 pts). "
+                justification = f"Vantagem de jogar em casa para {home_team} (forma geral: {home_form_points}/15 pts). "
+                
+                # NOVIDADE: Adicionar forma específica em casa se disponível
+                if home_home_sequence:
+                    justification += f"Como mandante: sequência {home_home_sequence} ({home_home_points}/15 pts). "
+                
+                # NOVIDADE: Adicionar retrospecto se houver dados suficientes
+                if h2h_total >= 3:
+                    home_or_draw_pct = ((h2h_home_wins + h2h_draws) / h2h_total) * 100 if h2h_total > 0 else 0
+                    justification += f"Histórico: {home_team} não perdeu em {h2h_home_wins + h2h_draws} de {h2h_total} confrontos ({home_or_draw_pct:.1f}%). "
+                
                 justification += f"Probabilidade de {real_prob:.1f}% do time da casa não perder, "
                 justification += f"contra apenas {implicit_prob:.1f}% implicada pelas odds."
                 
             elif bet_type == "away_or_draw":
-                justification = f"Vantagem para {away_team} visitante (forma: {away_form_points}/15 pts). "
+                justification = f"Vantagem para {away_team} visitante (forma geral: {away_form_points}/15 pts). "
+                
+                # NOVIDADE: Adicionar forma específica fora de casa se disponível
+                if away_away_sequence:
+                    justification += f"Como visitante: sequência {away_away_sequence} ({away_away_points}/15 pts). "
+                
+                # NOVIDADE: Adicionar retrospecto se houver dados suficientes
+                if h2h_total >= 3:
+                    away_or_draw_pct = ((h2h_away_wins + h2h_draws) / h2h_total) * 100 if h2h_total > 0 else 0
+                    justification += f"Histórico: {away_team} não perdeu em {h2h_away_wins + h2h_draws} de {h2h_total} confrontos ({away_or_draw_pct:.1f}%). "
+                
                 justification += f"Probabilidade de {real_prob:.1f}% do time visitante não perder, "
                 justification += f"contra apenas {implicit_prob:.1f}% implicada pelas odds."
                 
             elif bet_type == "home_or_away":
                 justification = f"Baixa probabilidade de empate entre as equipes. "
+                
+                # NOVIDADE: Adicionar retrospecto se houver dados suficientes
+                if h2h_total >= 3:
+                    no_draw_pct = ((h2h_home_wins + h2h_away_wins) / h2h_total) * 100 if h2h_total > 0 else 0
+                    justification += f"Histórico: Apenas {h2h_draws} empates em {h2h_total} confrontos ({100-no_draw_pct:.1f}% de empates). "
+                
                 justification += f"Chance de {real_prob:.1f}% de algum time vencer, "
                 justification += f"contra apenas {implicit_prob:.1f}% implicada pelas odds."
         
-        # Resto da função permanece igual...
+        # O resto da função permanece igual para os outros mercados...
         # 3. OVER/UNDER
         elif market_type == "over_under":
             if "over_under" in original_probabilities:
@@ -3163,6 +3243,10 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
                 if not (0 < expected_goals < 10):
                     # Valor fora do intervalo razoável
                     expected_goals = 2.5  # Valor default razoável
+                
+                # NOVIDADE: Adicionar retrospecto de gols se disponível
+                h2h_avg_goals = h2h_data.get("avg_goals", 0)
+                h2h_over_pct = h2h_data.get("over_2_5_percentage", 0)
                 
                 if bet_type.startswith("over_"):
                     threshold = bet_type.replace("over_", "").replace("_", ".")
@@ -3175,6 +3259,12 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
                         comparison = "próximo"
                     
                     justification = f"Previsão de {expected_goals:.2f} gols na partida, {comparison} do threshold de {threshold}. "
+                    
+                    # NOVIDADE: Adicionar dados de H2H
+                    if h2h_total >= 3 and h2h_avg_goals > 0:
+                        justification += f"Média de {h2h_avg_goals:.1f} gols nos confrontos diretos. "
+                        if threshold_value == 2.5 and h2h_over_pct > 0:
+                            justification += f"Over {threshold} ocorreu em {h2h_over_pct:.1f}% dos confrontos. "
                     
                     if "home_team" in original_probabilities and "away_team" in original_probabilities:
                         justification += f"Times com tendência ofensiva combinada. "
@@ -3193,6 +3283,13 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
                     
                     justification = f"Previsão de {expected_goals:.2f} gols na partida, {comparison} do threshold de {threshold}. "
                     
+                    # NOVIDADE: Adicionar dados de H2H
+                    if h2h_total >= 3 and h2h_avg_goals > 0:
+                        justification += f"Média de {h2h_avg_goals:.1f} gols nos confrontos diretos. "
+                        if threshold_value == 2.5 and h2h_over_pct > 0:
+                            under_pct = 100 - h2h_over_pct
+                            justification += f"Under {threshold} ocorreu em {under_pct:.1f}% dos confrontos. "
+                    
                     if "home_team" in original_probabilities and "away_team" in original_probabilities:
                         justification += f"Times com tendência defensiva combinada. "
                         
@@ -3201,8 +3298,15 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
         # 4. BTTS (AMBOS MARCAM)
         elif market_type == "btts":
             if "btts" in original_probabilities:
+                # NOVIDADE: Adicionar retrospecto de BTTS se disponível
+                h2h_btts_pct = h2h_data.get("btts_percentage", 0)
+                
                 if bet_type == "yes":
                     justification = f"Ambas equipes com potencial ofensivo para marcar. "
+                    
+                    # NOVIDADE: Adicionar dados de H2H para BTTS
+                    if h2h_total >= 3 and h2h_btts_pct > 0:
+                        justification += f"Ambos marcaram em {h2h_btts_pct:.1f}% dos confrontos diretos. "
                     
                     if "over_under" in original_probabilities:
                         expected_goals = original_probabilities["over_under"].get("expected_goals", 0)
@@ -3213,6 +3317,11 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
                     
                 else:  # No
                     justification = f"Pelo menos uma equipe deve manter clean sheet. "
+                    
+                    # NOVIDADE: Adicionar dados de H2H para não BTTS
+                    if h2h_total >= 3 and h2h_btts_pct > 0:
+                        no_btts_pct = 100 - h2h_btts_pct
+                        justification += f"Pelo menos um time não marcou em {no_btts_pct:.1f}% dos confrontos diretos. "
                     
                     if "over_under" in original_probabilities:
                         expected_goals = original_probabilities["over_under"].get("expected_goals", 0)
@@ -3225,6 +3334,9 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
         elif market_type == "corners":
             if "corners" in original_probabilities:
                 expected_corners = original_probabilities["corners"].get("expected_corners", 0)
+                
+                # NOVIDADE: Adicionar retrospecto de escanteios se disponível
+                h2h_avg_corners = h2h_data.get("avg_corners", 0)
                 
                 # Validar valor de expected_corners (normalmente entre 6 e 15)
                 if not (3 < expected_corners < 20):
@@ -3245,6 +3357,11 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
                         comparison = "próximo"
                     
                     justification = f"Previsão de {expected_corners:.1f} escanteios na partida, {comparison} do threshold de {threshold}. "
+                    
+                    # NOVIDADE: Adicionar dados de H2H para escanteios
+                    if h2h_total >= 3 and h2h_avg_corners > 0:
+                        justification += f"Média de {h2h_avg_corners:.1f} escanteios nos confrontos diretos. "
+                    
                     justification += f"Probabilidade real de {real_prob:.1f}% vs implícita de {implicit_prob:.1f}%."
                     
                 else:  # Under
@@ -3258,12 +3375,20 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
                         comparison = "próximo"
                     
                     justification = f"Previsão de {expected_corners:.1f} escanteios na partida, {comparison} do threshold de {threshold}. "
+                    
+                    # NOVIDADE: Adicionar dados de H2H para escanteios
+                    if h2h_total >= 3 and h2h_avg_corners > 0:
+                        justification += f"Média de {h2h_avg_corners:.1f} escanteios nos confrontos diretos. "
+                    
                     justification += f"Probabilidade real de {real_prob:.1f}% vs implícita de {implicit_prob:.1f}%."
         
         # 6. CARTÕES
         elif market_type == "cards":
             if "cards" in original_probabilities:
                 expected_cards = original_probabilities["cards"].get("expected_cards", 0)
+                
+                # NOVIDADE: Adicionar retrospecto de cartões se disponível
+                h2h_avg_cards = h2h_data.get("avg_cards", 0)
                 
                 # Validar valor de expected_cards (normalmente entre 2 e 8)
                 if not (1 < expected_cards < 10):
@@ -3284,6 +3409,11 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
                         comparison = "próximo"
                     
                     justification = f"Previsão de {expected_cards:.1f} cartões na partida, {comparison} do threshold de {threshold}. "
+                    
+                    # NOVIDADE: Adicionar dados de H2H para cartões
+                    if h2h_total >= 3 and h2h_avg_cards > 0:
+                        justification += f"Média de {h2h_avg_cards:.1f} cartões nos confrontos diretos. "
+                    
                     justification += f"Probabilidade real de {real_prob:.1f}% vs implícita de {implicit_prob:.1f}%."
                     
                 else:  # Under
@@ -3297,6 +3427,11 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
                         comparison = "próximo"
                     
                     justification = f"Previsão de {expected_cards:.1f} cartões na partida, {comparison} do threshold de {threshold}. "
+                    
+                    # NOVIDADE: Adicionar dados de H2H para cartões
+                    if h2h_total >= 3 and h2h_avg_cards > 0:
+                        justification += f"Média de {h2h_avg_cards:.1f} cartões nos confrontos diretos. "
+                    
                     justification += f"Probabilidade real de {real_prob:.1f}% vs implícita de {implicit_prob:.1f}%."
         
         # JUSTIFICATIVA GENÉRICA PARA OUTROS MERCADOS
@@ -3309,6 +3444,17 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
                 justification = f"Vantagem estatística de {margin:.1f}% entre probabilidade real ({real_prob:.1f}%) e odds oferecidas ({implicit_prob:.1f}%)."
         
         return justification
+        
+    except Exception as e:
+        # Log do erro (opcional)
+        import traceback
+        import logging
+        logger = logging.getLogger("valueHunter.ai")
+        logger.error(f"Erro na geração de justificativa: {str(e)}")
+        logger.error(traceback.format_exc())
+        
+        # Retornar uma justificativa genérica em caso de erro
+        return f"Valor estatístico significativo de {real_prob-implicit_prob:.1f}% acima da probabilidade implícita nas odds."
         
     except Exception as e:
         # Log do erro (opcional)
