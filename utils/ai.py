@@ -386,8 +386,6 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
             "away_consistency": away_consistency,
             "home_form_points": home_form_points / 15.0,
             "away_form_points": away_form_points / 15.0,
-            "home_total_score": home_total_score,
-            "away_total_score": away_total_score,
             # Adicionar também o tipo de forma explicitamente
             "home_form_type": "como mandante",
             "away_form_type": "como visitante"
