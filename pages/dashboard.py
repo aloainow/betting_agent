@@ -1272,9 +1272,9 @@ def show_main_dashboard():
             
         # Adicionar estado para controlar a sidebar
         # Versão melhorada do toggle de sidebar com melhor posicionamento de ícones
-# Adicionar estado para controlar a sidebar
-if 'sidebar_expanded' not in st.session_state:
-    st.session_state.sidebar_expanded = True  # Começa expandido
+        # Adicionar estado para controlar a sidebar
+        if 'sidebar_expanded' not in st.session_state:
+            st.session_state.sidebar_expanded = True  # Começa expandido
 
 # Definir larguras baseadas no estado
 sidebar_width_expanded = "280px"
