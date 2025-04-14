@@ -354,7 +354,33 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
         optimized_data["home_team"]["form_type"] = "como mandante"
         optimized_data["away_team"]["form_type"] = "como visitante"
         
-        # Quando for inserir no analysis_data, incluir estes valores específicos:
+        try:
+            # Usar a função numpy std para calcular o desvio padrão
+            home_results = [
+                home.get('win_pct', 0) / 100,
+                home.get('draw_pct', 0) / 100,
+                home.get('loss_pct', 0) / 100
+            ]
+            
+            away_results = [
+                away.get('win_pct', 0) / 100,
+                away.get('draw_pct', 0) / 100,
+                away.get('loss_pct', 0) / 100
+            ]
+            
+            # Calculate standard deviation for dispersion
+            home_dispersion = np.std(home_results) * 3
+            away_dispersion = np.std(away_results) * 3
+            
+            # Convert to consistency (inverse of dispersion)
+            home_consistency = (1 - min(1, home_dispersion)) * 100
+            away_consistency = (1 - min(1, away_dispersion)) * 100
+        except:
+            # Fallback apenas para esse caso
+            home_consistency = 50
+            away_consistency = 50
+        
+        # Agora usar as variáveis definidas
         analysis_data = {
             "home_consistency": home_consistency,
             "away_consistency": away_consistency,
@@ -362,8 +388,9 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
             "away_form_points": away_form_points / 15.0,
             "home_total_score": home_total_score,
             "away_total_score": away_total_score,
-            "home_form_type": "como mandante",  # Adicionar explicitamente
-            "away_form_type": "como visitante"   # Adicionar explicitamente
+            # Adicionar também o tipo de forma explicitamente
+            "home_form_type": "como mandante",
+            "away_form_type": "como visitante"
         }
         
         # Team stats score (25%)
