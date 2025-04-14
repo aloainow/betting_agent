@@ -260,10 +260,10 @@ def format_opportunities_section(section):
                         # Construir linhas subsequentes
                         if word_index < len(words):
                             # Criar uma string com as palavras restantes
-                            remaining_words = words[word_index:]
+                            reing_words = words[word_index:]
                             current_line = "    "  # 4 espaços de indentação
                             
-                            for word in remaining_words:
+                            for word in reing_words:
                                 if len(current_line + word) + 1 <= 70:  # +1 para o espaço
                                     if current_line == "    ":
                                         current_line += word
@@ -1133,7 +1133,7 @@ def show_usage_stats():
         st.sidebar.markdown(f"### Olá, {user_name}!")
         
         st.sidebar.markdown("### Estatísticas de Uso")
-        st.sidebar.markdown(f"**Créditos Restantes:** {stats['credits_remaining']}")
+        st.sidebar.markdown(f"**Créditos Restantes:** {stats['credits_reing']}")
         
         # Add progress bar for credits
         if stats['credits_total'] > 0:
@@ -1161,9 +1161,9 @@ def check_analysis_limits(selected_markets):
         stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
         
         # Check if user has enough credits
-        remaining_credits = stats['credits_remaining']
+        reing_credits = stats['credits_reing']
         
-        if num_markets > remaining_credits:
+        if num_markets > reing_credits:
             # Special handling for Free tier
             if stats['tier'] == 'free':
                 st.error(f"❌ Você esgotou seus 5 créditos gratuitos.")
@@ -1239,58 +1239,128 @@ def show_main_dashboard():
             st.experimental_rerun()
             return
             
-        # Código para o toggle da sidebar
+        # Adicionar estado para controlar a sidebar
         if 'sidebar_expanded' not in st.session_state:
             st.session_state.sidebar_expanded = True  # Começa expandido
 
-        # Adicionar o botão de toggle no topo da sidebar
-        if st.sidebar.button("≡", key="toggle_sidebar", help="Expandir/Retrair menu"):
+        # Definir larguras baseadas no estado
+        sidebar_width_expanded = "280px"
+        sidebar_width_collapsed = "60px"
+        current_width = sidebar_width_expanded if st.session_state.sidebar_expanded else sidebar_width_collapsed
+            
+        # Aplicar CSS baseado no estado atual
+        sidebar_style = f"""
+        <style>
+            /* Estilo base da sidebar */
+            [data-testid="stSidebar"] {{
+                display: block !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                transition: width 0.3s ease-in-out !important;
+                width: {current_width} !important;
+                max-width: {current_width} !important;
+                min-width: {current_width} !important;
+                position: relative;
+            }}
+            
+            /* Botão toggle (pré-posicionado por CSS) */
+            .sidebar-toggle {{
+                position: absolute;
+                top: 50%;
+                right: -15px;
+                width: 30px;
+                height: 30px;
+                background-color: #FF5500;
+                color: white;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                z-index: 999;
+                transform: translateY(-50%);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+                border: none;
+                font-weight: bold;
+            }}
+        
+            .sidebar-toggle:hover {{
+                background-color: #E54D00;
+            }}
+            
+            /* Ajustar padding para melhor aproveitamento do espaço */
+            [data-testid="stSidebar"] .block-container {{
+                padding-left: 15px !important;
+                padding-right: 15px !important;
+            }}
+        </style>
+        """
+
+        st.markdown(sidebar_style, unsafe_allow_html=True)
+
+        # Injetar o botão toggle via JavaScript depois que a página estiver carregada
+        toggle_button_js = f"""
+        <script>
+            // Função para criar e inserir o botão toggle
+            function createToggleButton() {{
+                // Verificar se o botão já existe
+                if (document.getElementById('sidebar-toggle-btn')) {{
+                    return;
+                }}
+                
+                // Criar o botão
+                const toggleBtn = document.createElement('button');
+                toggleBtn.id = 'sidebar-toggle-btn';
+                toggleBtn.className = 'sidebar-toggle';
+                toggleBtn.innerHTML = '{{"<" if st.session_state.sidebar_expanded else ">"}}';
+                toggleBtn.onclick = function() {{
+                    // Usar query params para comunicar com o Streamlit backend
+                    const urlParams = new URLSearchParams(window.location.search);
+                    urlParams.set('sidebar_toggle', 'true');
+                    window.location.search = urlParams.toString();
+                }};
+                
+                // Encontrar a sidebar
+                const sidebar = document.querySelector('[data-testid="stSidebar"]');
+                if (sidebar) {{
+                    sidebar.appendChild(toggleBtn);
+                    console.log("Toggle button added to sidebar");
+                }}
+            }}
+            
+            // Tentar criar o botão imediatamente
+            createToggleButton();
+            
+            // Tentar novamente após a página terminar de carregar
+            document.addEventListener('DOMContentLoaded', function() {{
+                createToggleButton();
+                // E tentar mais algumas vezes após pequenos intervalos
+                setTimeout(createToggleButton, 500);
+                setTimeout(createToggleButton, 1000);
+                setTimeout(createToggleButton, 2000);
+            }});
+            
+            // Usar MutationObserver para detectar mudanças no DOM
+            const observer = new MutationObserver(function(mutations) {{
+                createToggleButton();
+            }});
+            
+            // Observar o documento inteiro para mudanças na estrutura
+            observer.observe(document.body, {{ childList: true, subtree: true }});
+            
+            // Limitar o tempo de observação para não afetar o desempenho
+            setTimeout(function() {{ observer.disconnect(); }}, 5000);
+        </script>
+        """
+        
+        st.markdown(toggle_button_js, unsafe_allow_html=True)
+
+        # Verificar se o botão foi clicado através dos query params
+        if 'sidebar_toggle' in st.query_params:
             st.session_state.sidebar_expanded = not st.session_state.sidebar_expanded
+            # Limpar query param após uso
+            del st.query_params['sidebar_toggle']
             st.experimental_rerun()
-            
-        # Conteúdo condicional da sidebar
-        if st.session_state.sidebar_expanded:
-            # Mostrar o conteúdo completo da sidebar
-            show_usage_stats()
-            selected_league = get_league_selection()
-            
-            # Adicionar nota sobre o carregamento automático
-            st.sidebar.info("Os times são carregados automaticamente ao selecionar uma liga.")
-            
-            # Separador para a barra lateral
-            st.sidebar.markdown("---")
-            
-            # Botão de pacotes e logout
-            if st.sidebar.button("🚀 Ver Pacotes de Créditos", key="sidebar_packages_button", use_container_width=True):
-                st.session_state.page = "packages"
-                st.experimental_rerun()
-            
-            if st.sidebar.button("Logout", key="sidebar_logout_btn", use_container_width=True):
-                st.session_state.authenticated = False
-                st.session_state.email = None
-                st.session_state.page = "landing"
-                st.experimental_rerun()
-        else:
-            # Versão compacta da sidebar - apenas ícones
-            st.sidebar.markdown("<div style='text-align:center; margin-bottom:20px;'>VH</div>", unsafe_allow_html=True)
-            
-            # Ícones para funções principais
-            if st.sidebar.button("🏠", key="home_icon", help="Página inicial"):
-                # Recarregar página principal
-                st.experimental_rerun()
-            
-            if st.sidebar.button("🚀", key="packages_icon", help="Ver pacotes"):
-                st.session_state.page = "packages"
-                st.experimental_rerun()
-            
-            if st.sidebar.button("🚪", key="logout_icon", help="Logout"):
-                st.session_state.authenticated = False
-                st.session_state.email = None
-                st.session_state.page = "landing"
-                st.experimental_rerun()
-            
-            # Definir a liga selecionada mesmo quando a sidebar está retraída
-            selected_league = st.session_state.selected_league if hasattr(st.session_state, 'selected_league') else None
         
         # Iniciar com log de diagnóstico
         logger.info("Iniciando renderização do dashboard principal")     
