@@ -1386,84 +1386,44 @@ def show_main_dashboard():
         # ------------------------------------------------------------
         
         # Adicionar uma classe para controlar a visibilidade do conteúdo
-        if st.session_state.sidebar_expanded:
-            st.markdown('<div class="sidebar-content">', unsafe_allow_html=True)
-            
-            # 1. Mostrar estatísticas de uso e saudação
-            show_usage_stats()
-            
-            # 2. Escolha da liga (usando função auxiliar)
-            selected_league = get_league_selection()
-            if not selected_league:
-                st.error("Não foi possível selecionar uma liga. Por favor, verifique a configuração.")
-                return
-            
-            # Adicionar nota sobre o carregamento automático
-            st.sidebar.info("Os times são carregados automaticamente ao selecionar uma liga.")
-            
-            # Separador para a barra lateral
-            st.sidebar.markdown("---")
-            
-            # Botão de pacotes e logout
-            if st.sidebar.button("🚀 Ver Pacotes de Créditos", key="sidebar_packages_button", use_container_width=True):
+        if not st.session_state.sidebar_expanded:
+        # CSS para reduzir a largura da sidebar
+        st.markdown(
+            """
+            <style>
+                [data-testid="stSidebar"] {
+                    width: 60px !important;
+                    min-width: 60px !important;
+                    max-width: 60px !important;
+                }
+            </style>
+            """, 
+            unsafe_allow_html=True
+        )
+        
+        # Texto centralizado no topo
+        st.markdown('<div style="text-align: center; color: #FF5500;">VH</div>', unsafe_allow_html=True)
+        
+        # Ícones de navegação em colunas
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            if st.button("🏠", key="sidebar_icon_home", use_container_width=True):
+                # Recarregar a página principal
+                st.experimental_rerun()
+        
+        with col2:
+            if st.button("🚀", key="sidebar_icon_package", use_container_width=True):
+                # Ir para página de pacotes
                 st.session_state.page = "packages"
                 st.experimental_rerun()
-            
-            if st.sidebar.button("Logout", key="sidebar_logout_btn", use_container_width=True):
+        
+        with col3:
+            if st.button("🚪", key="sidebar_icon_logout", use_container_width=True):
+                # Fazer logout
                 st.session_state.authenticated = False
                 st.session_state.email = None
                 st.session_state.page = "landing"
-                st.experimental_rerun()
-                
-            # Fechamento da div de conteúdo da sidebar
-            st.markdown('</div>', unsafe_allow_html=True)
-        else:
-            # Versão minimizada da sidebar - apenas ícones
-            st.markdown('<div style="text-align: center; padding-top: 20px;">', unsafe_allow_html=True)
-            st.markdown('<span style="font-size: 24px; color: #FF5500;">VH</span>', unsafe_allow_html=True)
-            
-            # Adicionar ícones minimalistas para as principais funções
-            st.markdown("""
-            <div style="display: flex; flex-direction: column; align-items: center; margin-top: 30px; gap: 20px;">
-                <a href="#" id="sidebar_icon_home" style="color: white; font-size: 20px;">🏠</a>
-                <a href="#" id="sidebar_icon_package" style="color: white; font-size: 20px;">🚀</a>
-                <a href="#" id="sidebar_icon_logout" style="color: white; font-size: 20px;">🚪</a>
-            </div>
-            <script>
-                document.getElementById('sidebar_icon_package').addEventListener('click', function(e) {
-                    e.preventDefault();
-                    // Redirecionar para a página de pacotes
-                    const urlParams = new URLSearchParams(window.location.search);
-                    urlParams.set('page', 'packages');
-                    window.location.search = urlParams.toString();
-                });
-                document.getElementById('sidebar_icon_logout').addEventListener('click', function(e) {
-                    e.preventDefault();
-                    // Executar logout
-                    const urlParams = new URLSearchParams(window.location.search);
-                    urlParams.set('logout', 'true');
-                    window.location.search = urlParams.toString();
-                });
-                document.getElementById('sidebar_icon_home').addEventListener('click', function(e) {
-                    e.preventDefault();
-                    // Recarregar a página principal
-                    window.location.href = window.location.pathname;
-                });
-            </script>
-            """, unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            # Lidar com redirecionamentos dos ícones através de query params
-            if 'page' in st.query_params and st.query_params['page'] == 'packages':
-                st.session_state.page = "packages"
-                del st.query_params['page']
-                st.experimental_rerun()
-                
-            if 'logout' in st.query_params:
-                st.session_state.authenticated = False
-                st.session_state.email = None
-                st.session_state.page = "landing"
-                del st.query_params['logout']
                 st.experimental_rerun()
                 
             # Definir a liga selecionada mesmo quando a sidebar está recolhida
