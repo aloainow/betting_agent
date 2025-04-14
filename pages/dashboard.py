@@ -1279,7 +1279,7 @@ def show_main_dashboard():
         sidebar_width_collapsed = "60px"
         current_width = sidebar_width_expanded if st.session_state.sidebar_expanded else sidebar_width_collapsed
             
-        # Aplicar CSS baseado no estado atual
+        # Aplicar CSS baseado no estado atual# Aplicar CSS baseado no estado atual - VERSÃO APRIMORADA COM SINTAXE CORRIGIDA
         sidebar_style = f"""
         <style>
             /* Estilo base da sidebar */
@@ -1335,25 +1335,25 @@ def show_main_dashboard():
         
         <script>
             // Script aprimorado para gerenciar o botão de toggle
-            document.addEventListener('DOMContentLoaded', function() {
+            document.addEventListener('DOMContentLoaded', function() {{
                 console.log("DOM loaded, setting up toggle button");
                 
                 // Função para inicializar o botão
-                function setupToggleButton() {
+                function setupToggleButton() {{
                     const toggleBtn = document.getElementById('sidebar-toggle-btn');
-                    if (toggleBtn) {
+                    if (toggleBtn) {{
                         console.log("Toggle button found, adding click handler");
-                        toggleBtn.onclick = function() {
+                        toggleBtn.onclick = function() {{
                             console.log("Toggle button clicked");
                             // Usar query params para comunicar com o Streamlit backend
                             const urlParams = new URLSearchParams(window.location.search);
                             urlParams.set('sidebar_toggle', 'true');
                             window.location.search = urlParams.toString();
-                        };
-                    } else {
+                        }};
+                    }} else {{
                         console.log("Toggle button not found yet");
-                    }
-                }
+                    }}
+                }}
                 
                 // Tentar configurar imediatamente
                 setupToggleButton();
@@ -1362,7 +1362,7 @@ def show_main_dashboard():
                 setTimeout(setupToggleButton, 300);
                 setTimeout(setupToggleButton, 1000);
                 setTimeout(setupToggleButton, 2000);
-            });
+            }});
         </script>
         """
         
