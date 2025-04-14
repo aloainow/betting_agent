@@ -126,6 +126,70 @@ if password == ADMIN_PASSWORD:
             tier_emoji = "🆓" if tier == "free" else "💎"
             st.write(f"{tier_emoji} **{name}** ({email}) - Pacote: {tier.capitalize()}, Créditos: {credits}, Verificado: {verified}")
 
+        # Adicionar seção de gerenciamento de cache
+        st.header("Gerenciamento de Cache")
+        
+        # Importar a função de limpeza de cache
+        try:
+            from pages.dashboard import clear_cache
+            
+            # Adicionar opções de limpeza
+            cache_col1, cache_col2, cache_col3 = st.columns(3)
+            
+            with cache_col1:
+                if st.button("🧹 Limpar Todo o Cache", type="primary", use_container_width=True):
+                    num_cleared = clear_cache()
+                    st.success(f"✅ Cache limpo com sucesso! {num_cleared} arquivos removidos.")
+                    st.info("O cache incluía arquivos de times, estatísticas e requisições API.")
+            
+            with cache_col2:
+                # Botão para limpar apenas cache de times
+                if st.button("🧹 Limpar Cache de Times", use_container_width=True):
+                    import os
+                    import glob
+                    from utils.core import DATA_DIR
+                    
+                    # Diretório de cache de times
+                    teams_cache_dir = os.path.join(DATA_DIR, "teams_cache")
+                    cleared = 0
+                    
+                    if os.path.exists(teams_cache_dir):
+                        for cache_file in glob.glob(os.path.join(teams_cache_dir, "*.json")):
+                            try:
+                                os.remove(cache_file)
+                                cleared += 1
+                            except Exception as e:
+                                logger.error(f"Erro ao remover {cache_file}: {str(e)}")
+                    
+                    st.success(f"✅ Cache de times limpo: {cleared} arquivos removidos.")
+            
+            with cache_col3:
+                # Botão para limpar cache de uma liga específica
+                from utils.footystats_api import get_user_selected_leagues_direct, clear_league_cache
+                leagues = get_user_selected_leagues_direct()
+                
+                selected_league = st.selectbox("Selecione uma liga", options=leagues)
+                
+                if st.button("🧹 Limpar Cache desta Liga", use_container_width=True):
+                    try:
+                        num_cleared = clear_league_cache(selected_league)
+                        st.success(f"✅ Cache da liga {selected_league} limpo: {num_cleared} arquivos removidos.")
+                    except Exception as e:
+                        st.error(f"Erro ao limpar cache da liga: {str(e)}")
+            
+            # Adicionar informações sobre o cache
+            st.info("""
+            **Informações sobre o Cache:**
+            - A limpeza do cache força o sistema a buscar dados atualizados.
+            - Útil quando houver erros ou quando quiser garantir dados recentes.
+            - O cache de times armazena listas de times por liga.
+            - O cache de requisições armazena respostas da API FootyStats.
+            
+            **Observação:** Após limpar o cache, pode haver um pequeno atraso na próxima execução enquanto os dados são recarregados.
+            """)
+        except ImportError as e:
+            st.error(f"Não foi possível importar a função de limpeza de cache: {str(e)}")
+            st.info("Verifique se a função clear_cache está disponível no módulo 'pages.dashboard'.")
         # Nova seção: Gerenciamento de Usuários
         st.header("Gerenciamento de Usuários")
 
