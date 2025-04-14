@@ -927,6 +927,34 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
                 if "btts_no" in implied_probabilities:
                     btts_no_odd = 100.0 / implied_probabilities["btts_no"]
                     markets_section += f"  - Não: @{btts_no_odd:.2f}\n"
+                    
+            if selected_markets.get("over_under") and implied_probabilities:
+                markets_section += "- **Over/Under 2.5 Gols:**\n"
+                if "over_2_5" in implied_probabilities:
+                    over_odd = 100.0 / implied_probabilities["over_2_5"]
+                    markets_section += f"  - Over 2.5: @{over_odd:.2f}\n"
+                if "under_2_5" in implied_probabilities:
+                    under_odd = 100.0 / implied_probabilities["under_2_5"]
+                    markets_section += f"  - Under 2.5: @{under_odd:.2f}\n"
+                    
+            if selected_markets.get("escanteios") and implied_probabilities:
+                markets_section += "- **Escanteios (Over/Under 9.5):**\n"
+                if "over_9_5_corners" in implied_probabilities:
+                    over_odd = 100.0 / implied_probabilities["over_9_5_corners"]
+                    markets_section += f"  - Over 9.5: @{over_odd:.2f}\n"
+                if "under_9_5_corners" in implied_probabilities:
+                    under_odd = 100.0 / implied_probabilities["under_9_5_corners"]
+                    markets_section += f"  - Under 9.5: @{under_odd:.2f}\n"
+                    
+            if selected_markets.get("cartoes") and implied_probabilities:
+                markets_section += "- **Cartões (Over/Under 3.5):**\n"
+                if "over_3_5_cards" in implied_probabilities:
+                    over_odd = 100.0 / implied_probabilities["over_3_5_cards"]
+                    markets_section += f"  - Over 3.5: @{over_odd:.2f}\n"
+                if "under_3_5_cards" in implied_probabilities:
+                    under_odd = 100.0 / implied_probabilities["under_3_5_cards"]
+                    markets_section += f"  - Under 3.5: @{under_odd:.2f}\n"
+        
         new_analysis.append(markets_section)
         
         # Probabilidades Calculadas vs Implícitas
@@ -950,8 +978,13 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
             probs_section += f"- **{home_team}**: Real {home_real:.1f}% vs Implícita {home_implicit:.1f}%{' (Valor)' if home_value else ''}\n"
             
             if home_value:
-                # Adicionar à lista de oportunidades (sem justificativa)
-                opportunities.append(f"- **{home_team}**: Real {home_real:.1f}% vs Implícita {home_implicit:.1f}% (Valor de {home_real-home_implicit:.1f}%)")
+                # Criar texto de oportunidade
+                opportunity = f"- **{home_team}**: Real {home_real:.1f}% vs Implícita {home_implicit:.1f}% (Valor de {home_real-home_implicit:.1f}%)"
+                # Formatar com justificativa condensada usando a nova função
+                opportunity = format_opportunity_with_justification(
+                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
+                )
+                opportunities.append(opportunity)
             
             # Empate
             draw_real = moneyline.get("draw", 0)
@@ -961,8 +994,13 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
             probs_section += f"- **Empate**: Real {draw_real:.1f}% vs Implícita {draw_implicit:.1f}%{' (Valor)' if draw_value else ''}\n"
             
             if draw_value:
-                # Adicionar à lista de oportunidades (sem justificativa)
-                opportunities.append(f"- **Empate**: Real {draw_real:.1f}% vs Implícita {draw_implicit:.1f}% (Valor de {draw_real-draw_implicit:.1f}%)")
+                # Criar texto de oportunidade
+                opportunity = f"- **Empate**: Real {draw_real:.1f}% vs Implícita {draw_implicit:.1f}% (Valor de {draw_real-draw_implicit:.1f}%)"
+                # Formatar com justificativa condensada
+                opportunity = format_opportunity_with_justification(
+                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
+                )
+                opportunities.append(opportunity)
             
             # Fora
             away_real = moneyline.get("away_win", 0)
@@ -972,9 +1010,13 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
             probs_section += f"- **{away_team}**: Real {away_real:.1f}% vs Implícita {away_implicit:.1f}%{' (Valor)' if away_value else ''}\n"
             
             if away_value:
-                # Adicionar à lista de oportunidades (sem justificativa)
-                opportunities.append(f"- **{away_team}**: Real {away_real:.1f}% vs Implícita {away_implicit:.1f}% (Valor de {away_real-away_implicit:.1f}%)")
-     
+                # Criar texto de oportunidade
+                opportunity = f"- **{away_team}**: Real {away_real:.1f}% vs Implícita {away_implicit:.1f}% (Valor de {away_real-away_implicit:.1f}%)"
+                # Formatar com justificativa condensada
+                opportunity = format_opportunity_with_justification(
+                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
+                )
+                opportunities.append(opportunity)
         
         # Double Chance
         if selected_markets.get("chance_dupla") and "double_chance" in original_probabilities:
@@ -990,7 +1032,11 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
             probs_section += f"- **{home_team} ou Empate**: Real {hd_real:.1f}% vs Implícita {hd_implicit:.1f}%{' (Valor)' if hd_value else ''}\n"
             
             if hd_value:
-                opportunities.append(f"- **{home_team} ou Empate**: Real {hd_real:.1f}% vs Implícita {hd_implicit:.1f}% (Valor de {hd_real-hd_implicit:.1f}%)")
+                opportunity = f"- **{home_team} ou Empate**: Real {hd_real:.1f}% vs Implícita {hd_implicit:.1f}% (Valor de {hd_real-hd_implicit:.1f}%)"
+                opportunity = format_opportunity_with_justification(
+                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
+                )
+                opportunities.append(opportunity)
             
             # 12
             ha_real = dc.get("home_or_away", 0)
@@ -1000,7 +1046,11 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
             probs_section += f"- **{home_team} ou {away_team}**: Real {ha_real:.1f}% vs Implícita {ha_implicit:.1f}%{' (Valor)' if ha_value else ''}\n"
             
             if ha_value:
-                opportunities.append(f"- **{home_team} ou {away_team}**: Real {ha_real:.1f}% vs Implícita {ha_implicit:.1f}% (Valor de {ha_real-ha_implicit:.1f}%)")
+                opportunity = f"- **{home_team} ou {away_team}**: Real {ha_real:.1f}% vs Implícita {ha_implicit:.1f}% (Valor de {ha_real-ha_implicit:.1f}%)"
+                opportunity = format_opportunity_with_justification(
+                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
+                )
+                opportunities.append(opportunity)
             
             # X2
             da_real = dc.get("away_or_draw", 0)
@@ -1010,7 +1060,11 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
             probs_section += f"- **Empate ou {away_team}**: Real {da_real:.1f}% vs Implícita {da_implicit:.1f}%{' (Valor)' if da_value else ''}\n"
             
             if da_value:
-                opportunities.append(f"- **Empate ou {away_team}**: Real {da_real:.1f}% vs Implícita {da_implicit:.1f}% (Valor de {da_real-da_implicit:.1f}%)")
+                opportunity = f"- **Empate ou {away_team}**: Real {da_real:.1f}% vs Implícita {da_implicit:.1f}% (Valor de {da_real-da_implicit:.1f}%)"
+                opportunity = format_opportunity_with_justification(
+                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
+                )
+                opportunities.append(opportunity)
         
         # BTTS
         if selected_markets.get("ambos_marcam") and "btts" in original_probabilities:
@@ -1026,7 +1080,11 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
             probs_section += f"- **Sim**: Real {yes_real:.1f}% vs Implícita {yes_implicit:.1f}%{' (Valor)' if yes_value else ''}\n"
             
             if yes_value:
-                opportunities.append(f"- **Ambos Marcam - Sim**: Real {yes_real:.1f}% vs Implícita {yes_implicit:.1f}% (Valor de {yes_real-yes_implicit:.1f}%)")
+                opportunity = f"- **Ambos Marcam - Sim**: Real {yes_real:.1f}% vs Implícita {yes_implicit:.1f}% (Valor de {yes_real-yes_implicit:.1f}%)"
+                opportunity = format_opportunity_with_justification(
+                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
+                )
+                opportunities.append(opportunity)
             
             # Não
             no_real = btts.get("no", 0)
@@ -1036,16 +1094,123 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
             probs_section += f"- **Não**: Real {no_real:.1f}% vs Implícita {no_implicit:.1f}%{' (Valor)' if no_value else ''}\n"
             
             if no_value:
-                opportunities.append(f"- **Ambos Marcam - Não**: Real {no_real:.1f}% vs Implícita {no_implicit:.1f}% (Valor de {no_real-no_implicit:.1f}%)")
+                opportunity = f"- **Ambos Marcam - Não**: Real {no_real:.1f}% vs Implícita {no_implicit:.1f}% (Valor de {no_real-no_implicit:.1f}%)"
+                opportunity = format_opportunity_with_justification(
+                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
+                )
+                opportunities.append(opportunity)
+        
+        # Over/Under
+        if selected_markets.get("over_under") and "over_under" in original_probabilities:
+            probs_section += "## Over/Under 2.5 Gols:\n"
+            
+            ou = original_probabilities["over_under"]
+            
+            # Over 2.5
+            over_real = ou.get("over_2_5", 0)
+            over_implicit = implied_probabilities.get("over_2_5", 0)
+            over_value = over_real > over_implicit + 2
+            
+            probs_section += f"- **Over 2.5**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}%{' (Valor)' if over_value else ''}\n"
+            
+            if over_value:
+                opportunity = f"- **Over 2.5 Gols**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}% (Valor de {over_real-over_implicit:.1f}%)"
+                opportunity = format_opportunity_with_justification(
+                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
+                )
+                opportunities.append(opportunity)
+            
+            # Under 2.5
+            under_real = ou.get("under_2_5", 0)
+            under_implicit = implied_probabilities.get("under_2_5", 0)
+            under_value = under_real > under_implicit + 2
+            
+            probs_section += f"- **Under 2.5**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}%{' (Valor)' if under_value else ''}\n"
+            
+            if under_value:
+                opportunity = f"- **Under 2.5 Gols**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real-under_implicit:.1f}%)"
+                opportunity = format_opportunity_with_justification(
+                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
+                )
+                opportunities.append(opportunity)
+        
+        # Escanteios
+        if selected_markets.get("escanteios") and "corners" in original_probabilities:
+            probs_section += "## Escanteios (Over/Under 9.5):\n"
+            
+            corners = original_probabilities["corners"]
+            
+            # Over 9.5
+            over_real = corners.get("over_9_5", 0)
+            over_implicit = implied_probabilities.get("over_9_5_corners", 0)
+            over_value = over_real > over_implicit + 2
+            
+            probs_section += f"- **Over 9.5**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}%{' (Valor)' if over_value else ''}\n"
+            
+            if over_value:
+                opportunity = f"- **Over 9.5 Escanteios**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}% (Valor de {over_real-over_implicit:.1f}%)"
+                opportunity = format_opportunity_with_justification(
+                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
+                )
+                opportunities.append(opportunity)
+            
+            # Under 9.5
+            under_real = corners.get("under_9_5", 0)
+            under_implicit = implied_probabilities.get("under_9_5_corners", 0)
+            under_value = under_real > under_implicit + 2
+            
+            probs_section += f"- **Under 9.5**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}%{' (Valor)' if under_value else ''}\n"
+            
+            if under_value:
+                opportunity = f"- **Under 9.5 Escanteios**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real-under_implicit:.1f}%)"
+                opportunity = format_opportunity_with_justification(
+                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
+                )
+                opportunities.append(opportunity)
+        
+        # Cartões
+        if selected_markets.get("cartoes") and "cards" in original_probabilities:
+            probs_section += "## Cartões (Over/Under 3.5):\n"
+            
+            cards = original_probabilities["cards"]
+            
+            # Over 3.5
+            over_real = cards.get("over_4_5", 0) # Observação: aqui está 4.5 mas usamos 3.5 na seção
+            over_implicit = implied_probabilities.get("over_3_5_cards", 0)
+            over_value = over_real > over_implicit + 2
+            
+            probs_section += f"- **Over 3.5**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}%{' (Valor)' if over_value else ''}\n"
+            
+            if over_value:
+                opportunity = f"- **Over 3.5 Cartões**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}% (Valor de {over_real-over_implicit:.1f}%)"
+                opportunity = format_opportunity_with_justification(
+                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
+                )
+                opportunities.append(opportunity)
+            
+            # Under 3.5
+            under_real = cards.get("under_4_5", 0) # Observação: aqui está 4.5 mas usamos 3.5 na seção
+            under_implicit = implied_probabilities.get("under_3_5_cards", 0)
+            under_value = under_real > under_implicit + 2
+            
+            probs_section += f"- **Under 3.5**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}%{' (Valor)' if under_value else ''}\n"
+            
+            if under_value:
+                opportunity = f"- **Under 3.5 Cartões**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real-under_implicit:.1f}%)"
+                opportunity = format_opportunity_with_justification(
+                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
+                )
+                opportunities.append(opportunity)
+        
         new_analysis.append(probs_section)
         
-        # Oportunidades Identificadas (sem justificativas)
+        # Oportunidades Identificadas (com justificativas condensadas)
         if opportunities:
             new_analysis.append("# Oportunidades Identificadas:\n" + "\n".join(opportunities))
         else:
             new_analysis.append("# Oportunidades Identificadas:\nInfelizmente não detectamos valor em nenhuma dos seus inputs.")
         
-        # Adicionar seção de justificativas usando o novo módulo
+        # Adicionar seção de justificativas detalhadas utilizando o módulo de justificativas
         justifications = generate_justifications_for_opportunities(
             opportunities, home_team, away_team, original_probabilities, implied_probabilities
         )
@@ -1059,12 +1224,22 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
             analysis_data = original_probabilities["analysis_data"]
             home_consistency = analysis_data.get("home_consistency", 0)
             away_consistency = analysis_data.get("away_consistency", 0)
-            home_form_points = analysis_data.get("home_form_points", 0)
-            away_form_points = analysis_data.get("away_form_points", 0)
+            home_form_points = analysis_data.get("home_form_points", 0) * 15
+            away_form_points = analysis_data.get("away_form_points", 0) * 15
             
-            confidence_text = "# Nível de Confiança Geral: Médio\n"
+            # Determinar nível de confiança com base nas consistências e formas
+            avg_consistency = (home_consistency + away_consistency) / 2
+            
+            if avg_consistency > 70 and (home_form_points >= 9 or away_form_points >= 9):
+                confidence_level = "Alto"
+            elif avg_consistency > 50 and (home_form_points >= 6 or away_form_points >= 6):
+                confidence_level = "Médio"
+            else:
+                confidence_level = "Baixo"
+            
+            confidence_text = f"# Nível de Confiança Geral: {confidence_level}\n"
             confidence_text += f"- **Consistência**: {home_team}: {home_consistency:.1f}%, {away_team}: {away_consistency:.1f}%. Consistência é uma medida que indica quão previsível é o desempenho da equipe.\n"
-            confidence_text += f"- **Forma Recente**: {home_team}: {home_form_points}/15, {away_team}: {away_form_points}/15. Forma representa a pontuação dos últimos 5 jogos (vitória=3pts, empate=1pt, derrota=0pts).\n"
+            confidence_text += f"- **Forma Recente**: {home_team}: {home_form_points:.1f}/15 como mandante, {away_team}: {away_form_points:.1f}/15 como visitante. Forma representa a pontuação dos últimos 5 jogos (vitória=3pts, empate=1pt, derrota=0pts).\n"
             confidence_text += "- Valores mais altos em ambas métricas aumentam a confiança na previsão."
             
             new_analysis.append(confidence_text)
@@ -1078,7 +1253,153 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
         import traceback
         logger.error(f"Erro ao formatar resposta de análise: {str(e)}")
         logger.error(traceback.format_exc())
-        return analysis_text  # Retornar o texto original em caso de erro  # Retornar o texto original em caso de erro  # Retornar o texto original em caso de erro
+        return analysis_text  # Retornar o texto original em caso de erro
+
+# Função auxiliar para gerar justificativas condensadas
+def generate_condensed_justification(team_name, home_team, away_team, real_prob, implied_prob, analysis_data, original_probabilities, expected_goals=None):
+    """
+    Gera uma justificativa condensada para ser incluída diretamente na lista de oportunidades.
+    
+    Args:
+        team_name (str): Nome do time ou mercado (ex: "Time A", "Empate", "Ambos Marcam - Sim")
+        home_team (str): Nome do time da casa
+        away_team (str): Nome do time visitante
+        real_prob (float): Probabilidade real calculada
+        implied_prob (float): Probabilidade implícita na odd
+        analysis_data (dict): Dados de análise com consistência, forma, etc.
+        original_probabilities (dict): Dados de probabilidades completos
+        expected_goals (float, optional): Total esperado de gols, se relevante
+        
+    Returns:
+        str: Justificativa condensada formatada
+    """
+    # Determinar se estamos lidando com o time da casa, visitante, ou outro mercado
+    is_home = team_name == home_team
+    is_away = team_name == away_team
+    
+    # Obter dados de consistência e forma apropriados
+    if is_home:
+        consistency = analysis_data.get("home_consistency", 0)
+        form_points = analysis_data.get("home_form_points", 0) * 15
+        # Especificar que é forma como mandante
+        form_type = "como mandante"
+    elif is_away:
+        consistency = analysis_data.get("away_consistency", 0)
+        form_points = analysis_data.get("away_form_points", 0) * 15
+        # Especificar que é forma como visitante
+        form_type = "como visitante"
+    else:
+        # Para mercados como empate, ambos marcam, etc.
+        home_consistency = analysis_data.get("home_consistency", 0)
+        away_consistency = analysis_data.get("away_consistency", 0)
+        consistency = (home_consistency + away_consistency) / 2
+        form_points = None
+        form_type = None
+    
+    # Iniciar a justificativa
+    justification = ""
+    
+    # Adicionar informação de forma para time da casa ou visitante
+    if is_home or is_away:
+        team_type = "da casa" if is_home else "visitante"
+        justification += f"Time {team_type} com {form_points:.0f}/15 pts na forma {form_type} e {consistency:.1f}% de consistência. "
+    elif team_name == "Empate":
+        home_form = analysis_data.get("home_form_points", 0) * 15
+        away_form = analysis_data.get("away_form_points", 0) * 15
+        justification += f"Times equilibrados: Casa com {home_form:.0f}/15 pts como mandante, Fora com {away_form:.0f}/15 pts como visitante. "
+    elif "Ambos Marcam" in team_name:
+        home_expected_goals = original_probabilities.get("over_under", {}).get("expected_goals", 2.5) / 2
+        away_expected_goals = original_probabilities.get("over_under", {}).get("expected_goals", 2.5) / 2
+        justification += f"Potencial ofensivo: Casa {home_expected_goals:.2f} xG, Fora {away_expected_goals:.2f} xG. "
+    elif "Over" in team_name or "Under" in team_name:
+        total_expected = None
+        
+        if "Gols" in team_name:
+            total_expected = original_probabilities.get("over_under", {}).get("expected_goals", 2.5)
+            justification += f"Previsão de {total_expected:.2f} gols na partida. "
+        elif "Escanteios" in team_name:
+            total_expected = original_probabilities.get("corners", {}).get("expected_corners", 10)
+            justification += f"Previsão de {total_expected:.1f} escanteios na partida. "
+        elif "Cartões" in team_name:
+            total_expected = original_probabilities.get("cards", {}).get("expected_cards", 4)
+            justification += f"Previsão de {total_expected:.1f} cartões na partida. "
+    
+    # Adicionar informação de gols esperados para outros mercados se disponível e ainda não incluído
+    if expected_goals and "Previsão de" not in justification:
+        justification += f"Previsão de {expected_goals:.2f} gols na partida. "
+    
+    # Adicionar conclusão sobre a diferença de probabilidades
+    edge = real_prob - implied_prob
+    justification += f"Odds de {implied_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
+    
+    return justification
+
+# Função auxiliar para aplicar a justificativa condensada à string de oportunidade
+def format_opportunity_with_justification(opportunity, home_team, away_team, original_probabilities, implied_probabilities):
+    """
+    Formata uma oportunidade com sua justificativa condensada.
+    """
+    # Extrair informações da oportunidade
+    # Exemplo de formato: "- **Empoli FC**: Real 31.3% vs Implícita 10.0% (Valor de 21.3%)"
+    
+    # Identificar o time ou mercado
+    if home_team in opportunity:
+        team_name = home_team
+    elif away_team in opportunity:
+        team_name = away_team
+    elif "Empate" in opportunity:
+        team_name = "Empate"
+    elif "Ambos Marcam - Sim" in opportunity:
+        team_name = "Ambos Marcam - Sim"
+    elif "Ambos Marcam - Não" in opportunity:
+        team_name = "Ambos Marcam - Não"
+    elif "Over" in opportunity:
+        team_name = opportunity.split("**")[1]
+    elif "Under" in opportunity:
+        team_name = opportunity.split("**")[1]
+    elif home_team + " ou Empate" in opportunity:
+        team_name = f"{home_team} ou Empate"
+    elif away_team + " ou Empate" in opportunity:
+        team_name = f"{away_team} ou Empate"
+    elif home_team + " ou " + away_team in opportunity:
+        team_name = f"{home_team} ou {away_team}"
+    else:
+        team_name = "Mercado"
+    
+    # Extrair probabilidades
+    import re
+    real_prob_match = re.search(r"Real (\d+\.\d+)%", opportunity)
+    implied_prob_match = re.search(r"Implícita (\d+\.\d+)%", opportunity)
+    
+    if real_prob_match and implied_prob_match:
+        real_prob = float(real_prob_match.group(1))
+        implied_prob = float(implied_prob_match.group(1))
+        
+        # Obter dados de análise
+        analysis_data = original_probabilities.get("analysis_data", {})
+        
+        # Obter expected goals se disponível
+        expected_goals = None
+        if "over_under" in original_probabilities:
+            expected_goals = original_probabilities["over_under"].get("expected_goals")
+        
+        # Gerar justificativa condensada
+        justification = generate_condensed_justification(
+            team_name, 
+            home_team, 
+            away_team, 
+            real_prob, 
+            implied_prob, 
+            analysis_data, 
+            original_probabilities, 
+            expected_goals
+        )
+        
+        # Adicionar justificativa à oportunidade
+        formatted_opportunity = f"{opportunity} *Justificativa: {justification}*"
+        return formatted_opportunity
+    
+    return opportunity  # Retornar original se não conseguir extrair probabilidades
 def format_enhanced_prompt(complete_analysis, home_team, away_team, odds_data, selected_markets):
     """
     Função aprimorada para formatar prompt de análise multi-mercados
