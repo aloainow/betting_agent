@@ -349,6 +349,23 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
         home_form_normalized = home_form_points / 15.0
         away_form_normalized = away_form_points / 15.0
         
+        # ADICIONAR ESTAS LINHAS para armazenar explicitamente o tipo da forma
+        # Isso garantirá que o tipo seja respeitado nas justificativas
+        optimized_data["home_team"]["form_type"] = "como mandante"
+        optimized_data["away_team"]["form_type"] = "como visitante"
+        
+        # Quando for inserir no analysis_data, incluir estes valores específicos:
+        analysis_data = {
+            "home_consistency": home_consistency,
+            "away_consistency": away_consistency,
+            "home_form_points": home_form_points / 15.0,
+            "away_form_points": away_form_points / 15.0,
+            "home_total_score": home_total_score,
+            "away_total_score": away_total_score,
+            "home_form_type": "como mandante",  # Adicionar explicitamente
+            "away_form_type": "como visitante"   # Adicionar explicitamente
+        }
+        
         # Team stats score (25%)
         home_xg = home.get('xg', 0)
         home_xga = home.get('xga', 0)
@@ -2075,9 +2092,19 @@ def calculate_advanced_expected_goals(home_team, away_team, league_factors):
     return home_expected_goals, away_expected_goals
 
 def calculate_form_points(form_str):
-    """Calcula pontos baseados na forma recente"""
+    """
+    Calcula pontos baseados na forma específica (como mandante ou visitante)
+    para evitar o uso do termo 'forma recente'
+    
+    Args:
+        form_str (str): String com a sequência de resultados (ex: "WDLWW")
+        
+    Returns:
+        int: Pontuação total (máximo 15 pontos)
+    """
     if not form_str or not isinstance(form_str, str):
-        return 5  # Valor default moderado
+        # Evitando valor default generalizado
+        return 0  # Retornar zero para forçar o código a buscar valores reais
     
     points = 0
     # Garantir que estamos usando apenas os últimos 5 jogos
@@ -2085,14 +2112,14 @@ def calculate_form_points(form_str):
     
     # Calcular pontos
     for result in recent_form:
-        result = result.upper()
+        result = result.upper()  # Converter para maiúscula para garantir
         if result == 'W':
             points += 3
         elif result == 'D':
             points += 1
+        # result == 'L' ou outros caracteres = 0 pontos
     
-    return points
-
+    return points  # Valor entre 0 e 15
 def calculate_offensive_strength(team):
     """Calcula a força ofensiva baseada em xG e gols marcados"""
     xg = team.get('xg', 0)
