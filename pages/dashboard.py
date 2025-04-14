@@ -2352,7 +2352,7 @@ def show_main_dashboard():
                             st.code(fix_form_terminology(enhanced_analysis), language=None)
                             
                             # Adicione esta função no arquivo que lida com a exibição final das análises
-                            def fix_form_terminology(analysis_text):
+                           def fix_form_terminology(analysis_text):
                                 """
                                 Força a correção da terminologia de forma, independentemente da origem.
                                 Substitui todas as ocorrências de 'forma recente' por 'forma como mandante/visitante'.
@@ -2365,6 +2365,17 @@ def show_main_dashboard():
                                     "pts na forma recente", 
                                     "pts na forma como mandante"
                                 )
+                                
+                                # Para time visitante
+                                analysis_text = analysis_text.replace(
+                                    "Time visitante com", 
+                                    "Time visitante com"
+                                ).replace(
+                                    "pts na forma recente", 
+                                    "pts na forma como visitante"
+                                )
+                                
+                                return analysis_text
                             # Registrar uso após análise bem-sucedida
                             num_markets = sum(1 for v in selected_markets.values() if v)
                             
