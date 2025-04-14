@@ -2437,7 +2437,7 @@ def show_main_dashboard():
         st.error("Erro ao carregar o painel principal. Por favor, tente novamente.")
         st.error(f"Erro: {str(e)}")
         if st.session_state.debug_mode:
-            st.code(traceback.format_exc())    
+            st.code(traceback.format_exc())
 # Função auxiliar para extração de dados avançada
 def extract_direct_team_stats(source, target, team_type):
     """
