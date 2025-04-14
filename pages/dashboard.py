@@ -1278,15 +1278,16 @@ def show_main_dashboard():
         # Adicionar estado para controlar a sidebar
         # Versão melhorada do toggle de sidebar com melhor posicionamento de ícones
         # Adicionar estado para controlar a sidebar
+        # Versão simplificada da sidebar retrátil usando apenas componentes nativos do Streamlit
         if 'sidebar_expanded' not in st.session_state:
             st.session_state.sidebar_expanded = True  # Começa expandido
-
-        # Definir larguras baseadas no estado
+        
+        # Ajustar o CSS para a largura da sidebar
         sidebar_width_expanded = "280px"
         sidebar_width_collapsed = "60px"
         current_width = sidebar_width_expanded if st.session_state.sidebar_expanded else sidebar_width_collapsed
         
-        # Aplicar CSS para a sidebar e ícones
+        # Aplicar CSS apenas para a largura da sidebar
         st.markdown(
             f"""
             <style>
@@ -1294,53 +1295,24 @@ def show_main_dashboard():
                     width: {current_width} !important;
                     max-width: {current_width} !important;
                     min-width: {current_width} !important;
-                    transition: width 0.3s ease-in-out;
-                }}
-                
-                /* Estilos para quando a sidebar está recolhida */
-                .sidebar-collapsed-content {{
-                    text-align: center;
-                    padding-top: 10px;
-                }}
-                
-                .sidebar-collapsed-content .sidebar-icon {{
-                    font-size: 24px;
-                    margin: 15px 0;
-                    cursor: pointer;
-                    color: white;
-                    display: block;
-                    text-decoration: none;
-                }}
-                
-                /* Esconder conteúdo completo quando recolhido */
-                .full-sidebar-content {{
-                    display: {{"none" if not st.session_state.sidebar_expanded else "block"}};
-                }}
-                
-                /* Esconder conteúdo de ícones quando expandido */
-                .collapsed-sidebar-content {{
-                    display: {{"block" if not st.session_state.sidebar_expanded else "none"}};
                 }}
             </style>
             """, 
             unsafe_allow_html=True
         )
         
-        # Implementar o toggle na sidebar
+        # Versão simplificada usando apenas componentes nativos do Streamlit
         if st.session_state.sidebar_expanded:
-            # Conteúdo quando expandido
-            st.sidebar.markdown('<div class="full-sidebar-content">', unsafe_allow_html=True)
-            
-            # Botão para recolher
-            if st.sidebar.button("<<<", key="collapse_sidebar", use_container_width=True):
+            # Botão para recolher no topo
+            if st.sidebar.button("<<<", key="collapse_sidebar_btn", use_container_width=True):
                 st.session_state.sidebar_expanded = False
                 st.experimental_rerun()
-            
-            # Exibir estatísticas de uso
+                
+            # Mostrar conteúdo normal da sidebar
             show_usage_stats()
             
-            # Escolha da liga (função auxiliar)
-            selected_league = get_league_selection("_expanded")
+            # Escolha da liga usando chave única
+            selected_league = get_league_selection()
             if not selected_league:
                 st.error("Não foi possível selecionar uma liga. Por favor, verifique a configuração.")
                 return
@@ -1352,58 +1324,41 @@ def show_main_dashboard():
             st.sidebar.markdown("---")
             
             # Botões de pacotes e logout
-            if st.sidebar.button("🚀 Ver Pacotes de Créditos", key="sidebar_packages_button_expanded", use_container_width=True):
+            if st.sidebar.button("🚀 Ver Pacotes de Créditos", key="packages_button_expanded", use_container_width=True):
                 st.session_state.page = "packages"
                 st.experimental_rerun()
             
-            if st.sidebar.button("Logout", key="sidebar_logout_btn_expanded", use_container_width=True):
+            if st.sidebar.button("Logout", key="logout_btn_expanded", use_container_width=True):
+                st.session_state.authenticated = False
+                st.session_state.email = None
+                st.session_state.page = "landing"
+                st.experimental_rerun()
+        else:
+            # Versão recolhida - usar apenas componentes nativos Streamlit
+            # Botão para expandir
+            if st.sidebar.button(">>>", key="expand_sidebar_btn", use_container_width=True):
+                st.session_state.sidebar_expanded = True
+                st.experimental_rerun()
+            
+            # Titulo simplificado
+            st.sidebar.markdown("<div style='text-align: center; color: #FF5500;'>VH</div>", unsafe_allow_html=True)
+            
+            # Navegação simples como botões nativos
+            if st.sidebar.button("🏠", key="home_icon_btn", use_container_width=True):
+                # Recarregar a página principal
+                st.experimental_rerun()
+                
+            if st.sidebar.button("🚀", key="packages_icon_btn", use_container_width=True):
+                st.session_state.page = "packages"
+                st.experimental_rerun()
+                
+            if st.sidebar.button("🚪", key="logout_icon_btn", use_container_width=True):
                 st.session_state.authenticated = False
                 st.session_state.email = None
                 st.session_state.page = "landing"
                 st.experimental_rerun()
             
-            st.sidebar.markdown('</div>', unsafe_allow_html=True)
-            
-        else:
-            # Conteúdo quando recolhido - apenas ícones
-            st.sidebar.markdown('<div class="collapsed-sidebar-content">', unsafe_allow_html=True)
-            
-            # Botão para expandir
-            if st.sidebar.button(">>>", key="expand_sidebar", use_container_width=True):
-                st.session_state.sidebar_expanded = True
-                st.experimental_rerun()
-            
-            # Logo simplificado
-            st.sidebar.markdown('<div class="sidebar-collapsed-content">', unsafe_allow_html=True)
-            st.sidebar.markdown('<span style="font-size: 24px; color: #FF5500;">VH</span>', unsafe_allow_html=True)
-            
-            # Botões de navegação como links HTML com JavaScript embutido
-            st.sidebar.markdown("""
-            <a href="#" class="sidebar-icon" id="icon_home" title="Home">🏠</a>
-            <a href="#" class="sidebar-icon" id="icon_packages" title="Pacotes">🚀</a>
-            <a href="#" class="sidebar-icon" id="icon_logout" title="Logout">🚪</a>
-            
-            <script>
-                document.getElementById('icon_packages').addEventListener('click', function(e) {
-                    e.preventDefault();
-                    window.location.href = window.location.pathname + '?page=packages';
-                });
-                
-                document.getElementById('icon_logout').addEventListener('click', function(e) {
-                    e.preventDefault();
-                    window.location.href = window.location.pathname + '?logout=true';
-                });
-                
-                document.getElementById('icon_home').addEventListener('click', function(e) {
-                    e.preventDefault();
-                    window.location.href = window.location.pathname;
-                });
-            </script>
-            """, unsafe_allow_html=True)
-            
-            st.sidebar.markdown('</div></div>', unsafe_allow_html=True)
-            
-            # Definir a liga selecionada para uso no restante da função
+            # Definir a liga selecionada mesmo quando a sidebar está recolhida
             selected_league = st.session_state.selected_league if hasattr(st.session_state, 'selected_league') else None
             
             # Tratar redirecionamentos baseados em parâmetros de consulta
