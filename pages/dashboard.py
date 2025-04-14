@@ -2350,6 +2350,8 @@ def show_main_dashboard():
                             
                             # Exibir apenas a análise enriquecida (não a original)
                             st.code(fix_form_terminology(enhanced_analysis), language=None)
+                            
+                            # Adicione esta função no arquivo que lida com a exibição final das análises
                             def fix_form_terminology(analysis_text):
                                 """
                                 Força a correção da terminologia de forma, independentemente da origem.
