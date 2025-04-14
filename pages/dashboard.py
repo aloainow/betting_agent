@@ -1294,29 +1294,31 @@ def show_main_dashboard():
                 position: relative;
             }}
             
-            /* Botão toggle (pré-posicionado por CSS) */
-            .sidebar-toggle {{
-                position: absolute;
-                top: 50%;
-                right: -15px;
-                width: 30px;
-                height: 30px;
-                background-color: #FF5500;
-                color: white;
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                cursor: pointer;
-                z-index: 999;
-                transform: translateY(-50%);
-                box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-                border: none;
-                font-weight: bold;
+            /* Botão toggle com posicionamento mais preciso e z-index mais alto */
+            #sidebar-toggle-btn {{
+                position: fixed !important;
+                top: 50% !important;
+                left: {sidebar_width_collapsed if not st.session_state.sidebar_expanded else sidebar_width_expanded} !important;
+                transform: translateY(-50%) translateX(-50%) !important;
+                width: 32px !important;
+                height: 32px !important;
+                background-color: #FF5500 !important;
+                color: white !important;
+                border-radius: 50% !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                cursor: pointer !important;
+                z-index: 9999 !important;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.3) !important;
+                border: none !important;
+                font-weight: bold !important;
+                font-size: 16px !important;
+                transition: left 0.3s ease-in-out !important;
             }}
         
-            .sidebar-toggle:hover {{
-                background-color: #E54D00;
+            #sidebar-toggle-btn:hover {{
+                background-color: #E54D00 !important;
             }}
             
             /* Ajustar padding para melhor aproveitamento do espaço */
@@ -1325,67 +1327,47 @@ def show_main_dashboard():
                 padding-right: 15px !important;
             }}
         </style>
-        """
-
-        st.markdown(sidebar_style, unsafe_allow_html=True)
-
-        # Injetar o botão toggle via JavaScript depois que a página estiver carregada
-        toggle_button_js = f"""
+        
+        <!-- Botão toggle criado diretamente no HTML para maior confiabilidade -->
+        <button id="sidebar-toggle-btn">
+            {{"<" if st.session_state.sidebar_expanded else ">"}}
+        </button>
+        
         <script>
-            // Função para criar e inserir o botão toggle
-            function createToggleButton() {{
-                // Verificar se o botão já existe
-                if (document.getElementById('sidebar-toggle-btn')) {{
-                    return;
-                }}
+            // Script aprimorado para gerenciar o botão de toggle
+            document.addEventListener('DOMContentLoaded', function() {
+                console.log("DOM loaded, setting up toggle button");
                 
-                // Criar o botão
-                const toggleBtn = document.createElement('button');
-                toggleBtn.id = 'sidebar-toggle-btn';
-                toggleBtn.className = 'sidebar-toggle';
-                toggleBtn.innerHTML = '{{"<" if st.session_state.sidebar_expanded else ">"}}';
-                toggleBtn.onclick = function() {{
-                    // Usar query params para comunicar com o Streamlit backend
-                    const urlParams = new URLSearchParams(window.location.search);
-                    urlParams.set('sidebar_toggle', 'true');
-                    window.location.search = urlParams.toString();
-                }};
+                // Função para inicializar o botão
+                function setupToggleButton() {
+                    const toggleBtn = document.getElementById('sidebar-toggle-btn');
+                    if (toggleBtn) {
+                        console.log("Toggle button found, adding click handler");
+                        toggleBtn.onclick = function() {
+                            console.log("Toggle button clicked");
+                            // Usar query params para comunicar com o Streamlit backend
+                            const urlParams = new URLSearchParams(window.location.search);
+                            urlParams.set('sidebar_toggle', 'true');
+                            window.location.search = urlParams.toString();
+                        };
+                    } else {
+                        console.log("Toggle button not found yet");
+                    }
+                }
                 
-                // Encontrar a sidebar
-                const sidebar = document.querySelector('[data-testid="stSidebar"]');
-                if (sidebar) {{
-                    sidebar.appendChild(toggleBtn);
-                    console.log("Toggle button added to sidebar");
-                }}
-            }}
-            
-            // Tentar criar o botão imediatamente
-            createToggleButton();
-            
-            // Tentar novamente após a página terminar de carregar
-            document.addEventListener('DOMContentLoaded', function() {{
-                createToggleButton();
-                // E tentar mais algumas vezes após pequenos intervalos
-                setTimeout(createToggleButton, 500);
-                setTimeout(createToggleButton, 1000);
-                setTimeout(createToggleButton, 2000);
-            }});
-            
-            // Usar MutationObserver para detectar mudanças no DOM
-            const observer = new MutationObserver(function(mutations) {{
-                createToggleButton();
-            }});
-            
-            // Observar o documento inteiro para mudanças na estrutura
-            observer.observe(document.body, {{ childList: true, subtree: true }});
-            
-            // Limitar o tempo de observação para não afetar o desempenho
-            setTimeout(function() {{ observer.disconnect(); }}, 5000);
+                // Tentar configurar imediatamente
+                setupToggleButton();
+                
+                // Tentar novamente após curtos intervalos para garantir que o botão existe
+                setTimeout(setupToggleButton, 300);
+                setTimeout(setupToggleButton, 1000);
+                setTimeout(setupToggleButton, 2000);
+            });
         </script>
         """
         
-        st.markdown(toggle_button_js, unsafe_allow_html=True)
-
+        st.markdown(sidebar_style, unsafe_allow_html=True)
+        
         # Verificar se o botão foi clicado através dos query params
         if 'sidebar_toggle' in st.query_params:
             st.session_state.sidebar_expanded = not st.session_state.sidebar_expanded
