@@ -343,10 +343,13 @@ def format_all_analysis_sections(analysis_text):
     return '\n\n'.join(formatted_sections)
 
 # Funções auxiliares para seleção de ligas (ADICIONADAS NO INÍCIO)
-def get_league_selection():
+def get_league_selection(key_suffix=""):
     """
     Função melhorada para obter a lista de ligas e mostrar o seletor,
     eliminando duplicações com diferentes formatações.
+    
+    Args:
+        key_suffix (str): Sufixo para tornar a chave única
     
     Returns:
         str: A liga selecionada ou None se houver erro
@@ -399,12 +402,14 @@ def get_league_selection():
         if 'selected_league' not in st.session_state or st.session_state.selected_league not in unique_leagues:
             st.session_state.selected_league = unique_leagues[0] if unique_leagues else None
         
-        # Seletor de liga
+        # Seletor de liga com chave única
+        unique_key = f"league_selector{key_suffix}"
+        
         selected_league = st.sidebar.selectbox(
             "Escolha o campeonato:",
             options=unique_leagues,
             index=unique_leagues.index(st.session_state.selected_league) if st.session_state.selected_league in unique_leagues else 0,
-            key="league_selector_unique"  # <-- Change this key to make it unique
+            key=unique_key
         )
         
         # Verificar se a liga mudou
@@ -1335,7 +1340,7 @@ def show_main_dashboard():
             show_usage_stats()
             
             # Escolha da liga (função auxiliar)
-            selected_league = get_league_selection()
+            selected_league = get_league_selection("_expanded")
             if not selected_league:
                 st.error("Não foi possível selecionar uma liga. Por favor, verifique a configuração.")
                 return
