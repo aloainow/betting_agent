@@ -1273,107 +1273,37 @@ def show_main_dashboard():
         # Adicionar estado para controlar a sidebar
         if 'sidebar_expanded' not in st.session_state:
             st.session_state.sidebar_expanded = True  # Começa expandido
-
+        
         # Definir larguras baseadas no estado
         sidebar_width_expanded = "280px"
         sidebar_width_collapsed = "60px"
         current_width = sidebar_width_expanded if st.session_state.sidebar_expanded else sidebar_width_collapsed
-            
-        # Aplicar CSS baseado no estado atual# Aplicar CSS baseado no estado atual - VERSÃO APRIMORADA COM SINTAXE CORRIGIDA
-        sidebar_style = f"""
-        <style>
-            /* Estilo base da sidebar */
-            [data-testid="stSidebar"] {{
-                display: block !important;
-                visibility: visible !important;
-                opacity: 1 !important;
-                transition: width 0.3s ease-in-out !important;
-                width: {current_width} !important;
-                max-width: {current_width} !important;
-                min-width: {current_width} !important;
-                position: relative;
-            }}
-            
-            /* Botão toggle com posicionamento mais preciso e z-index mais alto */
-            #sidebar-toggle-btn {{
-                position: fixed !important;
-                top: 50% !important;
-                left: {sidebar_width_collapsed if not st.session_state.sidebar_expanded else sidebar_width_expanded} !important;
-                transform: translateY(-50%) translateX(-50%) !important;
-                width: 32px !important;
-                height: 32px !important;
-                background-color: #FF5500 !important;
-                color: white !important;
-                border-radius: 50% !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                cursor: pointer !important;
-                z-index: 9999 !important;
-                box-shadow: 0 2px 5px rgba(0,0,0,0.3) !important;
-                border: none !important;
-                font-weight: bold !important;
-                font-size: 16px !important;
-                transition: left 0.3s ease-in-out !important;
-            }}
         
-            #sidebar-toggle-btn:hover {{
-                background-color: #E54D00 !important;
-            }}
-            
-            /* Ajustar padding para melhor aproveitamento do espaço */
-            [data-testid="stSidebar"] .block-container {{
-                padding-left: 15px !important;
-                padding-right: 15px !important;
-            }}
-        </style>
-        
-        <!-- Botão toggle criado diretamente no HTML para maior confiabilidade -->
-        <button id="sidebar-toggle-btn">
-            {{"<" if st.session_state.sidebar_expanded else ">"}}
-        </button>
-        
-        <script>
-            // Script aprimorado para gerenciar o botão de toggle
-            document.addEventListener('DOMContentLoaded', function() {{
-                console.log("DOM loaded, setting up toggle button");
-                
-                // Função para inicializar o botão
-                function setupToggleButton() {{
-                    const toggleBtn = document.getElementById('sidebar-toggle-btn');
-                    if (toggleBtn) {{
-                        console.log("Toggle button found, adding click handler");
-                        toggleBtn.onclick = function() {{
-                            console.log("Toggle button clicked");
-                            // Usar query params para comunicar com o Streamlit backend
-                            const urlParams = new URLSearchParams(window.location.search);
-                            urlParams.set('sidebar_toggle', 'true');
-                            window.location.search = urlParams.toString();
-                        }};
-                    }} else {{
-                        console.log("Toggle button not found yet");
-                    }}
+        # Aplicar CSS para a sidebar
+        st.markdown(
+            f"""
+            <style>
+                [data-testid="stSidebar"] {{
+                    width: {current_width} !important;
+                    max-width: {current_width} !important;
+                    min-width: {current_width} !important;
                 }}
-                
-                // Tentar configurar imediatamente
-                setupToggleButton();
-                
-                // Tentar novamente após curtos intervalos para garantir que o botão existe
-                setTimeout(setupToggleButton, 300);
-                setTimeout(setupToggleButton, 1000);
-                setTimeout(setupToggleButton, 2000);
-            }});
-        </script>
-        """
-        
-        st.markdown(sidebar_style, unsafe_allow_html=True)
+            </style>
+            """, 
+            unsafe_allow_html=True
+        )
         
         # Verificar se o botão foi clicado através dos query params
-        if 'sidebar_toggle' in st.query_params:
-            st.session_state.sidebar_expanded = not st.session_state.sidebar_expanded
-            # Limpar query param após uso
-            del st.query_params['sidebar_toggle']
-            st.experimental_rerun()
+        if st.session_state.sidebar_expanded:
+            if st.sidebar.button("<<<", key="collapse_sidebar", use_container_width=True):
+                st.session_state.sidebar_expanded = False
+                st.experimental_rerun()
+
+        else:
+            # Quando recolhido, mostrar um botão para expandir
+            if st.sidebar.button(">>>", key="expand_sidebar", use_container_width=True):
+                st.session_state.sidebar_expanded = True
+                st.experimental_rerun()
         
         # Iniciar com log de diagnóstico
         logger.info("Iniciando renderização do dashboard principal")     
