@@ -404,7 +404,7 @@ def get_league_selection():
             "Escolha o campeonato:",
             options=unique_leagues,
             index=unique_leagues.index(st.session_state.selected_league) if st.session_state.selected_league in unique_leagues else 0,
-            key="league_selector"
+            key="league_selector_unique"  # <-- Change this key to make it unique
         )
         
         # Verificar se a liga mudou
