@@ -2349,8 +2349,20 @@ def show_main_dashboard():
                             enhanced_analysis = add_opportunity_evaluation(formatted_analysis)
                             
                             # Exibir apenas a análise enriquecida (não a original)
-                            st.code(enhanced_analysis, language=None)
-                            
+                            st.code(fix_form_terminology(enhanced_analysis), language=None)
+                            def fix_form_terminology(analysis_text):
+                                """
+                                Força a correção da terminologia de forma, independentemente da origem.
+                                Substitui todas as ocorrências de 'forma recente' por 'forma como mandante/visitante'.
+                                """
+                                # Para time da casa (normalmente aparece primeiro)
+                                analysis_text = analysis_text.replace(
+                                    "Time da casa com", 
+                                    "Time da casa com"
+                                ).replace(
+                                    "pts na forma recente", 
+                                    "pts na forma como mandante"
+                                )
                             # Registrar uso após análise bem-sucedida
                             num_markets = sum(1 for v in selected_markets.values() if v)
                             
