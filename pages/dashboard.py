@@ -1352,11 +1352,11 @@ def show_main_dashboard():
             st.sidebar.markdown("---")
             
             # Botões de pacotes e logout
-            if st.sidebar.button("🚀 Ver Pacotes de Créditos", key="sidebar_packages_button", use_container_width=True):
+            if st.sidebar.button("🚀 Ver Pacotes de Créditos", key="sidebar_packages_button_expanded", use_container_width=True):
                 st.session_state.page = "packages"
                 st.experimental_rerun()
             
-            if st.sidebar.button("Logout", key="sidebar_logout_btn", use_container_width=True):
+            if st.sidebar.button("Logout", key="sidebar_logout_btn_expanded", use_container_width=True):
                 st.session_state.authenticated = False
                 st.session_state.email = None
                 st.session_state.page = "landing"
