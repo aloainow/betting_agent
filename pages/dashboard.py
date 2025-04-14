@@ -1312,7 +1312,7 @@ def show_main_dashboard():
             show_usage_stats()
             
             # Escolha da liga usando chave única
-            selected_league = get_league_selection()
+            selected_league = get_league_selection(key_suffix="_main_dashboard")
             if not selected_league:
                 st.error("Não foi possível selecionar uma liga. Por favor, verifique a configuração.")
                 return
