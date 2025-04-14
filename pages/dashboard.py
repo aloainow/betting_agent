@@ -3063,8 +3063,8 @@ def format_text_for_display(text, max_width=70):
 def generate_justification(market_type, bet_type, team_name, real_prob, implicit_prob, 
                           original_probabilities, home_team, away_team):
     """
-    Gera uma justificativa com embasamento estatístico específico para cada mercado
-    garantindo que o texto completo seja preservado e usa os valores corretos de forma.
+    Gera uma justificativa com embasamento estatístico específico para cada mercado,
+    modificado para usar "forma como mandante/visitante" em vez de "forma recente".
     
     Args:
         market_type (str): Tipo de mercado (moneyline, over_under, etc.)
@@ -3084,30 +3084,15 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
         analysis_data = original_probabilities.get("analysis_data", {})
         margin = real_prob - implicit_prob
         
-        # CORREÇÃO ABRANGENTE PARA GARANTIR CONSISTÊNCIA
-        # IMPORTANTE: Não calcular os pontos de forma aqui. Em vez disso,
-        # extrair os valores EXATOS que são usados na seção de nível de confiança
-        
-        # Extrair valores diretamente da estrutura analysis_data
-        # Não fazer nenhum cálculo ou transformação aqui
-        # Esses valores já estão calculados e são usados na seção de nível de confiança
-        
-        # Para valores de forma, usar como estão - sem multiplicar ou transformar
+        # Extrair valores de forma e consistência
         home_form_normalized = analysis_data.get("home_form_points", 0)
         away_form_normalized = analysis_data.get("away_form_points", 0)
         
-        # Multiplicar por 15 e converter para inteiro, exatamente como feito na seção de confiança
-        # Esta é a parte crucial para garantir que os valores sejam idênticos
+        # Multiplicar por 15 para obter pontos na escala 0-15
         home_form_points = int(home_form_normalized * 15)
         away_form_points = int(away_form_normalized * 15)
         
-        # Log para debug (remover em produção)
-        import logging
-        logger = logging.getLogger("valueHunter.ai")
-        logger.info(f"HOME FORM: normalized={home_form_normalized}, points={home_form_points}")
-        logger.info(f"AWAY FORM: normalized={away_form_normalized}, points={away_form_points}")
-        
-        # Para consistência
+        # Valores de consistência
         home_consistency = analysis_data.get("home_consistency", 0)
         if home_consistency <= 1.0:
             home_consistency = home_consistency * 100
@@ -3120,7 +3105,8 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
         if market_type == "moneyline":
             # Vitória do time da casa
             if bet_type == "home_win":
-                justification = f"Time da casa com {home_form_points}/15 pts na forma recente e {home_consistency:.1f}% de consistência. "
+                # MODIFICAÇÃO: Usar "forma como mandante" em vez de "forma recente"
+                justification = f"Time da casa com {home_form_points}/15 pts na forma como mandante e {home_consistency:.1f}% de consistência. "
                 
                 # Adicionar estatísticas de gols se disponíveis
                 if "over_under" in original_probabilities:
@@ -3132,7 +3118,8 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
                 
             # Vitória do time visitante
             elif bet_type == "away_win":
-                justification = f"Time visitante com {away_form_points}/15 pts na forma recente e {away_consistency:.1f}% de consistência. "
+                # MODIFICAÇÃO: Usar "forma como visitante" em vez de "forma recente"
+                justification = f"Time visitante com {away_form_points}/15 pts na forma como visitante e {away_consistency:.1f}% de consistência. "
                 
                 if "over_under" in original_probabilities:
                     expected_goals = original_probabilities["over_under"].get("expected_goals", 0)
@@ -3144,27 +3131,30 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
             # Empate
             elif bet_type == "draw":
                 avg_consistency = (home_consistency + away_consistency) / 2
-                justification = f"Equilíbrio entre as equipes, consistência média de {avg_consistency:.1f}%. "
+                # MODIFICAÇÃO: especificar mandante/visitante
+                justification = f"Times equilibrados: Casa com {home_form_points}/15 pts como mandante, Fora com {away_form_points}/15 pts como visitante. "
                 justification += f"Odds de {implicit_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
         
         # 2. CHANCE DUPLA (DOUBLE CHANCE)
         elif market_type == "double_chance":
             if bet_type == "home_or_draw":
-                justification = f"Vantagem de jogar em casa para {home_team} (forma: {home_form_points}/15 pts). "
+                # MODIFICAÇÃO: Usar "como mandante" em vez de só a forma
+                justification = f"Vantagem de jogar em casa para {home_team} (forma como mandante: {home_form_points}/15 pts). "
                 justification += f"Probabilidade de {real_prob:.1f}% do time da casa não perder, "
                 justification += f"contra apenas {implicit_prob:.1f}% implicada pelas odds."
                 
             elif bet_type == "away_or_draw":
-                justification = f"Vantagem para {away_team} visitante (forma: {away_form_points}/15 pts). "
+                # MODIFICAÇÃO: Usar "como visitante" em vez de só a forma
+                justification = f"Vantagem para {away_team} visitante (forma como visitante: {away_form_points}/15 pts). "
                 justification += f"Probabilidade de {real_prob:.1f}% do time visitante não perder, "
                 justification += f"contra apenas {implicit_prob:.1f}% implicada pelas odds."
                 
             elif bet_type == "home_or_away":
-                justification = f"Baixa probabilidade de empate entre as equipes. "
+                # MODIFICAÇÃO: incluir o tipo de forma para cada time
+                justification = f"Baixa probabilidade de empate. Casa com {home_form_points}/15 pts como mandante, fora com {away_form_points}/15 pts como visitante. "
                 justification += f"Chance de {real_prob:.1f}% de algum time vencer, "
                 justification += f"contra apenas {implicit_prob:.1f}% implicada pelas odds."
         
-        # Resto da função permanece igual...
         # 3. OVER/UNDER
         elif market_type == "over_under":
             if "over_under" in original_probabilities:
@@ -3172,7 +3162,6 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
                 
                 # Validar valor de expected_goals
                 if not (0 < expected_goals < 10):
-                    # Valor fora do intervalo razoável
                     expected_goals = 2.5  # Valor default razoável
                 
                 if bet_type.startswith("over_"):
@@ -3213,7 +3202,8 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
         elif market_type == "btts":
             if "btts" in original_probabilities:
                 if bet_type == "yes":
-                    justification = f"Ambas equipes com potencial ofensivo para marcar. "
+                    # MODIFICAÇÃO: especificar os tipos de forma para casa e visitante
+                    justification = f"Casa com {home_form_points}/15 pts como mandante, fora com {away_form_points}/15 pts como visitante. Ambas equipes com potencial ofensivo. "
                     
                     if "over_under" in original_probabilities:
                         expected_goals = original_probabilities["over_under"].get("expected_goals", 0)
@@ -3223,7 +3213,8 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
                     justification += f"Probabilidade real de {real_prob:.1f}% vs implícita de {implicit_prob:.1f}%."
                     
                 else:  # No
-                    justification = f"Pelo menos uma equipe deve manter clean sheet. "
+                    # MODIFICAÇÃO: especificar os tipos de forma para casa e visitante
+                    justification = f"Casa com {home_form_points}/15 pts como mandante, fora com {away_form_points}/15 pts como visitante. Pelo menos uma equipe deve manter clean sheet. "
                     
                     if "over_under" in original_probabilities:
                         expected_goals = original_probabilities["over_under"].get("expected_goals", 0)
@@ -3237,9 +3228,8 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
             if "corners" in original_probabilities:
                 expected_corners = original_probabilities["corners"].get("expected_corners", 0)
                 
-                # Validar valor de expected_corners (normalmente entre 6 e 15)
+                # Validar valor de expected_corners
                 if not (3 < expected_corners < 20):
-                    # Se for um valor absurdo, usar um default razoável baseado na probabilidade
                     if real_prob > 70:
                         expected_corners = 11.5
                     else:
@@ -3276,9 +3266,8 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
             if "cards" in original_probabilities:
                 expected_cards = original_probabilities["cards"].get("expected_cards", 0)
                 
-                # Validar valor de expected_cards (normalmente entre 2 e 8)
+                # Validar valor de expected_cards
                 if not (1 < expected_cards < 10):
-                    # Se for um valor absurdo, usar um default razoável baseado na probabilidade
                     if real_prob > 60:
                         expected_cards = 3.2
                     else:
@@ -3322,7 +3311,7 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
         return justification
         
     except Exception as e:
-        # Log do erro (opcional)
+        # Log do erro
         import traceback
         import logging
         logger = logging.getLogger("valueHunter.ai")
