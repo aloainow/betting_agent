@@ -232,11 +232,11 @@ def generate_cards_justification(is_over, threshold, real_prob, implicit_prob, e
     
     return "\n".join(justification)
 
- Oportunidades Identificadas:
-- **Empoli FC**: Real 31.3% vs Implícita 10.0% (Valor de 21.3%)
-  *Justificativa: Time visitante com 5/15 pts na forma recente e 50.0%
-de consistência. Previsão de 1.66 gols na partida. Odds de 10.0%
-subestimam probabilidade real de 31.3%.*
+         Oportunidades Identificadas:
+        - **Empoli FC**: Real 31.3% vs Implícita 10.0% (Valor de 21.3%)
+          *Justificativa: Time visitante com 5/15 pts na forma recente e 50.0%
+        de consistência. Previsão de 1.66 gols na partida. Odds de 10.0%
+        subestimam probabilidade real de 31.3%.*
 
 def generate_condensed_justification(team_name, home_team, away_team, real_prob, implied_prob, analysis_data, original_probabilities, expected_goals=None):
     """
