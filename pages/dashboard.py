@@ -1092,6 +1092,7 @@ def get_league_teams(selected_league, force_refresh=False):
         traceback.print_exc()
         return []
 
+# Modify the show_usage_stats() function to use consistent naming
 def show_usage_stats():
     """Display usage statistics with forced refresh"""
     try:
@@ -1133,17 +1134,33 @@ def show_usage_stats():
         st.sidebar.markdown(f"### Olá, {user_name}!")
         
         st.sidebar.markdown("### Estatísticas de Uso")
-        st.sidebar.markdown(f"**Créditos Restantes:** {stats['credits_reing']}")
+        
+        # Fix: Use consistent naming for credits
+        # First, check which key exists in the stats dictionary
+        if 'credits_remaining' in stats:
+            credits_key = 'credits_remaining'
+        elif 'credits_reing' in stats:
+            credits_key = 'credits_reing'
+        else:
+            # If neither exists, provide a fallback
+            credits_key = None
+            logger.warning("Neither 'credits_remaining' nor 'credits_reing' found in stats")
+        
+        # Display remaining credits
+        if credits_key:
+            st.sidebar.markdown(f"**Créditos Restantes:** {stats[credits_key]}")
+        else:
+            st.sidebar.markdown("**Créditos Restantes:** Indisponível")
         
         # Add progress bar for credits
-        if stats['credits_total'] > 0:
-            progress = stats['credits_used'] / stats['credits_total']
+        if stats.get('credits_total', 0) > 0:
+            progress = stats.get('credits_used', 0) / stats['credits_total']
             st.sidebar.progress(min(progress, 1.0))
         
         # Free tier renewal info (if applicable)
-        if stats['tier'] == 'free' and stats.get('next_free_credits_time'):
+        if stats.get('tier') == 'free' and stats.get('next_free_credits_time'):
             st.sidebar.info(f"⏱️ Renovação em: {stats['next_free_credits_time']}")
-        elif stats['tier'] == 'free' and stats.get('free_credits_reset'):
+        elif stats.get('tier') == 'free' and stats.get('free_credits_reset'):
             st.sidebar.success("✅ Créditos renovados!")
         
         # Warning for paid tiers about to be downgraded
@@ -1154,18 +1171,32 @@ def show_usage_stats():
         logger.error(f"Erro ao exibir estatísticas de uso: {str(e)}")
         st.sidebar.error("Erro ao carregar estatísticas")
 
+
+# Update check_analysis_limits function to use consistent naming
 def check_analysis_limits(selected_markets):
     """Check if user can perform analysis with selected markets"""
     try:
         num_markets = sum(1 for v in selected_markets.values() if v)
         stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
         
-        # Check if user has enough credits
-        reing_credits = stats['credits_reing']
+        # Check which key exists in the stats dictionary
+        if 'credits_remaining' in stats:
+            credits_key = 'credits_remaining'
+        elif 'credits_reing' in stats:
+            credits_key = 'credits_reing'
+        else:
+            # If neither exists, provide a fallback
+            credits_key = None
+            logger.warning("Neither 'credits_remaining' nor 'credits_reing' found in stats")
+            return False
         
-        if num_markets > reing_credits:
+        # Get remaining credits
+        remaining_credits = stats[credits_key]
+        
+        # Check if user has enough credits
+        if num_markets > remaining_credits:
             # Special handling for Free tier
-            if stats['tier'] == 'free':
+            if stats.get('tier') == 'free':
                 st.error(f"❌ Você esgotou seus 5 créditos gratuitos.")
                 
                 if stats.get('next_free_credits_time'):
