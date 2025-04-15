@@ -1253,123 +1253,143 @@ def check_analysis_limits(selected_markets):
 def show_main_dashboard():
     """Show the main dashboard with improved error handling and debug info"""
     try:
-        # Aplicar estilos personalizados
-        apply_custom_styles()
-        
-        # VERIFICAÇÃO DE AUTENTICAÇÃO
+        # Verificações de autenticação
         if not hasattr(st.session_state, 'authenticated') or not st.session_state.authenticated:
             st.error("Sessão não autenticada. Por favor, faça login novamente.")
             st.session_state.page = "login"
             st.experimental_rerun()
             return
             
-        # Inicializar estado da sidebar se não existir
+        # Inicializar estado
         if 'sidebar_expanded' not in st.session_state:
             st.session_state.sidebar_expanded = True
+
+        # Definir o ícone de expansão que sempre estará presente na página
+        # Independente do estado da sidebar
+        st.markdown("""
+        <style>
+            /* Configuração base da sidebar */
+            [data-testid="stSidebar"] {
+                transition: width 0.3s !important;
+            }
             
-        # Definir larguras
-        sidebar_width_expanded = "280px"
-        sidebar_width_collapsed = "20px"
+            /* Botão sempre visível independente do estado da sidebar */
+            #expand-button-container {
+                position: fixed;
+                left: 0;
+                top: 50%;
+                transform: translateY(-50%);
+                z-index: 999999;
+                width: 20px;
+                height: 60px;
+            }
+            
+            .expand-button {
+                background-color: #FF5500;
+                color: white;
+                border: none;
+                border-radius: 0 5px 5px 0;
+                width: 20px;
+                height: 60px;
+                font-size: 16px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            
+            .sidebar-collapsed [data-testid="stSidebar"] {
+                width: 20px !important;
+                min-width: 20px !important;
+                max-width: 20px !important;
+            }
+            
+            .sidebar-collapsed [data-testid="stSidebar"] .block-container {
+                display: none !important;
+            }
+        </style>
         
-        # CSS simples para a sidebar
-        if st.session_state.sidebar_expanded:
-            # CSS para sidebar expandida
-            st.markdown("""
-            <style>
-                [data-testid="stSidebar"] {
-                    width: 280px !important;
-                    min-width: 280px !important;
-                    max-width: 280px !important;
-                }
-            </style>
-            """, unsafe_allow_html=True)
-        else:
-            # CSS para sidebar retraída + botão
-            st.markdown("""
-            <style>
-                [data-testid="stSidebar"] {
-                    width: 20px !important;
-                    min-width: 20px !important;
-                    max-width: 20px !important;
+        <div id="expand-button-container">
+            <button class="expand-button" id="toggle-sidebar-btn">&gt;</button>
+        </div>
+        
+        <script>
+            // Script simples que apenas alterna uma classe no corpo do documento
+            document.addEventListener('DOMContentLoaded', function() {
+                const body = document.body;
+                const btn = document.getElementById('toggle-sidebar-btn');
+                
+                // Inicializar estado com base na sessão
+                if (!localStorage.getItem('sidebar-expanded')) {
+                    localStorage.setItem('sidebar-expanded', 'true');
                 }
                 
-                [data-testid="stSidebar"] .block-container {
-                    display: none;
+                // Aplicar estado inicial
+                if (localStorage.getItem('sidebar-expanded') === 'false') {
+                    body.classList.add('sidebar-collapsed');
+                    btn.innerHTML = '&gt;';
+                } else {
+                    body.classList.remove('sidebar-collapsed');
+                    btn.innerHTML = '&lt;';
                 }
                 
-                /* Botão fixo de expansão */
-                .expand-btn {
-                    position: fixed;
-                    left: 0;
-                    top: 50%;
-                    width: 20px;
-                    height: 60px;
-                    background-color: #FF5500;
-                    color: white;
-                    text-align: center;
-                    line-height: 60px;
-                    cursor: pointer;
-                    z-index: 9999;
-                    border-radius: 0 5px 5px 0;
-                }
-            </style>
+                // Configurar manipulador de clique para o botão
+                btn.addEventListener('click', function() {
+                    // Toggle class
+                    if (body.classList.contains('sidebar-collapsed')) {
+                        body.classList.remove('sidebar-collapsed');
+                        btn.innerHTML = '&lt;';
+                        localStorage.setItem('sidebar-expanded', 'true');
+                    } else {
+                        body.classList.add('sidebar-collapsed');
+                        btn.innerHTML = '&gt;';
+                        localStorage.setItem('sidebar-expanded', 'false');
+                    }
+                });
+            });
+        </script>
+        """, unsafe_allow_html=True)
+        
+        # Sidebar normal do Streamlit
+        with st.sidebar:
+            st.title("ValueHunter")
+            st.markdown("---")
             
-            <div class="expand-btn" onclick="document.getElementById('expand-sidebar-btn').click();">&gt;</div>
-            """, unsafe_allow_html=True)
-            
-        # Conteúdo condicional da sidebar
-        if st.session_state.sidebar_expanded:
-            # Sidebar expandida - mostrar botão de recolher
-            if st.sidebar.button("<<<", key="collapse_sidebar_btn", use_container_width=True):
-                st.session_state.sidebar_expanded = False
-                st.experimental_rerun()
-                
-            # Conteúdo normal da sidebar
+            # Mostrar estatísticas de uso
             show_usage_stats()
             
             # Escolha da liga
             selected_league = get_league_selection(key_suffix="_main_dashboard")
             if not selected_league:
                 st.error("Não foi possível selecionar uma liga. Por favor, verifique a configuração.")
-                return
+                selected_league = "Nenhuma liga selecionada"
                 
-            # Nota sobre carregamento automático
-            st.sidebar.info("Os times são carregados automaticamente ao selecionar uma liga.")
+            # Nota sobre carregamento
+            st.info("Os times são carregados automaticamente ao selecionar uma liga.")
             
             # Separador
-            st.sidebar.markdown("---")
+            st.markdown("---")
             
-            # Botões de pacotes e logout
-            if st.sidebar.button("🚀 Ver Pacotes de Créditos", key="packages_button_expanded", use_container_width=True):
+            # Botões de navegação
+            if st.button("🚀 Ver Pacotes de Créditos", key="packages_button", use_container_width=True):
                 st.session_state.page = "packages"
                 st.experimental_rerun()
             
-            if st.sidebar.button("Logout", key="logout_btn_expanded", use_container_width=True):
+            if st.button("Logout", key="logout_btn", use_container_width=True):
                 st.session_state.authenticated = False
                 st.session_state.email = None
                 st.session_state.page = "landing"
                 st.experimental_rerun()
-        else:
-            # Sidebar retraída - botão oculto para expansão
-            if st.sidebar.button("", key="expand-sidebar-btn", help="Expandir sidebar"):
-                st.session_state.sidebar_expanded = True
-                st.experimental_rerun()
-                
-            # Manter a liga selecionada
-            selected_league = st.session_state.selected_league if hasattr(st.session_state, 'selected_league') else None
-            
-        # ----------------------------------------
+        
         # CONTEÚDO PRINCIPAL
-        # ----------------------------------------
-        try:
-            # Logo do app
-            show_valuehunter_logo()
-            
-            # Título principal
-            st.title("Seleção de Times")
-            
-            # Indicador de liga
-            st.info(f"Liga selecionada: **{selected_league}**", icon="ℹ️")
+        # Logo do app
+        show_valuehunter_logo()
+        
+        # Título principal
+        st.title("Seleção de Times")
+        
+        # Indicador de liga
+        st.info(f"Liga selecionada: **{selected_league}**", icon="ℹ️")
             
             # Container para status
             status_container = st.empty()
@@ -2297,7 +2317,6 @@ def show_main_dashboard():
             st.error(f"Erro ao carregar conteúdo: {str(content_error)}")
             
     except Exception as e:
-        logger.error(f"Erro crítico: {str(e)}")
         st.error(f"Erro ao carregar o dashboard: {str(e)}")
 # Função auxiliar para extração de dados avançada
 def extract_direct_team_stats(source, target, team_type):
