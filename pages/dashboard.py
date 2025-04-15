@@ -1282,6 +1282,8 @@ def show_main_dashboard():
         # Ajustar o CSS para a largura da sidebar - CORRIGIDO PARA MOBILE
         # Parte da função show_main_dashboard() - solução robusta para o botão de expansão
         # Ajustar o CSS para a largura da sidebar
+       # Parte da função show_main_dashboard() - solução robusta para o botão de expansão
+        # Ajustar o CSS para a largura da sidebar
         sidebar_width_expanded = "280px"
         sidebar_width_collapsed = "20px"
         current_width = sidebar_width_expanded if st.session_state.sidebar_expanded else sidebar_width_collapsed
@@ -1340,17 +1342,17 @@ def show_main_dashboard():
             
             <script>
                 function expandSidebar() {
-                    // Armazenar ação para expansão
+                    /* Armazenar ação para expansão */
                     sessionStorage.setItem('sidebar_expand', 'true');
                     window.location.reload();
                 }
                 
-                // Quando a página carrega, verificar se há ação pendente
+                /* Quando a página carrega, verificar se há ação pendente */
                 document.addEventListener('DOMContentLoaded', function() {
                     if (sessionStorage.getItem('sidebar_expand') === 'true') {
                         sessionStorage.removeItem('sidebar_expand');
                         
-                        // Buscar o botão do Streamlit e clicar nele
+                        /* Buscar o botão do Streamlit e clicar nele */
                         setTimeout(function() {
                             const allButtons = Array.from(document.querySelectorAll('button'));
                             const expandButton = allButtons.find(button => 
