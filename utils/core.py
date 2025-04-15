@@ -1405,29 +1405,28 @@ def apply_custom_styles():
     """, unsafe_allow_html=True)
 
 def configure_sidebar_toggle():
-    """Configure a retractable sidebar that works on all devices"""
+    """Configure a simple but effective sidebar toggle that works across devices"""
     st.markdown("""
     <style>
         /* Base sidebar styling */
         [data-testid="stSidebar"] {
-            transition: width 0.3s ease-in-out;
-            background-color: #1E1E1E !important;
+            transition: all 0.3s ease-in-out;
         }
         
-        /* Toggle button styling */
-        #sidebar-toggle {
+        /* Toggle button - desktop version */
+        #vh-sidebar-btn {
             position: fixed;
-            left: 250px;
             top: 50%;
             transform: translateY(-50%);
-            z-index: 100000;
+            left: 250px;
+            z-index: 999999;
             background-color: #FF5500;
             color: white;
             border: none;
             border-radius: 0 5px 5px 0;
-            width: 20px;
+            width: 24px;
             height: 60px;
-            font-size: 16px;
+            font-size: 18px;
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -1435,63 +1434,99 @@ def configure_sidebar_toggle():
             transition: left 0.3s ease-in-out;
         }
         
-        /* Collapsed sidebar styles */
+        /* Collapsed sidebar state */
         .sidebar-collapsed [data-testid="stSidebar"] {
             margin-left: -21px !important;
             width: 0px !important;
             min-width: 0px !important;
+            height: auto !important;
         }
         
         .sidebar-collapsed [data-testid="stSidebar"] .block-container {
-            opacity: 0 !important;
             display: none !important;
         }
         
-        .sidebar-collapsed #sidebar-toggle {
-            left: 20px;
+        .sidebar-collapsed #vh-sidebar-btn {
+            left: 0px;
         }
         
-        /* Mobile-specific adjustments */
+        /* Mobile responsive design */
         @media (max-width: 768px) {
+            #vh-sidebar-btn {
+                position: fixed;
+                right: 10px;
+                left: auto;
+                top: 10px;
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+                z-index: 999999;
+            }
+            
+            .sidebar-collapsed #vh-sidebar-btn {
+                left: 10px;
+                right: auto;
+            }
+            
             [data-testid="stSidebar"] {
                 width: 100% !important;
+                min-width: 100% !important;
                 max-width: 100% !important;
-                background-color: #1E1E1E !important;
+                height: auto !important;
             }
             
             .sidebar-collapsed [data-testid="stSidebar"] {
-                margin-left: -100% !important;
+                transform: translateX(-100%) !important;
+                margin-left: 0 !important;
             }
-            
-            #sidebar-toggle {
-                left: 0;
-                top: 10px;
-                width: 40px;
-                height: 30px;
-                border-radius: 0 0 5px 0;
-            }
-            
-            .sidebar-collapsed #sidebar-toggle {
-                left: 0;
-            }
+        }
+        
+        /* Fix for white dropdowns */
+        .stSelectbox > div[data-baseweb="select"] > div,
+        .stMultiSelect > div[data-baseweb="select"] > div {
+            background-color: #2a2a2a !important;
+            color: white !important;
+        }
+        
+        div[data-baseweb="popover"] {
+            background-color: #2a2a2a !important;
+        }
+        
+        div[data-baseweb="select"] ul,
+        div[data-baseweb="select"] ul li {
+            background-color: #2a2a2a !important;
+            color: white !important;
+        }
+        
+        div[data-baseweb="select"] ul li:hover {
+            background-color: #3a3a3a !important;
+        }
+        
+        /* Make sure body background is dark */
+        .stApp {
+            background-color: #1a1a1a !important;
         }
     </style>
     
-    <button id="sidebar-toggle">&lt;</button>
+    <div>
+        <button id="vh-sidebar-btn">&lt;</button>
+    </div>
     
     <script>
-        // Function to initialize sidebar state
-        function initSidebar() {
-            const body = document.body;
-            const toggleBtn = document.getElementById('sidebar-toggle');
+        function setupSidebar() {
+            console.log("Setting up sidebar toggle...");
+            
+            // Get elements
+            var body = document.body;
+            var toggleBtn = document.getElementById('vh-sidebar-btn');
             
             if (!toggleBtn) {
-                console.log('Toggle button not found yet');
+                console.log("Toggle button not found, will retry");
                 return false;
             }
             
             // Get saved state
-            const isCollapsed = localStorage.getItem('sidebar-collapsed') === 'true';
+            var isCollapsed = localStorage.getItem('vh-sidebar-collapsed') === 'true';
             
             // Apply initial state
             if (isCollapsed) {
@@ -1502,240 +1537,45 @@ def configure_sidebar_toggle():
                 toggleBtn.innerHTML = '&lt;';
             }
             
-            // Clear previous event listeners
-            const newBtn = toggleBtn.cloneNode(true);
-            toggleBtn.parentNode.replaceChild(newBtn, toggleBtn);
-            
-            // Set up click handler
-            newBtn.addEventListener('click', function() {
-                console.log('Toggle button clicked');
-                body.classList.toggle('sidebar-collapsed');
+            // Set up new click handler
+            toggleBtn.onclick = function() {
+                console.log("Toggle button clicked");
                 
+                // Toggle sidebar state
                 if (body.classList.contains('sidebar-collapsed')) {
-                    this.innerHTML = '&gt;';
-                    localStorage.setItem('sidebar-collapsed', 'true');
+                    body.classList.remove('sidebar-collapsed');
+                    toggleBtn.innerHTML = '&lt;';
+                    localStorage.setItem('vh-sidebar-collapsed', 'false');
                 } else {
-                    this.innerHTML = '&lt;';
-                    localStorage.setItem('sidebar-collapsed', 'false');
+                    body.classList.add('sidebar-collapsed');
+                    toggleBtn.innerHTML = '&gt;';
+                    localStorage.setItem('vh-sidebar-collapsed', 'true');
                 }
-            });
+            };
             
             return true;
         }
         
-        // Try to initialize immediately and at intervals
-        function attemptInitialization() {
-            if (window.sidebarInitInterval) {
-                clearInterval(window.sidebarInitInterval);
-            }
-            
-            if (initSidebar()) return;
-            
-            let attempts = 0;
-            window.sidebarInitInterval = setInterval(function() {
-                attempts++;
-                
-                if (initSidebar() || attempts > 20) {
-                    clearInterval(window.sidebarInitInterval);
-                }
-            }, 200);
-        }
-        
-        // Run when DOM content is loaded
+        // Try immediately
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', attemptInitialization);
-        } else {
-            attemptInitialization();
-        }
-        
-        // Also run after Streamlit has fully loaded
-        setTimeout(attemptInitialization, 1000);
-        setTimeout(attemptInitialization, 2000);
-    </script>
-    """, unsafe_allow_html=True)
-def configure_responsive_sidebar():
-    """Configure a fully responsive sidebar that works on all devices"""
-    st.markdown("""
-    <style>
-        /* Base sidebar styling */
-        [data-testid="stSidebar"] {
-            transition: all 0.3s ease-in-out !important;
-            background-color: #1E1E1E !important;
-            color: white !important;
-        }
-        
-        /* Toggle button styling */
-        #vh-sidebar-toggle {
-            position: fixed;
-            left: 300px;
-            top: 50%;
-            transform: translateY(-50%);
-            z-index: 999999;
-            background-color: #FF5500;
-            color: white;
-            border: none;
-            border-radius: 0 5px 5px 0;
-            width: 20px;
-            height: 60px;
-            font-size: 16px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: left 0.3s ease-in-out;
-        }
-        
-        /* Fix background color for dropdowns and selections */
-        .stSelectbox > div > div, 
-        .stMultiSelect > div > div {
-            background-color: #2a2a2a !important;
-            color: white !important;
-        }
-        
-        /* Fix all dropdown options */
-        div[data-baseweb="select"] ul, 
-        div[data-baseweb="select"] ul li,
-        div[data-baseweb="select"] ul li:hover {
-            background-color: #2a2a2a !important;
-            color: white !important;
-        }
-        
-        /* Fix for dropdown hover states */
-        div[data-baseweb="select"] ul li:hover {
-            background-color: #3a3a3a !important;
-        }
-        
-        /* Collapsed sidebar styles */
-        .sidebar-collapsed [data-testid="stSidebar"] {
-            width: 0px !important;
-            min-width: 0px !important;
-            margin-left: -21px !important;
-        }
-        
-        .sidebar-collapsed [data-testid="stSidebar"] .block-container {
-            display: none !important;
-        }
-        
-        .sidebar-collapsed #vh-sidebar-toggle {
-            left: 0px;
-        }
-        
-        /* Mobile responsive design */
-        @media (max-width: 768px) {
-            [data-testid="stSidebar"] {
-                width: 100% !important;
-                min-width: 100% !important;
-                max-width: 100% !important;
-                background-color: #1E1E1E !important;
-                margin-top: 0 !important;
-            }
-            
-            .sidebar-collapsed [data-testid="stSidebar"] {
-                transform: translateX(-100%) !important;
-                margin-left: 0 !important;
-            }
-            
-            #vh-sidebar-toggle {
-                left: auto;
-                right: 20px;
-                top: 10px;
-                width: 40px;
-                height: 40px;
-                border-radius: 50%;
-            }
-            
-            .sidebar-collapsed #vh-sidebar-toggle {
-                left: 10px;
-                right: auto;
-            }
-            
-            /* Ensure dark background everywhere */
-            html, body, .main, .stApp {
-                background-color: #1a1a1a !important;
-                color: white !important;
-            }
-        }
-    </style>
-    
-    <button id="vh-sidebar-toggle">&lt;</button>
-    
-    <script>
-        // Make sure jQuery is available
-        if (typeof window.jQuery === 'undefined') {
-            var script = document.createElement('script');
-            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js';
-            document.head.appendChild(script);
-            
-            // Wait for jQuery to load
-            script.onload = function() {
-                setupSidebar();
-            };
+            document.addEventListener('DOMContentLoaded', setupSidebar);
         } else {
             setupSidebar();
         }
         
-        function setupSidebar() {
-            (function($) {
-                // Wait for DOM to be ready
-                $(document).ready(function() {
-                    function initSidebar() {
-                        console.log('Initializing sidebar toggle...');
-                        
-                        var $body = $('body');
-                        var $toggle = $('#vh-sidebar-toggle');
-                        
-                        if ($toggle.length === 0) {
-                            console.log('Toggle button not found, will retry...');
-                            return false;
-                        }
-                        
-                        // Get saved state
-                        var isCollapsed = localStorage.getItem('vh-sidebar-collapsed') === 'true';
-                        
-                        // Apply initial state
-                        if (isCollapsed) {
-                            $body.addClass('sidebar-collapsed');
-                            $toggle.html('&gt;');
-                        } else {
-                            $body.removeClass('sidebar-collapsed');
-                            $toggle.html('&lt;');
-                        }
-                        
-                        // Handle click event
-                        $toggle.off('click').on('click', function() {
-                            console.log('Toggle button clicked');
-                            $body.toggleClass('sidebar-collapsed');
-                            
-                            if ($body.hasClass('sidebar-collapsed')) {
-                                $toggle.html('&gt;');
-                                localStorage.setItem('vh-sidebar-collapsed', 'true');
-                            } else {
-                                $toggle.html('&lt;');
-                                localStorage.setItem('vh-sidebar-collapsed', 'false');
-                            }
-                        });
-                        
-                        console.log('Sidebar toggle initialized successfully');
-                        return true;
-                    }
-                    
-                    // Try immediately and also with a delay
-                    if (!initSidebar()) {
-                        var attempts = 0;
-                        var interval = setInterval(function() {
-                            attempts++;
-                            if (initSidebar() || attempts > 30) {
-                                clearInterval(interval);
-                            }
-                        }, 200);
-                    }
-                    
-                    // Also try after Streamlit might have redrawn the UI
-                    setTimeout(initSidebar, 1000);
-                    setTimeout(initSidebar, 2000);
-                    setTimeout(initSidebar, 3000);
-                });
-            })(window.jQuery);
-        }
+        // Also try with delays to catch after Streamlit might have redrawn
+        setTimeout(setupSidebar, 500);
+        setTimeout(setupSidebar, 1000);
+        setTimeout(setupSidebar, 2000);
+        
+        // Add a mutation observer to detect UI changes
+        var observer = new MutationObserver(function(mutations) {
+            setupSidebar();
+        });
+        
+        // Start observing after a delay to let Streamlit initialize
+        setTimeout(function() {
+            observer.observe(document.body, { childList: true, subtree: true });
+        }, 3000);
     </script>
     """, unsafe_allow_html=True)
