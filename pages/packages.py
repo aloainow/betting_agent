@@ -25,6 +25,26 @@ def show_packages_page():
         # Header com a logo
         show_valuehunter_logo()
         
+        # Botão para voltar - MOVIDO PARA LOGO ABAIXO DO LOGO
+        col_back, col_empty = st.columns([1, 3])  # Reduzindo a largura para 1/4 da tela
+        with col_back:
+            if st.button("← Voltar para análises", key="back_to_analysis"):
+                # IMPORTANTE: Forçar refresh dos dados ao voltar para análises
+                try:
+                    # Recarregar a classe UserManager para garantir dados atualizados
+                    from utils.data import UserManager
+                    st.session_state.user_manager = UserManager()
+                    # Limpar qualquer cache de estatísticas
+                    if hasattr(st.session_state, 'user_stats_cache'):
+                        del st.session_state.user_stats_cache
+                    logger.info(f"Dados recarregados ao voltar para análises: {st.session_state.email}")
+                except Exception as e:
+                    logger.error(f"Erro ao recarregar dados ao voltar: {str(e)}")
+                    
+                # Mudar a página
+                st.session_state.page = "main"
+                st.experimental_rerun()
+        
         # Se estamos em uma página especial, mostrar apenas o conteúdo dela
         if check_payment_success():
             return
@@ -99,24 +119,7 @@ def show_packages_page():
             Use o cartão 4242 4242 4242 4242 com qualquer data futura e CVC para simular um pagamento bem-sucedido.
             """)
         
-        # Botão para voltar
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("← Voltar para análises", key="back_to_analysis", use_container_width=True):
-            # IMPORTANTE: Forçar refresh dos dados ao voltar para análises
-            try:
-                # Recarregar a classe UserManager para garantir dados atualizados
-                from utils.data import UserManager
-                st.session_state.user_manager = UserManager()
-                # Limpar qualquer cache de estatísticas
-                if hasattr(st.session_state, 'user_stats_cache'):
-                    del st.session_state.user_stats_cache
-                logger.info(f"Dados recarregados ao voltar para análises: {st.session_state.email}")
-            except Exception as e:
-                logger.error(f"Erro ao recarregar dados ao voltar: {str(e)}")
-                
-            # Mudar a página
-            st.session_state.page = "main"
-            st.experimental_rerun()
+        # Botão para voltar foi removido daqui e movido para cima
     except Exception as e:
         logger.error(f"Erro ao exibir página de pacotes: {str(e)}")
         st.error("Erro ao carregar a página de pacotes. Por favor, tente novamente.")
