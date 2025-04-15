@@ -59,7 +59,7 @@ def format_text_for_display(text, max_width=70):
     return '\n'.join(lines)
 
 def configure_retractable_sidebar():
-    """Configure a retractable sidebar with a more reliable implementation"""
+    """Configure a retractable sidebar with a clean implementation"""
     st.markdown("""
     <style>
         /* Base sidebar styling */
@@ -79,20 +79,12 @@ def configure_retractable_sidebar():
         }
         
         /* Toggle button styling */
-        #toggle-button-container {
+        #sidebar-toggle {
             position: fixed;
             left: 250px; /* Position at edge of expanded sidebar */
             top: 50%;
             transform: translateY(-50%);
             z-index: 1000;
-            transition: left 0.3s ease-in-out;
-        }
-        
-        .sidebar-collapsed #toggle-button-container {
-            left: 20px; /* Position at edge of collapsed sidebar */
-        }
-        
-        .toggle-button {
             background-color: #FF5500;
             color: white;
             border: none;
@@ -104,31 +96,41 @@ def configure_retractable_sidebar():
             display: flex;
             align-items: center;
             justify-content: center;
+            transition: left 0.3s ease-in-out;
+        }
+        
+        .sidebar-collapsed #sidebar-toggle {
+            left: 20px; /* Position at edge of collapsed sidebar */
         }
     </style>
     
-    <div id="toggle-button-container">
-        <button class="toggle-button" id="sidebar-toggle">&lt;</button>
-    </div>
+    <button id="sidebar-toggle">&lt;</button>
     
     <script>
-        // Wait for DOM to be fully loaded
-        document.addEventListener('DOMContentLoaded', function() {
+        // Function to initialize sidebar state
+        function initSidebar() {
             const body = document.body;
             const toggleBtn = document.getElementById('sidebar-toggle');
-            const toggleContainer = document.getElementById('toggle-button-container');
             
-            // Check localStorage for saved state
-            if (localStorage.getItem('sidebar-collapsed') === 'true') {
+            if (!toggleBtn) return; // Exit if button not found
+            
+            // Get saved state from localStorage
+            const isCollapsed = localStorage.getItem('sidebar-collapsed') === 'true';
+            
+            // Apply initial state
+            if (isCollapsed) {
                 body.classList.add('sidebar-collapsed');
                 toggleBtn.innerHTML = '&gt;';
+            } else {
+                body.classList.remove('sidebar-collapsed');
+                toggleBtn.innerHTML = '&lt;';
             }
             
-            // Set up click handler for toggle button
+            // Set up click handler
             toggleBtn.addEventListener('click', function() {
                 body.classList.toggle('sidebar-collapsed');
                 
-                // Update button text
+                // Update button text and save state
                 if (body.classList.contains('sidebar-collapsed')) {
                     toggleBtn.innerHTML = '&gt;';
                     localStorage.setItem('sidebar-collapsed', 'true');
@@ -137,7 +139,13 @@ def configure_retractable_sidebar():
                     localStorage.setItem('sidebar-collapsed', 'false');
                 }
             });
-        });
+        }
+        
+        // Run initialization immediately
+        initSidebar();
+        
+        // Also run after a delay to ensure DOM is fully loaded
+        setTimeout(initSidebar, 500);
     </script>
     """, unsafe_allow_html=True)
 def format_generic_section(section):
