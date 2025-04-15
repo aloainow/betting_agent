@@ -1255,6 +1255,7 @@ def show_main_dashboard():
     try:
         # Aplicar estilos personalizados
         apply_custom_styles()
+        
         # VERIFICAÇÃO DE AUTENTICAÇÃO
         if not hasattr(st.session_state, 'authenticated') or not st.session_state.authenticated:
             st.error("Sessão não autenticada. Por favor, faça login novamente.")
@@ -1274,153 +1275,157 @@ def show_main_dashboard():
             st.session_state.page = "login"
             st.experimental_rerun()
             return
-            # Configuração inicial da sidebar
-            if 'sidebar_expanded' not in st.session_state:
-                st.session_state.sidebar_expanded = True  # Por padrão, começa expandida
-            
-            # Inicializar selected_league com um valor padrão para evitar o erro
-            selected_league = None
-            
-            # CSS para controlar a largura e visibilidade da sidebar
-            st.markdown(
-                """
-                <style>
-                    /* Estilos para a sidebar no modo recolhido e expandido */
+        
+        # Inicializar a variável selected_league aqui no escopo principal# Inicializar a variável selected_league aqui no escopo principal
+        selected_league = None
+        
+        # Configuração inicial da sidebar
+        if 'sidebar_expanded' not in st.session_state:
+            st.session_state.sidebar_expanded = True  # Por padrão, começa expandida
+        
+        # CSS para controlar a largura e visibilidade da sidebar
+        st.markdown(
+            """
+            <style>
+                /* Estilos para a sidebar no modo recolhido e expandido */
+                [data-testid="stSidebar"][aria-expanded="false"] {
+                    width: 60px !important;
+                    min-width: 60px !important;
+                    max-width: 60px !important;
+                }
+                
+                [data-testid="stSidebar"][aria-expanded="true"] {
+                    width: 280px !important;
+                    min-width: 280px !important;
+                    max-width: 280px !important;
+                }
+                
+                /* Solução específica para móveis - esconde completamente quando recolhida */
+                @media (max-width: 767px) {
                     [data-testid="stSidebar"][aria-expanded="false"] {
-                        width: 60px !important;
-                        min-width: 60px !important;
-                        max-width: 60px !important;
+                        width: 0px !important;
+                        min-width: 0px !important;
+                        max-width: 0px !important;
+                        margin-left: -100px;
+                        position: absolute;
                     }
                     
+                    /* Quando expandida, deve sobrepor o conteúdo */
                     [data-testid="stSidebar"][aria-expanded="true"] {
-                        width: 280px !important;
-                        min-width: 280px !important;
-                        max-width: 280px !important;
+                        margin-left: 0;
                     }
-                    
-                    /* Solução específica para móveis - esconde completamente quando recolhida */
-                    @media (max-width: 767px) {
-                        [data-testid="stSidebar"][aria-expanded="false"] {
-                            width: 0px !important;
-                            min-width: 0px !important;
-                            max-width: 0px !important;
-                            margin-left: -100px;
-                            position: absolute;
-                        }
-                        
-                        /* Quando expandida, deve sobrepor o conteúdo */
-                        [data-testid="stSidebar"][aria-expanded="true"] {
-                            margin-left: 0;
-                        }
-                    }
-                </style>
-                """,
-                unsafe_allow_html=True
-            )
-            
-            # Conteúdo da sidebar baseado no estado
-            if st.session_state.sidebar_expanded:
-                # Modo Expandido
-                if st.sidebar.button("<<<", key="collapse_sidebar_btn", use_container_width=True):
-                    st.session_state.sidebar_expanded = False
-                    st.experimental_rerun()
-                
-                # Mostrar conteúdo completo da sidebar
-                show_usage_stats()
-                
-                try:
-                    # Escolha da liga usando chave única
-                    selected_league = get_league_selection(key_suffix="_main_dashboard")
-                    # Salvar a liga selecionada na sessão para uso quando a sidebar estiver retraída
-                    if selected_league:
-                        st.session_state.selected_league = selected_league
-                except Exception as e:
-                    logger.error(f"Erro ao selecionar liga: {str(e)}")
-                    if not selected_league and hasattr(st.session_state, 'selected_league'):
-                        selected_league = st.session_state.selected_league
-                    else:
-                        st.error("Não foi possível selecionar uma liga. Por favor, verifique a configuração.")
-                
-                # Nota sobre carregamento automático
-                st.sidebar.info("Os times são carregados automaticamente ao selecionar uma liga.")
-                
-                # Separador
-                st.sidebar.markdown("---")
-                
-                # Botões de pacotes e logout
-                if st.sidebar.button("🚀 Ver Pacotes de Créditos", key="packages_button_expanded", use_container_width=True):
-                    st.session_state.page = "packages"
-                    st.experimental_rerun()
-                
-                if st.sidebar.button("Logout", key="logout_btn_expanded", use_container_width=True):
-                    st.session_state.authenticated = False
-                    st.session_state.email = None
-                    st.session_state.page = "landing"
-                    st.experimental_rerun()
-            else:
-                # Modo Recolhido
-                if st.sidebar.button(">>>", key="expand_sidebar_btn", use_container_width=True):
-                    st.session_state.sidebar_expanded = True
-                    st.experimental_rerun()
-                
-                # Titulo simplificado
-                st.sidebar.markdown("<div style='text-align: center; color: #FF5500;'>VH</div>", unsafe_allow_html=True)
-                
-                # Navegação simples como botões nativos
-                if st.sidebar.button("🏠", key="home_icon_btn", use_container_width=True):
-                    # Recarregar a página principal
-                    st.experimental_rerun()
-                    
-                if st.sidebar.button("🚀", key="packages_icon_btn", use_container_width=True):
-                    st.session_state.page = "packages"
-                    st.experimental_rerun()
-                    
-                if st.sidebar.button("🚪", key="logout_icon_btn", use_container_width=True):
-                    st.session_state.authenticated = False
-                    st.session_state.email = None
-                    st.session_state.page = "landing"
-                    st.experimental_rerun()
-                
-                # Usar a liga já selecionada anteriormente
-                if hasattr(st.session_state, 'selected_league'):
-                    selected_league = st.session_state.selected_league
-            
-            # Tratar redirecionamentos baseados em parâmetros de consulta (independente do estado da sidebar)
-            if 'page' in st.query_params and st.query_params['page'] == 'packages':
-                st.session_state.page = "packages"
-                del st.query_params['page']
+                }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+        
+        # Carregar a liga da sessão se existir
+        if hasattr(st.session_state, 'selected_league'):
+            selected_league = st.session_state.selected_league
+        
+        # Conteúdo da sidebar baseado no estado
+        if st.session_state.sidebar_expanded:
+            # Modo Expandido
+            if st.sidebar.button("<<<", key="collapse_sidebar_btn", use_container_width=True):
+                st.session_state.sidebar_expanded = False
                 st.experimental_rerun()
-                
-            if 'logout' in st.query_params:
+            
+            # Mostrar conteúdo completo da sidebar
+            show_usage_stats()
+            
+            try:
+                # Escolha da liga usando chave única
+                temp_league = get_league_selection(key_suffix="_main_dashboard")
+                if temp_league:
+                    selected_league = temp_league
+                    st.session_state.selected_league = selected_league
+            except Exception as e:
+                logger.error(f"Erro ao selecionar liga: {str(e)}")
+                st.sidebar.error("Erro ao carregar ligas. Usando seleção anterior se disponível.")
+            
+            # Nota sobre carregamento automático
+            st.sidebar.info("Os times são carregados automaticamente ao selecionar uma liga.")
+            
+            # Separador
+            st.sidebar.markdown("---")
+            
+            # Botões de pacotes e logout
+            if st.sidebar.button("🚀 Ver Pacotes de Créditos", key="packages_button_expanded", use_container_width=True):
+                st.session_state.page = "packages"
+                st.experimental_rerun()
+            
+            if st.sidebar.button("Logout", key="logout_btn_expanded", use_container_width=True):
                 st.session_state.authenticated = False
                 st.session_state.email = None
                 st.session_state.page = "landing"
-                del st.query_params['logout']
+                st.experimental_rerun()
+        else:
+            # Modo Recolhido
+            if st.sidebar.button(">>>", key="expand_sidebar_btn", use_container_width=True):
+                st.session_state.sidebar_expanded = True
                 st.experimental_rerun()
             
-            # Se mesmo assim selected_league não foi definido, usar um valor default
-            if selected_league is None:
-                logger.warning("Nenhuma liga foi selecionada. Usando valor padrão.")
+            # Titulo simplificado
+            st.sidebar.markdown("<div style='text-align: center; color: #FF5500;'>VH</div>", unsafe_allow_html=True)
+            
+            # Navegação simples como botões nativos
+            if st.sidebar.button("🏠", key="home_icon_btn", use_container_width=True):
+                # Recarregar a página principal
+                st.experimental_rerun()
                 
-                # Tentar obter a primeira liga disponível
-                try:
-                    from utils.footystats_api import get_user_selected_leagues_direct
-                    available_leagues = get_user_selected_leagues_direct()
-                    if available_leagues:
-                        selected_league = available_leagues[0]
-                        st.session_state.selected_league = selected_league
-                except Exception as e:
-                    logger.error(f"Não foi possível obter ligas disponíveis: {str(e)}")
-                    selected_league = "Brasileirão"  # Um valor default como fallback
+            if st.sidebar.button("🚀", key="packages_icon_btn", use_container_width=True):
+                st.session_state.page = "packages"
+                st.experimental_rerun()
+                
+            if st.sidebar.button("🚪", key="logout_icon_btn", use_container_width=True):
+                st.session_state.authenticated = False
+                st.session_state.email = None
+                st.session_state.page = "landing"
+                st.experimental_rerun()
         
-        # Iniciar com log de diagnóstico
-        logger.info("Iniciando renderização do dashboard principal")     
+        # Se ainda não temos uma liga selecionada, tentar obter a primeira disponível
+        if selected_league is None:
+            try:
+                logger.info("Tentando obter a primeira liga disponível...")
+                from utils.footystats_api import get_user_selected_leagues_direct
+                available_leagues = get_user_selected_leagues_direct()
+                if available_leagues and len(available_leagues) > 0:
+                    selected_league = available_leagues[0]
+                    st.session_state.selected_league = selected_league
+                    logger.info(f"Liga padrão selecionada: {selected_league}")
+                else:
+                    # Fallback absoluto para uma liga comum
+                    selected_league = "Brasileirão"
+                    st.session_state.selected_league = selected_league
+                    logger.warning(f"Nenhuma liga disponível. Usando fallback: {selected_league}")
+            except Exception as e:
+                logger.error(f"Erro ao obter ligas: {str(e)}")
+                # Fallback absoluto
+                selected_league = "Brasileirão"
+                st.session_state.selected_league = selected_league
+                logger.warning(f"Erro ao obter ligas. Usando fallback: {selected_league}")
+        
+        # Tratar redirecionamentos baseados em parâmetros de consulta
+        if 'page' in st.query_params and st.query_params['page'] == 'packages':
+            st.session_state.page = "packages"
+            del st.query_params['page']
+            st.experimental_rerun()
+            
+        if 'logout' in st.query_params:
+            st.session_state.authenticated = False
+            st.session_state.email = None
+            st.session_state.page = "landing"
+            del st.query_params['logout']
+            st.experimental_rerun()
+        
+        # Logging para diagnóstico
+        logger.info(f"Sidebar configurada com liga: {selected_league}")    
         
         # Inicializar modo de depuração para funcionalidade interna
         if "debug_mode" not in st.session_state:
             st.session_state.debug_mode = False
-            
-            
+        
         # ------------------------------------------------------------
         # CONTEÚDO PRINCIPAL 
         # ------------------------------------------------------------
@@ -2363,13 +2368,13 @@ def show_main_dashboard():
             st.error(f"Detalhes: {str(content_error)}")
             if st.session_state.debug_mode:
                 st.code(traceback.format_exc())
-            
+        
     except Exception as e:
         logger.error(f"Erro crítico ao exibir painel principal: {str(e)}")
         logger.error(traceback.format_exc())
         st.error("Erro ao carregar o painel principal. Por favor, tente novamente.")
         st.error(f"Erro: {str(e)}")
-        if st.session_state.debug_mode:
+        if hasattr(st.session_state, 'debug_mode') and st.session_state.debug_mode:
             st.code(traceback.format_exc())
 # Função auxiliar para extração de dados avançada
 def extract_direct_team_stats(source, target, team_type):
