@@ -1279,10 +1279,7 @@ def show_main_dashboard():
         if 'sidebar_expanded' not in st.session_state:
             st.session_state.sidebar_expanded = True  # Começa expandido
         
-        # Ajustar o CSS para a largura da sidebar - CORRIGIDO PARA MOBILE
-        # Parte da função show_main_dashboard() - solução robusta para o botão de expansão
-        # Ajustar o CSS para a largura da sidebar
-       # Parte da função show_main_dashboard() - solução robusta para o botão de expansão
+        
         # Ajustar o CSS para a largura da sidebar
         sidebar_width_expanded = "280px"
         sidebar_width_collapsed = "20px"
@@ -1292,7 +1289,6 @@ def show_main_dashboard():
         st.markdown(
             f"""
             <style>
-                /* Configuração básica da sidebar */
                 [data-testid="stSidebar"] {{
                     width: {current_width} !important;
                     max-width: {current_width} !important;
@@ -1301,7 +1297,6 @@ def show_main_dashboard():
                     transition: width 0.3s;
                 }}
                 
-                /* Botão de expansão fixo */
                 #sidebar-expand-btn {{
                     position: fixed;
                     left: 0;
@@ -1323,7 +1318,6 @@ def show_main_dashboard():
                     box-shadow: 2px 0 5px rgba(0,0,0,0.2);
                 }}
                 
-                /* Ocultar elementos da sidebar quando retraída */
                 {'' if st.session_state.sidebar_expanded else '''
                 section[data-testid="stSidebar"] > div {
                     width: 20px !important;
@@ -1337,22 +1331,18 @@ def show_main_dashboard():
                 '''}
             </style>
             
-            <!-- Botão de expansão sempre presente no DOM -->
             <button id="sidebar-expand-btn" onclick="expandSidebar()">&gt;</button>
             
             <script>
                 function expandSidebar() {
-                    /* Armazenar ação para expansão */
                     sessionStorage.setItem('sidebar_expand', 'true');
                     window.location.reload();
                 }
                 
-                /* Quando a página carrega, verificar se há ação pendente */
                 document.addEventListener('DOMContentLoaded', function() {
                     if (sessionStorage.getItem('sidebar_expand') === 'true') {
                         sessionStorage.removeItem('sidebar_expand');
                         
-                        /* Buscar o botão do Streamlit e clicar nele */
                         setTimeout(function() {
                             const allButtons = Array.from(document.querySelectorAll('button'));
                             const expandButton = allButtons.find(button => 
@@ -1363,9 +1353,6 @@ def show_main_dashboard():
                             
                             if (expandButton) {
                                 expandButton.click();
-                                console.log('Botão de expansão clicado automaticamente');
-                            } else {
-                                console.error('Botão de expansão não encontrado');
                             }
                         }, 500);
                     }
@@ -1387,6 +1374,35 @@ def show_main_dashboard():
             
             # Escolha da liga usando chave única
             selected_league = get_league_selection(key_suffix="_main_dashboard")
+            if not selected_league:
+                st.error("Não foi possível selecionar uma liga. Por favor, verifique a configuração.")
+                return
+            
+            # Nota sobre carregamento automático
+            st.sidebar.info("Os times são carregados automaticamente ao selecionar uma liga.")
+            
+            # Separador
+            st.sidebar.markdown("---")
+            
+            # Botões de pacotes e logout
+            if st.sidebar.button("🚀 Ver Pacotes de Créditos", key="packages_button_expanded", use_container_width=True):
+                st.session_state.page = "packages"
+                st.experimental_rerun()
+            
+            if st.sidebar.button("Logout", key="logout_btn_expanded", use_container_width=True):
+                st.session_state.authenticated = False
+                st.session_state.email = None
+                st.session_state.page = "landing"
+                st.experimental_rerun()
+        else:
+            # Quando retraída - botão para expandir controlado via JS
+            # Este é o botão "invisível" do Streamlit que será acionado via JS
+            if st.sidebar.button("", key="expand_sidebar_btn"):
+                st.session_state.sidebar_expanded = True
+                st.experimental_rerun()
+            
+            # Definir a liga selecionada mesmo quando a sidebar está retraída
+            selected_league = st.session_state.selected_league if hasattr(st.session_state, 'selected_league') else None
             if not selected_league:
                 st.error("Não foi possível selecionar uma liga. Por favor, verifique a configuração.")
                 return
