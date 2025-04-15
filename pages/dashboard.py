@@ -1274,91 +1274,107 @@ def show_main_dashboard():
             st.session_state.page = "login"
             st.experimental_rerun()
             return
+            # Configuração inicial da sidebar
+            if 'sidebar_expanded' not in st.session_state:
+                st.session_state.sidebar_expanded = True  # Por padrão, começa expandida
             
-        # Versão simplificada da sidebar retrátil usando apenas componentes nativos do Streamlit
-        if 'sidebar_expanded' not in st.session_state:
-            st.session_state.sidebar_expanded = True  # Começa expandido
-
-        # Ajustar o CSS para a largura da sidebar
-        sidebar_width_expanded = "280px"
-        sidebar_width_collapsed = "60px"
-        current_width = sidebar_width_expanded if st.session_state.sidebar_expanded else sidebar_width_collapsed
-        
-        # Aplicar CSS apenas para a largura da sidebar
-        st.markdown(
-            f"""
-            <style>
-                [data-testid="stSidebar"] {{
-                    width: {current_width} !important;
-                    max-width: {current_width} !important;
-                    min-width: {current_width} !important;
-                }}
-            </style>
-            """, 
-            unsafe_allow_html=True
-        )
-        
-        # Versão simplificada usando apenas componentes nativos do Streamlit
-        if st.session_state.sidebar_expanded:
-            # Botão para recolher no topo
-            if st.sidebar.button("<<<", key="collapse_sidebar_btn", use_container_width=True):
-                st.session_state.sidebar_expanded = False
-                st.experimental_rerun()
+            # CSS para controlar a largura e visibilidade da sidebar
+            st.markdown(
+                """
+                <style>
+                    /* Estilos para a sidebar no modo recolhido e expandido */
+                    [data-testid="stSidebar"][aria-expanded="false"] {
+                        width: 60px !important;
+                        min-width: 60px !important;
+                        max-width: 60px !important;
+                    }
+                    
+                    [data-testid="stSidebar"][aria-expanded="true"] {
+                        width: 280px !important;
+                        min-width: 280px !important;
+                        max-width: 280px !important;
+                    }
+                    
+                    /* Solução específica para móveis - esconde completamente quando recolhida */
+                    @media (max-width: 767px) {
+                        [data-testid="stSidebar"][aria-expanded="false"] {
+                            width: 0px !important;
+                            min-width: 0px !important;
+                            max-width: 0px !important;
+                            margin-left: -100px;
+                            position: absolute;
+                        }
+                        
+                        /* Quando expandida, deve sobrepor o conteúdo */
+                        [data-testid="stSidebar"][aria-expanded="true"] {
+                            margin-left: 0;
+                        }
+                    }
+                </style>
+                """,
+                unsafe_allow_html=True
+            )
+            
+            # Conteúdo da sidebar baseado no estado
+            if st.session_state.sidebar_expanded:
+                # Modo Expandido
+                if st.sidebar.button("<<<", key="collapse_sidebar_btn", use_container_width=True):
+                    st.session_state.sidebar_expanded = False
+                    st.experimental_rerun()
                 
-            # Mostrar conteúdo normal da sidebar
-            show_usage_stats()
-            
-            # Escolha da liga usando chave única
-            selected_league = get_league_selection(key_suffix="_main_dashboard")
-            if not selected_league:
-                st.error("Não foi possível selecionar uma liga. Por favor, verifique a configuração.")
-                return
-            
-            # Nota sobre carregamento automático
-            st.sidebar.info("Os times são carregados automaticamente ao selecionar uma liga.")
-            
-            # Separador
-            st.sidebar.markdown("---")
-            
-            # Botões de pacotes e logout
-            if st.sidebar.button("🚀 Ver Pacotes de Créditos", key="packages_button_expanded", use_container_width=True):
-                st.session_state.page = "packages"
-                st.experimental_rerun()
-            
-            if st.sidebar.button("Logout", key="logout_btn_expanded", use_container_width=True):
-                st.session_state.authenticated = False
-                st.session_state.email = None
-                st.session_state.page = "landing"
-                st.experimental_rerun()
-        else:
-            # Versão recolhida - usar apenas componentes nativos Streamlit
-            # Botão para expandir
-            if st.sidebar.button(">>>", key="expand_sidebar_btn", use_container_width=True):
-                st.session_state.sidebar_expanded = True
-                st.experimental_rerun()
-            
-            # Titulo simplificado
-            st.sidebar.markdown("<div style='text-align: center; color: #FF5500;'>VH</div>", unsafe_allow_html=True)
-            
-            # Navegação simples como botões nativos
-            if st.sidebar.button("🏠", key="home_icon_btn", use_container_width=True):
-                # Recarregar a página principal
-                st.experimental_rerun()
+                # Mostrar conteúdo completo da sidebar
+                show_usage_stats()
                 
-            if st.sidebar.button("🚀", key="packages_icon_btn", use_container_width=True):
-                st.session_state.page = "packages"
-                st.experimental_rerun()
+                # Escolha da liga usando chave única
+                selected_league = get_league_selection(key_suffix="_main_dashboard")
+                if not selected_league:
+                    st.error("Não foi possível selecionar uma liga. Por favor, verifique a configuração.")
+                    return
                 
-            if st.sidebar.button("🚪", key="logout_icon_btn", use_container_width=True):
-                st.session_state.authenticated = False
-                st.session_state.email = None
-                st.session_state.page = "landing"
-                st.experimental_rerun()
+                # Nota sobre carregamento automático
+                st.sidebar.info("Os times são carregados automaticamente ao selecionar uma liga.")
+                
+                # Separador
+                st.sidebar.markdown("---")
+                
+                # Botões de pacotes e logout
+                if st.sidebar.button("🚀 Ver Pacotes de Créditos", key="packages_button_expanded", use_container_width=True):
+                    st.session_state.page = "packages"
+                    st.experimental_rerun()
+                
+                if st.sidebar.button("Logout", key="logout_btn_expanded", use_container_width=True):
+                    st.session_state.authenticated = False
+                    st.session_state.email = None
+                    st.session_state.page = "landing"
+                    st.experimental_rerun()
+            else:
+                # Modo Recolhido
+                if st.sidebar.button(">>>", key="expand_sidebar_btn", use_container_width=True):
+                    st.session_state.sidebar_expanded = True
+                    st.experimental_rerun()
+                
+                # Titulo simplificado
+                st.sidebar.markdown("<div style='text-align: center; color: #FF5500;'>VH</div>", unsafe_allow_html=True)
+                
+                # Navegação simples como botões nativos
+                if st.sidebar.button("🏠", key="home_icon_btn", use_container_width=True):
+                    # Recarregar a página principal
+                    st.experimental_rerun()
+                    
+                if st.sidebar.button("🚀", key="packages_icon_btn", use_container_width=True):
+                    st.session_state.page = "packages"
+                    st.experimental_rerun()
+                    
+                if st.sidebar.button("🚪", key="logout_icon_btn", use_container_width=True):
+                    st.session_state.authenticated = False
+                    st.session_state.email = None
+                    st.session_state.page = "landing"
+                    st.experimental_rerun()
+                
+                # Definir a liga selecionada mesmo quando a sidebar está recolhida
+                selected_league = st.session_state.selected_league if hasattr(st.session_state, 'selected_league') else None
             
-            # Definir a liga selecionada mesmo quando a sidebar está recolhida
-            selected_league = st.session_state.selected_league if hasattr(st.session_state, 'selected_league') else None
-            
-            # Tratar redirecionamentos baseados em parâmetros de consulta
+            # Tratar redirecionamentos baseados em parâmetros de consulta (independente do estado da sidebar)
             if 'page' in st.query_params and st.query_params['page'] == 'packages':
                 st.session_state.page = "packages"
                 del st.query_params['page']
