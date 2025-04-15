@@ -1280,87 +1280,117 @@ def show_main_dashboard():
             st.session_state.sidebar_expanded = True  # Começa expandido
         
         
+        # Ajustar o CSS para a largura da sidebar# Parte da função show_main_dashboard() - com código HTML/JS separado
         # Ajustar o CSS para a largura da sidebar
         sidebar_width_expanded = "280px"
         sidebar_width_collapsed = "20px"
         current_width = sidebar_width_expanded if st.session_state.sidebar_expanded else sidebar_width_collapsed
         
-        # Sempre adicionar o botão de expansão fora da sidebar, e controlar sua visibilidade com CSS
-        st.markdown(
-            f"""
-            <style>
-                [data-testid="stSidebar"] {{
-                    width: {current_width} !important;
-                    max-width: {current_width} !important;
-                    min-width: {current_width} !important;
-                    flex-shrink: 0 !important;
-                    transition: width 0.3s;
-                }}
-                
-                #sidebar-expand-btn {{
-                    position: fixed;
-                    left: 0;
-                    top: 50%;
-                    transform: translateY(-50%);
-                    width: 20px;
-                    height: 60px;
-                    background-color: #FF5500;
-                    color: white;
-                    border: none;
-                    border-radius: 0 5px 5px 0;
-                    font-weight: bold;
-                    font-size: 16px;
-                    cursor: pointer;
-                    z-index: 9999;
-                    display: {"block" if not st.session_state.sidebar_expanded else "none"};
-                    text-align: center;
-                    line-height: 60px;
-                    box-shadow: 2px 0 5px rgba(0,0,0,0.2);
-                }}
-                
-                {'' if st.session_state.sidebar_expanded else '''
-                section[data-testid="stSidebar"] > div {
-                    width: 20px !important;
-                    min-width: 20px !important;
-                    max-width: 20px !important;
-                }
-                
-                section[data-testid="stSidebar"] .block-container {
-                    visibility: hidden;
-                }
-                '''}
-            </style>
+        # CSS básico da sidebar - usando f-string apenas para a largura
+        sidebar_css = f"""
+        <style>
+            [data-testid="stSidebar"] {{
+                width: {current_width} !important;
+                max-width: {current_width} !important;
+                min-width: {current_width} !important;
+                flex-shrink: 0 !important;
+                transition: width 0.3s;
+            }}
+        """
+        
+        # CSS para o botão de expansão - sem usar f-string
+        button_css = """
+            #sidebar-expand-btn {
+                position: fixed;
+                left: 0;
+                top: 50%;
+                transform: translateY(-50%);
+                width: 20px;
+                height: 60px;
+                background-color: #FF5500;
+                color: white;
+                border: none;
+                border-radius: 0 5px 5px 0;
+                font-weight: bold;
+                font-size: 16px;
+                cursor: pointer;
+                z-index: 9999;
+                text-align: center;
+                line-height: 60px;
+                box-shadow: 2px 0 5px rgba(0,0,0,0.2);
+            }
+        """
+        
+        # CSS para esconder elementos da sidebar quando retraída
+        sidebar_collapsed_css = """
+            section[data-testid="stSidebar"] > div {
+                width: 20px !important;
+                min-width: 20px !important;
+                max-width: 20px !important;
+            }
             
-            <button id="sidebar-expand-btn" onclick="expandSidebar()">&gt;</button>
-            
-            <script>
-                function expandSidebar() {
-                    sessionStorage.setItem('sidebar_expand', 'true');
-                    window.location.reload();
-                }
+            section[data-testid="stSidebar"] .block-container {
+                visibility: hidden;
+            }
+        """
+        
+        # JavaScript para controlar o botão de expansão
+        expand_button_js = """
+        <script>
+        function expandSidebar() {
+            sessionStorage.setItem("sidebar_expand", "true");
+            window.location.reload();
+        }
+        
+        document.addEventListener("DOMContentLoaded", function() {
+            if (sessionStorage.getItem("sidebar_expand") === "true") {
+                sessionStorage.removeItem("sidebar_expand");
                 
-                document.addEventListener('DOMContentLoaded', function() {
-                    if (sessionStorage.getItem('sidebar_expand') === 'true') {
-                        sessionStorage.removeItem('sidebar_expand');
-                        
-                        setTimeout(function() {
-                            const allButtons = Array.from(document.querySelectorAll('button'));
-                            const expandButton = allButtons.find(button => 
-                                button.innerText === '' && 
-                                button.hasAttribute('key') && 
-                                button.getAttribute('key') === 'expand_sidebar_btn'
-                            );
-                            
-                            if (expandButton) {
-                                expandButton.click();
-                            }
-                        }, 500);
+                setTimeout(function() {
+                    const allButtons = Array.from(document.querySelectorAll("button"));
+                    const expandButton = allButtons.find(button => 
+                        button.innerText === "" && 
+                        button.hasAttribute("key") && 
+                        button.getAttribute("key") === "expand_sidebar_btn"
+                    );
+                    
+                    if (expandButton) {
+                        expandButton.click();
                     }
-                });
-            </script>
-            """,
-            unsafe_allow_html=True
-        )
+                }, 500);
+            }
+        });
+        </script>
+        """
+        
+        # HTML do botão de expansão
+        expand_button_html = """
+        <button id="sidebar-expand-btn" onclick="expandSidebar()">&gt;</button>
+        """
+        
+        # Combinando os componentes com base no estado da sidebar
+        complete_html = sidebar_css
+        complete_html += button_css
+        
+        if not st.session_state.sidebar_expanded:
+            complete_html += sidebar_collapsed_css
+            # Só mostrar o botão quando a sidebar está retraída
+            display_style = "display: block;"
+        else:
+            # Esconder o botão quando a sidebar está expandida
+            display_style = "display: none;"
+        
+        complete_html += f"""
+            #sidebar-expand-btn {{
+                {display_style}
+            }}
+        </style>
+        """
+        
+        complete_html += expand_button_html + expand_button_js
+        
+        # Injetar o HTML completo
+        st.markdown(complete_html, unsafe_allow_html=True)
         
         # Comportamento condicional da sidebar
         if st.session_state.sidebar_expanded:
@@ -1396,36 +1426,6 @@ def show_main_dashboard():
                 st.experimental_rerun()
         else:
             # Quando retraída - botão para expandir controlado via JS
-            # Este é o botão "invisível" do Streamlit que será acionado via JS
-            if st.sidebar.button("", key="expand_sidebar_btn"):
-                st.session_state.sidebar_expanded = True
-                st.experimental_rerun()
-            
-            # Definir a liga selecionada mesmo quando a sidebar está retraída
-            selected_league = st.session_state.selected_league if hasattr(st.session_state, 'selected_league') else None
-            if not selected_league:
-                st.error("Não foi possível selecionar uma liga. Por favor, verifique a configuração.")
-                return
-            
-            # Nota sobre carregamento automático
-            st.sidebar.info("Os times são carregados automaticamente ao selecionar uma liga.")
-            
-            # Separador
-            st.sidebar.markdown("---")
-            
-            # Botões de pacotes e logout
-            if st.sidebar.button("🚀 Ver Pacotes de Créditos", key="packages_button_expanded", use_container_width=True):
-                st.session_state.page = "packages"
-                st.experimental_rerun()
-            
-            if st.sidebar.button("Logout", key="logout_btn_expanded", use_container_width=True):
-                st.session_state.authenticated = False
-                st.session_state.email = None
-                st.session_state.page = "landing"
-                st.experimental_rerun()
-        else:
-            # Quando retraída - botão para expandir controlado via JS
-            # O botão visual já está inserido via HTML acima
             # Este é o botão "invisível" do Streamlit que será acionado via JS
             if st.sidebar.button("", key="expand_sidebar_btn"):
                 st.session_state.sidebar_expanded = True
