@@ -1267,20 +1267,23 @@ def show_main_dashboard():
             st.session_state.sidebar_expanded = True
         
         # Definir o ícone de expansão que sempre estará presente na página
+        # Inside your show_main_dashboard() function:
+# Remove any calls to configure_retractable_sidebar()
+        # Use this implementation instead:
         st.markdown("""
         <style>
-            /* Configuração base da sidebar */
+            /* Configurações base da sidebar */
             [data-testid="stSidebar"] {
                 transition: width 0.3s ease-in-out;
             }
             
-            /* Botão de toggle */
-            #sidebar-toggle {
+            /* Estilo do botão de toggle */
+            #sidebar-toggle-button {
                 position: fixed;
                 left: 250px;
                 top: 50%;
                 transform: translateY(-50%);
-                z-index: 1000;
+                z-index: 1001;
                 background-color: #FF5500;
                 color: white;
                 border: none;
@@ -1295,69 +1298,110 @@ def show_main_dashboard():
                 transition: left 0.3s ease-in-out;
             }
             
-            /* Estado colapsado */
+            /* Estados da sidebar colapsada */
             .sidebar-collapsed [data-testid="stSidebar"] {
-                width: 20px !important;
-                min-width: 20px !important;
-                max-width: 20px !important;
+                width: 0px !important;
+                min-width: 0px !important;
+                margin-left: -21px !important;
             }
             
             .sidebar-collapsed [data-testid="stSidebar"] .block-container {
                 display: none !important;
             }
             
-            .sidebar-collapsed #sidebar-toggle {
-                left: 20px;
+            .sidebar-collapsed #sidebar-toggle-button {
+                left: 0px;
             }
         </style>
         
-        <button id="sidebar-toggle">&lt;</button>
+        <div id="sidebar-toggle-container">
+            <button id="sidebar-toggle-button">&lt;</button>
+        </div>
         
         <script>
-            // Função para inicializar a sidebar
-            function initSidebar() {
+            // Função que será executada após o DOM estar completamente carregado
+            function setupSidebarToggle() {
                 const body = document.body;
-                const toggleBtn = document.getElementById('sidebar-toggle');
+                const toggleBtn = document.getElementById('sidebar-toggle-button');
                 
-                if (!toggleBtn) return; // Sair se o botão não foi encontrado
+                if (!toggleBtn) {
+                    console.log('Toggle button not found yet, will retry...');
+                    return false;
+                }
                 
-                // Limpar qualquer evento anterior para evitar duplicação
-                const newToggleBtn = toggleBtn.cloneNode(true);
-                toggleBtn.parentNode.replaceChild(newToggleBtn, toggleBtn);
+                console.log('Toggle button found, setting up event listeners...');
                 
-                // Obter estado salvo do localStorage
-                const isCollapsed = localStorage.getItem('sidebar-collapsed') === 'true';
+                // Obter estado salvo
+                const isCollapsed = localStorage.getItem('streamlit-sidebar-collapsed') === 'true';
                 
                 // Aplicar estado inicial
                 if (isCollapsed) {
                     body.classList.add('sidebar-collapsed');
-                    newToggleBtn.innerHTML = '&gt;';
+                    toggleBtn.innerHTML = '&gt;';
                 } else {
                     body.classList.remove('sidebar-collapsed');
-                    newToggleBtn.innerHTML = '&lt;';
+                    toggleBtn.innerHTML = '&lt;';
                 }
                 
-                // Configurar manipulador de clique
+                // Remover qualquer evento anterior para evitar duplicação
+                const newToggleBtn = toggleBtn.cloneNode(true);
+                toggleBtn.parentNode.replaceChild(newToggleBtn, toggleBtn);
+                
+                // Configurar novo evento de clique
                 newToggleBtn.addEventListener('click', function() {
+                    console.log('Toggle button clicked');
                     body.classList.toggle('sidebar-collapsed');
                     
-                    // Atualizar texto do botão e salvar estado
                     if (body.classList.contains('sidebar-collapsed')) {
-                        newToggleBtn.innerHTML = '&gt;';
-                        localStorage.setItem('sidebar-collapsed', 'true');
+                        this.innerHTML = '&gt;';
+                        localStorage.setItem('streamlit-sidebar-collapsed', 'true');
                     } else {
-                        newToggleBtn.innerHTML = '&lt;';
-                        localStorage.setItem('sidebar-collapsed', 'false');
+                        this.innerHTML = '&lt;';
+                        localStorage.setItem('streamlit-sidebar-collapsed', 'false');
                     }
                 });
+                
+                return true;
             }
             
-            // Executar inicialização imediatamente
-            initSidebar();
+            // Função para tentar configurar com múltiplas tentativas
+            function attemptSetup() {
+                // Limpar qualquer tentativa anterior
+                if (window.sidebarSetupInterval) {
+                    clearInterval(window.sidebarSetupInterval);
+                }
+                
+                // Tentar imediatamente
+                if (setupSidebarToggle()) {
+                    console.log('Sidebar toggle setup successful');
+                    return;
+                }
+                
+                // Se falhar, continuar tentando a cada 100ms até 3 segundos
+                let attempts = 0;
+                window.sidebarSetupInterval = setInterval(function() {
+                    attempts++;
+                    
+                    if (setupSidebarToggle() || attempts > 30) {
+                        clearInterval(window.sidebarSetupInterval);
+                        console.log('Sidebar setup complete or max attempts reached');
+                    }
+                }, 100);
+            }
             
-            // Também executar após um atraso para garantir que o DOM esteja carregado
-            setTimeout(initSidebar, 300);
-            setTimeout(initSidebar, 1000);
+            // Executar quando o DOM estiver carregado
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', attemptSetup);
+            } else {
+                // Se já estiver carregado, executar agora
+                attemptSetup();
+            }
+            
+            // Também executar novamente após o Streamlit terminar de renderizar
+            // (isso é importante porque o Streamlit pode reformatar o DOM)
+            setTimeout(attemptSetup, 500);
+            setTimeout(attemptSetup, 1000);
+            setTimeout(attemptSetup, 2000);
         </script>
         """, unsafe_allow_html=True)
         
