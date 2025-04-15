@@ -58,6 +58,96 @@ def format_text_for_display(text, max_width=70):
     
     return '\n'.join(lines)
 
+def configure_retractable_sidebar():
+    """Configura a sidebar retrátil com botão flutuante."""
+    # Inicializar estado
+    if 'sidebar_expanded' not in st.session_state:
+        st.session_state.sidebar_expanded = True
+
+    # Definir CSS e JavaScript para a sidebar retrátil
+    st.markdown("""
+    <style>
+        /* Configuração base da sidebar */
+        [data-testid="stSidebar"] {
+            transition: width 0.3s !important;
+        }
+        
+        /* Botão sempre visível independente do estado da sidebar */
+        #expand-button-container {
+            position: fixed;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 999999;
+            width: 20px;
+            height: 60px;
+        }
+        
+        .expand-button {
+            background-color: #FF5500;
+            color: white;
+            border: none;
+            border-radius: 0 5px 5px 0;
+            width: 20px;
+            height: 60px;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .sidebar-collapsed [data-testid="stSidebar"] {
+            width: 20px !important;
+            min-width: 20px !important;
+            max-width: 20px !important;
+        }
+        
+        .sidebar-collapsed [data-testid="stSidebar"] .block-container {
+            display: none !important;
+        }
+    </style>
+    
+    <div id="expand-button-container">
+        <button class="expand-button" id="toggle-sidebar-btn">&gt;</button>
+    </div>
+    
+    <script>
+        // Script simples que apenas alterna uma classe no corpo do documento
+        document.addEventListener('DOMContentLoaded', function() {
+            const body = document.body;
+            const btn = document.getElementById('toggle-sidebar-btn');
+            
+            // Inicializar estado com base na sessão
+            if (!localStorage.getItem('sidebar-expanded')) {
+                localStorage.setItem('sidebar-expanded', 'true');
+            }
+            
+            // Aplicar estado inicial
+            if (localStorage.getItem('sidebar-expanded') === 'false') {
+                body.classList.add('sidebar-collapsed');
+                btn.innerHTML = '&gt;';
+            } else {
+                body.classList.remove('sidebar-collapsed');
+                btn.innerHTML = '&lt;';
+            }
+            
+            // Configurar manipulador de clique para o botão
+            btn.addEventListener('click', function() {
+                // Toggle class
+                if (body.classList.contains('sidebar-collapsed')) {
+                    body.classList.remove('sidebar-collapsed');
+                    btn.innerHTML = '&lt;';
+                    localStorage.setItem('sidebar-expanded', 'true');
+                } else {
+                    body.classList.add('sidebar-collapsed');
+                    btn.innerHTML = '&gt;';
+                    localStorage.setItem('sidebar-expanded', 'false');
+                }
+            });
+        });
+    </script>
+    """, unsafe_allow_html=True)
 def format_generic_section(section):
     """
     Formata seções genéricas da análise
@@ -1253,6 +1343,8 @@ def check_analysis_limits(selected_markets):
 def show_main_dashboard():
     """Show the main dashboard with improved error handling and debug info"""
     try:
+        # Aplicar configuração da sidebar retrátil
+        configure_retractable_sidebar()
         # Verificações de autenticação
         if not hasattr(st.session_state, 'authenticated') or not st.session_state.authenticated:
             st.error("Sessão não autenticada. Por favor, faça login novamente.")
