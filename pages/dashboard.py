@@ -1281,7 +1281,7 @@ def show_main_dashboard():
         
         # Ajustar o CSS para a largura da sidebar - CORRIGIDO PARA MOBILE
         sidebar_width_expanded = "280px"
-        sidebar_width_collapsed = "60px"  # Reduzido para melhor visualização mobile
+        sidebar_width_collapsed = "40px"  # Reduzido para melhor visualização mobile
         current_width = sidebar_width_expanded if st.session_state.sidebar_expanded else sidebar_width_collapsed
         
         # Aplicar CSS mais agressivo para garantir que a sidebar seja realmente estreita quando retraída
@@ -1299,9 +1299,9 @@ def show_main_dashboard():
                 {'' if st.session_state.sidebar_expanded else '''
                 /* Seletor mais específico para garantir a prioridade */
                 section[data-testid="stSidebar"] > div {
-                    width: 60px !important;
-                    min-width: 60px !important;
-                    max-width: 60px !important;
+                    width: 40px !important;
+                    min-width: 40px !important;
+                    max-width: 40px !important;
                 }
                 /* Ajustar elementos dentro da sidebar */
                 section[data-testid="stSidebar"] button {
