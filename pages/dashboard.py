@@ -1255,6 +1255,26 @@ def show_main_dashboard():
     try:
         # Aplicar estilos personalizados
         apply_custom_styles()
+
+        # Configuração da página para ser ampla (como no admin)
+        st.set_page_config(
+            page_title="ValueHunter",
+            page_icon="⚽",
+            layout="wide",
+            initial_sidebar_state="collapsed"  # Começa recolhida em vez de expandida
+        )
+        
+        # Pedir para o Streamlit esconder a sidebar nativa totalmente em dispositivos móveis
+        st.markdown("""
+        <style>
+            /* Em dispositivos móveis, esconder completamente a sidebar */
+            @media (max-width: 768px) {
+                [data-testid="stSidebar"] {
+                    display: none !important;
+                }
+            }
+        </style>
+        """, unsafe_allow_html=True)
         
         # VERIFICAÇÃO DE AUTENTICAÇÃO
         if not hasattr(st.session_state, 'authenticated') or not st.session_state.authenticated:
