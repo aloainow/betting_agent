@@ -1284,7 +1284,7 @@ def show_main_dashboard():
         sidebar_width_collapsed = "20px"  # Reduzido para 20px conforme solicitado
         current_width = sidebar_width_expanded if st.session_state.sidebar_expanded else sidebar_width_collapsed
         
-        # Aplicar CSS mais agressivo para garantir que a sidebar seja realmente estreita quando retraída
+        # Aplicar CSS corrigido - o botão agora ficará fixo na borda esquerda da tela
         st.markdown(
             f"""
             <style>
@@ -1304,29 +1304,34 @@ def show_main_dashboard():
                     max-width: 20px !important;
                     overflow: visible !important;
                 }
-                /* Botão expandir estilizado */
-                .expand-button {
-                    position: absolute;
-                    left: 0;
-                    top: 50%;
-                    transform: translateY(-50%);
-                    width: 20px !important;
-                    height: 60px !important;
-                    background-color: #FF5500;
-                    color: white;
-                    border: none;
-                    border-radius: 0 5px 5px 0;
-                    font-weight: bold;
-                    font-size: 16px;
-                    cursor: pointer;
-                    z-index: 1000;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                }
+                
                 /* Esconder outros elementos da sidebar quando retraída */
                 section[data-testid="stSidebar"] .block-container {
                     display: none !important;
+                }
+                
+                /* Botão expandir estilizado - CORRIGIDO */
+                .expand-button {
+                    position: fixed !important; /* Mudado para fixed */
+                    left: 0 !important;
+                    top: 50% !important;
+                    transform: translateY(-50%) !important;
+                    width: 20px !important;
+                    height: 60px !important;
+                    background-color: #FF5500 !important;
+                    color: white !important;
+                    border: none !important;
+                    border-radius: 0 5px 5px 0 !important;
+                    font-weight: bold !important;
+                    font-size: 16px !important;
+                    cursor: pointer !important;
+                    z-index: 9999 !important; /* Z-index maior */
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    padding: 0 !important;
+                    margin: 0 !important;
+                    box-shadow: 2px 0 5px rgba(0,0,0,0.2) !important;
                 }
                 '''}
             </style>
@@ -1367,35 +1372,39 @@ def show_main_dashboard():
                 st.session_state.page = "landing"
                 st.experimental_rerun()
         else:
-        # Quando retraída, adicionar apenas o botão ">"
-        # Usando JavaScript para criar um botão personalizado que fica visível mesmo com 20px
+            # Quando retraída, adicionar apenas o botão ">"
+            # Usando JavaScript para criar um botão personalizado que fica visível mesmo com 20px
             st.markdown(
                 """
-                <div id="sidebar-button-container">
+                <div>
                     <button class="expand-button" onclick="expandSidebar()">&gt;</button>
                 </div>
                 <script>
                     function expandSidebar() {
-                        // Usando localStorage para comunicar com Streamlit
-                        localStorage.setItem('sidebar_action', 'expand');
+                        // Usando sessionStorage em vez de localStorage para evitar persistência indesejada
+                        sessionStorage.setItem('sidebar_action', 'expand');
                         // Recarregar a página para aplicar a mudança
                         window.location.reload();
                     }
                     
                     // Verificar se há uma ação pendente
                     document.addEventListener('DOMContentLoaded', function() {
-                        if (localStorage.getItem('sidebar_action') === 'expand') {
+                        if (sessionStorage.getItem('sidebar_action') === 'expand') {
                             // Limpar a ação
-                            localStorage.removeItem('sidebar_action');
+                            sessionStorage.removeItem('sidebar_action');
                             
                             // Clicar no botão oculto do Streamlit
                             setTimeout(function() {
-                                const expandButton = document.createElement('button');
-                                expandButton.id = 'expand_sidebar_btn';
-                                expandButton.style.display = 'none';
-                                document.body.appendChild(expandButton);
+                                // Encontrar o botão do Streamlit pelo id ou criar um novo
+                                let expandButton = document.getElementById('expand_sidebar_btn');
+                                if (!expandButton) {
+                                    expandButton = document.createElement('button');
+                                    expandButton.id = 'expand_sidebar_btn';
+                                    expandButton.style.display = 'none';
+                                    document.body.appendChild(expandButton);
+                                }
                                 expandButton.click();
-                            }, 100);
+                            }, 300); // Aumentado o timeout para garantir que a página carregue completamente
                         }
                     });
                 </script>
