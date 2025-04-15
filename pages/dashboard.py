@@ -17,93 +17,6 @@ logger = logging.getLogger("valueHunter.dashboard")
 TEAMS_CACHE_DIR = os.path.join(DATA_DIR, "teams_cache")
 os.makedirs(TEAMS_CACHE_DIR, exist_ok=True)
 
-# Adicione este código no início do arquivo, fora de qualquer função
-# Configuração da sidebar retrátil independente
-
-# Inicializar estado de sidebar expandida se não existir
-if 'sidebar_expanded' not in st.session_state:
-    st.session_state.sidebar_expanded = True
-
-# Configuração da sidebar retrátil via CSS e JavaScript
-st.markdown("""
-<style>
-    /* Configuração base da sidebar */
-    [data-testid="stSidebar"] {
-        transition: width 0.3s !important;
-    }
-    
-    /* Botão sempre visível independente do estado da sidebar */
-    #sidebar-toggle-btn {
-        position: fixed;
-        left: 0;
-        top: 50%;
-        transform: translateY(-50%);
-        z-index: 999999;
-        width: 20px;
-        height: 60px;
-        background-color: #FF5500;
-        color: white;
-        border: none;
-        border-radius: 0 5px 5px 0;
-        font-size: 16px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-    
-    .sidebar-collapsed [data-testid="stSidebar"] {
-        width: 20px !important;
-        min-width: 20px !important;
-        max-width: 20px !important;
-    }
-    
-    .sidebar-collapsed [data-testid="stSidebar"] .block-container {
-        display: none !important;
-    }
-</style>
-
-<div>
-    <button id="sidebar-toggle-btn">&gt;</button>
-</div>
-
-<script>
-    // Script simples que apenas alterna uma classe no corpo do documento
-    document.addEventListener('DOMContentLoaded', function() {
-        const body = document.body;
-        const btn = document.getElementById('sidebar-toggle-btn');
-        
-        // Inicializar estado com base no localStorage
-        if (!localStorage.getItem('sidebar-expanded')) {
-            localStorage.setItem('sidebar-expanded', 'true');
-        }
-        
-        // Aplicar estado inicial
-        if (localStorage.getItem('sidebar-expanded') === 'false') {
-            body.classList.add('sidebar-collapsed');
-            btn.innerHTML = '&gt;';
-        } else {
-            body.classList.remove('sidebar-collapsed');
-            btn.innerHTML = '&lt;';
-        }
-        
-        // Configurar manipulador de clique para o botão
-        btn.addEventListener('click', function() {
-            // Toggle class
-            if (body.classList.contains('sidebar-collapsed')) {
-                body.classList.remove('sidebar-collapsed');
-                btn.innerHTML = '&lt;';
-                localStorage.setItem('sidebar-expanded', 'true');
-            } else {
-                body.classList.add('sidebar-collapsed');
-                btn.innerHTML = '&gt;';
-                localStorage.setItem('sidebar-expanded', 'false');
-            }
-        });
-    });
-</script>
-""", unsafe_allow_html=True)
-
 # Adicione todas essas funções no início do arquivo pages/dashboard.py,
 # antes das outras funções que as utilizam
 
@@ -146,31 +59,40 @@ def format_text_for_display(text, max_width=70):
     return '\n'.join(lines)
 
 def configure_retractable_sidebar():
-    """Configura a sidebar retrátil com botão flutuante."""
-    # Inicializar estado
-    if 'sidebar_expanded' not in st.session_state:
-        st.session_state.sidebar_expanded = True
-
-    # Definir CSS e JavaScript para a sidebar retrátil
+    """Configure a retractable sidebar with a more reliable implementation"""
     st.markdown("""
     <style>
-        /* Configuração base da sidebar */
+        /* Base sidebar styling */
         [data-testid="stSidebar"] {
-            transition: width 0.3s !important;
+            transition: width 0.3s ease-in-out;
+            width: 250px !important;
         }
         
-        /* Botão sempre visível independente do estado da sidebar */
-        #expand-button-container {
+        /* Collapsed sidebar styling */
+        .sidebar-collapsed [data-testid="stSidebar"] {
+            width: 20px !important;
+            min-width: 20px !important;
+        }
+        
+        .sidebar-collapsed [data-testid="stSidebar"] .block-container {
+            display: none;
+        }
+        
+        /* Toggle button styling */
+        #toggle-button-container {
             position: fixed;
-            left: 0;
+            left: 250px; /* Position at edge of expanded sidebar */
             top: 50%;
             transform: translateY(-50%);
-            z-index: 999999;
-            width: 20px;
-            height: 60px;
+            z-index: 1000;
+            transition: left 0.3s ease-in-out;
         }
         
-        .expand-button {
+        .sidebar-collapsed #toggle-button-container {
+            left: 20px; /* Position at edge of collapsed sidebar */
+        }
+        
+        .toggle-button {
             background-color: #FF5500;
             color: white;
             border: none;
@@ -183,53 +105,36 @@ def configure_retractable_sidebar():
             align-items: center;
             justify-content: center;
         }
-        
-        .sidebar-collapsed [data-testid="stSidebar"] {
-            width: 20px !important;
-            min-width: 20px !important;
-            max-width: 20px !important;
-        }
-        
-        .sidebar-collapsed [data-testid="stSidebar"] .block-container {
-            display: none !important;
-        }
     </style>
     
-    <div id="expand-button-container">
-        <button class="expand-button" id="toggle-sidebar-btn">&gt;</button>
+    <div id="toggle-button-container">
+        <button class="toggle-button" id="sidebar-toggle">&lt;</button>
     </div>
     
     <script>
-        // Script simples que apenas alterna uma classe no corpo do documento
+        // Wait for DOM to be fully loaded
         document.addEventListener('DOMContentLoaded', function() {
             const body = document.body;
-            const btn = document.getElementById('toggle-sidebar-btn');
+            const toggleBtn = document.getElementById('sidebar-toggle');
+            const toggleContainer = document.getElementById('toggle-button-container');
             
-            // Inicializar estado com base na sessão
-            if (!localStorage.getItem('sidebar-expanded')) {
-                localStorage.setItem('sidebar-expanded', 'true');
-            }
-            
-            // Aplicar estado inicial
-            if (localStorage.getItem('sidebar-expanded') === 'false') {
+            // Check localStorage for saved state
+            if (localStorage.getItem('sidebar-collapsed') === 'true') {
                 body.classList.add('sidebar-collapsed');
-                btn.innerHTML = '&gt;';
-            } else {
-                body.classList.remove('sidebar-collapsed');
-                btn.innerHTML = '&lt;';
+                toggleBtn.innerHTML = '&gt;';
             }
             
-            // Configurar manipulador de clique para o botão
-            btn.addEventListener('click', function() {
-                // Toggle class
+            // Set up click handler for toggle button
+            toggleBtn.addEventListener('click', function() {
+                body.classList.toggle('sidebar-collapsed');
+                
+                // Update button text
                 if (body.classList.contains('sidebar-collapsed')) {
-                    body.classList.remove('sidebar-collapsed');
-                    btn.innerHTML = '&lt;';
-                    localStorage.setItem('sidebar-expanded', 'true');
+                    toggleBtn.innerHTML = '&gt;';
+                    localStorage.setItem('sidebar-collapsed', 'true');
                 } else {
-                    body.classList.add('sidebar-collapsed');
-                    btn.innerHTML = '&gt;';
-                    localStorage.setItem('sidebar-expanded', 'false');
+                    toggleBtn.innerHTML = '&lt;';
+                    localStorage.setItem('sidebar-collapsed', 'false');
                 }
             });
         });
