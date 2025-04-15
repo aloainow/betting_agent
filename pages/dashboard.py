@@ -1279,109 +1279,199 @@ def show_main_dashboard():
         # Inicializar a variável selected_league aqui no escopo principal# Inicializar a variável selected_league aqui no escopo principal
         # Inicializar a variável selected_league aqui no escopo principal
         selected_league = None
-        
-        # Configuração inicial da sidebar
+
+        # Configuração inicial
         if 'sidebar_expanded' not in st.session_state:
-            # Em desktop começa expandida, em mobile começa recolhida
-            st.session_state.sidebar_expanded = True
+            st.session_state.sidebar_expanded = True  # Por padrão, começa expandida
         
-        # CSS mais assertivo para garantir o comportamento correto
-        # Este CSS usa !important em todas as propriedades e regras mais específicas
+        # Carregar a liga da sessão se existir
+        if hasattr(st.session_state, 'selected_league'):
+            selected_league = st.session_state.selected_league
+        
+        # Esta abordagem usa uma sidebar personalizada em HTML e CSS
         st.markdown(
             """
             <style>
-                /* CSS para controle da sidebar - versão forçada */
-                
-                /* Estilo base para sidebar expandida */
+                /* Escondemos a sidebar nativa do Streamlit */
                 [data-testid="stSidebar"] {
-                    width: 280px !important;
-                    min-width: 280px !important;
-                    max-width: 280px !important;
-                    transition: all 0.3s ease-in-out;
+                    display: none !important;
                 }
                 
-                /* Quando a sidebar está recolhida */
-                .sidebar-collapsed [data-testid="stSidebar"] {
-                    margin-left: -300px !important;
-                    width: 0px !important;
-                    min-width: 0px !important;
-                    max-width: 0px !important;
-                    visibility: hidden !important;
+                /* Criamos nossa própria sidebar em HTML puro */
+                .custom-sidebar {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 250px;
+                    height: 100vh;
+                    background-color: #111827;
+                    color: white;
+                    z-index: 1000;
+                    overflow-y: auto;
+                    transition: transform 0.3s ease;
+                    box-shadow: 2px 0 10px rgba(0,0,0,0.2);
                 }
                 
-                /* Botão de menu para mobile */
-                .menu-button {
-                    position: fixed !important;
-                    top: 10px !important;
-                    left: 10px !important;
-                    z-index: 9999 !important;
-                    background: #FF5500 !important;
-                    color: white !important;
-                    border-radius: 5px !important;
-                    width: 40px !important;
-                    height: 40px !important;
-                    line-height: 40px !important;
-                    text-align: center !important;
-                    font-size: 24px !important;
-                    cursor: pointer !important;
-                    display: none !important; /* Inicialmente oculto */
+                /* Sidebar recolhida */
+                .custom-sidebar.collapsed {
+                    transform: translateX(-250px);
                 }
                 
-                /* Em dispositivos móveis mostrar o botão de menu */
-                @media (max-width: 767px) {
-                    .menu-button {
-                        display: block !important;
-                    }
-                    
-                    /* Quando a sidebar está expandida em mobile, sobrepor o conteúdo */
-                    [data-testid="stSidebar"] {
-                        position: fixed !important;
-                        z-index: 9998 !important;
-                        height: 100vh !important;
-                        box-shadow: 5px 0 10px rgba(0,0,0,0.2) !important;
+                /* Botão de menu para abrir/fechar */
+                .menu-toggle {
+                    position: fixed;
+                    top: 10px;
+                    left: 10px;
+                    width: 40px;
+                    height: 40px;
+                    background-color: #FF5500;
+                    color: white;
+                    border-radius: 5px;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    cursor: pointer;
+                    z-index: 1001;
+                    font-size: 24px;
+                }
+                
+                /* Quando a sidebar está expandida, o botão se move */
+                .menu-toggle.expanded {
+                    left: 260px;
+                }
+                
+                /* Estilo para o conteúdo da sidebar */
+                .sidebar-content {
+                    padding: 20px;
+                }
+                
+                /* Botões de navegação */
+                .nav-button {
+                    display: block;
+                    width: 100%;
+                    padding: 10px;
+                    margin: 5px 0;
+                    background-color: #FF5500;
+                    color: white;
+                    border: none;
+                    border-radius: 5px;
+                    cursor: pointer;
+                    text-align: center;
+                    text-decoration: none;
+                }
+                
+                /* Título da sidebar */
+                .sidebar-title {
+                    text-align: center;
+                    color: #FF5500;
+                    margin-bottom: 20px;
+                }
+                
+                /* Separador */
+                .sidebar-divider {
+                    border-top: 1px solid #333;
+                    margin: 15px 0;
+                }
+                
+                /* Ajustar o conteúdo principal */
+                .main-content {
+                    margin-left: 0;
+                    transition: margin-left 0.3s ease;
+                }
+                
+                @media (min-width: 768px) {
+                    .main-content.sidebar-expanded {
+                        margin-left: 250px;
                     }
                 }
             </style>
             
-            <!-- Botão de menu para mobile -->
-            <div id="menu-button" class="menu-button" onclick="toggleSidebar()">☰</div>
+            <!-- Sidebar personalizada -->
+            <div id="custom-sidebar" class="custom-sidebar">
+                <div class="sidebar-content">
+                    <h3 class="sidebar-title">VH</h3>
+                    
+                    <!-- Botões de navegação -->
+                    <a href="/?rerun=true" class="nav-button">🏠 Início</a>
+                    <a href="/?page=packages" class="nav-button">🚀 Pacotes</a>
+                    <a href="/?logout=true" class="nav-button">🚪 Logout</a>
+                    
+                    <div class="sidebar-divider"></div>
+                    
+                    <!-- Aqui você pode inserir conteúdo dinâmico em JavaScript -->
+                    <div id="dynamic-sidebar-content">
+                        <!-- Este conteúdo será atualizado via AJAX -->
+                    </div>
+                </div>
+            </div>
             
+            <!-- Botão de menu -->
+            <div id="menu-toggle" class="menu-toggle">☰</div>
+            
+            <!-- JavaScript para controlar a sidebar -->
             <script>
                 // Função para alternar a sidebar
                 function toggleSidebar() {
-                    document.body.classList.toggle('sidebar-collapsed');
+                    const sidebar = document.getElementById('custom-sidebar');
+                    const menuToggle = document.getElementById('menu-toggle');
+                    const mainContent = document.querySelector('.main-content');
                     
-                    // Salvamos o estado
-                    const isCollapsed = document.body.classList.contains('sidebar-collapsed');
-                    localStorage.setItem('sidebar_collapsed', isCollapsed ? 'true' : 'false');
+                    sidebar.classList.toggle('collapsed');
+                    menuToggle.classList.toggle('expanded');
                     
-                    // Alternamos a visibilidade do botão de menu
-                    const menuButton = document.getElementById('menu-button');
-                    if (menuButton) {
-                        if (isCollapsed) {
-                            menuButton.style.left = '10px';
-                            menuButton.innerHTML = '☰';
-                        } else {
-                            menuButton.style.left = '290px';
-                            menuButton.innerHTML = '×';
-                        }
+                    if (window.innerWidth >= 768) {
+                        mainContent.classList.toggle('sidebar-expanded');
                     }
+                    
+                    // Salvar estado
+                    const isExpanded = !sidebar.classList.contains('collapsed');
+                    localStorage.setItem('sidebar_expanded', isExpanded);
+                    
+                    // Atualizar ícone
+                    menuToggle.innerHTML = isExpanded ? '×' : '☰';
                 }
                 
-                // Aplicar o estado salvo quando a página carregar
+                // Configurar evento de clique
                 document.addEventListener('DOMContentLoaded', function() {
-                    const isMobile = window.innerWidth < 768;
-                    const savedState = localStorage.getItem('sidebar_collapsed');
+                    // Adicionar a classe main-content ao conteúdo principal
+                    const mainBlock = document.querySelector('.block-container');
+                    if (mainBlock) {
+                        mainBlock.classList.add('main-content');
+                    }
                     
-                    // Se for mobile ou se tiver estado salvo como recolhido, colapsar a sidebar
-                    if (isMobile || savedState === 'true') {
-                        document.body.classList.add('sidebar-collapsed');
+                    // Configurar botão
+                    const menuToggle = document.getElementById('menu-toggle');
+                    if (menuToggle) {
+                        menuToggle.addEventListener('click', toggleSidebar);
+                    }
+                    
+                    // Restaurar estado salvo
+                    const savedState = localStorage.getItem('sidebar_expanded');
+                    const sidebar = document.getElementById('custom-sidebar');
+                    const isMobile = window.innerWidth < 768;
+                    
+                    // Por padrão, colapsar em mobile e expandir em desktop
+                    if ((savedState === 'false' || isMobile) && sidebar) {
+                        sidebar.classList.add('collapsed');
+                        menuToggle.classList.remove('expanded');
+                        menuToggle.innerHTML = '☰';
                         
-                        // Atualizar o botão de menu
-                        const menuButton = document.getElementById('menu-button');
-                        if (menuButton) {
-                            menuButton.style.left = '10px';
-                            menuButton.innerHTML = '☰';
+                        if (window.innerWidth >= 768) {
+                            const mainContent = document.querySelector('.main-content');
+                            if (mainContent) {
+                                mainContent.classList.remove('sidebar-expanded');
+                            }
+                        }
+                    } else if (sidebar) {
+                        sidebar.classList.remove('collapsed');
+                        menuToggle.classList.add('expanded');
+                        menuToggle.innerHTML = '×';
+                        
+                        if (window.innerWidth >= 768) {
+                            const mainContent = document.querySelector('.main-content');
+                            if (mainContent) {
+                                mainContent.classList.add('sidebar-expanded');
+                            }
                         }
                     }
                 });
@@ -1390,113 +1480,35 @@ def show_main_dashboard():
             unsafe_allow_html=True
         )
         
-        # Carregar a liga da sessão se existir
-        if hasattr(st.session_state, 'selected_league'):
-            selected_league = st.session_state.selected_league
+        # Ao usar esta abordagem, a barra lateral nativa do Streamlit não será usada
+        # Vamos implementar a lógica para processar a seleção de liga diretamente no conteúdo principal
         
-        # Botão para alternar a sidebar baseado no estado atual
-        if st.session_state.sidebar_expanded:
-            if st.sidebar.button("<<<", key="collapse_sidebar_btn", use_container_width=True):
-                st.session_state.sidebar_expanded = False
-                # Adicionar JavaScript para forçar a atualização da classe no corpo
-                st.markdown(
-                    """
-                    <script>
-                        document.body.classList.add('sidebar-collapsed');
-                        localStorage.setItem('sidebar_collapsed', 'true');
-                    </script>
-                    """,
-                    unsafe_allow_html=True
-                )
-                st.experimental_rerun()
-        else:
-            if st.sidebar.button(">>>", key="expand_sidebar_btn", use_container_width=True):
-                st.session_state.sidebar_expanded = True
-                # Adicionar JavaScript para forçar a atualização da classe no corpo
-                st.markdown(
-                    """
-                    <script>
-                        document.body.classList.remove('sidebar-collapsed');
-                        localStorage.setItem('sidebar_collapsed', 'false');
-                    </script>
-                    """,
-                    unsafe_allow_html=True
-                )
-                st.experimental_rerun()
-        
-        # Conteúdo da sidebar independente do estado
-        # Mostrar conteúdo completo da sidebar (sempre)
-        # Título simplificado no topo
-        st.sidebar.markdown("<div style='text-align: center; color: #FF5500;'>VH</div>", unsafe_allow_html=True)
-        
-        # Navegação principal - sempre visível
-        if st.sidebar.button("🏠 Início", key="home_btn", use_container_width=True):
-            st.experimental_rerun()
+        # Obter liga selecionada
+        try:
+            # Tentar usar liga da sessão
+            if selected_league is None and hasattr(st.session_state, 'selected_league'):
+                selected_league = st.session_state.selected_league
             
-        if st.sidebar.button("🚀 Pacotes", key="packages_btn", use_container_width=True):
-            st.session_state.page = "packages"
-            st.experimental_rerun()
-            
-        if st.sidebar.button("🚪 Logout", key="logout_btn", use_container_width=True):
-            st.session_state.authenticated = False
-            st.session_state.email = None
-            st.session_state.page = "landing"
-            st.experimental_rerun()
-        
-        # Apenas mostrar estatísticas e seleção de liga se a sidebar estiver expandida
-        if st.session_state.sidebar_expanded:
-            st.sidebar.markdown("---")
-            
-            # Mostrar estatísticas
-            show_usage_stats()
-            
-            # Escolha da liga
-            try:
-                temp_league = get_league_selection(key_suffix="_main_dashboard")
-                if temp_league:
-                    selected_league = temp_league
-                    st.session_state.selected_league = selected_league
-            except Exception as e:
-                logger.error(f"Erro ao selecionar liga: {str(e)}")
-                st.sidebar.error("Erro ao carregar ligas.")
-        
-        # Se ainda não temos uma liga selecionada, tentar obter a primeira disponível
-        if selected_league is None:
-            try:
-                logger.info("Tentando obter a primeira liga disponível...")
+            # Se ainda não temos uma liga, tentar obter a lista e usar a primeira
+            if selected_league is None:
                 from utils.footystats_api import get_user_selected_leagues_direct
                 available_leagues = get_user_selected_leagues_direct()
                 if available_leagues and len(available_leagues) > 0:
                     selected_league = available_leagues[0]
                     st.session_state.selected_league = selected_league
-                    logger.info(f"Liga padrão selecionada: {selected_league}")
                 else:
-                    # Fallback absoluto para uma liga comum
+                    # Fallback para uma liga comum
                     selected_league = "Brasileirão"
                     st.session_state.selected_league = selected_league
-                    logger.warning(f"Nenhuma liga disponível. Usando fallback: {selected_league}")
-            except Exception as e:
-                logger.error(f"Erro ao obter ligas: {str(e)}")
-                # Fallback absoluto
-                selected_league = "Brasileirão"
-                st.session_state.selected_league = selected_league
-                logger.warning(f"Erro ao obter ligas. Usando fallback: {selected_league}")
-        
-        # Tratar redirecionamentos baseados em parâmetros de consulta
-        if 'page' in st.query_params and st.query_params['page'] == 'packages':
-            st.session_state.page = "packages"
-            del st.query_params['page']
-            st.experimental_rerun()
-            
-        if 'logout' in st.query_params:
-            st.session_state.authenticated = False
-            st.session_state.email = None
-            st.session_state.page = "landing"
-            del st.query_params['logout']
-            st.experimental_rerun()
+        except Exception as e:
+            logger.error(f"Erro ao obter ligas: {str(e)}")
+            # Fallback absoluto
+            selected_league = "Brasileirão"
+            st.session_state.selected_league = selected_league
         
         # Logging para diagnóstico
-        logger.info(f"Sidebar configurada com liga: {selected_league}")    
+        logger.info(f"Configurado com liga: {selected_league}")
+    
         
         # Inicializar modo de depuração para funcionalidade interna
         if "debug_mode" not in st.session_state:
