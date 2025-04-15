@@ -12,7 +12,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("valueHunter.app")
 
-# Importações dos módulos do projeto
+# Importações dos módulos do projeto - ajustadas para a estrutura real
 from utils.core import (
     show_valuehunter_logo, update_purchase_button, check_payment_success, 
     apply_custom_styles, go_to_login, configure_sidebar_toggle, DATA_DIR
@@ -20,8 +20,11 @@ from utils.core import (
 from utils.data import UserManager
 from pages.dashboard import show_main_dashboard, get_league_selection, show_usage_stats
 from pages.packages import show_packages_page
-from pages.login import show_login_page
-from pages.landing import show_landing_page
+
+# Remova importações inexistentes e substitua por funções
+# que você já tem no seu projeto
+# from pages.login import show_login_page
+# from pages.landing import show_landing_page
 
 # Cria diretórios necessários
 os.makedirs(DATA_DIR, exist_ok=True)
@@ -31,19 +34,25 @@ def initialize_app_state():
     """Inicializa o estado do aplicativo com valores padrão"""
     if 'initialized' not in st.session_state:
         # Estado de navegação
-        st.session_state.current_page = 'landing'
+        if 'page' not in st.session_state:
+            st.session_state.page = 'main'  # Use 'page' em vez de 'current_page' para compatibilidade
         st.session_state.previous_page = None
         
-        # Estado de autenticação
-        st.session_state.authenticated = False
-        st.session_state.email = None
+        # Estado de autenticação - manter valores existentes se já definidos
+        if 'authenticated' not in st.session_state:
+            st.session_state.authenticated = False
+        if 'email' not in st.session_state:
+            st.session_state.email = None
         
         # Configurações e personalizações
-        st.session_state.debug_mode = False
-        st.session_state.stripe_test_mode = True  # Modo de teste ativado por padrão
+        if 'debug_mode' not in st.session_state:
+            st.session_state.debug_mode = False
+        if 'stripe_test_mode' not in st.session_state:
+            st.session_state.stripe_test_mode = True  # Modo de teste ativado por padrão
         
         # Estado da sidebar
-        st.session_state.sidebar_expanded = True
+        if 'sidebar_expanded' not in st.session_state:
+            st.session_state.sidebar_expanded = True
         
         # Marcar como inicializado
         st.session_state.initialized = True
@@ -54,7 +63,10 @@ def initialize_app_state():
 def handle_navigation():
     """Gerencia transições entre páginas e atualiza dados quando necessário"""
     # Verificar se é necessário recarregar dados do usuário ao navegar
-    if (st.session_state.current_page != st.session_state.previous_page and 
+    current_page = st.session_state.page  # Use 'page' em vez de 'current_page'
+    previous_page = st.session_state.previous_page
+    
+    if (current_page != previous_page and 
         st.session_state.authenticated and st.session_state.email):
         
         # Recarregar dados ao mudar entre páginas principais
@@ -65,7 +77,7 @@ def handle_navigation():
             if hasattr(st.session_state, 'user_stats_cache'):
                 del st.session_state.user_stats_cache
             # Log da atualização
-            logger.info(f"Dados de usuário recarregados na transição de {st.session_state.previous_page} para {st.session_state.current_page}")
+            logger.info(f"Dados de usuário recarregados na transição de {previous_page} para {current_page}")
         except Exception as e:
             logger.error(f"Erro ao atualizar dados do usuário: {str(e)}")
 
@@ -79,20 +91,20 @@ def render_sidebar_navigation():
     
     # Botão para ir para a página de pacotes
     if st.sidebar.button("🚀 Ver Pacotes de Créditos", key="nav_packages_btn", use_container_width=True):
-        st.session_state.previous_page = st.session_state.current_page
-        st.session_state.current_page = 'packages'
+        st.session_state.previous_page = st.session_state.page  # Use 'page' em vez de 'current_page'
+        st.session_state.page = 'packages'  # Use 'page' em vez de 'current_page'
         nav_clicked = True
     
     # Botão de logout
     if st.sidebar.button("Logout", key="nav_logout_btn", use_container_width=True):
         st.session_state.authenticated = False
         st.session_state.email = None
-        st.session_state.previous_page = st.session_state.current_page
-        st.session_state.current_page = 'landing'
+        st.session_state.previous_page = st.session_state.page
+        st.session_state.page = 'login'  # Ou qualquer página de login que você use
         nav_clicked = True
     
     # Se estamos em modo debug, adicionar opções de depuração
-    if st.session_state.debug_mode:
+    if hasattr(st.session_state, 'debug_mode') and st.session_state.debug_mode:
         st.sidebar.markdown("---")
         st.sidebar.markdown("### Debug Options")
         
@@ -115,33 +127,23 @@ def main():
     query_params = st.experimental_get_query_params()
     if "page" in query_params:
         requested_page = query_params["page"][0]
-        if requested_page != st.session_state.current_page:
-            st.session_state.previous_page = st.session_state.current_page
-            st.session_state.current_page = requested_page
+        if requested_page != st.session_state.page:
+            st.session_state.previous_page = st.session_state.page
+            st.session_state.page = requested_page
             # Remover parâmetro para evitar navegação duplicada
-            del st.query_params["page"]
-    
-    # Processar páginas acessíveis sem autenticação
-    if st.session_state.current_page == 'landing':
-        show_landing_page()
-        return
-    
-    if st.session_state.current_page == 'login':
-        show_login_page()
-        return
+            st.experimental_set_query_params()
     
     # Verificar autenticação para páginas protegidas
     if not st.session_state.authenticated or not st.session_state.email:
-        logger.warning("Tentativa de acesso a página protegida sem autenticação")
-        st.session_state.current_page = 'login'
-        show_login_page()
+        # Se você não tem uma página de login separada, use a função go_to_login
+        go_to_login()
         return
     
     # Aplicar estilos personalizados para páginas autenticadas
     apply_custom_styles()
     
     # Configurar sidebar (se visível na página atual)
-    if st.session_state.current_page != 'packages':  # Ocultar na página de pacotes
+    if st.session_state.page != 'packages':  # Ocultar na página de pacotes
         # Configurar toggle da sidebar
         configure_sidebar_toggle()
         
@@ -154,7 +156,7 @@ def main():
             show_usage_stats()
             
             # Mostrar seleções específicas da página principal
-            if st.session_state.current_page == 'main':
+            if st.session_state.page == 'main':
                 # Escolha da liga
                 selected_league = get_league_selection(key_suffix="_main_dashboard")
                 if selected_league:
@@ -171,35 +173,18 @@ def main():
                 st.experimental_rerun()
     
     # Renderizar a página correta baseado no estado atual
-    if st.session_state.current_page == 'main':
+    if st.session_state.page == 'main':
         show_main_dashboard()
-    elif st.session_state.current_page == 'packages':
+    elif st.session_state.page == 'packages':
         show_packages_page()
     else:
         # Página não encontrada, redirecionar para dashboard
-        logger.warning(f"Página não reconhecida: {st.session_state.current_page}, redirecionando para dashboard")
-        st.session_state.current_page = 'main'
+        logger.warning(f"Página não reconhecida: {st.session_state.page}, redirecionando para dashboard")
+        st.session_state.page = 'main'
         st.experimental_rerun()
-
-# Verificar suporte para versão específica do Streamlit
-def check_streamlit_version():
-    """Verifica se a versão do Streamlit é compatível"""
-    try:
-        import streamlit as st
-        version = st.__version__
-        major, minor, patch = map(int, version.split('.'))
-        
-        if major < 1 or (major == 1 and minor < 10):
-            st.warning(f"Versão atual do Streamlit: {version}. Recomendamos a versão 1.10.0 ou superior para melhor experiência.")
-            logger.warning(f"Versão do Streamlit possivelmente incompatível: {version}")
-    except:
-        logger.warning("Não foi possível verificar a versão do Streamlit")
 
 # Execução principal
 if __name__ == "__main__":
-    # Verificar versão
-    check_streamlit_version()
-    
     # Iniciar aplicativo
     try:
         main()
