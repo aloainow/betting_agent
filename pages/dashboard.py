@@ -1255,6 +1255,7 @@ def show_main_dashboard():
     try:
         # Aplicar estilos personalizados
         apply_custom_styles()
+        
         # VERIFICAÇÃO DE AUTENTICAÇÃO
         if not hasattr(st.session_state, 'authenticated') or not st.session_state.authenticated:
             st.error("Sessão não autenticada. Por favor, faça login novamente.")
@@ -1262,152 +1263,76 @@ def show_main_dashboard():
             st.experimental_rerun()
             return
             
-        if not hasattr(st.session_state, 'email') or not st.session_state.email:
-            st.error("Informações de usuário não encontradas. Por favor, faça login novamente.")
-            st.session_state.page = "login"
-            st.experimental_rerun()
-            return
-            
-        # Verificar se o user_manager está disponível
-        if not hasattr(st.session_state, 'user_manager'):
-            st.error("Gerenciador de usuários não inicializado.")
-            st.session_state.page = "login"
-            st.experimental_rerun()
-            return
-            
-        # Adicionar estado para controlar a sidebar
+        # Inicializar estado da sidebar se não existir
         if 'sidebar_expanded' not in st.session_state:
-            st.session_state.sidebar_expanded = True  # Começa expandido
-        
-        
-        # Ajustar o CSS para a largura da sidebar# Parte da função show_main_dashboard() - com código HTML/JS separado
-        # Ajustar o CSS para a largura da sidebar
+            st.session_state.sidebar_expanded = True
+            
+        # Definir larguras
         sidebar_width_expanded = "280px"
         sidebar_width_collapsed = "20px"
-        current_width = sidebar_width_expanded if st.session_state.sidebar_expanded else sidebar_width_collapsed
         
-        # CSS básico da sidebar - usando f-string apenas para a largura
-        sidebar_css = f"""
-        <style>
-            [data-testid="stSidebar"] {{
-                width: {current_width} !important;
-                max-width: {current_width} !important;
-                min-width: {current_width} !important;
-                flex-shrink: 0 !important;
-                transition: width 0.3s;
-            }}
-        """
-        
-        # CSS para o botão de expansão - sem usar f-string
-        button_css = """
-            #sidebar-expand-btn {
-                position: fixed;
-                left: 0;
-                top: 50%;
-                transform: translateY(-50%);
-                width: 20px;
-                height: 60px;
-                background-color: #FF5500;
-                color: white;
-                border: none;
-                border-radius: 0 5px 5px 0;
-                font-weight: bold;
-                font-size: 16px;
-                cursor: pointer;
-                z-index: 9999;
-                text-align: center;
-                line-height: 60px;
-                box-shadow: 2px 0 5px rgba(0,0,0,0.2);
-            }
-        """
-        
-        # CSS para esconder elementos da sidebar quando retraída
-        sidebar_collapsed_css = """
-            section[data-testid="stSidebar"] > div {
-                width: 20px !important;
-                min-width: 20px !important;
-                max-width: 20px !important;
-            }
-            
-            section[data-testid="stSidebar"] .block-container {
-                visibility: hidden;
-            }
-        """
-        
-        # JavaScript para controlar o botão de expansão
-        expand_button_js = """
-        <script>
-        function expandSidebar() {
-            sessionStorage.setItem("sidebar_expand", "true");
-            window.location.reload();
-        }
-        
-        document.addEventListener("DOMContentLoaded", function() {
-            if (sessionStorage.getItem("sidebar_expand") === "true") {
-                sessionStorage.removeItem("sidebar_expand");
-                
-                setTimeout(function() {
-                    const allButtons = Array.from(document.querySelectorAll("button"));
-                    const expandButton = allButtons.find(button => 
-                        button.innerText === "" && 
-                        button.hasAttribute("key") && 
-                        button.getAttribute("key") === "expand_sidebar_btn"
-                    );
-                    
-                    if (expandButton) {
-                        expandButton.click();
-                    }
-                }, 500);
-            }
-        });
-        </script>
-        """
-        
-        # HTML do botão de expansão
-        expand_button_html = """
-        <button id="sidebar-expand-btn" onclick="expandSidebar()">&gt;</button>
-        """
-        
-        # Combinando os componentes com base no estado da sidebar
-        complete_html = sidebar_css
-        complete_html += button_css
-        
-        if not st.session_state.sidebar_expanded:
-            complete_html += sidebar_collapsed_css
-            # Só mostrar o botão quando a sidebar está retraída
-            display_style = "display: block;"
-        else:
-            # Esconder o botão quando a sidebar está expandida
-            display_style = "display: none;"
-        
-        complete_html += f"""
-            #sidebar-expand-btn {{
-                {display_style}
-            }}
-        </style>
-        """
-        
-        complete_html += expand_button_html + expand_button_js
-        
-        # Injetar o HTML completo
-        st.markdown(complete_html, unsafe_allow_html=True)
-        
-        # Comportamento condicional da sidebar
+        # CSS simples para a sidebar
         if st.session_state.sidebar_expanded:
-            # Quando expandida - mostrar botão de recolher
+            # CSS para sidebar expandida
+            st.markdown("""
+            <style>
+                [data-testid="stSidebar"] {
+                    width: 280px !important;
+                    min-width: 280px !important;
+                    max-width: 280px !important;
+                }
+            </style>
+            """, unsafe_allow_html=True)
+        else:
+            # CSS para sidebar retraída + botão
+            st.markdown("""
+            <style>
+                [data-testid="stSidebar"] {
+                    width: 20px !important;
+                    min-width: 20px !important;
+                    max-width: 20px !important;
+                }
+                
+                [data-testid="stSidebar"] .block-container {
+                    display: none;
+                }
+                
+                /* Botão fixo de expansão */
+                .expand-btn {
+                    position: fixed;
+                    left: 0;
+                    top: 50%;
+                    width: 20px;
+                    height: 60px;
+                    background-color: #FF5500;
+                    color: white;
+                    text-align: center;
+                    line-height: 60px;
+                    cursor: pointer;
+                    z-index: 9999;
+                    border-radius: 0 5px 5px 0;
+                }
+            </style>
+            
+            <div class="expand-btn" onclick="document.getElementById('expand-sidebar-btn').click();">&gt;</div>
+            """, unsafe_allow_html=True)
+            
+        # Conteúdo condicional da sidebar
+        if st.session_state.sidebar_expanded:
+            # Sidebar expandida - mostrar botão de recolher
             if st.sidebar.button("<<<", key="collapse_sidebar_btn", use_container_width=True):
                 st.session_state.sidebar_expanded = False
                 st.experimental_rerun()
-            
-            # Resto do conteúdo da sidebar
+                
+            # Conteúdo normal da sidebar
             show_usage_stats()
             
-            # Escolha da liga usando chave única
+            # Escolha da liga
             selected_league = get_league_selection(key_suffix="_main_dashboard")
             if not selected_league:
                 st.error("Não foi possível selecionar uma liga. Por favor, verifique a configuração.")
                 return
-            
+                
             # Nota sobre carregamento automático
             st.sidebar.info("Os times são carregados automaticamente ao selecionar uma liga.")
             
@@ -1425,47 +1350,25 @@ def show_main_dashboard():
                 st.session_state.page = "landing"
                 st.experimental_rerun()
         else:
-            # Quando retraída - botão para expandir controlado via JS
-            # Este é o botão "invisível" do Streamlit que será acionado via JS
-            if st.sidebar.button("", key="expand_sidebar_btn"):
+            # Sidebar retraída - botão oculto para expansão
+            if st.sidebar.button("", key="expand-sidebar-btn", help="Expandir sidebar"):
                 st.session_state.sidebar_expanded = True
                 st.experimental_rerun()
-            
-            # Definir a liga selecionada mesmo quando a sidebar está retraída
+                
+            # Manter a liga selecionada
             selected_league = st.session_state.selected_league if hasattr(st.session_state, 'selected_league') else None
             
-            # Tratar redirecionamentos baseados em parâmetros de consulta
-            if 'page' in st.query_params and st.query_params['page'] == 'packages':
-                st.session_state.page = "packages"
-                del st.query_params['page']
-                st.experimental_rerun()
-                
-            if 'logout' in st.query_params:
-                st.session_state.authenticated = False
-                st.session_state.email = None
-                st.session_state.page = "landing"
-                del st.query_params['logout']
-                st.experimental_rerun()
-        
-        # Iniciar com log de diagnóstico
-        logger.info("Iniciando renderização do dashboard principal")     
-        
-        # Inicializar modo de depuração para funcionalidade interna
-        if "debug_mode" not in st.session_state:
-            st.session_state.debug_mode = False
-            
-        # ------------------------------------------------------------
-        # CONTEÚDO PRINCIPAL 
-        # ------------------------------------------------------------
-        
+        # ----------------------------------------
+        # CONTEÚDO PRINCIPAL
+        # ----------------------------------------
         try:
-            # Logo exibida consistentemente
+            # Logo do app
             show_valuehunter_logo()
             
             # Título principal
             st.title("Seleção de Times")
             
-            # Indicador de estado para depuração
+            # Indicador de liga
             st.info(f"Liga selecionada: **{selected_league}**", icon="ℹ️")
             
             # Container para status
@@ -2390,20 +2293,12 @@ def show_main_dashboard():
                     st.code(traceback.format_exc())
                     
         except Exception as content_error:
-            logger.error(f"Erro fatal no conteúdo principal: {str(content_error)}")
-            logger.error(traceback.format_exc())
-            st.error("Erro ao carregar o conteúdo principal. Detalhes no log.")
-            st.error(f"Detalhes: {str(content_error)}")
-            if st.session_state.debug_mode:
-                st.code(traceback.format_exc())
+            logger.error(f"Erro no conteúdo principal: {str(content_error)}")
+            st.error(f"Erro ao carregar conteúdo: {str(content_error)}")
             
     except Exception as e:
-        logger.error(f"Erro crítico ao exibir painel principal: {str(e)}")
-        logger.error(traceback.format_exc())
-        st.error("Erro ao carregar o painel principal. Por favor, tente novamente.")
-        st.error(f"Erro: {str(e)}")
-        if st.session_state.debug_mode:
-            st.code(traceback.format_exc())
+        logger.error(f"Erro crítico: {str(e)}")
+        st.error(f"Erro ao carregar o dashboard: {str(e)}")
 # Função auxiliar para extração de dados avançada
 def extract_direct_team_stats(source, target, team_type):
     """
