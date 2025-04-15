@@ -1277,45 +1277,115 @@ def show_main_dashboard():
             return
         
         # Inicializar a variável selected_league aqui no escopo principal# Inicializar a variável selected_league aqui no escopo principal
+        # Inicializar a variável selected_league aqui no escopo principal
         selected_league = None
         
         # Configuração inicial da sidebar
         if 'sidebar_expanded' not in st.session_state:
-            st.session_state.sidebar_expanded = True  # Por padrão, começa expandida
+            # Em desktop começa expandida, em mobile começa recolhida
+            st.session_state.sidebar_expanded = True
         
-        # CSS para controlar a largura e visibilidade da sidebar
+        # CSS mais assertivo para garantir o comportamento correto
+        # Este CSS usa !important em todas as propriedades e regras mais específicas
         st.markdown(
             """
             <style>
-                /* Estilos para a sidebar no modo recolhido e expandido */
-                [data-testid="stSidebar"][aria-expanded="false"] {
-                    width: 60px !important;
-                    min-width: 60px !important;
-                    max-width: 60px !important;
-                }
+                /* CSS para controle da sidebar - versão forçada */
                 
-                [data-testid="stSidebar"][aria-expanded="true"] {
+                /* Estilo base para sidebar expandida */
+                [data-testid="stSidebar"] {
                     width: 280px !important;
                     min-width: 280px !important;
                     max-width: 280px !important;
+                    transition: all 0.3s ease-in-out;
                 }
                 
-                /* Solução específica para móveis - esconde completamente quando recolhida */
+                /* Quando a sidebar está recolhida */
+                .sidebar-collapsed [data-testid="stSidebar"] {
+                    margin-left: -300px !important;
+                    width: 0px !important;
+                    min-width: 0px !important;
+                    max-width: 0px !important;
+                    visibility: hidden !important;
+                }
+                
+                /* Botão de menu para mobile */
+                .menu-button {
+                    position: fixed !important;
+                    top: 10px !important;
+                    left: 10px !important;
+                    z-index: 9999 !important;
+                    background: #FF5500 !important;
+                    color: white !important;
+                    border-radius: 5px !important;
+                    width: 40px !important;
+                    height: 40px !important;
+                    line-height: 40px !important;
+                    text-align: center !important;
+                    font-size: 24px !important;
+                    cursor: pointer !important;
+                    display: none !important; /* Inicialmente oculto */
+                }
+                
+                /* Em dispositivos móveis mostrar o botão de menu */
                 @media (max-width: 767px) {
-                    [data-testid="stSidebar"][aria-expanded="false"] {
-                        width: 0px !important;
-                        min-width: 0px !important;
-                        max-width: 0px !important;
-                        margin-left: -100px;
-                        position: absolute;
+                    .menu-button {
+                        display: block !important;
                     }
                     
-                    /* Quando expandida, deve sobrepor o conteúdo */
-                    [data-testid="stSidebar"][aria-expanded="true"] {
-                        margin-left: 0;
+                    /* Quando a sidebar está expandida em mobile, sobrepor o conteúdo */
+                    [data-testid="stSidebar"] {
+                        position: fixed !important;
+                        z-index: 9998 !important;
+                        height: 100vh !important;
+                        box-shadow: 5px 0 10px rgba(0,0,0,0.2) !important;
                     }
                 }
             </style>
+            
+            <!-- Botão de menu para mobile -->
+            <div id="menu-button" class="menu-button" onclick="toggleSidebar()">☰</div>
+            
+            <script>
+                // Função para alternar a sidebar
+                function toggleSidebar() {
+                    document.body.classList.toggle('sidebar-collapsed');
+                    
+                    // Salvamos o estado
+                    const isCollapsed = document.body.classList.contains('sidebar-collapsed');
+                    localStorage.setItem('sidebar_collapsed', isCollapsed ? 'true' : 'false');
+                    
+                    // Alternamos a visibilidade do botão de menu
+                    const menuButton = document.getElementById('menu-button');
+                    if (menuButton) {
+                        if (isCollapsed) {
+                            menuButton.style.left = '10px';
+                            menuButton.innerHTML = '☰';
+                        } else {
+                            menuButton.style.left = '290px';
+                            menuButton.innerHTML = '×';
+                        }
+                    }
+                }
+                
+                // Aplicar o estado salvo quando a página carregar
+                document.addEventListener('DOMContentLoaded', function() {
+                    const isMobile = window.innerWidth < 768;
+                    const savedState = localStorage.getItem('sidebar_collapsed');
+                    
+                    // Se for mobile ou se tiver estado salvo como recolhido, colapsar a sidebar
+                    if (isMobile || savedState === 'true') {
+                        document.body.classList.add('sidebar-collapsed');
+                        
+                        // Atualizar o botão de menu
+                        const menuButton = document.getElementById('menu-button');
+                        if (menuButton) {
+                            menuButton.style.left = '10px';
+                            menuButton.innerHTML = '☰';
+                        }
+                    }
+                });
+            </script>
             """,
             unsafe_allow_html=True
         )
@@ -1324,65 +1394,71 @@ def show_main_dashboard():
         if hasattr(st.session_state, 'selected_league'):
             selected_league = st.session_state.selected_league
         
-        # Conteúdo da sidebar baseado no estado
+        # Botão para alternar a sidebar baseado no estado atual
         if st.session_state.sidebar_expanded:
-            # Modo Expandido
             if st.sidebar.button("<<<", key="collapse_sidebar_btn", use_container_width=True):
                 st.session_state.sidebar_expanded = False
+                # Adicionar JavaScript para forçar a atualização da classe no corpo
+                st.markdown(
+                    """
+                    <script>
+                        document.body.classList.add('sidebar-collapsed');
+                        localStorage.setItem('sidebar_collapsed', 'true');
+                    </script>
+                    """,
+                    unsafe_allow_html=True
+                )
                 st.experimental_rerun()
+        else:
+            if st.sidebar.button(">>>", key="expand_sidebar_btn", use_container_width=True):
+                st.session_state.sidebar_expanded = True
+                # Adicionar JavaScript para forçar a atualização da classe no corpo
+                st.markdown(
+                    """
+                    <script>
+                        document.body.classList.remove('sidebar-collapsed');
+                        localStorage.setItem('sidebar_collapsed', 'false');
+                    </script>
+                    """,
+                    unsafe_allow_html=True
+                )
+                st.experimental_rerun()
+        
+        # Conteúdo da sidebar independente do estado
+        # Mostrar conteúdo completo da sidebar (sempre)
+        # Título simplificado no topo
+        st.sidebar.markdown("<div style='text-align: center; color: #FF5500;'>VH</div>", unsafe_allow_html=True)
+        
+        # Navegação principal - sempre visível
+        if st.sidebar.button("🏠 Início", key="home_btn", use_container_width=True):
+            st.experimental_rerun()
             
-            # Mostrar conteúdo completo da sidebar
+        if st.sidebar.button("🚀 Pacotes", key="packages_btn", use_container_width=True):
+            st.session_state.page = "packages"
+            st.experimental_rerun()
+            
+        if st.sidebar.button("🚪 Logout", key="logout_btn", use_container_width=True):
+            st.session_state.authenticated = False
+            st.session_state.email = None
+            st.session_state.page = "landing"
+            st.experimental_rerun()
+        
+        # Apenas mostrar estatísticas e seleção de liga se a sidebar estiver expandida
+        if st.session_state.sidebar_expanded:
+            st.sidebar.markdown("---")
+            
+            # Mostrar estatísticas
             show_usage_stats()
             
+            # Escolha da liga
             try:
-                # Escolha da liga usando chave única
                 temp_league = get_league_selection(key_suffix="_main_dashboard")
                 if temp_league:
                     selected_league = temp_league
                     st.session_state.selected_league = selected_league
             except Exception as e:
                 logger.error(f"Erro ao selecionar liga: {str(e)}")
-                st.sidebar.error("Erro ao carregar ligas. Usando seleção anterior se disponível.")
-            
-            # Nota sobre carregamento automático
-            st.sidebar.info("Os times são carregados automaticamente ao selecionar uma liga.")
-            
-            # Separador
-            st.sidebar.markdown("---")
-            
-            # Botões de pacotes e logout
-            if st.sidebar.button("🚀 Ver Pacotes de Créditos", key="packages_button_expanded", use_container_width=True):
-                st.session_state.page = "packages"
-                st.experimental_rerun()
-            
-            if st.sidebar.button("Logout", key="logout_btn_expanded", use_container_width=True):
-                st.session_state.authenticated = False
-                st.session_state.email = None
-                st.session_state.page = "landing"
-                st.experimental_rerun()
-        else:
-            # Modo Recolhido
-            if st.sidebar.button(">>>", key="expand_sidebar_btn", use_container_width=True):
-                st.session_state.sidebar_expanded = True
-                st.experimental_rerun()
-            
-            # Titulo simplificado
-            st.sidebar.markdown("<div style='text-align: center; color: #FF5500;'>VH</div>", unsafe_allow_html=True)
-            
-            # Navegação simples como botões nativos
-            if st.sidebar.button("🏠", key="home_icon_btn", use_container_width=True):
-                # Recarregar a página principal
-                st.experimental_rerun()
-                
-            if st.sidebar.button("🚀", key="packages_icon_btn", use_container_width=True):
-                st.session_state.page = "packages"
-                st.experimental_rerun()
-                
-            if st.sidebar.button("🚪", key="logout_icon_btn", use_container_width=True):
-                st.session_state.authenticated = False
-                st.session_state.email = None
-                st.session_state.page = "landing"
-                st.experimental_rerun()
+                st.sidebar.error("Erro ao carregar ligas.")
         
         # Se ainda não temos uma liga selecionada, tentar obter a primeira disponível
         if selected_league is None:
