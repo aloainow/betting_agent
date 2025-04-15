@@ -9,6 +9,7 @@ from utils.core import show_valuehunter_logo, go_to_login, update_purchase_butto
 from utils.data import parse_team_stats, get_odds_data, format_prompt
 from utils.ai import analyze_with_gpt, format_enhanced_prompt, format_highly_optimized_prompt
 from utils.ai import analyze_with_gpt, format_enhanced_prompt, format_highly_optimized_prompt, calculate_advanced_probabilities
+from utils.core import configure_sidebar_toggle
 
 # Configuração de logging
 logger = logging.getLogger("valueHunter.dashboard")
