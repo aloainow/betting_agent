@@ -1281,7 +1281,7 @@ def show_main_dashboard():
         
         # Ajustar o CSS para a largura da sidebar - CORRIGIDO PARA MOBILE
         sidebar_width_expanded = "280px"
-        sidebar_width_collapsed = "20px"  # Reduzido para melhor visualização mobile
+        sidebar_width_collapsed = "20px"  # Reduzido para 20px conforme solicitado
         current_width = sidebar_width_expanded if st.session_state.sidebar_expanded else sidebar_width_collapsed
         
         # Aplicar CSS mais agressivo para garantir que a sidebar seja realmente estreita quando retraída
@@ -1302,16 +1302,31 @@ def show_main_dashboard():
                     width: 20px !important;
                     min-width: 20px !important;
                     max-width: 20px !important;
+                    overflow: visible !important;
                 }
-                /* Ajustar elementos dentro da sidebar */
-                section[data-testid="stSidebar"] button {
-                    padding: 0.25rem !important;
-                    min-height: 20px !important;
+                /* Botão expandir estilizado */
+                .expand-button {
+                    position: absolute;
+                    left: 0;
+                    top: 50%;
+                    transform: translateY(-50%);
+                    width: 20px !important;
+                    height: 60px !important;
+                    background-color: #FF5500;
+                    color: white;
+                    border: none;
+                    border-radius: 0 5px 5px 0;
+                    font-weight: bold;
+                    font-size: 16px;
+                    cursor: pointer;
+                    z-index: 1000;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
                 }
-                /* Melhorar espaçamento vertical */
-                section[data-testid="stSidebar"] > div > div {
-                    padding-top: 0.5rem !important;
-                    padding-bottom: 0.5rem !important;
+                /* Esconder outros elementos da sidebar quando retraída */
+                section[data-testid="stSidebar"] .block-container {
+                    display: none !important;
                 }
                 '''}
             </style>
@@ -1319,13 +1334,13 @@ def show_main_dashboard():
             unsafe_allow_html=True
         )
         
-        # Versão simplificada usando apenas componentes nativos do Streamlit
+        # Comportamento condicional baseado no estado da sidebar
         if st.session_state.sidebar_expanded:
-            # Botão para recolher no topo
+            # Conteúdo da sidebar expandida
             if st.sidebar.button("<<<", key="collapse_sidebar_btn", use_container_width=True):
                 st.session_state.sidebar_expanded = False
                 st.experimental_rerun()
-                
+            
             # Mostrar conteúdo normal da sidebar
             show_usage_stats()
             
@@ -1352,39 +1367,48 @@ def show_main_dashboard():
                 st.session_state.page = "landing"
                 st.experimental_rerun()
         else:
-            # Versão recolhida - usar apenas componentes nativos Streamlit com CSS otimizado
-            # Botão para expandir com tamanho reduzido
-            col_btn = st.sidebar.columns([1])[0]
-            with col_btn:
-                if st.button(">>>", key="expand_sidebar_btn", use_container_width=True):
-                    st.session_state.sidebar_expanded = True
-                    st.experimental_rerun()
+        # Quando retraída, adicionar apenas o botão ">"
+        # Usando JavaScript para criar um botão personalizado que fica visível mesmo com 20px
+            st.markdown(
+                """
+                <div id="sidebar-button-container">
+                    <button class="expand-button" onclick="expandSidebar()">&gt;</button>
+                </div>
+                <script>
+                    function expandSidebar() {
+                        // Usando localStorage para comunicar com Streamlit
+                        localStorage.setItem('sidebar_action', 'expand');
+                        // Recarregar a página para aplicar a mudança
+                        window.location.reload();
+                    }
+                    
+                    // Verificar se há uma ação pendente
+                    document.addEventListener('DOMContentLoaded', function() {
+                        if (localStorage.getItem('sidebar_action') === 'expand') {
+                            // Limpar a ação
+                            localStorage.removeItem('sidebar_action');
+                            
+                            // Clicar no botão oculto do Streamlit
+                            setTimeout(function() {
+                                const expandButton = document.createElement('button');
+                                expandButton.id = 'expand_sidebar_btn';
+                                expandButton.style.display = 'none';
+                                document.body.appendChild(expandButton);
+                                expandButton.click();
+                            }, 100);
+                        }
+                    });
+                </script>
+                """,
+                unsafe_allow_html=True
+            )
             
-            # Titulo simplificado (centralizado verticalmente)
-            st.sidebar.markdown("""
-            <div style='text-align: center; color: #FF5500; margin-top: 10px; margin-bottom: 20px;'>VH</div>
-            """, unsafe_allow_html=True)
+            # Botão oculto do Streamlit que será acionado pelo JavaScript
+            if st.sidebar.button("", key="expand_sidebar_btn", use_container_width=True):
+                st.session_state.sidebar_expanded = True
+                st.experimental_rerun()
             
-            # Navegação simples como botões nativos (mais espaçados para mobile)
-            with st.sidebar:
-                st.write("")  # Espaço
-                if st.button("🏠", key="home_icon_btn", use_container_width=True):
-                    # Recarregar a página principal
-                    st.experimental_rerun()
-                
-                st.write("")  # Espaço
-                if st.button("🚀", key="packages_icon_btn", use_container_width=True):
-                    st.session_state.page = "packages"
-                    st.experimental_rerun()
-                
-                st.write("")  # Espaço    
-                if st.button("🚪", key="logout_icon_btn", use_container_width=True):
-                    st.session_state.authenticated = False
-                    st.session_state.email = None
-                    st.session_state.page = "landing"
-                    st.experimental_rerun()
-            
-            # Definir a liga selecionada mesmo quando a sidebar está recolhida
+            # Definir a liga selecionada mesmo quando a sidebar está retraída
             selected_league = st.session_state.selected_league if hasattr(st.session_state, 'selected_league') else None
             
             # Tratar redirecionamentos baseados em parâmetros de consulta
