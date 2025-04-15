@@ -49,7 +49,45 @@ st.set_page_config(
     initial_sidebar_state="expanded",
     menu_items=None  # Tenta remover o menu
 )
-
+# Add this in app.py after st.set_page_config
+st.markdown("""
+<style>
+    /* Fix for white dropdowns */
+    div[data-testid="stSelectbox"] > div,
+    div[data-testid="stMultiselect"] > div {
+        background-color: #2a2a2a !important;
+        color: white !important;
+    }
+    
+    /* Fix background color for all select components and their children */
+    div[data-baseweb="select"], 
+    div[data-baseweb="select"] *, 
+    div[data-baseweb="popover"] *,
+    div[data-baseweb="select"] ul,
+    div[data-baseweb="select"] ul *,
+    div[role="listbox"],
+    div[role="listbox"] * {
+        background-color: #2a2a2a !important;
+        color: white !important;
+    }
+    
+    /* Hover state */
+    div[role="option"]:hover {
+        background-color: #3a3a3a !important;
+    }
+    
+    /* Selected option */
+    div[aria-selected="true"] {
+        background-color: #FF5500 !important;
+    }
+    
+    /* Ensure dark mode throughout app */
+    .stApp, .main, body {
+        background-color: #1a1a1a !important;
+        color: white !important;
+    }
+</style>
+""", unsafe_allow_html=True)
 # Add this in your main app.py file, after your st.set_page_config call
 st.markdown("""
 <style>
