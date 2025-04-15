@@ -58,96 +58,6 @@ def format_text_for_display(text, max_width=70):
     
     return '\n'.join(lines)
 
-def configure_retractable_sidebar():
-    """Configure a retractable sidebar with a clean implementation"""
-    st.markdown("""
-    <style>
-        /* Base sidebar styling */
-        [data-testid="stSidebar"] {
-            transition: width 0.3s ease-in-out;
-            width: 250px !important;
-        }
-        
-        /* Collapsed sidebar styling */
-        .sidebar-collapsed [data-testid="stSidebar"] {
-            width: 20px !important;
-            min-width: 20px !important;
-        }
-        
-        .sidebar-collapsed [data-testid="stSidebar"] .block-container {
-            display: none;
-        }
-        
-        /* Toggle button styling */
-        #sidebar-toggle {
-            position: fixed;
-            left: 250px; /* Position at edge of expanded sidebar */
-            top: 50%;
-            transform: translateY(-50%);
-            z-index: 1000;
-            background-color: #FF5500;
-            color: white;
-            border: none;
-            border-radius: 0 5px 5px 0;
-            width: 20px;
-            height: 60px;
-            font-size: 16px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: left 0.3s ease-in-out;
-        }
-        
-        .sidebar-collapsed #sidebar-toggle {
-            left: 20px; /* Position at edge of collapsed sidebar */
-        }
-    </style>
-    
-    <button id="sidebar-toggle">&lt;</button>
-    
-    <script>
-        // Function to initialize sidebar state
-        function initSidebar() {
-            const body = document.body;
-            const toggleBtn = document.getElementById('sidebar-toggle');
-            
-            if (!toggleBtn) return; // Exit if button not found
-            
-            // Get saved state from localStorage
-            const isCollapsed = localStorage.getItem('sidebar-collapsed') === 'true';
-            
-            // Apply initial state
-            if (isCollapsed) {
-                body.classList.add('sidebar-collapsed');
-                toggleBtn.innerHTML = '&gt;';
-            } else {
-                body.classList.remove('sidebar-collapsed');
-                toggleBtn.innerHTML = '&lt;';
-            }
-            
-            // Set up click handler
-            toggleBtn.addEventListener('click', function() {
-                body.classList.toggle('sidebar-collapsed');
-                
-                // Update button text and save state
-                if (body.classList.contains('sidebar-collapsed')) {
-                    toggleBtn.innerHTML = '&gt;';
-                    localStorage.setItem('sidebar-collapsed', 'true');
-                } else {
-                    toggleBtn.innerHTML = '&lt;';
-                    localStorage.setItem('sidebar-collapsed', 'false');
-                }
-            });
-        }
-        
-        // Run initialization immediately
-        initSidebar();
-        
-        // Also run after a delay to ensure DOM is fully loaded
-        setTimeout(initSidebar, 500);
-    </script>
-    """, unsafe_allow_html=True)
 def format_generic_section(section):
     """
     Formata seções genéricas da análise
@@ -1343,8 +1253,6 @@ def check_analysis_limits(selected_markets):
 def show_main_dashboard():
     """Show the main dashboard with improved error handling and debug info"""
     try:
-        # Aplicar configuração da sidebar retrátil
-        configure_retractable_sidebar()
         # Verificações de autenticação
         if not hasattr(st.session_state, 'authenticated') or not st.session_state.authenticated:
             st.error("Sessão não autenticada. Por favor, faça login novamente.")
@@ -1353,30 +1261,26 @@ def show_main_dashboard():
             return
             
         # Inicializar estado
+        # Replace the existing sidebar toggle code in show_main_dashboard() with this:
+        # Inicializar estado
         if 'sidebar_expanded' not in st.session_state:
             st.session_state.sidebar_expanded = True
-
+        
         # Definir o ícone de expansão que sempre estará presente na página
-        # Independente do estado da sidebar
         st.markdown("""
         <style>
             /* Configuração base da sidebar */
             [data-testid="stSidebar"] {
-                transition: width 0.3s !important;
+                transition: width 0.3s ease-in-out;
             }
             
-            /* Botão sempre visível independente do estado da sidebar */
-            #expand-button-container {
+            /* Botão de toggle */
+            #sidebar-toggle {
                 position: fixed;
-                left: 0;
+                left: 250px;
                 top: 50%;
                 transform: translateY(-50%);
-                z-index: 999999;
-                width: 20px;
-                height: 60px;
-            }
-            
-            .expand-button {
+                z-index: 1000;
                 background-color: #FF5500;
                 color: white;
                 border: none;
@@ -1388,8 +1292,10 @@ def show_main_dashboard():
                 display: flex;
                 align-items: center;
                 justify-content: center;
+                transition: left 0.3s ease-in-out;
             }
             
+            /* Estado colapsado */
             .sidebar-collapsed [data-testid="stSidebar"] {
                 width: 20px !important;
                 min-width: 20px !important;
@@ -1399,50 +1305,63 @@ def show_main_dashboard():
             .sidebar-collapsed [data-testid="stSidebar"] .block-container {
                 display: none !important;
             }
+            
+            .sidebar-collapsed #sidebar-toggle {
+                left: 20px;
+            }
         </style>
         
-        <div id="expand-button-container">
-            <button class="expand-button" id="toggle-sidebar-btn">&gt;</button>
-        </div>
+        <button id="sidebar-toggle">&lt;</button>
         
         <script>
-            // Script simples que apenas alterna uma classe no corpo do documento
-            document.addEventListener('DOMContentLoaded', function() {
+            // Função para inicializar a sidebar
+            function initSidebar() {
                 const body = document.body;
-                const btn = document.getElementById('toggle-sidebar-btn');
+                const toggleBtn = document.getElementById('sidebar-toggle');
                 
-                // Inicializar estado com base na sessão
-                if (!localStorage.getItem('sidebar-expanded')) {
-                    localStorage.setItem('sidebar-expanded', 'true');
-                }
+                if (!toggleBtn) return; // Sair se o botão não foi encontrado
+                
+                // Limpar qualquer evento anterior para evitar duplicação
+                const newToggleBtn = toggleBtn.cloneNode(true);
+                toggleBtn.parentNode.replaceChild(newToggleBtn, toggleBtn);
+                
+                // Obter estado salvo do localStorage
+                const isCollapsed = localStorage.getItem('sidebar-collapsed') === 'true';
                 
                 // Aplicar estado inicial
-                if (localStorage.getItem('sidebar-expanded') === 'false') {
+                if (isCollapsed) {
                     body.classList.add('sidebar-collapsed');
-                    btn.innerHTML = '&gt;';
+                    newToggleBtn.innerHTML = '&gt;';
                 } else {
                     body.classList.remove('sidebar-collapsed');
-                    btn.innerHTML = '&lt;';
+                    newToggleBtn.innerHTML = '&lt;';
                 }
                 
-                // Configurar manipulador de clique para o botão
-                btn.addEventListener('click', function() {
-                    // Toggle class
+                // Configurar manipulador de clique
+                newToggleBtn.addEventListener('click', function() {
+                    body.classList.toggle('sidebar-collapsed');
+                    
+                    // Atualizar texto do botão e salvar estado
                     if (body.classList.contains('sidebar-collapsed')) {
-                        body.classList.remove('sidebar-collapsed');
-                        btn.innerHTML = '&lt;';
-                        localStorage.setItem('sidebar-expanded', 'true');
+                        newToggleBtn.innerHTML = '&gt;';
+                        localStorage.setItem('sidebar-collapsed', 'true');
                     } else {
-                        body.classList.add('sidebar-collapsed');
-                        btn.innerHTML = '&gt;';
-                        localStorage.setItem('sidebar-expanded', 'false');
+                        newToggleBtn.innerHTML = '&lt;';
+                        localStorage.setItem('sidebar-collapsed', 'false');
                     }
                 });
-            });
+            }
+            
+            // Executar inicialização imediatamente
+            initSidebar();
+            
+            // Também executar após um atraso para garantir que o DOM esteja carregado
+            setTimeout(initSidebar, 300);
+            setTimeout(initSidebar, 1000);
         </script>
         """, unsafe_allow_html=True)
         
-        # Sidebar normal do Streamlit
+        # Continue with the rest of your sidebar content as before
         with st.sidebar:
             st.title("ValueHunter")
             st.markdown("---")
