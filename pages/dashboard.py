@@ -2496,8 +2496,8 @@ def show_main_dashboard():
         logger.error(f"Erro no conteúdo principal: {str(content_error)}")
         st.error(f"Erro ao carregar conteúdo: {str(content_error)}")
         
-except Exception as e:
-    st.error(f"Erro ao carregar o dashboard: {str(e)}")
+    except Exception as e:
+        st.error(f"Erro ao carregar o dashboard: {str(e)}")
 # Função auxiliar para extração de dados avançada
 def extract_direct_team_stats(source, target, team_type):
     """
