@@ -1275,13 +1275,10 @@ def show_main_dashboard():
             st.experimental_rerun()
             return
             
-        # Adicionar estado para controlar a sidebar
-        # Versão melhorada do toggle de sidebar com melhor posicionamento de ícones
-        # Adicionar estado para controlar a sidebar
         # Versão simplificada da sidebar retrátil usando apenas componentes nativos do Streamlit
         if 'sidebar_expanded' not in st.session_state:
             st.session_state.sidebar_expanded = True  # Começa expandido
-        
+
         # Ajustar o CSS para a largura da sidebar
         sidebar_width_expanded = "280px"
         sidebar_width_collapsed = "60px"
@@ -1381,53 +1378,6 @@ def show_main_dashboard():
         if "debug_mode" not in st.session_state:
             st.session_state.debug_mode = False
             
-        # ------------------------------------------------------------
-        # BARRA LATERAL REORGANIZADA
-        # ------------------------------------------------------------
-        
-        # Adicionar uma classe para controlar a visibilidade do conteúdo
-        if not st.session_state.sidebar_expanded:
-        # CSS para reduzir a largura da sidebar
-        st.markdown(
-            """
-            <style>
-                [data-testid="stSidebar"] {
-                    width: 60px !important;
-                    min-width: 60px !important;
-                    max-width: 60px !important;
-                }
-            </style>
-            """, 
-            unsafe_allow_html=True
-        )
-        
-        # Texto centralizado no topo
-        st.markdown('<div style="text-align: center; color: #FF5500;">VH</div>', unsafe_allow_html=True)
-        
-        # Ícones de navegação em colunas
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            if st.button("🏠", key="sidebar_icon_home", use_container_width=True):
-                # Recarregar a página principal
-                st.experimental_rerun()
-        
-        with col2:
-            if st.button("🚀", key="sidebar_icon_package", use_container_width=True):
-                # Ir para página de pacotes
-                st.session_state.page = "packages"
-                st.experimental_rerun()
-        
-        with col3:
-            if st.button("🚪", key="sidebar_icon_logout", use_container_width=True):
-                # Fazer logout
-                st.session_state.authenticated = False
-                st.session_state.email = None
-                st.session_state.page = "landing"
-                st.experimental_rerun()
-                
-            # Definir a liga selecionada mesmo quando a sidebar está recolhida
-            selected_league = st.session_state.selected_league if hasattr(st.session_state, 'selected_league') else None
             
         # ------------------------------------------------------------
         # CONTEÚDO PRINCIPAL 
