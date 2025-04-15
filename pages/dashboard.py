@@ -1371,8 +1371,8 @@ def show_main_dashboard():
                     st.session_state.page = "landing"
                     st.experimental_rerun()
                 
-                # Definir a liga selecionada mesmo quando a sidebar está recolhida
-                selected_league = st.session_state.selected_league if hasattr(st.session_state, 'selected_league') else None
+            # Definir a liga selecionada mesmo quando a sidebar está recolhida
+            selected_league = st.session_state.selected_league if hasattr(st.session_state, 'selected_league') else None
             
             # Tratar redirecionamentos baseados em parâmetros de consulta (independente do estado da sidebar)
             if 'page' in st.query_params and st.query_params['page'] == 'packages':
