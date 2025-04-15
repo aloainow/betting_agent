@@ -1253,159 +1253,21 @@ def check_analysis_limits(selected_markets):
 def show_main_dashboard():
     """Show the main dashboard with improved error handling and debug info"""
     try:
+        # Apply retractable sidebar configuration (use the new function)
+        configure_sidebar_toggle()
+        
         # Verificações de autenticação
         if not hasattr(st.session_state, 'authenticated') or not st.session_state.authenticated:
             st.error("Sessão não autenticada. Por favor, faça login novamente.")
             st.session_state.page = "login"
             st.experimental_rerun()
             return
-            
-        # Inicializar estado
-        # Replace the existing sidebar toggle code in show_main_dashboard() with this:
-        # Inicializar estado
+
+        # Inicializar estado da sidebar apenas se necessário
         if 'sidebar_expanded' not in st.session_state:
             st.session_state.sidebar_expanded = True
         
-        # Definir o ícone de expansão que sempre estará presente na página
-        # Inside your show_main_dashboard() function:
-# Remove any calls to configure_retractable_sidebar()
-        # Use this implementation instead:
-        st.markdown("""
-        <style>
-            /* Configurações base da sidebar */
-            [data-testid="stSidebar"] {
-                transition: width 0.3s ease-in-out;
-            }
-            
-            /* Estilo do botão de toggle */
-            #sidebar-toggle-button {
-                position: fixed;
-                left: 250px;
-                top: 50%;
-                transform: translateY(-50%);
-                z-index: 1001;
-                background-color: #FF5500;
-                color: white;
-                border: none;
-                border-radius: 0 5px 5px 0;
-                width: 20px;
-                height: 60px;
-                font-size: 16px;
-                cursor: pointer;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                transition: left 0.3s ease-in-out;
-            }
-            
-            /* Estados da sidebar colapsada */
-            .sidebar-collapsed [data-testid="stSidebar"] {
-                width: 0px !important;
-                min-width: 0px !important;
-                margin-left: -21px !important;
-            }
-            
-            .sidebar-collapsed [data-testid="stSidebar"] .block-container {
-                display: none !important;
-            }
-            
-            .sidebar-collapsed #sidebar-toggle-button {
-                left: 0px;
-            }
-        </style>
-        
-        <div id="sidebar-toggle-container">
-            <button id="sidebar-toggle-button">&lt;</button>
-        </div>
-        
-        <script>
-            // Função que será executada após o DOM estar completamente carregado
-            function setupSidebarToggle() {
-                const body = document.body;
-                const toggleBtn = document.getElementById('sidebar-toggle-button');
-                
-                if (!toggleBtn) {
-                    console.log('Toggle button not found yet, will retry...');
-                    return false;
-                }
-                
-                console.log('Toggle button found, setting up event listeners...');
-                
-                // Obter estado salvo
-                const isCollapsed = localStorage.getItem('streamlit-sidebar-collapsed') === 'true';
-                
-                // Aplicar estado inicial
-                if (isCollapsed) {
-                    body.classList.add('sidebar-collapsed');
-                    toggleBtn.innerHTML = '&gt;';
-                } else {
-                    body.classList.remove('sidebar-collapsed');
-                    toggleBtn.innerHTML = '&lt;';
-                }
-                
-                // Remover qualquer evento anterior para evitar duplicação
-                const newToggleBtn = toggleBtn.cloneNode(true);
-                toggleBtn.parentNode.replaceChild(newToggleBtn, toggleBtn);
-                
-                // Configurar novo evento de clique
-                newToggleBtn.addEventListener('click', function() {
-                    console.log('Toggle button clicked');
-                    body.classList.toggle('sidebar-collapsed');
-                    
-                    if (body.classList.contains('sidebar-collapsed')) {
-                        this.innerHTML = '&gt;';
-                        localStorage.setItem('streamlit-sidebar-collapsed', 'true');
-                    } else {
-                        this.innerHTML = '&lt;';
-                        localStorage.setItem('streamlit-sidebar-collapsed', 'false');
-                    }
-                });
-                
-                return true;
-            }
-            
-            // Função para tentar configurar com múltiplas tentativas
-            function attemptSetup() {
-                // Limpar qualquer tentativa anterior
-                if (window.sidebarSetupInterval) {
-                    clearInterval(window.sidebarSetupInterval);
-                }
-                
-                // Tentar imediatamente
-                if (setupSidebarToggle()) {
-                    console.log('Sidebar toggle setup successful');
-                    return;
-                }
-                
-                // Se falhar, continuar tentando a cada 100ms até 3 segundos
-                let attempts = 0;
-                window.sidebarSetupInterval = setInterval(function() {
-                    attempts++;
-                    
-                    if (setupSidebarToggle() || attempts > 30) {
-                        clearInterval(window.sidebarSetupInterval);
-                        console.log('Sidebar setup complete or max attempts reached');
-                    }
-                }, 100);
-            }
-            
-            // Executar quando o DOM estiver carregado
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', attemptSetup);
-            } else {
-                // Se já estiver carregado, executar agora
-                attemptSetup();
-            }
-            
-            // Também executar novamente após o Streamlit terminar de renderizar
-            // (isso é importante porque o Streamlit pode reformatar o DOM)
-            setTimeout(attemptSetup, 500);
-            setTimeout(attemptSetup, 1000);
-            setTimeout(attemptSetup, 2000);
-        </script>
-        """, unsafe_allow_html=True)
-        
-        # Continue with the rest of your sidebar content as before
+        # Sidebar normal do Streamlit
         with st.sidebar:
             st.title("ValueHunter")
             st.markdown("---")
