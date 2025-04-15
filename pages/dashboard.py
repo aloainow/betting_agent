@@ -1278,6 +1278,9 @@ def show_main_dashboard():
             if 'sidebar_expanded' not in st.session_state:
                 st.session_state.sidebar_expanded = True  # Por padrão, começa expandida
             
+            # Inicializar selected_league com um valor padrão para evitar o erro
+            selected_league = None
+            
             # CSS para controlar a largura e visibilidade da sidebar
             st.markdown(
                 """
@@ -1325,11 +1328,18 @@ def show_main_dashboard():
                 # Mostrar conteúdo completo da sidebar
                 show_usage_stats()
                 
-                # Escolha da liga usando chave única
-                selected_league = get_league_selection(key_suffix="_main_dashboard")
-                if not selected_league:
-                    st.error("Não foi possível selecionar uma liga. Por favor, verifique a configuração.")
-                    return
+                try:
+                    # Escolha da liga usando chave única
+                    selected_league = get_league_selection(key_suffix="_main_dashboard")
+                    # Salvar a liga selecionada na sessão para uso quando a sidebar estiver retraída
+                    if selected_league:
+                        st.session_state.selected_league = selected_league
+                except Exception as e:
+                    logger.error(f"Erro ao selecionar liga: {str(e)}")
+                    if not selected_league and hasattr(st.session_state, 'selected_league'):
+                        selected_league = st.session_state.selected_league
+                    else:
+                        st.error("Não foi possível selecionar uma liga. Por favor, verifique a configuração.")
                 
                 # Nota sobre carregamento automático
                 st.sidebar.info("Os times são carregados automaticamente ao selecionar uma liga.")
@@ -1371,8 +1381,9 @@ def show_main_dashboard():
                     st.session_state.page = "landing"
                     st.experimental_rerun()
                 
-            # Definir a liga selecionada mesmo quando a sidebar está recolhida
-            selected_league = st.session_state.selected_league if hasattr(st.session_state, 'selected_league') else None
+                # Usar a liga já selecionada anteriormente
+                if hasattr(st.session_state, 'selected_league'):
+                    selected_league = st.session_state.selected_league
             
             # Tratar redirecionamentos baseados em parâmetros de consulta (independente do estado da sidebar)
             if 'page' in st.query_params and st.query_params['page'] == 'packages':
@@ -1386,6 +1397,21 @@ def show_main_dashboard():
                 st.session_state.page = "landing"
                 del st.query_params['logout']
                 st.experimental_rerun()
+            
+            # Se mesmo assim selected_league não foi definido, usar um valor default
+            if selected_league is None:
+                logger.warning("Nenhuma liga foi selecionada. Usando valor padrão.")
+                
+                # Tentar obter a primeira liga disponível
+                try:
+                    from utils.footystats_api import get_user_selected_leagues_direct
+                    available_leagues = get_user_selected_leagues_direct()
+                    if available_leagues:
+                        selected_league = available_leagues[0]
+                        st.session_state.selected_league = selected_league
+                except Exception as e:
+                    logger.error(f"Não foi possível obter ligas disponíveis: {str(e)}")
+                    selected_league = "Brasileirão"  # Um valor default como fallback
         
         # Iniciar com log de diagnóstico
         logger.info("Iniciando renderização do dashboard principal")     
