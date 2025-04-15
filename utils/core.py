@@ -1403,3 +1403,153 @@ def apply_custom_styles():
     }
     </style>
     """, unsafe_allow_html=True)
+
+def configure_sidebar_toggle():
+    """Configure a retractable sidebar that works on all devices"""
+    st.markdown("""
+    <style>
+        /* Base sidebar styling */
+        [data-testid="stSidebar"] {
+            transition: width 0.3s ease-in-out;
+            background-color: #1E1E1E !important;
+        }
+        
+        /* Toggle button styling */
+        #sidebar-toggle {
+            position: fixed;
+            left: 250px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 100000;
+            background-color: #FF5500;
+            color: white;
+            border: none;
+            border-radius: 0 5px 5px 0;
+            width: 20px;
+            height: 60px;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: left 0.3s ease-in-out;
+        }
+        
+        /* Collapsed sidebar styles */
+        .sidebar-collapsed [data-testid="stSidebar"] {
+            margin-left: -21px !important;
+            width: 0px !important;
+            min-width: 0px !important;
+        }
+        
+        .sidebar-collapsed [data-testid="stSidebar"] .block-container {
+            opacity: 0 !important;
+            display: none !important;
+        }
+        
+        .sidebar-collapsed #sidebar-toggle {
+            left: 20px;
+        }
+        
+        /* Mobile-specific adjustments */
+        @media (max-width: 768px) {
+            [data-testid="stSidebar"] {
+                width: 100% !important;
+                max-width: 100% !important;
+                background-color: #1E1E1E !important;
+            }
+            
+            .sidebar-collapsed [data-testid="stSidebar"] {
+                margin-left: -100% !important;
+            }
+            
+            #sidebar-toggle {
+                left: 0;
+                top: 10px;
+                width: 40px;
+                height: 30px;
+                border-radius: 0 0 5px 0;
+            }
+            
+            .sidebar-collapsed #sidebar-toggle {
+                left: 0;
+            }
+        }
+    </style>
+    
+    <button id="sidebar-toggle">&lt;</button>
+    
+    <script>
+        // Function to initialize sidebar state
+        function initSidebar() {
+            const body = document.body;
+            const toggleBtn = document.getElementById('sidebar-toggle');
+            
+            if (!toggleBtn) {
+                console.log('Toggle button not found yet');
+                return false;
+            }
+            
+            // Get saved state
+            const isCollapsed = localStorage.getItem('sidebar-collapsed') === 'true';
+            
+            // Apply initial state
+            if (isCollapsed) {
+                body.classList.add('sidebar-collapsed');
+                toggleBtn.innerHTML = '&gt;';
+            } else {
+                body.classList.remove('sidebar-collapsed');
+                toggleBtn.innerHTML = '&lt;';
+            }
+            
+            // Clear previous event listeners
+            const newBtn = toggleBtn.cloneNode(true);
+            toggleBtn.parentNode.replaceChild(newBtn, toggleBtn);
+            
+            // Set up click handler
+            newBtn.addEventListener('click', function() {
+                console.log('Toggle button clicked');
+                body.classList.toggle('sidebar-collapsed');
+                
+                if (body.classList.contains('sidebar-collapsed')) {
+                    this.innerHTML = '&gt;';
+                    localStorage.setItem('sidebar-collapsed', 'true');
+                } else {
+                    this.innerHTML = '&lt;';
+                    localStorage.setItem('sidebar-collapsed', 'false');
+                }
+            });
+            
+            return true;
+        }
+        
+        // Try to initialize immediately and at intervals
+        function attemptInitialization() {
+            if (window.sidebarInitInterval) {
+                clearInterval(window.sidebarInitInterval);
+            }
+            
+            if (initSidebar()) return;
+            
+            let attempts = 0;
+            window.sidebarInitInterval = setInterval(function() {
+                attempts++;
+                
+                if (initSidebar() || attempts > 20) {
+                    clearInterval(window.sidebarInitInterval);
+                }
+            }, 200);
+        }
+        
+        // Run when DOM content is loaded
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', attemptInitialization);
+        } else {
+            attemptInitialization();
+        }
+        
+        // Also run after Streamlit has fully loaded
+        setTimeout(attemptInitialization, 1000);
+        setTimeout(attemptInitialization, 2000);
+    </script>
+    """, unsafe_allow_html=True)
