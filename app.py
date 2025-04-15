@@ -50,6 +50,36 @@ st.set_page_config(
     menu_items=None  # Tenta remover o menu
 )
 
+# Add this in your main app.py file, after your st.set_page_config call
+st.markdown("""
+<style>
+    /* Ensure consistent background color across devices */
+    body {
+        background-color: #1a1a1a !important;
+        color: #fff !important;
+    }
+    
+    .main .block-container {
+        background-color: #1a1a1a !important;
+    }
+    
+    /* Mobile-specific adjustments */
+    @media (max-width: 768px) {
+        body {
+            background-color: #1a1a1a !important;
+        }
+        
+        [data-testid="stSidebar"] {
+            background-color: #1E1E1E !important;
+        }
+        
+        .main .block-container {
+            background-color: #1a1a1a !important;
+            padding: 1rem !important;
+        }
+    }
+</style>
+""", unsafe_allow_html=True)
 # Adicionar a tela de carregamento personalizada
 loading_html = """
 <!-- Código HTML para a tela de carregamento do ValueHunter -->
