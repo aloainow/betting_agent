@@ -1553,3 +1553,189 @@ def configure_sidebar_toggle():
         setTimeout(attemptInitialization, 2000);
     </script>
     """, unsafe_allow_html=True)
+def configure_responsive_sidebar():
+    """Configure a fully responsive sidebar that works on all devices"""
+    st.markdown("""
+    <style>
+        /* Base sidebar styling */
+        [data-testid="stSidebar"] {
+            transition: all 0.3s ease-in-out !important;
+            background-color: #1E1E1E !important;
+            color: white !important;
+        }
+        
+        /* Toggle button styling */
+        #vh-sidebar-toggle {
+            position: fixed;
+            left: 300px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 999999;
+            background-color: #FF5500;
+            color: white;
+            border: none;
+            border-radius: 0 5px 5px 0;
+            width: 20px;
+            height: 60px;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: left 0.3s ease-in-out;
+        }
+        
+        /* Fix background color for dropdowns and selections */
+        .stSelectbox > div > div, 
+        .stMultiSelect > div > div {
+            background-color: #2a2a2a !important;
+            color: white !important;
+        }
+        
+        /* Fix all dropdown options */
+        div[data-baseweb="select"] ul, 
+        div[data-baseweb="select"] ul li,
+        div[data-baseweb="select"] ul li:hover {
+            background-color: #2a2a2a !important;
+            color: white !important;
+        }
+        
+        /* Fix for dropdown hover states */
+        div[data-baseweb="select"] ul li:hover {
+            background-color: #3a3a3a !important;
+        }
+        
+        /* Collapsed sidebar styles */
+        .sidebar-collapsed [data-testid="stSidebar"] {
+            width: 0px !important;
+            min-width: 0px !important;
+            margin-left: -21px !important;
+        }
+        
+        .sidebar-collapsed [data-testid="stSidebar"] .block-container {
+            display: none !important;
+        }
+        
+        .sidebar-collapsed #vh-sidebar-toggle {
+            left: 0px;
+        }
+        
+        /* Mobile responsive design */
+        @media (max-width: 768px) {
+            [data-testid="stSidebar"] {
+                width: 100% !important;
+                min-width: 100% !important;
+                max-width: 100% !important;
+                background-color: #1E1E1E !important;
+                margin-top: 0 !important;
+            }
+            
+            .sidebar-collapsed [data-testid="stSidebar"] {
+                transform: translateX(-100%) !important;
+                margin-left: 0 !important;
+            }
+            
+            #vh-sidebar-toggle {
+                left: auto;
+                right: 20px;
+                top: 10px;
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+            }
+            
+            .sidebar-collapsed #vh-sidebar-toggle {
+                left: 10px;
+                right: auto;
+            }
+            
+            /* Ensure dark background everywhere */
+            html, body, .main, .stApp {
+                background-color: #1a1a1a !important;
+                color: white !important;
+            }
+        }
+    </style>
+    
+    <button id="vh-sidebar-toggle">&lt;</button>
+    
+    <script>
+        // Make sure jQuery is available
+        if (typeof window.jQuery === 'undefined') {
+            var script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js';
+            document.head.appendChild(script);
+            
+            // Wait for jQuery to load
+            script.onload = function() {
+                setupSidebar();
+            };
+        } else {
+            setupSidebar();
+        }
+        
+        function setupSidebar() {
+            (function($) {
+                // Wait for DOM to be ready
+                $(document).ready(function() {
+                    function initSidebar() {
+                        console.log('Initializing sidebar toggle...');
+                        
+                        var $body = $('body');
+                        var $toggle = $('#vh-sidebar-toggle');
+                        
+                        if ($toggle.length === 0) {
+                            console.log('Toggle button not found, will retry...');
+                            return false;
+                        }
+                        
+                        // Get saved state
+                        var isCollapsed = localStorage.getItem('vh-sidebar-collapsed') === 'true';
+                        
+                        // Apply initial state
+                        if (isCollapsed) {
+                            $body.addClass('sidebar-collapsed');
+                            $toggle.html('&gt;');
+                        } else {
+                            $body.removeClass('sidebar-collapsed');
+                            $toggle.html('&lt;');
+                        }
+                        
+                        // Handle click event
+                        $toggle.off('click').on('click', function() {
+                            console.log('Toggle button clicked');
+                            $body.toggleClass('sidebar-collapsed');
+                            
+                            if ($body.hasClass('sidebar-collapsed')) {
+                                $toggle.html('&gt;');
+                                localStorage.setItem('vh-sidebar-collapsed', 'true');
+                            } else {
+                                $toggle.html('&lt;');
+                                localStorage.setItem('vh-sidebar-collapsed', 'false');
+                            }
+                        });
+                        
+                        console.log('Sidebar toggle initialized successfully');
+                        return true;
+                    }
+                    
+                    // Try immediately and also with a delay
+                    if (!initSidebar()) {
+                        var attempts = 0;
+                        var interval = setInterval(function() {
+                            attempts++;
+                            if (initSidebar() || attempts > 30) {
+                                clearInterval(interval);
+                            }
+                        }, 200);
+                    }
+                    
+                    // Also try after Streamlit might have redrawn the UI
+                    setTimeout(initSidebar, 1000);
+                    setTimeout(initSidebar, 2000);
+                    setTimeout(initSidebar, 3000);
+                });
+            })(window.jQuery);
+        }
+    </script>
+    """, unsafe_allow_html=True)
