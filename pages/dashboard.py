@@ -1306,7 +1306,7 @@ def show_main_dashboard():
                 /* Ajustar elementos dentro da sidebar */
                 section[data-testid="stSidebar"] button {
                     padding: 0.25rem !important;
-                    min-height: 40px !important;
+                    min-height: 20px !important;
                 }
                 /* Melhorar espaçamento vertical */
                 section[data-testid="stSidebar"] > div > div {
