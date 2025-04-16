@@ -1436,24 +1436,51 @@ def show_main_dashboard():
         # Bloco try separado para seleção de mercados
         try:
             # Seleção de mercados
+           # Na seção de seleção de mercados, modifique o código para adicionar o botão "Selecionar todos"
             with st.expander("Mercados Disponíveis", expanded=True):
                 st.markdown("### Seleção de Mercados")
                 st.info(f"Você tem {user_stats['credits_remaining']} créditos disponíveis. Cada mercado selecionado consumirá 1 crédito.")
                 
+                # Inicializar o estado para "selecionar todos" se não existir
+                if 'select_all_markets' not in st.session_state:
+                    st.session_state.select_all_markets = False
+                
+                # Botão "Selecionar todos"
+                if st.button("Selecionar todos os mercados", key="select_all_btn"):
+                    st.session_state.select_all_markets = not st.session_state.select_all_markets
+                    # Forçar recarregamento da página para atualizar os checkboxes
+                    st.experimental_rerun()
+                
+                # Status atual
+                if st.session_state.select_all_markets:
+                    st.success("Todos os mercados selecionados! Clique no botão novamente para desmarcar todos.")
+                
                 col1, col2 = st.columns(2)
                 with col1:
                     selected_markets = {
-                        "money_line": st.checkbox("Money Line (1X2)", value=True, key='ml'),
-                        "over_under": st.checkbox("Total de Gols", key='ou'),
-                        "chance_dupla": st.checkbox("Chance Dupla", key='cd')
+                        "money_line": st.checkbox("Money Line (1X2)", 
+                                                 value=st.session_state.select_all_markets, 
+                                                 key='ml'),
+                        "over_under": st.checkbox("Total de Gols", 
+                                                 value=st.session_state.select_all_markets, 
+                                                 key='ou'),
+                        "chance_dupla": st.checkbox("Chance Dupla", 
+                                                   value=st.session_state.select_all_markets, 
+                                                   key='cd')
                     }
                 with col2:
                     selected_markets.update({
-                        "ambos_marcam": st.checkbox("Ambos Marcam", key='btts'),
-                        "escanteios": st.checkbox("Total de Escanteios", key='corners'),
-                        "cartoes": st.checkbox("Total de Cartões", key='cards')
+                        "ambos_marcam": st.checkbox("Ambos Marcam", 
+                                                   value=st.session_state.select_all_markets, 
+                                                   key='btts'),
+                        "escanteios": st.checkbox("Total de Escanteios", 
+                                                 value=st.session_state.select_all_markets, 
+                                                 key='corners'),
+                        "cartoes": st.checkbox("Total de Cartões", 
+                                              value=st.session_state.select_all_markets, 
+                                              key='cards')
                     })
-
+            
                 num_selected_markets = sum(1 for v in selected_markets.values() if v)
                 if num_selected_markets == 0:
                     st.warning("Por favor, selecione pelo menos um mercado para análise.")
