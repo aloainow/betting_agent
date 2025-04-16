@@ -1,4 +1,5 @@
 # utils/justifications.py
+import logging
 
 def generate_justifications_for_opportunities(opportunities, home_team, away_team, original_probabilities, implied_probabilities):
     """
