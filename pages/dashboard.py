@@ -1253,8 +1253,11 @@ def check_analysis_limits(selected_markets):
 def show_main_dashboard():
     """Show the main dashboard with improved error handling and debug info"""
     try:
-        # Aplicar CSS responsivo para sidebar (substituindo o configure_sidebar_toggle)
+        # Aplicar CSS responsivo para sidebar
         apply_responsive_sidebar_css()
+        
+        # Importante: Garantir que a sidebar esteja acessível em qualquer dispositivo
+        ensure_sidebar_visibility()
         
         # Verificações de autenticação
         if not hasattr(st.session_state, 'authenticated') or not st.session_state.authenticated:
@@ -1306,6 +1309,30 @@ def show_main_dashboard():
         
         # Container para status
         status_container = st.empty()
+        
+        # Adicionar instruções explícitas para mobile (visíveis apenas no conteúdo principal)
+        st.markdown("""
+        <style>
+        @media (max-width: 767px) {
+            .mobile-tip {
+                background-color: #fd7014;
+                color: white;
+                padding: 10px 15px;
+                border-radius: 5px;
+                margin-bottom: 15px;
+                display: block;
+            }
+        }
+        @media (min-width: 768px) {
+            .mobile-tip {
+                display: none;
+            }
+        }
+        </style>
+        <div class="mobile-tip">
+            👉 Toque no botão ≡ no canto superior direito para acessar as estatísticas e configurações!
+        </div>
+        """, unsafe_allow_html=True)
         
         # Verificar conexão com a API
         with st.spinner("Verificando conexão..."):
@@ -3226,10 +3253,7 @@ else:
 def apply_responsive_sidebar_css():
     """
     Aplica CSS responsivo à sidebar para adaptação entre desktop e mobile,
-    sem botão de retrair/expandir. Versão corrigida que:
-    1. Não mostra botão no desktop
-    2. Posiciona corretamente o botão no mobile
-    3. Garante que a sidebar funcione em todos os casos
+    com melhorias específicas para dispositivos móveis em modo retrato (tela estreita).
     """
     import streamlit as st
     
@@ -3241,7 +3265,7 @@ def apply_responsive_sidebar_css():
             border-right: 1px solid #3a3a3a;
         }
         
-        /* Em desktop, a sidebar fica sempre visível (sem botão) */
+        /* Em desktop, a sidebar fica sempre visível */
         @media (min-width: 992px) {
             [data-testid="stSidebar"] {
                 min-width: 250px !important;
@@ -3303,62 +3327,24 @@ def apply_responsive_sidebar_css():
             display: none !important;
         }
         
-        /* CORREÇÃO: Somente adicionar elementos mobile para telas pequenas */
+        /* Configuração especial para mobile */
         @media (max-width: 767px) {
-            /* Remover classes do body para começar limpo */
-            body:not(.mobile-view) .mobile-menu-button,
-            body:not(.mobile-view) .sidebar-overlay {
-                display: none !important;
-            }
-            
-            /* Mudar ponto de quebra para melhor funcionamento */
-            body {
-                /* Marcador para ativar visualmente os estilos mobile */
-                --mobile-view: true;
-            }
-            
-            /* Estilo da sidebar em mobile */
+            /* Sidebar padrão do Streamlit - ajuste para telas estreitas */
             [data-testid="stSidebar"] {
-                position: fixed !important;
-                top: 0 !important;
-                left: 0 !important;
-                width: 80% !important;
-                max-width: 330px !important;
-                height: 100vh !important;
-                transform: translateX(-100%) !important;
-                transition: transform 0.3s ease-in-out !important;
-                z-index: 1000 !important;
-                box-shadow: 2px 0 5px rgba(0,0,0,0.3) !important;
+                min-width: auto !important;
+                max-width: none !important;
+                width: 85% !important; /* Largura fixa relativa */
             }
             
-            /* Sidebar aberta */
-            body.sidebar-open [data-testid="stSidebar"] {
-                transform: translateX(0) !important;
+            /* Remover transformações para evitar que a sidebar desapareça */
+            [data-testid="stSidebar"] > div {
+                transform: none !important; 
             }
             
-            /* Overlay para fechar sidebar quando aberta */
-            .sidebar-overlay {
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100vw;
-                height: 100vh;
-                background-color: rgba(0, 0, 0, 0.5);
-                z-index: 999;
-                opacity: 0;
-                visibility: hidden;
-                transition: opacity 0.3s ease;
-            }
-            
-            body.sidebar-open .sidebar-overlay {
-                opacity: 1;
-                visibility: visible;
-            }
-            
-            /* Botão de menu mobile */
+            /* Botão de menu mobile sempre visível */
             .mobile-menu-button {
                 position: fixed;
-                top: 10px;  /* Posicionamento no topo, próximo ao cabeçalho */
+                top: 10px;
                 right: 10px;
                 width: 42px;
                 height: 42px;
@@ -3376,71 +3362,186 @@ def apply_responsive_sidebar_css():
                 transition: background-color 0.2s ease;
             }
             
-            .mobile-menu-button:hover {
+            .mobile-menu-button:hover,
+            .mobile-menu-button:active {
                 background-color: #e86200;
+            }
+            
+            /* Adicionar instruções visuais */
+            .mobile-instructions {
+                position: fixed;
+                bottom: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background-color: rgba(0,0,0,0.7);
+                color: white;
+                padding: 10px 15px;
+                border-radius: 20px;
+                font-size: 14px;
+                z-index: 1000;
+                text-align: center;
+                max-width: 80%;
+                display: none;
+            }
+            
+            .show-instructions .mobile-instructions {
+                display: block;
+                animation: fadeInUp 0.5s ease forwards, fadeOut 0.5s ease 5s forwards;
+            }
+            
+            @keyframes fadeInUp {
+                from { opacity: 0; transform: translate(-50%, 20px); }
+                to { opacity: 1; transform: translate(-50%, 0); }
+            }
+            
+            @keyframes fadeOut {
+                from { opacity: 1; }
+                to { opacity: 0; }
             }
         }
     </style>
     
+    <!-- Adicionar elementos mobile -->
+    <button class="mobile-menu-button" id="mobile-menu-btn">≡</button>
+    <div class="mobile-instructions" id="mobile-instructions">
+        Use o menu ≡ para acessar a barra lateral
+    </div>
+    
     <script>
-        // Função para detectar se estamos em mobile e configurar a interface
-        function setupMobileSidebar() {
+        // Função para lidar com a interface mobile
+        function setupMobileInterface() {
+            // Verificar se estamos em modo mobile
             const isMobile = window.innerWidth <= 767;
             
-            // Se for desktop, não precisamos adicionar elementos mobile
+            // Se não for mobile, ocultar elementos mobile
             if (!isMobile) {
-                // Remover qualquer elemento mobile que possa existir
-                const oldButton = document.querySelector('.mobile-menu-button');
-                const oldOverlay = document.querySelector('.sidebar-overlay');
+                // Esconder elementos mobile
+                const mobileBtn = document.getElementById('mobile-menu-btn');
+                const mobileInstr = document.getElementById('mobile-instructions');
                 
-                if (oldButton) oldButton.remove();
-                if (oldOverlay) oldOverlay.remove();
+                if (mobileBtn) mobileBtn.style.display = 'none';
+                if (mobileInstr) mobileInstr.style.display = 'none';
                 
-                // Remover classe de mobile view
-                document.body.classList.remove('mobile-view', 'sidebar-open');
                 return;
             }
             
-            // Marcar que estamos em mobile view
-            document.body.classList.add('mobile-view');
+            // Em mobile, configurar comportamento do botão
+            const mobileBtn = document.getElementById('mobile-menu-btn');
             
-            // Verificar se já existem os elementos mobile
-            let menuButton = document.querySelector('.mobile-menu-button');
-            let overlay = document.querySelector('.sidebar-overlay');
-            
-            // Se não existem, criar
-            if (!menuButton) {
-                menuButton = document.createElement('button');
-                menuButton.className = 'mobile-menu-button';
-                menuButton.innerHTML = '≡';
-                document.body.appendChild(menuButton);
+            if (mobileBtn) {
+                // Mostrar o botão
+                mobileBtn.style.display = 'flex';
+                
+                // Verificar se já temos o controle nativo do Streamlit
+                const streamlitSidebarControl = document.querySelector('[data-testid="collapsedControl"]');
+                
+                // Configurar o evento de clique
+                mobileBtn.onclick = function() {
+                    // Ativar instruções na primeira vez
+                    document.body.classList.add('show-instructions');
+                    setTimeout(() => {
+                        document.body.classList.remove('show-instructions');
+                    }, 5500);
+                    
+                    // Se temos o controle nativo, simular o clique
+                    if (streamlitSidebarControl) {
+                        streamlitSidebarControl.click();
+                    } else {
+                        // Alternativa: alternância manual da classe
+                        const sidebar = document.querySelector('[data-testid="stSidebar"]');
+                        
+                        if (sidebar) {
+                            // Alternar visibilidade
+                            if (sidebar.classList.contains('collapsed')) {
+                                sidebar.classList.remove('collapsed');
+                                sidebar.style.width = '85%';
+                                sidebar.style.marginLeft = '0';
+                                sidebar.style.transform = 'none';
+                            } else {
+                                sidebar.classList.add('collapsed');
+                                sidebar.style.width = '0';
+                                sidebar.style.marginLeft = '-100%';
+                            }
+                        }
+                    }
+                };
             }
             
-            if (!overlay) {
-                overlay = document.createElement('div');
-                overlay.className = 'sidebar-overlay';
-                document.body.appendChild(overlay);
+            // Mostrar dica para o usuário na primeira visita
+            if (!localStorage.getItem('mobile_sidebar_hint_shown')) {
+                document.body.classList.add('show-instructions');
+                localStorage.setItem('mobile_sidebar_hint_shown', 'true');
+                
+                setTimeout(() => {
+                    document.body.classList.remove('show-instructions');
+                }, 5500);
             }
-            
-            // Configurar eventos
-            menuButton.onclick = function() {
-                document.body.classList.toggle('sidebar-open');
-            };
-            
-            overlay.onclick = function() {
-                document.body.classList.remove('sidebar-open');
-            };
         }
         
-        // Executar no carregamento e quando a janela mudar de tamanho
-        window.addEventListener('load', setupMobileSidebar);
-        window.addEventListener('resize', setupMobileSidebar);
+        // Executar no carregamento da página
+        document.addEventListener('DOMContentLoaded', setupMobileInterface);
         
-        // Executar agora também
-        setupMobileSidebar();
+        // Executar imediatamente também (para casos em que o DOMContentLoaded já ocorreu)
+        setupMobileInterface();
         
-        // E executar novamente após pequenos atrasos para garantir
-        setTimeout(setupMobileSidebar, 500);
-        setTimeout(setupMobileSidebar, 1000);
+        // Executar quando a janela mudar de tamanho
+        window.addEventListener('resize', setupMobileInterface);
+        
+        // Executar com pequenos atrasos para garantir
+        setTimeout(setupMobileInterface, 500);
+        setTimeout(setupMobileInterface, 1000);
+        setTimeout(setupMobileInterface, 2000);
+    </script>
+    """, unsafe_allow_html=True)
+
+# Complemento: Adicione esta função ao dashboard.py para forçar a sidebar a estar sempre disponível
+def ensure_sidebar_visibility():
+    """
+    Força a sidebar a estar sempre disponível em telas mobile,
+    independente da orientação. Chame esta função após apply_responsive_sidebar_css().
+    """
+    import streamlit as st
+    
+    st.markdown("""
+    <script>
+        // Função que garante que a sidebar está acessível
+        function forceSidebarAccessibility() {
+            // Verificar se estamos em mobile
+            const isMobile = window.innerWidth <= 767;
+            
+            if (isMobile) {
+                const sidebar = document.querySelector('[data-testid="stSidebar"]');
+                const sidebarBtn = document.querySelector('[data-testid="collapsedControl"]');
+                
+                if (sidebar) {
+                    // Garantir que a sidebar não tenha transformações que a ocultem completamente
+                    sidebar.style.transition = 'transform 0.3s ease, width 0.3s ease, margin 0.3s ease';
+                    
+                    // Verificar se a sidebar está visível
+                    const isVisible = window.getComputedStyle(sidebar).transform !== 'matrix(1, 0, 0, 1, -100, 0)' &&
+                                      window.getComputedStyle(sidebar).width !== '0px';
+                    
+                    // Se a sidebar não estiver visível, garantir que o botão está
+                    if (!isVisible && sidebarBtn) {
+                        sidebarBtn.style.display = 'block';
+                        sidebarBtn.style.opacity = '1';
+                        sidebarBtn.style.visibility = 'visible';
+                    }
+                    
+                    // Verificar se o nosso botão personalizado está visível
+                    const mobileBtn = document.getElementById('mobile-menu-btn');
+                    if (mobileBtn) {
+                        mobileBtn.style.display = 'flex';
+                    }
+                }
+            }
+        }
+        
+        // Executar várias vezes para garantir que seja aplicado
+        setInterval(forceSidebarAccessibility, 1000);
+        
+        // Também executar em carregamento e redimensionamento
+        window.addEventListener('load', forceSidebarAccessibility);
+        window.addEventListener('resize', forceSidebarAccessibility);
     </script>
     """, unsafe_allow_html=True)
