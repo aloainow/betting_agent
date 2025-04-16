@@ -1644,7 +1644,12 @@ def get_stat(stats, col, default='N/A'):
     except Exception as e:
         logger.warning(f"Erro ao obter estatística '{col}': {str(e)}")
         return default
-        
+
+
+import math
+import numpy as np  # Adicione esta importação se necessário
+import logging
+
 def calculate_advanced_probabilities(home_team, away_team, league_id='generic', match_conditions=None):
     """
     Cálculo avançado de probabilidades utilizando método aprimorado de Dispersão e Ponderação
@@ -1659,8 +1664,6 @@ def calculate_advanced_probabilities(home_team, away_team, league_id='generic', 
         dict: Probabilidades calculadas para diferentes mercados
     """
     try:
-        import math
-        import numpy as np  # Adicione esta importação se necessário
         
         # 1. Obter fatores específicos da liga
         league_factors = calculate_league_factors(league_id, None)
