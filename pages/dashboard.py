@@ -3221,12 +3221,15 @@ if opportunities:
     new_analysis.append(formatted_opportunities)
 else:
     new_analysis.append("# Oportunidades Identificadas:\nInfelizmente não detectamos valor em nenhuma dos seus inputs.")
-"""
+"""# Definição corrigida da função apply_responsive_sidebar_css() em dashboard.py
+
 def apply_responsive_sidebar_css():
     """
     Aplica CSS responsivo à sidebar para adaptação entre desktop e mobile,
     sem botão de retrair/expandir
     """
+    import streamlit as st
+    
     st.markdown("""
     <style>
         /* Estilos básicos para a sidebar */
