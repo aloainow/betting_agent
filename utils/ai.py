@@ -1667,8 +1667,22 @@ def calculate_advanced_probabilities(home_team, away_team, league_id='generic', 
         
         
         # 2. Calcular forma recente (35%)
-        home_form_points = calculate_form_points(home_team.get('form', 'DLWDL'))
-        away_form_points = calculate_form_points(away_team.get('form', 'DWLDL'))
+        # Better approach
+        if 'form' in home_team and home_team['form']:
+            home_form_points = calculate_form_points(home_team['form'])
+            home_form_normalized = home_form_points / 15.0
+        else:
+            logging.getLogger("valueHunter.ai").warning(f"Missing form data for home team")
+            home_form_points = None
+            home_form_normalized = None
+        
+        if 'form' in away_team and away_team['form']:
+            away_form_points = calculate_form_points(away_team['form'])
+            away_form_normalized = away_form_points / 15.0
+        else:
+            logging.getLogger("valueHunter.ai").warning(f"Missing form data for away team")
+            away_form_points = None
+            away_form_normalized = None
         
         # Normalizar para 0-1
         home_form_normalized = home_form_points / 15.0
@@ -1808,8 +1822,8 @@ def calculate_advanced_probabilities(home_team, away_team, league_id='generic', 
             "analysis_data": {
                 "home_consistency": round(home_consistency * 100, 1),
                 "away_consistency": round(away_consistency * 100, 1),
-                "home_form_points": home_form_points / 15.0,
-                "away_form_points": away_form_points / 15.0,
+                "home_form_points": home_form_points / 15.0 if home_form_points is not None else None,
+                "away_form_points": away_form_points / 15.0 if away_form_points is not None else None,
                 "home_total_score": round(home_total_score, 2),
                 "away_total_score": round(away_total_score, 2),
                 "home_fatigue": round(home_fatigue * 100, 1),
