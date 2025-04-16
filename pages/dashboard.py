@@ -1253,11 +1253,8 @@ def check_analysis_limits(selected_markets):
 def show_main_dashboard():
     """Show the main dashboard with improved error handling and debug info"""
     try:
-        # Aplicar CSS responsivo para sidebar
+        # Aplicar CSS responsivo simplificado para sidebar
         apply_responsive_sidebar_css()
-        
-        # Importante: Garantir que a sidebar esteja acessível em qualquer dispositivo
-        ensure_sidebar_visibility()
         
         # Verificações de autenticação
         if not hasattr(st.session_state, 'authenticated') or not st.session_state.authenticated:
@@ -1265,6 +1262,13 @@ def show_main_dashboard():
             st.session_state.page = "login"
             st.experimental_rerun()
             return
+
+        # Adicionar texto de ajuda para mobile no início do conteúdo principal
+        st.markdown("""
+        <div class="mobile-help">
+            <strong>Dica:</strong> Toque no botão ≡ no canto superior direito para acessar o menu.
+        </div>
+        """, unsafe_allow_html=True)
 
         # Sidebar normal do Streamlit
         with st.sidebar:
@@ -1309,30 +1313,6 @@ def show_main_dashboard():
         
         # Container para status
         status_container = st.empty()
-        
-        # Adicionar instruções explícitas para mobile (visíveis apenas no conteúdo principal)
-        st.markdown("""
-        <style>
-        @media (max-width: 767px) {
-            .mobile-tip {
-                background-color: #fd7014;
-                color: white;
-                padding: 10px 15px;
-                border-radius: 5px;
-                margin-bottom: 15px;
-                display: block;
-            }
-        }
-        @media (min-width: 768px) {
-            .mobile-tip {
-                display: none;
-            }
-        }
-        </style>
-        <div class="mobile-tip">
-            👉 Toque no botão ≡ no canto superior direito para acessar as estatísticas e configurações!
-        </div>
-        """, unsafe_allow_html=True)
         
         # Verificar conexão com a API
         with st.spinner("Verificando conexão..."):
@@ -3253,7 +3233,7 @@ else:
 def apply_responsive_sidebar_css():
     """
     Aplica CSS responsivo à sidebar para adaptação entre desktop e mobile,
-    com melhorias específicas para dispositivos móveis em modo retrato (tela estreita).
+    com uma solução simplificada e direta que foca no funcionamento.
     """
     import streamlit as st
     
@@ -3265,232 +3245,90 @@ def apply_responsive_sidebar_css():
             border-right: 1px solid #3a3a3a;
         }
         
-        /* Em desktop, a sidebar fica sempre visível */
-        @media (min-width: 992px) {
-            [data-testid="stSidebar"] {
-                min-width: 250px !important;
-                max-width: 300px !important;
-                width: auto !important;
-            }
-            
-            /* Garantir que o conteúdo principal tenha espaço suficiente */
-            .main .block-container {
-                margin-left: 2rem;
-            }
+        /* Botão de menu simplificado para mobile */
+        #mobile-menu-button {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            width: 42px;
+            height: 42px;
+            background-color: #fd7014;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
         }
         
-        /* Para tablet, largura um pouco menor */
-        @media (min-width: 768px) and (max-width: 991px) {
-            [data-testid="stSidebar"] {
-                min-width: 230px !important;
-                max-width: 280px !important;
-            }
-        }
-        
-        /* Estilo para os widgets dentro da sidebar */
-        [data-testid="stSidebar"] .stSelectbox > div[data-baseweb="select"] > div,
-        [data-testid="stSidebar"] .stMultiSelect > div[data-baseweb="select"] > div {
-            background-color: #2a2a2a !important;
-            color: white !important;
-        }
-        
-        /* Fix para elementos no dark mode */
-        [data-testid="stSidebar"] div[data-baseweb="popover"] {
-            background-color: #2a2a2a !important;
-        }
-        
-        [data-testid="stSidebar"] div[data-baseweb="select"] ul,
-        [data-testid="stSidebar"] div[data-baseweb="select"] ul li {
-            background-color: #2a2a2a !important;
-            color: white !important;
-        }
-        
-        [data-testid="stSidebar"] div[data-baseweb="select"] ul li:hover {
-            background-color: #3a3a3a !important;
-        }
-        
-        /* Estilo para botões na sidebar */
-        [data-testid="stSidebar"] .stButton button {
-            width: 100%;
-            margin-bottom: 0.5rem;
-            background-color: #fd7014 !important;
-            color: white !important;
-            border: none !important;
-        }
-        
-        [data-testid="stSidebar"] .stButton button:hover {
-            background-color: #e86200 !important;
-        }
-        
-        /* Desabilitar botão de colapso nativo */
-        [data-testid="collapsedControl"] {
-            display: none !important;
-        }
-        
-        /* Configuração especial para mobile */
-        @media (max-width: 767px) {
-            /* Sidebar padrão do Streamlit - ajuste para telas estreitas */
-            [data-testid="stSidebar"] {
-                min-width: auto !important;
-                max-width: none !important;
-                width: 85% !important; /* Largura fixa relativa */
-            }
-            
-            /* Remover transformações para evitar que a sidebar desapareça */
-            [data-testid="stSidebar"] > div {
-                transform: none !important; 
-            }
-            
-            /* Botão de menu mobile sempre visível */
-            .mobile-menu-button {
-                position: fixed;
-                top: 10px;
-                right: 10px;
-                width: 42px;
-                height: 42px;
-                border-radius: 5px;
-                background-color: #fd7014;
-                color: white;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 24px;
-                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-                z-index: 1001;
-                cursor: pointer;
-                border: none;
-                transition: background-color 0.2s ease;
-            }
-            
-            .mobile-menu-button:hover,
-            .mobile-menu-button:active {
-                background-color: #e86200;
-            }
-            
-            /* Adicionar instruções visuais */
-            .mobile-instructions {
-                position: fixed;
-                bottom: 20px;
-                left: 50%;
-                transform: translateX(-50%);
-                background-color: rgba(0,0,0,0.7);
-                color: white;
-                padding: 10px 15px;
-                border-radius: 20px;
-                font-size: 14px;
-                z-index: 1000;
-                text-align: center;
-                max-width: 80%;
+        /* Ocultar botão em desktop */
+        @media (min-width: 768px) {
+            #mobile-menu-button {
                 display: none;
             }
+        }
+        
+        /* Mostrar botão apenas em mobile */
+        @media (max-width: 767px) {
+            #mobile-menu-button {
+                display: flex;
+            }
             
-            .show-instructions .mobile-instructions {
+            /* Ajuste para texto de ajuda em mobile */
+            .mobile-help {
                 display: block;
-                animation: fadeInUp 0.5s ease forwards, fadeOut 0.5s ease 5s forwards;
+                background-color: rgba(253, 112, 20, 0.2);
+                border: 1px solid #fd7014;
+                border-radius: 5px;
+                padding: 10px;
+                margin-bottom: 15px;
+                font-size: 14px;
             }
-            
-            @keyframes fadeInUp {
-                from { opacity: 0; transform: translate(-50%, 20px); }
-                to { opacity: 1; transform: translate(-50%, 0); }
-            }
-            
-            @keyframes fadeOut {
-                from { opacity: 1; }
-                to { opacity: 0; }
+        }
+        
+        /* Ocultar texto de ajuda em desktop */
+        @media (min-width: 768px) {
+            .mobile-help {
+                display: none;
             }
         }
     </style>
     
-    <!-- Adicionar elementos mobile -->
-    <button class="mobile-menu-button" id="mobile-menu-btn">≡</button>
-    <div class="mobile-instructions" id="mobile-instructions">
-        Use o menu ≡ para acessar a barra lateral
-    </div>
+    <!-- Botão mobile simplificado -->
+    <button id="mobile-menu-button">≡</button>
     
     <script>
-        // Função para lidar com a interface mobile
-        function setupMobileInterface() {
-            // Verificar se estamos em modo mobile
-            const isMobile = window.innerWidth <= 767;
+        // Função simples que encontra e clica no botão de toggle da sidebar do Streamlit
+        function setupSimpleMobileButton() {
+            const mobileButton = document.getElementById('mobile-menu-button');
             
-            // Se não for mobile, ocultar elementos mobile
-            if (!isMobile) {
-                // Esconder elementos mobile
-                const mobileBtn = document.getElementById('mobile-menu-btn');
-                const mobileInstr = document.getElementById('mobile-instructions');
-                
-                if (mobileBtn) mobileBtn.style.display = 'none';
-                if (mobileInstr) mobileInstr.style.display = 'none';
-                
-                return;
-            }
-            
-            // Em mobile, configurar comportamento do botão
-            const mobileBtn = document.getElementById('mobile-menu-btn');
-            
-            if (mobileBtn) {
-                // Mostrar o botão
-                mobileBtn.style.display = 'flex';
-                
-                // Verificar se já temos o controle nativo do Streamlit
-                const streamlitSidebarControl = document.querySelector('[data-testid="collapsedControl"]');
-                
-                // Configurar o evento de clique
-                mobileBtn.onclick = function() {
-                    // Ativar instruções na primeira vez
-                    document.body.classList.add('show-instructions');
-                    setTimeout(() => {
-                        document.body.classList.remove('show-instructions');
-                    }, 5500);
+            if (mobileButton) {
+                mobileButton.onclick = function() {
+                    // Encontrar o botão de toggle original do Streamlit
+                    const streamlitToggle = document.querySelector('[data-testid="collapsedControl"]');
                     
-                    // Se temos o controle nativo, simular o clique
-                    if (streamlitSidebarControl) {
-                        streamlitSidebarControl.click();
-                    } else {
-                        // Alternativa: alternância manual da classe
-                        const sidebar = document.querySelector('[data-testid="stSidebar"]');
-                        
-                        if (sidebar) {
-                            // Alternar visibilidade
-                            if (sidebar.classList.contains('collapsed')) {
-                                sidebar.classList.remove('collapsed');
-                                sidebar.style.width = '85%';
-                                sidebar.style.marginLeft = '0';
-                                sidebar.style.transform = 'none';
-                            } else {
-                                sidebar.classList.add('collapsed');
-                                sidebar.style.width = '0';
-                                sidebar.style.marginLeft = '-100%';
-                            }
-                        }
+                    if (streamlitToggle) {
+                        // Simular o clique no botão do Streamlit
+                        streamlitToggle.click();
                     }
                 };
             }
-            
-            // Mostrar dica para o usuário na primeira visita
-            if (!localStorage.getItem('mobile_sidebar_hint_shown')) {
-                document.body.classList.add('show-instructions');
-                localStorage.setItem('mobile_sidebar_hint_shown', 'true');
-                
-                setTimeout(() => {
-                    document.body.classList.remove('show-instructions');
-                }, 5500);
-            }
         }
         
-        // Executar no carregamento da página
-        document.addEventListener('DOMContentLoaded', setupMobileInterface);
+        // Executar ao carregar
+        document.addEventListener('DOMContentLoaded', setupSimpleMobileButton);
         
-        // Executar imediatamente também (para casos em que o DOMContentLoaded já ocorreu)
-        setupMobileInterface();
+        // Executar agora também
+        setupSimpleMobileButton();
         
-        // Executar quando a janela mudar de tamanho
-        window.addEventListener('resize', setupMobileInterface);
-        
-        // Executar com pequenos atrasos para garantir
-        setTimeout(setupMobileInterface, 500);
-        setTimeout(setupMobileInterface, 1000);
-        setTimeout(setupMobileInterface, 2000);
+        // E executar após meio segundo para garantir
+        setTimeout(setupSimpleMobileButton, 500);
+        setTimeout(setupSimpleMobileButton, 1000);
+        setTimeout(setupSimpleMobileButton, 2000);
     </script>
     """, unsafe_allow_html=True)
 
