@@ -1678,21 +1678,21 @@ def calculate_advanced_probabilities(home_team, away_team, league_id='generic', 
             home_form_points = calculate_form_points(home_team['form'])
             home_form_normalized = home_form_points / 15.0
         else:
-            logging.getLogger("valueHunter.ai").warning(f"Missing form data for home team")
-            home_form_points = None
-            home_form_normalized = None
+            import logging  # Adicione esta importação aqui
+            logger = logging.getLogger("valueHunter.ai")
+            logger.warning(f"Missing form data for home team")
+            home_form_points = 0  # Use 0 em vez de None
+            home_form_normalized = 0  # Use um valor padrão sensato
         
         if 'form' in away_team and away_team['form']:
             away_form_points = calculate_form_points(away_team['form'])
             away_form_normalized = away_form_points / 15.0
         else:
-            logging.getLogger("valueHunter.ai").warning(f"Missing form data for away team")
-            away_form_points = None
-            away_form_normalized = None
-        
-        # Normalizar para 0-1
-        home_form_normalized = home_form_points / 15.0
-        away_form_normalized = away_form_points / 15.0
+            import logging  # Adicione esta importação aqui também
+            logger = logging.getLogger("valueHunter.ai")
+            logger.warning(f"Missing form data for away team")
+            away_form_points = 0  # Use 0 em vez de None
+            away_form_normalized = 0  # Use um valor padrão sensato
         
         # 3. Calcular consistência
         home_consistency = calculate_team_consistency(home_team) / 100.0
