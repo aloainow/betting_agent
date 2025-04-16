@@ -25,9 +25,8 @@ from utils.core import (
     DATA_DIR, init_session_state, show_valuehunter_logo, 
     configure_sidebar_visibility, apply_global_css, init_stripe,
     check_payment_success, handle_stripe_errors, apply_custom_styles,
-    remove_loading_screen, apply_responsive_styles
+    remove_loading_screen, apply_responsive_styles, hide_sidebar_completely
 )
-from pages.dashboard import apply_responsive_sidebar_css  # Nova importação
 from utils.data import UserManager
 
 # Criar diretório de dados se não existir
