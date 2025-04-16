@@ -1223,7 +1223,8 @@ def apply_responsive_styles():
     }
     </style>
     """, unsafe_allow_html=True)
-# Adicione esta função à utils/core.pydef apply_navigation_hiding(hide_sidebar_completely=False):
+# Adicione esta função à utils/core.py
+def apply_navigation_hiding(hide_sidebar_completely=False):
     """
     Aplica CSS para ocultar elementos de navegação do Streamlit
     
@@ -1232,28 +1233,11 @@ def apply_responsive_styles():
                                        caso contrário, oculta apenas os itens de navegação
     """
     if hide_sidebar_completely:
-        st.markdown("""
-        <style>
-        /* Ocultar barra lateral completamente */
-        [data-testid="stSidebar"] {
-            display: none !important;
-            width: 0px !important;
-            height: 0px !important;
-            visibility: hidden !important;
-            margin: 0px !important;
-            padding: 0px !important;
-            opacity: 0 !important;
-            pointer-events: none !important;
-        }
-        
-        /* Esconder botão de expansão da barra lateral */
-        button[kind="header"],
-        [data-testid="collapsedControl"] {
-            display: none !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
+        # Use a função dedicada para ocultar completamente
+        hide_sidebar_completely()
     else:
+        # Apenas ocultar os itens de navegação
+        import streamlit as st
         st.markdown("""
         <style>
         /* Ocultar apenas os itens de navegação */
@@ -1409,6 +1393,33 @@ def apply_custom_styles():
     }
     
     /* Remover botão nativo de colapso do Streamlit */
+    [data-testid="collapsedControl"] {
+        display: none !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+def hide_sidebar_completely():
+    """
+    Oculta completamente a barra lateral do Streamlit
+    """
+    import streamlit as st
+    
+    st.markdown("""
+    <style>
+    /* Ocultar barra lateral completamente */
+    [data-testid="stSidebar"] {
+        display: none !important;
+        width: 0px !important;
+        height: 0px !important;
+        visibility: hidden !important;
+        margin: 0px !important;
+        padding: 0px !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+    }
+    
+    /* Esconder botão de expansão da barra lateral */
+    button[kind="header"],
     [data-testid="collapsedControl"] {
         display: none !important;
     }
