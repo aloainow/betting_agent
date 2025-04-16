@@ -525,6 +525,7 @@ def handle_navigation():
     st.session_state.previous_page = current_page
 
 # Roteamento central de páginas
+# Modifique a função route_pages() no app.py para remover a chamada ao configure_sidebar_toggle
 def route_pages():
     """Função central de roteamento para todas as páginas do aplicativo"""
     if "page" in st.session_state:
@@ -567,8 +568,7 @@ def route_pages():
             if st.session_state.authenticated:
                 # Aplicar estilo responsivo
                 apply_custom_styles()
-                # Configurar toggle da sidebar
-                configure_sidebar_toggle()
+                # NÃO CHAMAR configure_sidebar_toggle() - foi removido
                 show_main_dashboard()
             else:
                 go_to_login()
