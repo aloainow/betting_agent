@@ -1251,11 +1251,8 @@ def check_analysis_limits(selected_markets):
         return False
 
 def show_main_dashboard():
-    """Show the main dashboard with improved error handling and debug info"""
+    """Show the main dashboard com navegação mobile nativa do Streamlit"""
     try:
-        # Aplicar CSS responsivo simplificado para sidebar
-        apply_responsive_sidebar_css()
-        
         # Verificações de autenticação
         if not hasattr(st.session_state, 'authenticated') or not st.session_state.authenticated:
             st.error("Sessão não autenticada. Por favor, faça login novamente.")
@@ -1263,12 +1260,9 @@ def show_main_dashboard():
             st.experimental_rerun()
             return
 
-        # Adicionar texto de ajuda para mobile no início do conteúdo principal
-        st.markdown("""
-        <div class="mobile-help">
-            <strong>Dica:</strong> Toque no botão ≡ no canto superior direito para acessar o menu.
-        </div>
-        """, unsafe_allow_html=True)
+        # IMPORTANTE: Adicionar antes de qualquer outro elemento
+        # Mensagem de instrução no topo da página
+        st.info("📱 **Versão Mobile**: Para acessar o menu, toque no botão ≡ no CANTO SUPERIOR ESQUERDO da tela.", icon="ℹ️")
 
         # Sidebar normal do Streamlit
         with st.sidebar:
@@ -1310,6 +1304,70 @@ def show_main_dashboard():
         
         # Indicador de liga
         st.info(f"Liga selecionada: **{selected_league}**", icon="ℹ️")
+        
+        # Código CSS para mostrar/esconder o botão nativo do Streamlit no mobile
+        st.markdown("""
+        <style>
+        /* Garantir que o botão nativo do Streamlit esteja visível em mobile */
+        @media (max-width: 767px) {
+            [data-testid="collapsedControl"] {
+                display: block !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                z-index: 10000 !important;
+                background-color: #fd7014 !important;
+                padding: 10px !important;
+                border-radius: 5px !important;
+                box-shadow: 0 3px 6px rgba(0,0,0,0.3) !important;
+            }
+            
+            /* Aumentar o tamanho do botão para facilitar o toque */
+            [data-testid="collapsedControl"] span {
+                font-size: 24px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                width: 36px !important;
+                height: 36px !important;
+            }
+            
+            /* Garantir que a sidebar seja visível quando expandida */
+            [data-testid="stSidebar"].css-1b50fye {
+                width: 300px !important;
+                min-width: 300px !important;
+                max-width: 300px !important;
+            }
+        }
+        
+        /* Em desktop, esconder o botão nativo do Streamlit */
+        @media (min-width: 768px) {
+            [data-testid="collapsedControl"] {
+                display: none !important;
+            }
+        }
+        </style>
+        
+        <script>
+        // Script simples para garantir que o botão do Streamlit esteja sempre visível em mobile
+        function ensureButtonVisibility() {
+            if (window.innerWidth <= 767) {
+                const streamlitButton = document.querySelector('[data-testid="collapsedControl"]');
+                if (streamlitButton) {
+                    streamlitButton.style.display = 'block';
+                    streamlitButton.style.visibility = 'visible';
+                    streamlitButton.style.opacity = '1';
+                }
+            }
+        }
+        
+        // Executar no carregamento e periodicamente
+        window.addEventListener('load', ensureButtonVisibility);
+        setInterval(ensureButtonVisibility, 1000);
+        </script>
+        """, unsafe_allow_html=True)
         
         # Container para status
         status_container = st.empty()
