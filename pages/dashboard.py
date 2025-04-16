@@ -9,7 +9,6 @@ from utils.core import show_valuehunter_logo, go_to_login, update_purchase_butto
 from utils.data import parse_team_stats, get_odds_data, format_prompt
 from utils.ai import analyze_with_gpt, format_enhanced_prompt, format_highly_optimized_prompt
 from utils.ai import analyze_with_gpt, format_enhanced_prompt, format_highly_optimized_prompt, calculate_advanced_probabilities
-from utils.core import configure_sidebar_toggle
 
 # Configuração de logging
 logger = logging.getLogger("valueHunter.dashboard")
@@ -1254,8 +1253,8 @@ def check_analysis_limits(selected_markets):
 def show_main_dashboard():
     """Show the main dashboard with improved error handling and debug info"""
     try:
-        # Apply responsive sidebar configuration
-        configure_sidebar_toggle()
+        # Aplicar CSS responsivo para sidebar (substituindo o configure_sidebar_toggle)
+        apply_responsive_sidebar_css()
         
         # Verificações de autenticação
         if not hasattr(st.session_state, 'authenticated') or not st.session_state.authenticated:
@@ -1264,10 +1263,6 @@ def show_main_dashboard():
             st.experimental_rerun()
             return
 
-        # Inicializar estado da sidebar apenas se necessário
-        if 'sidebar_expanded' not in st.session_state:
-            st.session_state.sidebar_expanded = True
-        
         # Sidebar normal do Streamlit
         with st.sidebar:
             st.title("ValueHunter")
@@ -3227,3 +3222,175 @@ if opportunities:
 else:
     new_analysis.append("# Oportunidades Identificadas:\nInfelizmente não detectamos valor em nenhuma dos seus inputs.")
 """
+def apply_responsive_sidebar_css():
+    """
+    Aplica CSS responsivo à sidebar para adaptação entre desktop e mobile,
+    sem botão de retrair/expandir
+    """
+    st.markdown("""
+    <style>
+        /* Estilos básicos para a sidebar */
+        [data-testid="stSidebar"] {
+            transition: all 0.3s ease-in-out;
+            background-color: #27272a;
+            padding: 1rem;
+            border-right: 1px solid #3a3a3a;
+        }
+        
+        /* Estilo para os widgets dentro da sidebar */
+        [data-testid="stSidebar"] .stSelectbox > div[data-baseweb="select"] > div,
+        [data-testid="stSidebar"] .stMultiSelect > div[data-baseweb="select"] > div {
+            background-color: #2a2a2a !important;
+            color: white !important;
+        }
+        
+        /* Fix para elementos no dark mode */
+        [data-testid="stSidebar"] div[data-baseweb="popover"] {
+            background-color: #2a2a2a !important;
+        }
+        
+        [data-testid="stSidebar"] div[data-baseweb="select"] ul,
+        [data-testid="stSidebar"] div[data-baseweb="select"] ul li {
+            background-color: #2a2a2a !important;
+            color: white !important;
+        }
+        
+        [data-testid="stSidebar"] div[data-baseweb="select"] ul li:hover {
+            background-color: #3a3a3a !important;
+        }
+        
+        /* Estilo para botões na sidebar */
+        [data-testid="stSidebar"] .stButton button {
+            width: 100%;
+            margin-bottom: 0.5rem;
+            background-color: #fd7014 !important;
+            color: white !important;
+            border: none !important;
+        }
+        
+        [data-testid="stSidebar"] .stButton button:hover {
+            background-color: #e86200 !important;
+        }
+        
+        /* Responsividade para dispositivos mobile */
+        @media (max-width: 768px) {
+            /* Sidebar mais estreita em mobile */
+            [data-testid="stSidebar"] {
+                width: 90vw !important;
+                min-width: auto !important;
+                max-width: 90vw !important;
+                position: absolute !important;
+                z-index: 1000 !important;
+                height: 100vh !important;
+                left: 0 !important;
+                transform: translateX(-100%);
+                transition: transform 0.3s ease-in-out;
+            }
+            
+            /* Criar o overlay quando a sidebar estiver aberta */
+            .sidebar-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100vw;
+                height: 100vh;
+                background-color: rgba(0, 0, 0, 0.5);
+                z-index: 999;
+                display: none;
+                opacity: 0;
+                transition: opacity 0.3s ease-in-out;
+            }
+            
+            /* Botão de menu mobile - flutuante */
+            .mobile-menu-button {
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                width: 50px;
+                height: 50px;
+                border-radius: 50%;
+                background-color: #fd7014;
+                color: white;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 24px;
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+                z-index: 1001;
+                cursor: pointer;
+                border: none;
+            }
+            
+            /* Quando a sidebar estiver aberta */
+            body.sidebar-open [data-testid="stSidebar"] {
+                transform: translateX(0);
+            }
+            
+            body.sidebar-open .sidebar-overlay {
+                display: block;
+                opacity: 1;
+            }
+            
+            /* Ajustar conteúdo principal quando a sidebar estiver aberta */
+            body.sidebar-open .main .block-container {
+                margin-left: 0;
+            }
+        }
+        
+        /* Desabilitar botão de colapso nativo */
+        [data-testid="collapsedControl"] {
+            display: none !important;
+        }
+    </style>
+    
+    <!-- Adicionar elementos para mobile -->
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+    <button class="mobile-menu-button" id="mobile-menu-button">
+        ≡
+    </button>
+    
+    <script>
+        function setupMobileSidebar() {
+            // Obter elementos
+            const overlay = document.getElementById('sidebar-overlay');
+            const menuButton = document.getElementById('mobile-menu-button');
+            
+            if (!overlay || !menuButton) {
+                setTimeout(setupMobileSidebar, 500);
+                return;
+            }
+            
+            // Verificar se é dispositivo mobile
+            const isMobile = window.innerWidth <= 768;
+            
+            // Mostrar ou esconder o botão de menu conforme o dispositivo
+            menuButton.style.display = isMobile ? 'flex' : 'none';
+            
+            // Função para abrir/fechar sidebar no mobile
+            function toggleSidebar() {
+                document.body.classList.toggle('sidebar-open');
+            }
+            
+            // Configurar eventos
+            menuButton.addEventListener('click', toggleSidebar);
+            overlay.addEventListener('click', toggleSidebar);
+            
+            // Inicializar estado fechado no mobile
+            if (isMobile) {
+                document.body.classList.remove('sidebar-open');
+            } else {
+                document.body.classList.remove('sidebar-open');
+                overlay.style.display = 'none';
+            }
+        }
+        
+        // Configurar após carregamento e após redimensionamento
+        window.addEventListener('load', setupMobileSidebar);
+        window.addEventListener('resize', setupMobileSidebar);
+        
+        // Tentar inicializar múltiplas vezes para garantir
+        setTimeout(setupMobileSidebar, 500);
+        setTimeout(setupMobileSidebar, 1000);
+        setTimeout(setupMobileSidebar, 2000);
+    </script>
+    """, unsafe_allow_html=True)
