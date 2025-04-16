@@ -1099,6 +1099,12 @@ def apply_responsive_styles():
         [data-testid="column"] {
             padding: 0.75rem;
         }
+        
+        /* Em desktop, a sidebar tem largura fixa menor */
+        [data-testid="stSidebar"] {
+            min-width: 14rem !important;
+            max-width: 20rem !important;
+        }
     }
 
     /* Ajustes para dispositivos móveis */
@@ -1116,8 +1122,8 @@ def apply_responsive_styles():
         
         /* Ajustar barra lateral em modo móvel */
         [data-testid="stSidebar"] {
-            min-width: 250px !important;
-            max-width: 300px !important;
+            min-width: 85% !important;
+            max-width: 85% !important;
         }
     }
 
@@ -1210,10 +1216,14 @@ def apply_responsive_styles():
         margin-top: 3rem;
         border-top: 1px solid #3a3a3a;
     }
+    
+    /* Remover botão nativo de colapso do Streamlit */
+    [data-testid="collapsedControl"] {
+        display: none !important;
+    }
     </style>
     """, unsafe_allow_html=True)
-# Adicione esta função à utils/core.py
-def apply_navigation_hiding(hide_sidebar_completely=False):
+# Adicione esta função à utils/core.pydef apply_navigation_hiding(hide_sidebar_completely=False):
     """
     Aplica CSS para ocultar elementos de navegação do Streamlit
     
@@ -1345,13 +1355,31 @@ def apply_custom_styles():
         visibility: hidden !important;
     }
     
-    /* Aumentar significativamente as bordas laterais */
-    .main .block-container {
-        max-width: 1200px !important;
-        padding-left: 12% !important;
-        padding-right: 12% !important;
-        margin-left: auto !important;
-        margin-right: auto !important;
+    /* Aumentar significativamente as bordas laterais para desktop */
+    @media (min-width: 992px) {
+        .main .block-container {
+            max-width: 1200px !important;
+            padding-left: 10% !important;
+            padding-right: 10% !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+        }
+    }
+    
+    /* Ajustar para mobile */
+    @media (max-width: 991px) {
+        .main .block-container {
+            padding-left: 5% !important;
+            padding-right: 5% !important;
+        }
+    }
+    
+    /* Menor ainda para telas muito pequenas */
+    @media (max-width: 576px) {
+        .main .block-container {
+            padding-left: 2% !important;
+            padding-right: 2% !important;
+        }
     }
     
     /* Texto justificado em todo o aplicativo */
@@ -1380,202 +1408,9 @@ def apply_custom_styles():
         line-height: normal !important;
     }
     
-    /* Estilo específico para os botões de Sign In/Up */
-    div[data-testid="column"]:has(button:contains("Sign In")),
-    div[data-testid="column"]:has(button:contains("Sign Up")) {
-        padding: 0 !important;
-        margin: 0 !important;
-    }
-    
-    /* Melhorar a responsividade para telas menores */
-    @media screen and (max-width: 992px) {
-        .main .block-container {
-            padding-left: 8% !important;
-            padding-right: 8% !important;
-        }
-    }
-    
-    @media screen and (max-width: 768px) {
-        .main .block-container {
-            padding-left: 5% !important;
-            padding-right: 5% !important;
-        }
+    /* Remover botão nativo de colapso do Streamlit */
+    [data-testid="collapsedControl"] {
+        display: none !important;
     }
     </style>
-    """, unsafe_allow_html=True)
-
-def configure_sidebar_toggle():
-    """Configure a simple but effective sidebar toggle that works across devices"""
-    st.markdown("""
-    <style>
-        /* Base sidebar styling */
-        [data-testid="stSidebar"] {
-            transition: all 0.3s ease-in-out;
-        }
-        
-        /* Toggle button - desktop version */
-        #vh-sidebar-btn {
-            position: fixed;
-            top: 50%;
-            transform: translateY(-50%);
-            left: 250px;
-            z-index: 999999;
-            background-color: #FF5500;
-            color: white;
-            border: none;
-            border-radius: 0 5px 5px 0;
-            width: 24px;
-            height: 60px;
-            font-size: 18px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: left 0.3s ease-in-out;
-        }
-        
-        /* Collapsed sidebar state */
-        .sidebar-collapsed [data-testid="stSidebar"] {
-            margin-left: -21px !important;
-            width: 0px !important;
-            min-width: 0px !important;
-            height: auto !important;
-        }
-        
-        .sidebar-collapsed [data-testid="stSidebar"] .block-container {
-            display: none !important;
-        }
-        
-        .sidebar-collapsed #vh-sidebar-btn {
-            left: 0px;
-        }
-        
-        /* Mobile responsive design */
-        @media (max-width: 768px) {
-            #vh-sidebar-btn {
-                position: fixed;
-                right: 10px;
-                left: auto;
-                top: 10px;
-                width: 40px;
-                height: 40px;
-                border-radius: 50%;
-                z-index: 999999;
-            }
-            
-            .sidebar-collapsed #vh-sidebar-btn {
-                left: 10px;
-                right: auto;
-            }
-            
-            [data-testid="stSidebar"] {
-                width: 100% !important;
-                min-width: 100% !important;
-                max-width: 100% !important;
-                height: auto !important;
-            }
-            
-            .sidebar-collapsed [data-testid="stSidebar"] {
-                transform: translateX(-100%) !important;
-                margin-left: 0 !important;
-            }
-        }
-        
-        /* Fix for white dropdowns */
-        .stSelectbox > div[data-baseweb="select"] > div,
-        .stMultiSelect > div[data-baseweb="select"] > div {
-            background-color: #2a2a2a !important;
-            color: white !important;
-        }
-        
-        div[data-baseweb="popover"] {
-            background-color: #2a2a2a !important;
-        }
-        
-        div[data-baseweb="select"] ul,
-        div[data-baseweb="select"] ul li {
-            background-color: #2a2a2a !important;
-            color: white !important;
-        }
-        
-        div[data-baseweb="select"] ul li:hover {
-            background-color: #3a3a3a !important;
-        }
-        
-        /* Make sure body background is dark */
-        .stApp {
-            background-color: #1a1a1a !important;
-        }
-    </style>
-    
-    <div>
-        <button id="vh-sidebar-btn">&lt;</button>
-    </div>
-    
-    <script>
-        function setupSidebar() {
-            console.log("Setting up sidebar toggle...");
-            
-            // Get elements
-            var body = document.body;
-            var toggleBtn = document.getElementById('vh-sidebar-btn');
-            
-            if (!toggleBtn) {
-                console.log("Toggle button not found, will retry");
-                return false;
-            }
-            
-            // Get saved state
-            var isCollapsed = localStorage.getItem('vh-sidebar-collapsed') === 'true';
-            
-            // Apply initial state
-            if (isCollapsed) {
-                body.classList.add('sidebar-collapsed');
-                toggleBtn.innerHTML = '&gt;';
-            } else {
-                body.classList.remove('sidebar-collapsed');
-                toggleBtn.innerHTML = '&lt;';
-            }
-            
-            // Set up new click handler
-            toggleBtn.onclick = function() {
-                console.log("Toggle button clicked");
-                
-                // Toggle sidebar state
-                if (body.classList.contains('sidebar-collapsed')) {
-                    body.classList.remove('sidebar-collapsed');
-                    toggleBtn.innerHTML = '&lt;';
-                    localStorage.setItem('vh-sidebar-collapsed', 'false');
-                } else {
-                    body.classList.add('sidebar-collapsed');
-                    toggleBtn.innerHTML = '&gt;';
-                    localStorage.setItem('vh-sidebar-collapsed', 'true');
-                }
-            };
-            
-            return true;
-        }
-        
-        // Try immediately
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', setupSidebar);
-        } else {
-            setupSidebar();
-        }
-        
-        // Also try with delays to catch after Streamlit might have redrawn
-        setTimeout(setupSidebar, 500);
-        setTimeout(setupSidebar, 1000);
-        setTimeout(setupSidebar, 2000);
-        
-        // Add a mutation observer to detect UI changes
-        var observer = new MutationObserver(function(mutations) {
-            setupSidebar();
-        });
-        
-        // Start observing after a delay to let Streamlit initialize
-        setTimeout(function() {
-            observer.observe(document.body, { childList: true, subtree: true });
-        }, 3000);
-    </script>
     """, unsafe_allow_html=True)
