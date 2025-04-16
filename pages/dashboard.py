@@ -3226,7 +3226,10 @@ else:
 def apply_responsive_sidebar_css():
     """
     Aplica CSS responsivo à sidebar para adaptação entre desktop e mobile,
-    sem botão de retrair/expandir
+    sem botão de retrair/expandir. Versão corrigida que:
+    1. Não mostra botão no desktop
+    2. Posiciona corretamente o botão no mobile
+    3. Garante que a sidebar funcione em todos os casos
     """
     import streamlit as st
     
@@ -3234,10 +3237,30 @@ def apply_responsive_sidebar_css():
     <style>
         /* Estilos básicos para a sidebar */
         [data-testid="stSidebar"] {
-            transition: all 0.3s ease-in-out;
             background-color: #27272a;
-            padding: 1rem;
             border-right: 1px solid #3a3a3a;
+        }
+        
+        /* Em desktop, a sidebar fica sempre visível (sem botão) */
+        @media (min-width: 992px) {
+            [data-testid="stSidebar"] {
+                min-width: 250px !important;
+                max-width: 300px !important;
+                width: auto !important;
+            }
+            
+            /* Garantir que o conteúdo principal tenha espaço suficiente */
+            .main .block-container {
+                margin-left: 2rem;
+            }
+        }
+        
+        /* Para tablet, largura um pouco menor */
+        @media (min-width: 768px) and (max-width: 991px) {
+            [data-testid="stSidebar"] {
+                min-width: 230px !important;
+                max-width: 280px !important;
+            }
         }
         
         /* Estilo para os widgets dentro da sidebar */
@@ -3275,22 +3298,45 @@ def apply_responsive_sidebar_css():
             background-color: #e86200 !important;
         }
         
-        /* Responsividade para dispositivos mobile */
-        @media (max-width: 768px) {
-            /* Sidebar mais estreita em mobile */
-            [data-testid="stSidebar"] {
-                width: 90vw !important;
-                min-width: auto !important;
-                max-width: 90vw !important;
-                position: absolute !important;
-                z-index: 1000 !important;
-                height: 100vh !important;
-                left: 0 !important;
-                transform: translateX(-100%);
-                transition: transform 0.3s ease-in-out;
+        /* Desabilitar botão de colapso nativo */
+        [data-testid="collapsedControl"] {
+            display: none !important;
+        }
+        
+        /* CORREÇÃO: Somente adicionar elementos mobile para telas pequenas */
+        @media (max-width: 767px) {
+            /* Remover classes do body para começar limpo */
+            body:not(.mobile-view) .mobile-menu-button,
+            body:not(.mobile-view) .sidebar-overlay {
+                display: none !important;
             }
             
-            /* Criar o overlay quando a sidebar estiver aberta */
+            /* Mudar ponto de quebra para melhor funcionamento */
+            body {
+                /* Marcador para ativar visualmente os estilos mobile */
+                --mobile-view: true;
+            }
+            
+            /* Estilo da sidebar em mobile */
+            [data-testid="stSidebar"] {
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 80% !important;
+                max-width: 330px !important;
+                height: 100vh !important;
+                transform: translateX(-100%) !important;
+                transition: transform 0.3s ease-in-out !important;
+                z-index: 1000 !important;
+                box-shadow: 2px 0 5px rgba(0,0,0,0.3) !important;
+            }
+            
+            /* Sidebar aberta */
+            body.sidebar-open [data-testid="stSidebar"] {
+                transform: translateX(0) !important;
+            }
+            
+            /* Overlay para fechar sidebar quando aberta */
             .sidebar-overlay {
                 position: fixed;
                 top: 0;
@@ -3299,101 +3345,102 @@ def apply_responsive_sidebar_css():
                 height: 100vh;
                 background-color: rgba(0, 0, 0, 0.5);
                 z-index: 999;
-                display: none;
                 opacity: 0;
-                transition: opacity 0.3s ease-in-out;
+                visibility: hidden;
+                transition: opacity 0.3s ease;
             }
             
-            /* Botão de menu mobile - flutuante */
+            body.sidebar-open .sidebar-overlay {
+                opacity: 1;
+                visibility: visible;
+            }
+            
+            /* Botão de menu mobile */
             .mobile-menu-button {
                 position: fixed;
-                bottom: 20px;
-                right: 20px;
-                width: 50px;
-                height: 50px;
-                border-radius: 50%;
+                top: 10px;  /* Posicionamento no topo, próximo ao cabeçalho */
+                right: 10px;
+                width: 42px;
+                height: 42px;
+                border-radius: 5px;
                 background-color: #fd7014;
                 color: white;
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 font-size: 24px;
-                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
                 z-index: 1001;
                 cursor: pointer;
                 border: none;
+                transition: background-color 0.2s ease;
             }
             
-            /* Quando a sidebar estiver aberta */
-            body.sidebar-open [data-testid="stSidebar"] {
-                transform: translateX(0);
+            .mobile-menu-button:hover {
+                background-color: #e86200;
             }
-            
-            body.sidebar-open .sidebar-overlay {
-                display: block;
-                opacity: 1;
-            }
-            
-            /* Ajustar conteúdo principal quando a sidebar estiver aberta */
-            body.sidebar-open .main .block-container {
-                margin-left: 0;
-            }
-        }
-        
-        /* Desabilitar botão de colapso nativo */
-        [data-testid="collapsedControl"] {
-            display: none !important;
         }
     </style>
     
-    <!-- Adicionar elementos para mobile -->
-    <div class="sidebar-overlay" id="sidebar-overlay"></div>
-    <button class="mobile-menu-button" id="mobile-menu-button">
-        ≡
-    </button>
-    
     <script>
+        // Função para detectar se estamos em mobile e configurar a interface
         function setupMobileSidebar() {
-            // Obter elementos
-            const overlay = document.getElementById('sidebar-overlay');
-            const menuButton = document.getElementById('mobile-menu-button');
+            const isMobile = window.innerWidth <= 767;
             
-            if (!overlay || !menuButton) {
-                setTimeout(setupMobileSidebar, 500);
+            // Se for desktop, não precisamos adicionar elementos mobile
+            if (!isMobile) {
+                // Remover qualquer elemento mobile que possa existir
+                const oldButton = document.querySelector('.mobile-menu-button');
+                const oldOverlay = document.querySelector('.sidebar-overlay');
+                
+                if (oldButton) oldButton.remove();
+                if (oldOverlay) oldOverlay.remove();
+                
+                // Remover classe de mobile view
+                document.body.classList.remove('mobile-view', 'sidebar-open');
                 return;
             }
             
-            // Verificar se é dispositivo mobile
-            const isMobile = window.innerWidth <= 768;
+            // Marcar que estamos em mobile view
+            document.body.classList.add('mobile-view');
             
-            // Mostrar ou esconder o botão de menu conforme o dispositivo
-            menuButton.style.display = isMobile ? 'flex' : 'none';
+            // Verificar se já existem os elementos mobile
+            let menuButton = document.querySelector('.mobile-menu-button');
+            let overlay = document.querySelector('.sidebar-overlay');
             
-            // Função para abrir/fechar sidebar no mobile
-            function toggleSidebar() {
-                document.body.classList.toggle('sidebar-open');
+            // Se não existem, criar
+            if (!menuButton) {
+                menuButton = document.createElement('button');
+                menuButton.className = 'mobile-menu-button';
+                menuButton.innerHTML = '≡';
+                document.body.appendChild(menuButton);
+            }
+            
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.className = 'sidebar-overlay';
+                document.body.appendChild(overlay);
             }
             
             // Configurar eventos
-            menuButton.addEventListener('click', toggleSidebar);
-            overlay.addEventListener('click', toggleSidebar);
+            menuButton.onclick = function() {
+                document.body.classList.toggle('sidebar-open');
+            };
             
-            // Inicializar estado fechado no mobile
-            if (isMobile) {
+            overlay.onclick = function() {
                 document.body.classList.remove('sidebar-open');
-            } else {
-                document.body.classList.remove('sidebar-open');
-                overlay.style.display = 'none';
-            }
+            };
         }
         
-        // Configurar após carregamento e após redimensionamento
+        // Executar no carregamento e quando a janela mudar de tamanho
         window.addEventListener('load', setupMobileSidebar);
         window.addEventListener('resize', setupMobileSidebar);
         
-        // Tentar inicializar múltiplas vezes para garantir
+        // Executar agora também
+        setupMobileSidebar();
+        
+        // E executar novamente após pequenos atrasos para garantir
         setTimeout(setupMobileSidebar, 500);
         setTimeout(setupMobileSidebar, 1000);
-        setTimeout(setupMobileSidebar, 2000);
     </script>
     """, unsafe_allow_html=True)
