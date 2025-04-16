@@ -1664,6 +1664,9 @@ def calculate_advanced_probabilities(home_team, away_team, league_id='generic', 
         dict: Probabilidades calculadas para diferentes mercados
     """
     try:
+        import math
+        import numpy as np  # Adicione esta importação se necessário
+        import logging
         
         # 1. Obter fatores específicos da liga
         league_factors = calculate_league_factors(league_id, None)
