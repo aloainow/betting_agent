@@ -2,13 +2,16 @@ import os
 import logging
 import sys
 import streamlit as st
+import time
 from datetime import datetime
+
 # Configuração de logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger("valueHunter")
+
 # Log de diagnóstico no início
 logger.info(f"Python version: {sys.version}")
 logger.info(f"Current directory: {os.getcwd()}")
@@ -16,11 +19,13 @@ try:
     logger.info(f"Directory contents: {os.listdir('.')}")
 except Exception as e:
     logger.error(f"Erro ao listar diretório: {str(e)}")
+
 # Importar módulos de utilidade - colocado antes da configuração do Streamlit
 from utils.core import (
     DATA_DIR, init_session_state, show_valuehunter_logo, 
     configure_sidebar_visibility, apply_global_css, init_stripe,
-    check_payment_success, handle_stripe_errors
+    check_payment_success, handle_stripe_errors, apply_custom_styles,
+    configure_sidebar_toggle, remove_loading_screen
 )
 from utils.data import UserManager
 
@@ -367,7 +372,7 @@ js_ocultacao = """
 """
 st.components.v1.html(js_ocultacao, height=0)
 
-# Defina esta função FORA da função main
+# Função para modo de debug
 def enable_debug_mode():
     """Ativa o modo de debug para ajudar na resolução de problemas"""
     if "debug_mode" not in st.session_state:
@@ -421,111 +426,180 @@ def enable_debug_mode():
     else:
         st.session_state.debug_mode = False
 
-# Função para remover a tela de carregamento
-def remove_loading_screen():
-    """Remove a tela de carregamento e garante que a navegação está oculta"""
-    js_code = """
-    <script>
-    // Verificar se a tela de carregamento ainda existe
-    const loadingScreen = document.getElementById('vh-loading-screen');
-    if (loadingScreen) {
-        // Completar o progresso
-        const progressBar = document.getElementById('vh-progress-bar');
-        const loadingText = document.getElementById('vh-loading-text');
-        
-        if (progressBar) progressBar.style.width = '100%';
-        if (loadingText) loadingText.textContent = "Carregamento concluído!";
-        
-        // Fazer o fade out
-        setTimeout(() => {
-            loadingScreen.style.opacity = '0';
-            loadingScreen.style.visibility = 'hidden';
-            
-            // Remover a classe loading
-            document.body.classList.remove('loading');
-            
-            // Depois remover completamente
-            setTimeout(() => {
-                loadingScreen.remove();
-                
-                // Garantir que a navegação continua oculta
-                document.querySelectorAll('[data-testid="stSidebarNavItems"], .st-emotion-cache-16idsys, .st-emotion-cache-1cypcdb').forEach(el => {
-                    if (el) el.style.display = 'none';
-                });
-                
-                // Ocultar cabeçalho e rodapé
-                document.querySelectorAll('header[data-testid="stHeader"], footer, #MainMenu').forEach(el => {
-                    if (el) el.style.display = 'none';
-                });
-            }, 700);
-        }, 1000);
-    }
-    </script>
-    """
-    st.components.v1.html(js_code, height=0)
-
-# Redefina a função init_session_state para incluir as novas variáveis de estado
-def init_session_state():
-    """Initialize session state variables"""
+# Inicialização de configurações globais
+def initialize_app_state():
+    """Inicializa o estado do aplicativo com valores padrão"""
     from utils.data import UserManager
     
-    if "page" not in st.session_state:
-        st.session_state.page = "landing"  # Nova variável para controlar a página atual
+    if 'initialized' not in st.session_state:
+        # Estado de navegação
+        if 'page' not in st.session_state:
+            st.session_state.page = 'landing'  # Página inicial padrão
         
-    if "authenticated" not in st.session_state:
-        st.session_state.authenticated = False
-    
-    if "email" not in st.session_state:
-        st.session_state.email = None
-    
-    if "last_activity" not in st.session_state:
-        st.session_state.last_activity = datetime.now()
-    elif (datetime.now() - st.session_state.last_activity).total_seconds() > 3600:  # 1 hora
-        st.session_state.authenticated = False
-        st.session_state.email = None
-        st.warning("Sua sessão expirou. Por favor, faça login novamente.")
-    
-    # Variáveis para a página de landing
-    if "show_register" not in st.session_state:
-        st.session_state.show_register = False
-    
-    # Variáveis para o checkout integrado
-    if "show_checkout" not in st.session_state:
-        st.session_state.show_checkout = False
-    
-    if "checkout_credits" not in st.session_state:
-        st.session_state.checkout_credits = 0
+        # Estado de autenticação - manter valores existentes se já definidos
+        if 'authenticated' not in st.session_state:
+            st.session_state.authenticated = False
+        if 'email' not in st.session_state:
+            st.session_state.email = None
         
-    if "checkout_amount" not in st.session_state:
-        st.session_state.checkout_amount = 0
+        # Variáveis para controle de sessão
+        if "last_activity" not in st.session_state:
+            st.session_state.last_activity = datetime.now()
+        elif (datetime.now() - st.session_state.last_activity).total_seconds() > 3600:  # 1 hora
+            st.session_state.authenticated = False
+            st.session_state.email = None
+            st.warning("Sua sessão expirou. Por favor, faça login novamente.")
         
-    if "last_stripe_session_id" not in st.session_state:
-        st.session_state.last_stripe_session_id = None
-    
-    # Stripe test mode flag
-    if "stripe_test_mode" not in st.session_state:
-        st.session_state.stripe_test_mode = True
-    
-    # Variáveis para recuperação de senha
-    if "recovery_email" not in st.session_state:
-        st.session_state.recovery_email = None
-    
-    if "code_verified" not in st.session_state:
-        st.session_state.code_verified = False
-    
-    # Modo de depuração
-    if "debug_mode" not in st.session_state:
-        st.session_state.debug_mode = False
-    
-    # UserManager deve ser o último a ser inicializado
-    if "user_manager" not in st.session_state:
-        st.session_state.user_manager = UserManager()
+        # Variáveis para a página de landing
+        if "show_register" not in st.session_state:
+            st.session_state.show_register = False
+        
+        # Variáveis para o checkout integrado
+        if "show_checkout" not in st.session_state:
+            st.session_state.show_checkout = False
+        
+        if "checkout_credits" not in st.session_state:
+            st.session_state.checkout_credits = 0
+            
+        if "checkout_amount" not in st.session_state:
+            st.session_state.checkout_amount = 0
+            
+        if "last_stripe_session_id" not in st.session_state:
+            st.session_state.last_stripe_session_id = None
+        
+        # Stripe test mode flag
+        if "stripe_test_mode" not in st.session_state:
+            st.session_state.stripe_test_mode = True
+        
+        # Variáveis para recuperação de senha
+        if "recovery_email" not in st.session_state:
+            st.session_state.recovery_email = None
+        
+        if "code_verified" not in st.session_state:
+            st.session_state.code_verified = False
+        
+        # Modo de depuração
+        if "debug_mode" not in st.session_state:
+            st.session_state.debug_mode = False
+        
+        # Estado da sidebar
+        if 'sidebar_expanded' not in st.session_state:
+            st.session_state.sidebar_expanded = True
+            
+        # Registrar que inicializamos
+        st.session_state.initialized = True
+        
+        # UserManager deve ser o último a ser inicializado
+        if "user_manager" not in st.session_state:
+            st.session_state.user_manager = UserManager()
+        
+        logger.info("Estado do aplicativo inicializado com valores padrão")
     
     # Atualizar timestamp de última atividade
     st.session_state.last_activity = datetime.now()
 
-# Agora a função main, com sua estrutura corrigida
+# Função para gerenciar a navegação entre páginas
+def handle_navigation():
+    """Gerencia transições entre páginas e atualiza dados quando necessário"""
+    # Verificar se é necessário recarregar dados do usuário ao navegar
+    current_page = st.session_state.page
+    previous_page = st.session_state.get('previous_page')
+    
+    if (current_page != previous_page and 
+        st.session_state.authenticated and st.session_state.email):
+        
+        # Recarregar dados ao mudar entre páginas principais
+        try:
+            # Recarregar a classe UserManager para garantir dados atualizados
+            from utils.data import UserManager
+            st.session_state.user_manager = UserManager()
+            # Limpar qualquer cache que possa existir para estatísticas
+            if hasattr(st.session_state, 'user_stats_cache'):
+                del st.session_state.user_stats_cache
+            # Log da atualização
+            logger.info(f"Dados de usuário recarregados na transição de {previous_page} para {current_page}")
+        except Exception as e:
+            logger.error(f"Erro ao atualizar dados do usuário: {str(e)}")
+    
+    # Atualizar página anterior para a próxima navegação
+    st.session_state.previous_page = current_page
+
+# Roteamento central de páginas
+def route_pages():
+    """Função central de roteamento para todas as páginas do aplicativo"""
+    if "page" in st.session_state:
+        page = st.session_state.page
+        
+        # Configurar CSS e visibilidade da barra lateral com base na página
+        if page in ["landing", "login", "register", "verification", 
+                   "password_recovery", "password_reset_code", "password_reset"]:
+            # Páginas de autenticação - ocultar totalmente a barra lateral
+            st.markdown("""
+            <style>
+            [data-testid="stSidebar"] {
+                display: none !important;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+        else:
+            # Outras páginas - configurar barra lateral normalmente
+            configure_sidebar_visibility()
+            
+        # Aplicar CSS global
+        apply_global_css()
+        
+        # Roteamento para a página correta
+        if page == "landing":
+            show_landing_page()
+        elif page == "login":
+            show_login()
+        elif page == "register":
+            show_register()
+        elif page == "verification":
+            show_verification()
+        elif page == "password_recovery":
+            show_password_recovery()
+        elif page == "password_reset_code":
+            show_password_reset_code()
+        elif page == "password_reset":
+            show_password_reset()
+        elif page == "main":
+            if st.session_state.authenticated:
+                # Aplicar estilo responsivo
+                apply_custom_styles()
+                # Configurar toggle da sidebar
+                configure_sidebar_toggle()
+                show_main_dashboard()
+            else:
+                go_to_login()
+        elif page == "admin":
+            # Verificar se é admin antes de mostrar (implementação futura)
+            if st.session_state.authenticated:
+                try:
+                    from pages._admin import show_admin_panel
+                    show_admin_panel()
+                except Exception as e:
+                    logger.error(f"Erro ao carregar painel admin: {str(e)}")
+                    st.error("Erro ao carregar painel administrativo")
+            else:
+                go_to_login()
+        elif page == "packages":
+            if st.session_state.authenticated:
+                show_packages_page()
+            else:
+                go_to_login()
+        else:
+            # Página desconhecida, voltar para a landing
+            st.session_state.page = "landing"
+            st.experimental_rerun()
+    else:
+        # Estado da sessão não inicializado, voltar para a landing
+        st.session_state.page = "landing"
+        st.experimental_rerun()
+
+# Função principal
 def main():
+    """Função principal que controla o fluxo do aplicativo"""
     try:
         # Verificar se precisamos fechar a janela atual
         if 'close_window' in st.query_params and st.query_params.close_window == 'true':
@@ -538,14 +612,11 @@ def main():
             st.success("Pagamento concluído! Você pode fechar esta janela.")
             return
             
-        # Initialize session state
-        init_session_state()
+        # Initialize session state com valores padrão
+        initialize_app_state()
         
-        # Configurar visibilidade da barra lateral
-        configure_sidebar_visibility()
-        
-        # Apply global CSS
-        apply_global_css()
+        # Ativar modo de debug se necessário
+        enable_debug_mode()
         
         # Initialize Stripe
         init_stripe()
@@ -565,6 +636,9 @@ def main():
         # Stripe error handling
         handle_stripe_errors()
         
+        # Processar navegação entre páginas
+        handle_navigation()
+        
         # Roteamento de páginas
         route_pages()
         
@@ -575,41 +649,11 @@ def main():
         logger.error(f"Erro geral na aplicação: {str(e)}")
         import traceback
         traceback.print_exc()
-
-def route_pages():
-    if "page" in st.session_state:
-        if st.session_state.page == "landing":
-            show_landing_page()
-        elif st.session_state.page == "login":
-            show_login()
-        elif st.session_state.page == "register":
-            show_register()
-        elif st.session_state.page == "verification":
-            show_verification()
-        elif st.session_state.page == "password_recovery":
-            show_password_recovery()
-        elif st.session_state.page == "password_reset_code":
-            show_password_reset_code()
-        elif st.session_state.page == "password_reset":
-            show_password_reset()
-        elif st.session_state.page == "main":
-            if st.session_state.authenticated:
-                show_main_dashboard()
-            else:
-                go_to_login()
-        elif st.session_state.page == "admin":
-            # Esta é a página admin
-            pass
-        elif st.session_state.page == "packages":
-            show_packages_page()
-        else:
-            # Página desconhecida, voltar para a landing
-            st.session_state.page = "landing"
-            st.experimental_rerun()
-    else:
-        # Estado da sessão não inicializado, voltar para a landing
-        st.session_state.page = "landing"
-        st.experimental_rerun()
+        st.error("Ocorreu um erro inesperado. Por favor, recarregue a página e tente novamente.")
+        
+        if "debug_mode" in st.session_state and st.session_state.debug_mode:
+            with st.expander("Detalhes do erro", expanded=True):
+                st.code(traceback.format_exc())
 
 # Executar a aplicação
 if __name__ == "__main__":
