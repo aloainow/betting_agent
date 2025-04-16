@@ -158,16 +158,34 @@ def generate_condensed_justification(team_name, home_team, away_team, real_prob,
     is_away = team_name == away_team
     
     # Obter dados de consistência e forma apropriados
+   # For home teams
     if is_home:
         consistency = analysis_data.get("home_consistency", 0)
-        form_points = analysis_data.get("home_form_points", 0) * 15
-        # Especificar que é forma como mandante
+        # Better handling of form points
+        home_form_points = analysis_data.get("home_form_points", None)
+        if home_form_points is None:
+            # No form data available
+            form_points = "N/A"
+        elif home_form_points <= 1.0:  # Normalized value (0-1)
+            form_points = home_form_points * 15
+        else:  # Already in points format
+            form_points = home_form_points
         form_type = "como mandante"
+    
+    # For away teams
     elif is_away:
         consistency = analysis_data.get("away_consistency", 0)
-        form_points = analysis_data.get("away_form_points", 0) * 15
-        # Especificar que é forma como visitante
+        # Better handling of form points
+        away_form_points = analysis_data.get("away_form_points", None)
+        if away_form_points is None:
+            # No form data available
+            form_points = "N/A"
+        elif away_form_points <= 1.0:  # Normalized value (0-1)
+            form_points = away_form_points * 15
+        else:  # Already in points format
+            form_points = away_form_points
         form_type = "como visitante"
+
     else:
         # Para mercados como empate, ambos marcam, etc.
         home_consistency = analysis_data.get("home_consistency", 0)
