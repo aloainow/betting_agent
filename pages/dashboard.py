@@ -2985,27 +2985,34 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
                           original_probabilities, home_team, away_team):
     """
     Gera uma justificativa com embasamento estatístico específico para cada mercado.
-    Versão modificada para SEMPRE usar "como mandante" ou "como visitante".
+    Versão modificada para usar os mesmos valores da seção de nível de confiança.
     """
     try:
         # Dados de análise para extrair informações adicionais
         analysis_data = original_probabilities.get("analysis_data", {})
         margin = real_prob - implicit_prob
         
-        # Extrair valores normalizados
-        home_form_normalized = analysis_data.get("home_form_points", 0)
-        away_form_normalized = analysis_data.get("away_form_points", 0)
+        # Extrair valores diretamente dos dados de análise - MESMOS VALORES DO NÍVEL DE CONFIANÇA
+        home_form_normalized = analysis_data.get("home_form_points", 0.33)  # 0.33 ~ 5/15
+        away_form_normalized = analysis_data.get("away_form_points", 0.33)  # 0.33 ~ 5/15
         
-        # Valores de pontos de forma
-        home_form_points = int(home_form_normalized * 15)
-        away_form_points = int(away_form_normalized * 15)
+        # Converter para pontos de forma (0-15)
+        if home_form_normalized <= 1.0:
+            home_form_points = int(round(home_form_normalized * 15))
+        else:
+            home_form_points = int(home_form_normalized)
+            
+        if away_form_normalized <= 1.0:
+            away_form_points = int(round(away_form_normalized * 15))
+        else:
+            away_form_points = int(away_form_normalized)
         
         # Valores de consistência
-        home_consistency = analysis_data.get("home_consistency", 0)
+        home_consistency = analysis_data.get("home_consistency", 50.0)
         if home_consistency <= 1.0:
             home_consistency = home_consistency * 100
             
-        away_consistency = analysis_data.get("away_consistency", 0)
+        away_consistency = analysis_data.get("away_consistency", 50.0)
         if away_consistency <= 1.0:
             away_consistency = away_consistency * 100
         
@@ -3022,6 +3029,7 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
                         justification += f"Previsão de {expected_goals:.2f} gols na partida favorece time ofensivo. "
                 
                 justification += f"Odds de {implicit_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
+
                 
             # Vitória do time visitante
             elif bet_type == "away_win":
