@@ -2985,34 +2985,34 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
                           original_probabilities, home_team, away_team):
     """
     Gera uma justificativa com embasamento estatístico específico para cada mercado.
-    Versão modificada para usar os mesmos valores da seção de nível de confiança.
+    Versão modificada para usar apenas valores reais dos dados de análise, sem fallbacks.
     """
     try:
         # Dados de análise para extrair informações adicionais
         analysis_data = original_probabilities.get("analysis_data", {})
         margin = real_prob - implicit_prob
         
-        # Extrair valores diretamente dos dados de análise - MESMOS VALORES DO NÍVEL DE CONFIANÇA
-        home_form_normalized = analysis_data.get("home_form_points", 0.33)  # 0.33 ~ 5/15
-        away_form_normalized = analysis_data.get("away_form_points", 0.33)  # 0.33 ~ 5/15
+        # Extrair valores de forma diretamente dos dados de análise
+        home_form_normalized = analysis_data.get("home_form_points", 0)
+        away_form_normalized = analysis_data.get("away_form_points", 0)
         
-        # Converter para pontos de forma (0-15)
-        if home_form_normalized <= 1.0:
+        # Converter para pontos (0-15) se for um valor normalizado (0-1)
+        if isinstance(home_form_normalized, (int, float)) and home_form_normalized <= 1.0:
             home_form_points = int(round(home_form_normalized * 15))
         else:
             home_form_points = int(home_form_normalized)
             
-        if away_form_normalized <= 1.0:
+        if isinstance(away_form_normalized, (int, float)) and away_form_normalized <= 1.0:
             away_form_points = int(round(away_form_normalized * 15))
         else:
             away_form_points = int(away_form_normalized)
         
-        # Valores de consistência
-        home_consistency = analysis_data.get("home_consistency", 50.0)
+        # Valores de consistência diretamente dos dados de análise
+        home_consistency = analysis_data.get("home_consistency", 0)
         if home_consistency <= 1.0:
             home_consistency = home_consistency * 100
             
-        away_consistency = analysis_data.get("away_consistency", 50.0)
+        away_consistency = analysis_data.get("away_consistency", 0)
         if away_consistency <= 1.0:
             away_consistency = away_consistency * 100
         
@@ -3020,7 +3020,7 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
         if market_type == "moneyline":
             # Vitória do time da casa
             if bet_type == "home_win":
-                # FORÇAR o texto "como mandante"
+                # Usar os valores extraídos diretamente
                 justification = f"Time da casa com {home_form_points}/15 pts na forma como mandante e {home_consistency:.1f}% de consistência. "
                 
                 if "over_under" in original_probabilities:
@@ -3029,15 +3029,11 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
                         justification += f"Previsão de {expected_goals:.2f} gols na partida favorece time ofensivo. "
                 
                 justification += f"Odds de {implicit_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
-
                 
             # Vitória do time visitante
             elif bet_type == "away_win":
-                # Tentar obter o tipo específico de forma
-                away_form_type = analysis_data.get("away_form_type", "como visitante")
-                
-                # Garantir uma descrição específica da forma
-                justification = f"Time visitante com {away_form_points}/15 pts na forma {away_form_type} e {away_consistency:.1f}% de consistência. "
+                # Usar os valores extraídos diretamente
+                justification = f"Time visitante com {away_form_points}/15 pts na forma como visitante e {away_consistency:.1f}% de consistência. "
                 
                 if "over_under" in original_probabilities:
                     expected_goals = original_probabilities["over_under"].get("expected_goals", 0)
@@ -3048,26 +3044,27 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implicit
                 
             # Empate
             elif bet_type == "draw":
-                # FORÇAR os textos específicos
+                # Usar os valores extraídos diretamente
                 justification = f"Times equilibrados: Casa com {home_form_points}/15 pts como mandante, Fora com {away_form_points}/15 pts como visitante. "
                 justification += f"Odds de {implicit_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
+
         
         # 2. CHANCE DUPLA (DOUBLE CHANCE)
         elif market_type == "double_chance":
             if bet_type == "home_or_draw":
-                # FORÇAR o texto específico
+                # Usar os valores extraídos diretamente
                 justification = f"Vantagem de jogar em casa para {home_team} (forma como mandante: {home_form_points}/15 pts). "
                 justification += f"Probabilidade de {real_prob:.1f}% do time da casa não perder, "
                 justification += f"contra apenas {implicit_prob:.1f}% implicada pelas odds."
                 
             elif bet_type == "away_or_draw":
-                # FORÇAR o texto específico
+                # Usar os valores extraídos diretamente
                 justification = f"Vantagem para {away_team} visitante (forma como visitante: {away_form_points}/15 pts). "
                 justification += f"Probabilidade de {real_prob:.1f}% do time visitante não perder, "
                 justification += f"contra apenas {implicit_prob:.1f}% implicada pelas odds."
                 
             elif bet_type == "home_or_away":
-                # FORÇAR os textos específicos
+                # Usar os valores extraídos diretamente
                 justification = f"Baixa probabilidade de empate. Casa com {home_form_points}/15 pts como mandante, fora com {away_form_points}/15 pts como visitante. "
                 justification += f"Chance de {real_prob:.1f}% de algum time vencer, "
                 justification += f"contra apenas {implicit_prob:.1f}% implicada pelas odds."
