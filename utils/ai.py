@@ -1709,7 +1709,10 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
                 "away_wins": 0,
                 "draws": 0
             }
-        
+        # Definir as variáveis de contexto de forma
+        home_form_context = "como mandante"
+        away_form_context = "como visitante"
+
         # 1. Obter fatores específicos da liga
         league_factors = calculate_league_factors(league_id, None)
                 
