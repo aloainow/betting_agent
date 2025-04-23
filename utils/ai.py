@@ -1885,7 +1885,7 @@ def calculate_advanced_probabilities(home_team, away_team, league_id='generic', 
                 "away_total_score": round(away_total_score, 2),
                 "home_fatigue": round(home_fatigue * 100, 1),
                 "away_fatigue": round(away_fatigue * 100, 1),
-                "form_details": {  # NOVO! Detalhes de todos os tipos de forma
+                "form_details": {
                     "home_specific": {
                         "points": home_specific_points,
                         "normalized": home_specific_points / 15.0,
@@ -1914,6 +1914,7 @@ def calculate_advanced_probabilities(home_team, away_team, league_id='generic', 
                     "weight": h2h_weight * 100
                 }
             }
+        }
         
     except Exception as e:
         import logging
