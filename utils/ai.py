@@ -1682,14 +1682,14 @@ import math
 import numpy as np  # Adicione esta importação se necessário
 import logging
 
-def calculate_advanced_probabilities(home_team, away_team, h2h_data, league_id='generic', match_conditions=None):
+def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league_id='generic', match_conditions=None):
     """
     Cálculo avançado de probabilidades utilizando método aprimorado de Dispersão e Ponderação
     
     Args:
         home_team (dict): Estatísticas do time da casa
         away_team (dict): Estatísticas do time visitante
-        h2h_data (dict): Dados de confrontos diretos entre os times
+        h2h_data (dict, optional): Dados de confronto direto
         league_id (str): Identificador da liga para ajustes específicos
         match_conditions (dict): Condições da partida (clima, etc.)
         
@@ -1698,14 +1698,21 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data, league_id='
     """
     try:
         import math
-        import numpy as np
+        import numpy as np  # Adicione esta importação se necessário
         import logging
+        
+        # Adicione o código aqui
+        if h2h_data is None:
+            h2h_data = {
+                "total_matches": 0,
+                "home_wins": 0,
+                "away_wins": 0,
+                "draws": 0
+            }
         
         # 1. Obter fatores específicos da liga
         league_factors = calculate_league_factors(league_id, None)
-        
-        # ... resto do código ...
-        
+                
         # Usar h2h_data que agora está disponível como parâmetro
         h2h_factors = calculate_h2h_factor(home_team, away_team, h2h_data)
         
@@ -3100,6 +3107,17 @@ def calculate_h2h_factor(home_team, away_team, h2h_data, league_id=None):
     """
     Calcula um fator de influência baseado nos dados de confronto direto (H2H)
     """
+    # Verificar se h2h_data é um dicionário
+    if not isinstance(h2h_data, dict):
+        logger.warning(f"h2h_data não é um dicionário, é um {type(h2h_data).__name__}")
+        # Criar um dicionário padrão
+        h2h_data = {
+            "total_matches": 0,
+            "home_wins": 0,
+            "away_wins": 0,
+            "draws": 0
+        }
+    
     # Verificar se temos dados H2H suficientes
     total_matches = h2h_data.get("total_matches", 0)
     
