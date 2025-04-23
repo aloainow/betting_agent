@@ -1760,37 +1760,37 @@ def calculate_advanced_probabilities(home_team, away_team, league_id='generic', 
         home_creation = home_offensive * 0.7 + home_possession * 0.3
         away_creation = away_offensive * 0.7 + away_possession * 0.3
         
-    # Pesos revisados
-    form_weight = 0.35      # Forma: 35%
-    stats_weight = 0.25     # Estatísticas: 25%
-    position_weight = 0.15  # Posição: 15% (reduzido de 20%)
-    creation_weight = 0.15  # Criação: 15% (reduzido de 20%)
-    h2h_weight = 0.10       # NOVO! H2H: 10%
-    
-    # Calcular fator H2H para ponderação
-    h2h = home.get('h2h', {})  # Ajuste conforme seu código recupera o H2H
-    h2h_factors = calculate_h2h_factor(home, away, h2h)
-    
-    # Aplicar H2H como fator direto nas ponderações
-    home_h2h_score = h2h_factors["home_factor"] * 0.8 + h2h_factors["draw_factor"] * 0.2
-    away_h2h_score = h2h_factors["away_factor"] * 0.8 + h2h_factors["draw_factor"] * 0.2
-    
-    # Calcular pontuação total com novo peso para H2H
-    home_total_score = (
-        home_form_normalized * form_weight +    # Forma recente: 35%
-        home_stats_score * stats_weight +       # Estatísticas: 25%
-        home_position_score * position_weight + # Posição: 15%
-        home_creation * creation_weight +       # Criação: 15%
-        home_h2h_score * h2h_weight            # H2H: 10%
-    )
-    
-    away_total_score = (
-        away_form_normalized * form_weight +    # Forma recente: 35%
-        away_stats_score * stats_weight +       # Estatísticas: 25%
-        away_position_score * position_weight + # Posição: 15%
-        away_creation * creation_weight +       # Criação: 15%
-        away_h2h_score * h2h_weight            # H2H: 10%
-    )
+        # Pesos revisados
+        form_weight = 0.35      # Forma: 35%
+        stats_weight = 0.25     # Estatísticas: 25%
+        position_weight = 0.15  # Posição: 15% (reduzido de 20%)
+        creation_weight = 0.15  # Criação: 15% (reduzido de 20%)
+        h2h_weight = 0.10       # NOVO! H2H: 10%
+        
+        # Calcular fator H2H para ponderação
+        h2h = home.get('h2h', {})  # Ajuste conforme seu código recupera o H2H
+        h2h_factors = calculate_h2h_factor(home, away, h2h)
+        
+        # Aplicar H2H como fator direto nas ponderações
+        home_h2h_score = h2h_factors["home_factor"] * 0.8 + h2h_factors["draw_factor"] * 0.2
+        away_h2h_score = h2h_factors["away_factor"] * 0.8 + h2h_factors["draw_factor"] * 0.2
+        
+        # Calcular pontuação total com novo peso para H2H
+        home_total_score = (
+            home_form_normalized * form_weight +    # Forma recente: 35%
+            home_stats_score * stats_weight +       # Estatísticas: 25%
+            home_position_score * position_weight + # Posição: 15%
+            home_creation * creation_weight +       # Criação: 15%
+            home_h2h_score * h2h_weight            # H2H: 10%
+        )
+        
+        away_total_score = (
+            away_form_normalized * form_weight +    # Forma recente: 35%
+            away_stats_score * stats_weight +       # Estatísticas: 25%
+            away_position_score * position_weight + # Posição: 15%
+            away_creation * creation_weight +       # Criação: 15%
+            away_h2h_score * h2h_weight            # H2H: 10%
+        )
         
         # 9. Ajustar por condições da partida
         if match_conditions:
