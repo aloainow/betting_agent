@@ -1701,7 +1701,7 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
         import numpy as np  # Adicione esta importação se necessário
         import logging
         
-        # Adicione o código aqui
+        # Verificando se h2h_data existe
         if h2h_data is None:
             h2h_data = {
                 "total_matches": 0,
@@ -1709,6 +1709,7 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
                 "away_wins": 0,
                 "draws": 0
             }
+            
         # Definir as variáveis de contexto de forma
         home_form_context = "como mandante"
         away_form_context = "como visitante"
@@ -1719,6 +1720,30 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
         # Usar h2h_data que agora está disponível como parâmetro
         h2h_factors = calculate_h2h_factor(home_team, away_team, h2h_data)
         
+        # Obter a forma real dos times dos dados fornecidos
+        # Obter todas as formas disponíveis para cada time
+        home_specific_form = home_team.get('home_form', '')
+        away_specific_form = away_team.get('away_form', '')
+        home_overall_form = home_team.get('form', '')
+        away_overall_form = away_team.get('form', '')
+        
+        # Calcular pontos para cada tipo de forma
+        home_specific_points = form_to_points(home_specific_form) if home_specific_form else 0
+        away_specific_points = form_to_points(away_specific_form) if away_specific_form else 0
+        home_overall_points = form_to_points(home_overall_form) if home_overall_form else 0
+        away_overall_points = form_to_points(away_overall_form) if away_overall_form else 0
+        
+        # Determinar pesos para cada tipo de forma
+        # Damos maior peso à forma específica (se disponível)
+        home_form_weights = {
+            "specific": 0.7 if home_specific_form else 0,
+            "overall": 0.3 if home_specific_form else 1.0
+        }
+        
+        away_form_weights = {
+            "specific": 0.7 if away_specific_form else 0,
+            "overall": 0.3 if away_specific_form else 1.0
+        }
         
         # 2. Calcular forma recente (35%)
         # Better approach
