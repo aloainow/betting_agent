@@ -1767,9 +1767,8 @@ def calculate_advanced_probabilities(home_team, away_team, league_id='generic', 
         creation_weight = 0.15  # Criação: 15% (reduzido de 20%)
         h2h_weight = 0.10       # NOVO! H2H: 10%
         
-        # Calcular fator H2H para ponderação
-        h2h = optimized_data.get("h2h", {})  # Use a variável/objeto correto que contém os dados H2H
-        h2h_factors = calculate_h2h_factor(home_team, away_team, h2h)
+        # Usar h2h_data que já está disponível no seu código
+        h2h_factors = calculate_h2h_factor(home_team, away_team, h2h_data)
         
         # Aplicar H2H como fator direto nas ponderações
         home_h2h_score = h2h_factors["home_factor"] * 0.8 + h2h_factors["draw_factor"] * 0.2
