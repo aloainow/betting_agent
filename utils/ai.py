@@ -334,12 +334,44 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
         
         
         # Obter a forma real dos times dos dados fornecidos
-        home_form = home.get("form", "WDLWW")  # Usar os dados reais, com fallback para exemplo
-        away_form = away.get("form", "WDWWL")  # Usar os dados reais, com fallback para exemplo
+        # Obter todas as formas disponíveis para cada time
+        home_specific_form = home.get('home_form', '')
+        away_specific_form = away.get('away_form', '')
+        home_overall_form = home.get('form', '')
+        away_overall_form = away.get('form', '')
         
-        # Primeiro, calculamos os pontos de forma
-        home_form_points = form_to_points(home_form)
-        away_form_points = form_to_points(away_form)
+        # Calcular pontos para cada tipo de forma
+        home_specific_points = form_to_points(home_specific_form) if home_specific_form else 0
+        away_specific_points = form_to_points(away_specific_form) if away_specific_form else 0
+        home_overall_points = form_to_points(home_overall_form) if home_overall_form else 0
+        away_overall_points = form_to_points(away_overall_form) if away_overall_form else 0
+        
+        # Determinar pesos para cada tipo de forma
+        # Damos maior peso à forma específica (se disponível)
+        home_form_weights = {
+            "specific": 0.7 if home_specific_form else 0,
+            "overall": 0.3 if home_specific_form else 1.0
+        }
+        
+        away_form_weights = {
+            "specific": 0.7 if away_specific_form else 0,
+            "overall": 0.3 if away_specific_form else 1.0
+        }
+        
+        # Calcular pontuação ponderada de forma
+        home_form_points = (
+            (home_specific_points * home_form_weights["specific"]) +
+            (home_overall_points * home_form_weights["overall"])
+        )
+        
+        away_form_points = (
+            (away_specific_points * away_form_weights["specific"]) +
+            (away_overall_points * away_form_weights["overall"])
+        )
+        
+        # Normalizar para uso nos cálculos (0-1)
+        home_form_normalized = home_form_points / 15.0
+        away_form_normalized = away_form_points / 15.0
         
         # Log para depuração
         logger.info(f"Forma do time da casa ({home_team}): {home_form} = {home_form_points}/15 pontos")
@@ -1728,20 +1760,37 @@ def calculate_advanced_probabilities(home_team, away_team, league_id='generic', 
         home_creation = home_offensive * 0.7 + home_possession * 0.3
         away_creation = away_offensive * 0.7 + away_possession * 0.3
         
-        # 8. APLICAR PONDERAÇÕES
-        home_total_score = (
-            home_form_normalized * 0.35 +      # Forma recente: 35%
-            home_stats_score * 0.25 +          # Estatísticas: 25%
-            home_position_score * 0.20 +       # Posição: 20%
-            home_creation * 0.20               # Criação: 20%
-        )
-        
-        away_total_score = (
-            away_form_normalized * 0.35 +      # Forma recente: 35%
-            away_stats_score * 0.25 +          # Estatísticas: 25%
-            away_position_score * 0.20 +       # Posição: 20%
-            away_creation * 0.20               # Criação: 20%
-        )
+    # Pesos revisados
+    form_weight = 0.35      # Forma: 35%
+    stats_weight = 0.25     # Estatísticas: 25%
+    position_weight = 0.15  # Posição: 15% (reduzido de 20%)
+    creation_weight = 0.15  # Criação: 15% (reduzido de 20%)
+    h2h_weight = 0.10       # NOVO! H2H: 10%
+    
+    # Calcular fator H2H para ponderação
+    h2h = home.get('h2h', {})  # Ajuste conforme seu código recupera o H2H
+    h2h_factors = calculate_h2h_factor(home, away, h2h)
+    
+    # Aplicar H2H como fator direto nas ponderações
+    home_h2h_score = h2h_factors["home_factor"] * 0.8 + h2h_factors["draw_factor"] * 0.2
+    away_h2h_score = h2h_factors["away_factor"] * 0.8 + h2h_factors["draw_factor"] * 0.2
+    
+    # Calcular pontuação total com novo peso para H2H
+    home_total_score = (
+        home_form_normalized * form_weight +    # Forma recente: 35%
+        home_stats_score * stats_weight +       # Estatísticas: 25%
+        home_position_score * position_weight + # Posição: 15%
+        home_creation * creation_weight +       # Criação: 15%
+        home_h2h_score * h2h_weight            # H2H: 10%
+    )
+    
+    away_total_score = (
+        away_form_normalized * form_weight +    # Forma recente: 35%
+        away_stats_score * stats_weight +       # Estatísticas: 25%
+        away_position_score * position_weight + # Posição: 15%
+        away_creation * creation_weight +       # Criação: 15%
+        away_h2h_score * h2h_weight            # H2H: 10%
+    )
         
         # 9. Ajustar por condições da partida
         if match_conditions:
@@ -1830,12 +1879,41 @@ def calculate_advanced_probabilities(home_team, away_team, league_id='generic', 
                 "away_consistency": round(away_consistency * 100, 1),
                 "home_form_points": home_form_points / 15.0 if home_form_points is not None else None,
                 "away_form_points": away_form_points / 15.0 if away_form_points is not None else None,
+                "home_form_context": home_form_context,
+                "away_form_context": away_form_context,
                 "home_total_score": round(home_total_score, 2),
                 "away_total_score": round(away_total_score, 2),
                 "home_fatigue": round(home_fatigue * 100, 1),
-                "away_fatigue": round(away_fatigue * 100, 1)
+                "away_fatigue": round(away_fatigue * 100, 1),
+                "form_details": {  # NOVO! Detalhes de todos os tipos de forma
+                    "home_specific": {
+                        "points": home_specific_points,
+                        "normalized": home_specific_points / 15.0,
+                        "weight": home_form_weights["specific"] * 100
+                    },
+                    "home_overall": {
+                        "points": home_overall_points,
+                        "normalized": home_overall_points / 15.0,
+                        "weight": home_form_weights["overall"] * 100
+                    },
+                    "away_specific": {
+                        "points": away_specific_points,
+                        "normalized": away_specific_points / 15.0,
+                        "weight": away_form_weights["specific"] * 100
+                    },
+                    "away_overall": {
+                        "points": away_overall_points,
+                        "normalized": away_overall_points / 15.0,
+                        "weight": away_form_weights["overall"] * 100
+                    }
+                },
+                "h2h_influence": {
+                    "home_factor": round(h2h_factors["home_factor"], 2),
+                    "draw_factor": round(h2h_factors["draw_factor"], 2),
+                    "away_factor": round(h2h_factors["away_factor"], 2),
+                    "weight": h2h_weight * 100
+                }
             }
-        }
         
     except Exception as e:
         import logging
@@ -3011,3 +3089,50 @@ class AdvancedPredictionSystem:
         else:
             raise ValueError("Sem banco de dados para salvar calibração")
         
+# Função para calcular o fator H2H
+def calculate_h2h_factor(home_team, away_team, h2h_data, league_id=None):
+    """
+    Calcula um fator de influência baseado nos dados de confronto direto (H2H)
+    """
+    # Verificar se temos dados H2H suficientes
+    total_matches = h2h_data.get("total_matches", 0)
+    
+    if total_matches < 2:
+        logger.info("Dados H2H insuficientes, usando valores neutros")
+        return {
+            "home_factor": 1.0,
+            "draw_factor": 1.0,
+            "away_factor": 1.0
+        }
+    
+    # Extrair dados básicos
+    home_wins = h2h_data.get("home_wins", 0)
+    away_wins = h2h_data.get("away_wins", 0)
+    draws = h2h_data.get("draws", 0)
+    
+    # Calcular percentuais
+    home_win_pct = home_wins / total_matches if total_matches > 0 else 0.33
+    away_win_pct = away_wins / total_matches if total_matches > 0 else 0.33
+    draw_pct = draws / total_matches if total_matches > 0 else 0.34
+    
+    # Calcular fatores de favorecimento baseados na história
+    # Um valor > 1.0 significa que o resultado é mais provável que a média
+    league_avg_home_win = 0.45  # Média da liga para vitórias em casa
+    league_avg_away_win = 0.30  # Média da liga para vitórias fora
+    league_avg_draw = 0.25      # Média da liga para empates
+    
+    # Ajustar com base no histórico H2H vs médias da liga
+    home_factor = (home_win_pct / league_avg_home_win) if league_avg_home_win > 0 else 1.0
+    away_factor = (away_win_pct / league_avg_away_win) if league_avg_away_win > 0 else 1.0
+    draw_factor = (draw_pct / league_avg_draw) if league_avg_draw > 0 else 1.0
+    
+    # Ponderar para não ter influência excessiva (limitar entre 0.7 e 1.3)
+    home_factor = min(1.3, max(0.7, home_factor))
+    away_factor = min(1.3, max(0.7, away_factor))
+    draw_factor = min(1.3, max(0.7, draw_factor))
+    
+    return {
+        "home_factor": home_factor,
+        "draw_factor": draw_factor,
+        "away_factor": away_factor
+    }
