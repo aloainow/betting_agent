@@ -1697,7 +1697,7 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
     """
     try:
         import math
-        import numpy as np  # Adicione esta importação se necessário
+        import numpy as np
         import logging
         
         # Verificando se h2h_data existe
@@ -1744,27 +1744,25 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
             "overall": 0.3 if away_specific_form else 1.0
         }
         
-        # 2. Calcular forma recente (35%)
-        # Better approach
-        if 'form' in home_team and home_team['form']:
-            home_form_points = calculate_form_points(home_team['form'])
-            home_form_normalized = home_form_points / 15.0
-        else:
-            import logging  # Adicione esta importação aqui
-            logger = logging.getLogger("valueHunter.ai")
-            logger.warning(f"Missing form data for home team")
-            home_form_points = 0  # Use 0 em vez de None
-            home_form_normalized = 0  # Use um valor padrão sensato
+        # Calcular pontuação ponderada de forma
+        home_form_points = (
+            (home_specific_points * home_form_weights["specific"]) +
+            (home_overall_points * home_form_weights["overall"])
+        )
         
-        if 'form' in away_team and away_team['form']:
-            away_form_points = calculate_form_points(away_team['form'])
-            away_form_normalized = away_form_points / 15.0
-        else:
-            import logging  # Adicione esta importação aqui também
-            logger = logging.getLogger("valueHunter.ai")
-            logger.warning(f"Missing form data for away team")
-            away_form_points = 0  # Use 0 em vez de None
-            away_form_normalized = 0  # Use um valor padrão sensato
+        away_form_points = (
+            (away_specific_points * away_form_weights["specific"]) +
+            (away_overall_points * away_form_weights["overall"])
+        )
+        
+        # Normalizar para uso nos cálculos (0-1)
+        home_form_normalized = home_form_points / 15.0
+        away_form_normalized = away_form_points / 15.0
+        
+        # Log para depuração
+        logger = logging.getLogger("valueHunter.ai")
+        logger.info(f"Forma do time da casa: {home_form_points}/15 pontos")
+        logger.info(f"Forma do time visitante: {away_form_points}/15 pontos")
         
         # 3. Calcular consistência
         home_consistency = calculate_team_consistency(home_team) / 100.0
@@ -1806,9 +1804,6 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
         position_weight = 0.15  # Posição: 15% (reduzido de 20%)
         creation_weight = 0.15  # Criação: 15% (reduzido de 20%)
         h2h_weight = 0.10       # NOVO! H2H: 10%
-        
-        # Usar h2h_data que já está disponível no seu código
-        h2h_factors = calculate_h2h_factor(home_team, away_team, h2h_data)
         
         # Aplicar H2H como fator direto nas ponderações
         home_h2h_score = h2h_factors["home_factor"] * 0.8 + h2h_factors["draw_factor"] * 0.2
@@ -1916,8 +1911,8 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
             "analysis_data": {
                 "home_consistency": round(home_consistency * 100, 1),
                 "away_consistency": round(away_consistency * 100, 1),
-                "home_form_points": home_form_points / 15.0 if home_form_points is not None else None,
-                "away_form_points": away_form_points / 15.0 if away_form_points is not None else None,
+                "home_form_points": home_form_points / 15.0,
+                "away_form_points": away_form_points / 15.0,
                 "home_form_context": home_form_context,
                 "away_form_context": away_form_context,
                 "home_total_score": round(home_total_score, 2),
@@ -1962,7 +1957,6 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
         logging.getLogger("valueHunter.ai").error(traceback.format_exc())
         
         # Re-raise a exception para que seja tratada apropriadamente em outro lugar
-        # Não usar fallback, conforme solicitado
         raise
 
 def calculate_league_factors(league_id, league_data=None):
