@@ -373,8 +373,8 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
         away_form_normalized = away_form_points / 15.0
         
         # Log para depuração
-        logger.info(f"Forma do time da casa ({home_team}): {home_form} = {home_form_points}/15 pontos")
-        logger.info(f"Forma do time visitante ({away_team}): {away_form} = {away_form_points}/15 pontos")
+        logger.info(f"Forma do time da casa ({home_team}): {home_form_points}/15 pontos")
+        logger.info(f"Forma do time visitante ({away_team}): {away_form_points}/15 pontos")
         
         # Normalizar para uso nos cálculos (0-1)
         home_form_normalized = home_form_points / 15.0
