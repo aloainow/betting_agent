@@ -1,4 +1,3 @@
-
 import os
 import logging
 import streamlit as st
@@ -3188,3 +3187,30 @@ def calculate_h2h_factor(home_team, away_team, h2h_data, league_id=None):
         "draw_factor": draw_factor,
         "away_factor": away_factor
     }
+def form_to_points(form_str):
+    """
+    Calcula pontos baseados na forma (sequência de resultados)
+    
+    Args:
+        form_str (str): String com a sequência de resultados (ex: "WDLWW")
+        
+    Returns:
+        int: Pontuação total (máximo 15 pontos para 5 jogos)
+    """
+    if not form_str or not isinstance(form_str, str):
+        return 0
+    
+    points = 0
+    # Garantir que estamos usando apenas os últimos 5 jogos
+    recent_form = form_str[-5:] if len(form_str) >= 5 else form_str
+    
+    # Calcular pontos
+    for result in recent_form:
+        result = result.upper()  # Converter para maiúscula para garantir
+        if result == 'W':
+            points += 3
+        elif result == 'D':
+            points += 1
+        # result == 'L' ou outros caracteres = 0 pontos
+    
+    return points  # Valor entre 0 e 15
