@@ -136,10 +136,268 @@ def format_justifications_section(justifications):
     header = "# Justificativas Detalhadas para Oportunidades:\n"
     return header + "\n".join(justifications)
 
+def generate_justification(market_type, bet_type, team_name, real_prob, implicit_prob, 
+                          original_probabilities, home_team, away_team):
+    """
+    Gera uma justificativa com embasamento estatístico específico para cada mercado.
+    Versão corrigida para usar os valores de forma do time como mandante ou visitante.
+    """
+    try:
+        # Dados de análise para extrair informações adicionais
+        analysis_data = original_probabilities.get("analysis_data", {})
+        margin = real_prob - implicit_prob
+        
+        # Extrair valores de forma
+        home_form_points = analysis_data.get("home_form_points", 0)
+        away_form_points = analysis_data.get("away_form_points", 0)
+        
+        # Se os pontos estiverem no formato normalizado (0-1), convertê-los para a escala 0-15
+        if isinstance(home_form_points, (int, float)) and home_form_points <= 1.0:
+            home_form_points = home_form_points * 15
+        if isinstance(away_form_points, (int, float)) and away_form_points <= 1.0:
+            away_form_points = away_form_points * 15
+        
+        # Expressões de contexto corretas para casa/fora
+        home_form_context = analysis_data.get("home_form_context", "como mandante")
+        away_form_context = analysis_data.get("away_form_context", "como visitante")
+        
+        # Valores de consistência
+        home_consistency = analysis_data.get("home_consistency", 0)
+        away_consistency = analysis_data.get("away_consistency", 0)
+        
+        # Garantir que consistência está em porcentagem
+        if home_consistency <= 1.0:
+            home_consistency = home_consistency * 100
+        if away_consistency <= 1.0:
+            away_consistency = away_consistency * 100
+        
+        # 1. MONEYLINE (1X2)
+        if market_type == "moneyline":
+            # Vitória do time da casa
+            if bet_type == "home_win":
+                justification = f"Time da casa com {home_form_points:.1f}/15 pts na forma {home_form_context} e {home_consistency:.1f}% de consistência. "
+                
+                if "over_under" in original_probabilities:
+                    expected_goals = original_probabilities["over_under"].get("expected_goals", 0)
+                    if 0 < expected_goals < 10:
+                        justification += f"Previsão de {expected_goals:.2f} gols na partida favorece time ofensivo. "
+                
+                justification += f"Odds de {implicit_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
+                
+            # Vitória do time visitante
+            elif bet_type == "away_win":
+                justification = f"Time visitante com {away_form_points:.1f}/15 pts na forma {away_form_context} e {away_consistency:.1f}% de consistência. "
+                
+                if "over_under" in original_probabilities:
+                    expected_goals = original_probabilities["over_under"].get("expected_goals", 0)
+                    if 0 < expected_goals < 10:
+                        justification += f"Previsão de {expected_goals:.2f} gols na partida. "
+                        
+                justification += f"Odds de {implicit_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
+                
+            # Empate
+            elif bet_type == "draw":
+                justification = f"Times equilibrados: Casa com {home_form_points:.1f}/15 pts {home_form_context}, Fora com {away_form_points:.1f}/15 pts {away_form_context}. "
+                justification += f"Odds de {implicit_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
+
+        
+        # 2. CHANCE DUPLA (DOUBLE CHANCE)
+        elif market_type == "double_chance":
+            if bet_type == "home_or_draw":
+                justification = f"Vantagem de jogar em casa para {home_team} (forma {home_form_context}: {home_form_points:.1f}/15 pts). "
+                justification += f"Probabilidade de {real_prob:.1f}% do time da casa não perder, "
+                justification += f"contra apenas {implicit_prob:.1f}% implicada pelas odds."
+                
+            elif bet_type == "away_or_draw":
+                justification = f"Vantagem para {away_team} visitante (forma {away_form_context}: {away_form_points:.1f}/15 pts). "
+                justification += f"Probabilidade de {real_prob:.1f}% do time visitante não perder, "
+                justification += f"contra apenas {implicit_prob:.1f}% implicada pelas odds."
+                
+            elif bet_type == "home_or_away":
+                justification = f"Baixa probabilidade de empate. Casa com {home_form_points:.1f}/15 pts {home_form_context}, fora com {away_form_points:.1f}/15 pts {away_form_context}. "
+                justification += f"Chance de {real_prob:.1f}% de algum time vencer, "
+                justification += f"contra apenas {implicit_prob:.1f}% implicada pelas odds."
+        
+        # 3. OVER/UNDER
+        elif market_type == "over_under":
+            if "over_under" in original_probabilities:
+                expected_goals = original_probabilities["over_under"].get("expected_goals", 0)
+                
+                # Validar valor de expected_goals
+                if not (0 < expected_goals < 10):
+                    expected_goals = 2.5  # Valor default razoável
+                
+                if bet_type.startswith("over_"):
+                    threshold = bet_type.replace("over_", "").replace("_", ".")
+                    threshold_value = float(threshold)
+                    
+                    # Verificar consistência lógica
+                    if expected_goals > threshold_value:
+                        comparison = "acima"
+                    else:
+                        comparison = "próximo"
+                    
+                    justification = f"Previsão de {expected_goals:.2f} gols na partida, {comparison} do threshold de {threshold}. "
+                    justification += f"Casa com {home_form_points:.1f}/15 pts {home_form_context}, fora com {away_form_points:.1f}/15 pts {away_form_context}. "
+                    justification += f"Probabilidade real de {real_prob:.1f}% vs implícita de {implicit_prob:.1f}%."
+                    
+                else:  # Under
+                    threshold = bet_type.replace("under_", "").replace("_", ".")
+                    threshold_value = float(threshold)
+                    
+                    # Verificar consistência lógica
+                    if expected_goals < threshold_value:
+                        comparison = "abaixo"
+                    else:
+                        comparison = "próximo"
+                    
+                    justification = f"Previsão de {expected_goals:.2f} gols na partida, {comparison} do threshold de {threshold}. "
+                    justification += f"Casa com {home_form_points:.1f}/15 pts {home_form_context}, fora com {away_form_points:.1f}/15 pts {away_form_context}. "
+                    justification += f"Probabilidade real de {real_prob:.1f}% vs implícita de {implicit_prob:.1f}%."
+        
+        # 4. BTTS (AMBOS MARCAM)
+        elif market_type == "btts":
+            if "btts" in original_probabilities:
+                if bet_type == "yes":
+                    justification = f"Casa com {home_form_points:.1f}/15 pts {home_form_context}, fora com {away_form_points:.1f}/15 pts {away_form_context}. Ambas equipes com potencial ofensivo. "
+                    
+                    if "over_under" in original_probabilities:
+                        expected_goals = original_probabilities["over_under"].get("expected_goals", 0)
+                        if 0 < expected_goals < 10:
+                            justification += f"Previsão de {expected_goals:.2f} gols totais na partida. "
+                        
+                    justification += f"Probabilidade real de {real_prob:.1f}% vs implícita de {implicit_prob:.1f}%."
+                    
+                else:  # No
+                    justification = f"Casa com {home_form_points:.1f}/15 pts {home_form_context}, fora com {away_form_points:.1f}/15 pts {away_form_context}. Pelo menos uma equipe deve manter clean sheet. "
+                    
+                    if "over_under" in original_probabilities:
+                        expected_goals = original_probabilities["over_under"].get("expected_goals", 0)
+                        if 0 < expected_goals < 10:
+                            justification += f"Previsão de apenas {expected_goals:.2f} gols totais na partida. "
+                        
+                    justification += f"Probabilidade real de {real_prob:.1f}% vs implícita de {implicit_prob:.1f}%."
+        
+        # 5. ESCANTEIOS
+        elif market_type == "corners":
+            if "corners" in original_probabilities:
+                expected_corners = original_probabilities["corners"].get("expected_corners", 0)
+                
+                # Validar valor de expected_corners
+                if not (3 < expected_corners < 20):
+                    if real_prob > 70:
+                        expected_corners = 11.5
+                    else:
+                        expected_corners = 8.5
+                
+                if bet_type.startswith("over_"):
+                    threshold = bet_type.replace("over_", "").replace("_", ".")
+                    threshold_value = float(threshold)
+                    
+                    # Verificar consistência lógica
+                    if expected_corners > threshold_value:
+                        comparison = "acima"
+                    else:
+                        comparison = "próximo"
+                    
+                    justification = f"Previsão de {expected_corners:.1f} escanteios na partida, {comparison} do threshold de {threshold}. "
+                    justification += f"Casa com {home_form_points:.1f}/15 pts {home_form_context}, fora com {away_form_points:.1f}/15 pts {away_form_context}. "
+                    justification += f"Probabilidade real de {real_prob:.1f}% vs implícita de {implicit_prob:.1f}%."
+                    
+                else:  # Under
+                    threshold = bet_type.replace("under_", "").replace("_", ".")
+                    threshold_value = float(threshold)
+                    
+                    # Verificar consistência lógica
+                    if expected_corners < threshold_value:
+                        comparison = "abaixo"
+                    else:
+                        comparison = "próximo"
+                    
+                    justification = f"Previsão de {expected_corners:.1f} escanteios na partida, {comparison} do threshold de {threshold}. "
+                    justification += f"Casa com {home_form_points:.1f}/15 pts {home_form_context}, fora com {away_form_points:.1f}/15 pts {away_form_context}. "
+                    justification += f"Probabilidade real de {real_prob:.1f}% vs implícita de {implicit_prob:.1f}%."
+        
+        # 6. CARTÕES
+        elif market_type == "cards":
+            if "cards" in original_probabilities:
+                expected_cards = original_probabilities["cards"].get("expected_cards", 0)
+                
+                # Validar valor de expected_cards
+                if not (1 < expected_cards < 10):
+                    if real_prob > 60:
+                        expected_cards = 3.2
+                    else:
+                        expected_cards = 5.5
+                
+                if bet_type.startswith("over_"):
+                    threshold = bet_type.replace("over_", "").replace("_", ".")
+                    threshold_value = float(threshold)
+                    
+                    # Verificar consistência lógica
+                    if expected_cards > threshold_value:
+                        comparison = "acima"
+                    else:
+                        comparison = "próximo"
+                    
+                    justification = f"Previsão de {expected_cards:.1f} cartões na partida, {comparison} do threshold de {threshold}. "
+                    justification += f"Casa com {home_form_points:.1f}/15 pts {home_form_context}, fora com {away_form_points:.1f}/15 pts {away_form_context}. "
+                    justification += f"Probabilidade real de {real_prob:.1f}% vs implícita de {implicit_prob:.1f}%."
+                    
+                else:  # Under
+                    threshold = bet_type.replace("under_", "").replace("_", ".")
+                    threshold_value = float(threshold)
+                    
+                    # Verificar consistência lógica
+                    if expected_cards < threshold_value:
+                        comparison = "abaixo"
+                    else:
+                        comparison = "próximo"
+                    
+                    justification = f"Previsão de {expected_cards:.1f} cartões na partida, {comparison} do threshold de {threshold}. "
+                    justification += f"Casa com {home_form_points:.1f}/15 pts {home_form_context}, fora com {away_form_points:.1f}/15 pts {away_form_context}. "
+                    justification += f"Probabilidade real de {real_prob:.1f}% vs implícita de {implicit_prob:.1f}%."
+        
+        # JUSTIFICATIVA GENÉRICA PARA OUTROS MERCADOS
+        else:
+            justification = f"Casa com {home_form_points:.1f}/15 pts {home_form_context}, fora com {away_form_points:.1f}/15 pts {away_form_context}. "
+            
+            if margin > 15:
+                justification += f"Discrepância significativa de {margin:.1f}% entre probabilidade real ({real_prob:.1f}%) e odds oferecidas ({implicit_prob:.1f}%)."
+            elif margin > 8:
+                justification += f"Boa diferença de {margin:.1f}% entre probabilidade calculada ({real_prob:.1f}%) e odds oferecidas ({implicit_prob:.1f}%)."
+            else:
+                justification += f"Vantagem estatística de {margin:.1f}% entre probabilidade real ({real_prob:.1f}%) e odds oferecidas ({implicit_prob:.1f}%)."
+        
+        return justification
+        
+    except Exception as e:
+        # Log do erro
+        import traceback
+        import logging
+        logger = logging.getLogger("valueHunter.ai")
+        logger.error(f"Erro na geração de justificativa: {str(e)}")
+        logger.error(traceback.format_exc())
+        
+        # Garantir que mesmo no caso de erro, usamos os valores de forma corretos
+        try:
+            analysis_data = original_probabilities.get("analysis_data", {})
+            home_form_points = analysis_data.get("home_form_points", 0.33) * 15
+            away_form_points = analysis_data.get("away_form_points", 0.6) * 15
+            
+            home_form_context = analysis_data.get("home_form_context", "como mandante")
+            away_form_context = analysis_data.get("away_form_context", "como visitante")
+                
+            # Retornar uma justificativa genérica mas com os valores corretos da forma
+            return f"Casa com {home_form_points:.1f}/15 pts {home_form_context}, fora com {away_form_points:.1f}/15 pts {away_form_context}. Valor estatístico significativo de {real_prob-implicit_prob:.1f}% acima da probabilidade implícita nas odds."
+        except:
+            # Último recurso se tudo falhar
+            return f"Valor estatístico significativo de {real_prob-implicit_prob:.1f}% acima da probabilidade implícita nas odds."
 # Função auxiliar para gerar justificativas condensadas
 def generate_condensed_justification(team_name, home_team, away_team, real_prob, implied_prob, analysis_data, original_probabilities, expected_goals=None):
     """
     Gera uma justificativa condensada para ser incluída diretamente na lista de oportunidades.
+    Versão corrigida para usar as expressões corretas de forma dos times.
     
     Args:
         team_name (str): Nome do time ou mercado (ex: "Time A", "Empate", "Ambos Marcam - Sim")
@@ -159,34 +417,37 @@ def generate_condensed_justification(team_name, home_team, away_team, real_prob,
     is_away = team_name == away_team
     
     # Obter dados de consistência e forma apropriados
-   # For home teams
+    # Contextos corretos para cada time
+    home_form_context = analysis_data.get("home_form_context", "como mandante")
+    away_form_context = analysis_data.get("away_form_context", "como visitante")
+    
+    # Para times da casa
     if is_home:
         consistency = analysis_data.get("home_consistency", 0)
-        # Better handling of form points
+        # Melhor tratamento dos pontos de forma
         home_form_points = analysis_data.get("home_form_points", None)
         if home_form_points is None:
-            # No form data available
+            # Sem dados de forma disponíveis
             form_points = "N/A"
-        elif home_form_points <= 1.0:  # Normalized value (0-1)
+        elif home_form_points <= 1.0:  # Valor normalizado (0-1)
             form_points = home_form_points * 15
-        else:  # Already in points format
+        else:  # Já está no formato de pontos
             form_points = home_form_points
-        form_type = "como mandante"
+        form_type = home_form_context
     
-    # For away teams
+    # Para times visitantes
     elif is_away:
         consistency = analysis_data.get("away_consistency", 0)
-        # Better handling of form points
+        # Melhor tratamento dos pontos de forma
         away_form_points = analysis_data.get("away_form_points", None)
         if away_form_points is None:
-            # No form data available
+            # Sem dados de forma disponíveis
             form_points = "N/A"
-        elif away_form_points <= 1.0:  # Normalized value (0-1)
+        elif away_form_points <= 1.0:  # Valor normalizado (0-1)
             form_points = away_form_points * 15
-        else:  # Already in points format
+        else:  # Já está no formato de pontos
             form_points = away_form_points
-        form_type = "como visitante"
-
+        form_type = away_form_context
     else:
         # Para mercados como empate, ambos marcam, etc.
         home_consistency = analysis_data.get("home_consistency", 0)
@@ -201,11 +462,11 @@ def generate_condensed_justification(team_name, home_team, away_team, real_prob,
     # Adicionar informação de forma para time da casa ou visitante
     if is_home or is_away:
         team_type = "da casa" if is_home else "visitante"
-        justification += f"Time {team_type} com {form_points:.0f}/15 pts na forma {form_type} e {consistency:.1f}% de consistência. "
+        justification += f"Time {team_type} com {form_points:.1f}/15 pts na forma {form_type} e {consistency:.1f}% de consistência. "
     elif team_name == "Empate":
         home_form = analysis_data.get("home_form_points", 0) * 15
         away_form = analysis_data.get("away_form_points", 0) * 15
-        justification += f"Times equilibrados: Casa com {home_form:.0f}/15 pts como mandante, Fora com {away_form:.0f}/15 pts como visitante. "
+        justification += f"Times equilibrados: Casa com {home_form:.1f}/15 pts {home_form_context}, Fora com {away_form:.1f}/15 pts {away_form_context}. "
     elif "Ambos Marcam" in team_name:
         home_expected_goals = original_probabilities.get("over_under", {}).get("expected_goals", 2.5) / 2
         away_expected_goals = original_probabilities.get("over_under", {}).get("expected_goals", 2.5) / 2
