@@ -1331,7 +1331,7 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
 # Função auxiliar para gerar justificativas condensadas
 def generate_condensed_justification(team_name, home_team, away_team, real_prob, implied_prob, analysis_data, original_probabilities, expected_goals=None):
     """
-    Gera uma justificativa condensada para ser incluída diretamente na lista de oportunidades.
+    Gera uma justificativa condensada usando APENAS os dados de forma específica (mandante/visitante).
     
     Args:
         team_name (str): Nome do time ou mercado (ex: "Time A", "Empate", "Ambos Marcam - Sim")
@@ -1346,40 +1346,60 @@ def generate_condensed_justification(team_name, home_team, away_team, real_prob,
     Returns:
         str: Justificativa condensada formatada
     """
+    import logging
+    logger = logging.getLogger("valueHunter.ai")
+    
+    # IMPORTANTE: Vamos usar APENAS os dados específicos (mandante/visitante)
+    # e não os dados ponderados (que misturam específico e geral)
+    
+    # Primeiro verificamos se temos os dados detalhados de forma
+    form_details = {}
+    if "analysis_data" in original_probabilities and "form_details" in original_probabilities["analysis_data"]:
+        form_details = original_probabilities["analysis_data"]["form_details"]
+        logger.info("Usando dados detalhados de forma específica (mandante/visitante)")
+        
+        # Extrair apenas os dados específicos (mandante/visitante)
+        home_specific = form_details.get("home_specific", {})
+        away_specific = form_details.get("away_specific", {})
+        
+        # Usar apenas os pontos específicos, não os ponderados
+        home_form_points = home_specific.get("points", 0)
+        away_form_points = away_specific.get("points", 0)
+        
+    else:
+        # Se não temos dados detalhados, usamos o que estiver disponível em analysis_data
+        logger.warning("Dados detalhados de forma não disponíveis, usando valores resumidos")
+        home_form_points = analysis_data.get("home_form_points", 0) * 15
+        away_form_points = analysis_data.get("away_form_points", 0) * 15
+    
+    # Extrair consistências
+    home_consistency = analysis_data.get("home_consistency", 0)
+    away_consistency = analysis_data.get("away_consistency", 0)
+    
+    # Extrair contextos
+    home_form_context = analysis_data.get("home_form_context", "como mandante")
+    away_form_context = analysis_data.get("away_form_context", "como visitante")
+    
+    # Garantir que consistência está em porcentagem (0-100)
+    if home_consistency <= 1.0:
+        home_consistency = home_consistency * 100
+    if away_consistency <= 1.0:
+        away_consistency = away_consistency * 100
+    
     # Determinar se estamos lidando com o time da casa, visitante, ou outro mercado
     is_home = team_name == home_team
     is_away = team_name == away_team
-    
-    # Obter dados de consistência e forma apropriados
-    if is_home:
-        consistency = analysis_data.get("home_consistency", 0)
-        form_points = analysis_data.get("home_form_points", 0) * 15
-        # Especificar que é forma como mandante
-        form_type = "como mandante"
-    elif is_away:
-        consistency = analysis_data.get("away_consistency", 0)
-        form_points = analysis_data.get("away_form_points", 0) * 15
-        # Especificar que é forma como visitante
-        form_type = "como visitante"
-    else:
-        # Para mercados como empate, ambos marcam, etc.
-        home_consistency = analysis_data.get("home_consistency", 0)
-        away_consistency = analysis_data.get("away_consistency", 0)
-        consistency = (home_consistency + away_consistency) / 2
-        form_points = None
-        form_type = None
     
     # Iniciar a justificativa
     justification = ""
     
     # Adicionar informação de forma para time da casa ou visitante
-    if is_home or is_away:
-        team_type = "da casa" if is_home else "visitante"
-        justification += f"Time {team_type} com {form_points:.0f}/15 pts na forma {form_type} e {consistency:.1f}% de consistência. "
+    if is_home:
+        justification += f"Time da casa com {home_form_points:.0f}/15 pts na forma {home_form_context} e {home_consistency:.1f}% de consistência. "
+    elif is_away:
+        justification += f"Time visitante com {away_form_points:.0f}/15 pts na forma {away_form_context} e {away_consistency:.1f}% de consistência. "
     elif team_name == "Empate":
-        home_form = analysis_data.get("home_form_points", 0) * 15
-        away_form = analysis_data.get("away_form_points", 0) * 15
-        justification += f"Times equilibrados: Casa com {home_form:.0f}/15 pts como mandante, Fora com {away_form:.0f}/15 pts como visitante. "
+        justification += f"Times equilibrados: Casa com {home_form_points:.0f}/15 pts {home_form_context}, Fora com {away_form_points:.0f}/15 pts {away_form_context}. "
     elif "Ambos Marcam" in team_name:
         home_expected_goals = original_probabilities.get("over_under", {}).get("expected_goals", 2.5) / 2
         away_expected_goals = original_probabilities.get("over_under", {}).get("expected_goals", 2.5) / 2
@@ -1923,22 +1943,26 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
                     "home_specific": {
                         "points": home_specific_points,
                         "normalized": home_specific_points / 15.0,
-                        "weight": home_form_weights["specific"] * 100
+                        "weight": home_form_weights["specific"] * 100,
+                        "form": home_specific_form
                     },
                     "home_overall": {
                         "points": home_overall_points,
                         "normalized": home_overall_points / 15.0,
-                        "weight": home_form_weights["overall"] * 100
+                        "weight": home_form_weights["overall"] * 100,
+                        "form": home_overall_form
                     },
                     "away_specific": {
                         "points": away_specific_points,
                         "normalized": away_specific_points / 15.0,
-                        "weight": away_form_weights["specific"] * 100
+                        "weight": away_form_weights["specific"] * 100,
+                        "form": away_specific_form
                     },
                     "away_overall": {
                         "points": away_overall_points,
                         "normalized": away_overall_points / 15.0,
-                        "weight": away_form_weights["overall"] * 100
+                        "weight": away_form_weights["overall"] * 100,
+                        "form": away_overall_form
                     }
                 },
                 "h2h_influence": {
