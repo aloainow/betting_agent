@@ -3216,3 +3216,26 @@ def ensure_sidebar_visibility():
         window.addEventListener('resize', forceSidebarAccessibility);
     </script>
     """, unsafe_allow_html=True)
+def generate_justification(market_type, bet_type, team_name, real_prob, implied_prob, 
+                         original_probabilities, home_team, away_team):
+    """
+    Função adaptadora que conecta a assinatura necessária em dashboard.py
+    com a implementação em utils/justifications.py
+    """
+    from utils.justifications import generate_condensed_justification
+    
+    # Verificação para evitar erros com tipos inesperados
+    if not isinstance(original_probabilities, dict):
+        original_probabilities = {}
+    
+    # Extrair dados de análise
+    analysis_data = original_probabilities.get("analysis_data", {})
+    
+    # Chamar a função do módulo justifications com a assinatura correta
+    return generate_condensed_justification(
+        team_name, home_team, away_team, 
+        real_prob, implied_prob, 
+        analysis_data, 
+        original_probabilities, 
+        None  # expected_goals (opcional)
+    )
