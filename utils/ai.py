@@ -2243,46 +2243,37 @@ def calculate_defensive_strength(team):
     # Força defensiva (inverso da fraqueza)
     return min(0.9, max(0.1, 1 - ((xga_per_game / 2.5) * 0.7 + (conceded_per_game / 2.5) * 0.3)))
 
-def calculate_1x2_probabilities(home_total_score, away_total_score, home_consistency, away_consistency):
-    # Standard formula for converting ratings to probabilities
-    total_score = home_total_score + away_total_score
+def calculate_1x2_probabilities(home_score, away_score, home_consistency, away_consistency, home_adv_mod=1.0):
+    """Calculates 1X2 probabilities with adjusted distribution"""
+    # Base raw probabilities
+    total_score = home_score + away_score
+    base_home = home_score / total_score
+    base_away = away_score / total_score
     
-    # Base probabilities without home advantage
-    base_home = home_total_score / total_score
-    base_away = away_total_score / total_score
+    # Adjust for home advantage
+    home_advantage = 0.07 * home_adv_mod  # Adjustable by conditions
     
-    # Apply home advantage (typically 5-8% in soccer)
-    home_advantage = 0.06  # 6% boost for home team
+    # Apply home advantage with caps
+    adjusted_home = min(0.75, base_home + home_advantage)
+    adjusted_away = max(0.15, base_away - (home_advantage * 0.7))
     
-    # Apply home advantage
-    adjusted_home = base_home + home_advantage
-    adjusted_away = base_away - (home_advantage * 0.5)  # Only subtract half from away
-    adjusted_draw = 1 - (adjusted_home + adjusted_away)  # Draw gets the rest
+    # Calculate draw based on consistencies and caps
+    # More consistent teams = fewer draws
+    avg_consistency = (home_consistency + away_consistency) / 2
+    draw_factor = 1 - (avg_consistency / 100)  # Lower consistency = more draws
     
-    # Typical soccer draw rates are 20-30%
-    # If draw is too low, adjust it
-    if adjusted_draw < 0.18:
-        deficit = 0.18 - adjusted_draw
-        adjusted_draw = 0.18
-        # Take from both home and away proportionally
-        home_portion = adjusted_home / (adjusted_home + adjusted_away)
-        away_portion = adjusted_away / (adjusted_home + adjusted_away)
-        adjusted_home -= deficit * home_portion
-        adjusted_away -= deficit * away_portion
+    # Base draw probability (typically 25-30% in football)
+    base_draw = 0.25 * draw_factor
     
-    # If away probability is too high (rarely over 35% in soccer)
-    if adjusted_away > 0.35 and adjusted_home > 0.30:
-        excess = adjusted_away - 0.35
-        adjusted_away = 0.35
-        # Give most to draw, some to home
-        adjusted_draw += excess * 0.7
-        adjusted_home += excess * 0.3
+    # Make sure draw is reasonable (not too low or high)
+    base_draw = max(0.15, min(0.35, base_draw))
     
-    # Normalize to ensure they sum to 1
-    total = adjusted_home + adjusted_draw + adjusted_away
-    home_win = adjusted_home / total
-    draw = adjusted_draw / total
-    away_win = adjusted_away / total
+    # Adjust distribution to ensure sum is 1
+    total_raw = adjusted_home + adjusted_away + base_draw
+    
+    home_win = adjusted_home / total_raw
+    away_win = adjusted_away / total_raw
+    draw = base_draw / total_raw
     
     return home_win, draw, away_win
 
