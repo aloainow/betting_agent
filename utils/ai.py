@@ -2026,20 +2026,35 @@ def ensemble_prediction(models_output, weights=None):
     return result
 
 # Uso:
-def calculate_over_under_probability(home_team, away_team, threshold=2.5):
-    # Modelo 1: Baseado em xG
-    model1 = calculate_xg_based_probability(home_team, away_team, threshold)
+def calculate_over_under_probability(home_expected_goals, away_expected_goals, threshold=2.5):
+    """
+    Calculate over/under probabilities using Poisson distribution
     
-    # Modelo 2: Baseado em resultados históricos
-    model2 = calculate_historical_probability(home_team, away_team, threshold)
+    Args:
+        home_expected_goals: Expected goals for home team
+        away_expected_goals: Expected goals for away team
+        threshold: Goal line (e.g., 2.5)
+        
+    Returns:
+        tuple: (over_probability, under_probability)
+    """
+    # Total expected goals
+    lambda_total = home_expected_goals + away_expected_goals
     
-    # Modelo 3: Baseado em tendências recentes
-    model3 = calculate_recent_trend_probability(home_team, away_team, threshold)
+    # Calculate under probability: sum of P(X=0) + P(X=1) + ... + P(X=threshold)
+    under_prob = 0
+    for i in range(int(threshold) + 1):
+        poisson_prob = math.exp(-lambda_total) * (lambda_total ** i) / math.factorial(i)
+        under_prob += poisson_prob
     
-    # Combinar modelos
-    final_prob = ensemble_prediction([model1, model2, model3], [0.5, 0.3, 0.2])
+    # Over probability is complement of under
+    over_prob = 1 - under_prob
     
-    return final_prob
+    # Ensure probabilities are in reasonable range
+    over_prob = min(0.95, max(0.05, over_prob))
+    under_prob = 1 - over_prob
+    
+    return over_prob, under_prob, lambda_total
 
 def calculate_team_fatigue(team_data):
     """
@@ -2228,47 +2243,46 @@ def calculate_defensive_strength(team):
     # Força defensiva (inverso da fraqueza)
     return min(0.9, max(0.1, 1 - ((xga_per_game / 2.5) * 0.7 + (conceded_per_game / 2.5) * 0.3)))
 
-def calculate_1x2_probabilities(home_score, away_score, home_consistency, away_consistency, home_adv_mod=1.0):
-    """Calculates 1X2 probabilities with adjusted distribution"""
-    # Ensure scores are positive to avoid division issues
-    home_score = max(0.1, home_score)
-    away_score = max(0.1, away_score)
+def calculate_1x2_probabilities(home_total_score, away_total_score, home_consistency, away_consistency):
+    # Standard formula for converting ratings to probabilities
+    total_score = home_total_score + away_total_score
     
-    # Base raw probabilities
-    total_score = home_score + away_score
-    base_home = home_score / total_score
-    base_away = away_score / total_score
+    # Base probabilities without home advantage
+    base_home = home_total_score / total_score
+    base_away = away_total_score / total_score
+    
+    # Apply home advantage (typically 5-8% in soccer)
+    home_advantage = 0.06  # 6% boost for home team
     
     # Apply home advantage
-    home_advantage = 0.07 * home_adv_mod
+    adjusted_home = base_home + home_advantage
+    adjusted_away = base_away - (home_advantage * 0.5)  # Only subtract half from away
+    adjusted_draw = 1 - (adjusted_home + adjusted_away)  # Draw gets the rest
     
-    # Apply home advantage with constraints
-    adjusted_home = min(0.70, base_home + home_advantage)
-    adjusted_away = min(0.60, max(0.10, base_away - (home_advantage * 0.7)))
+    # Typical soccer draw rates are 20-30%
+    # If draw is too low, adjust it
+    if adjusted_draw < 0.18:
+        deficit = 0.18 - adjusted_draw
+        adjusted_draw = 0.18
+        # Take from both home and away proportionally
+        home_portion = adjusted_home / (adjusted_home + adjusted_away)
+        away_portion = adjusted_away / (adjusted_home + adjusted_away)
+        adjusted_home -= deficit * home_portion
+        adjusted_away -= deficit * away_portion
     
-    # Calculate draw probability
-    draw_prob = 1 - (adjusted_home + adjusted_away)
+    # If away probability is too high (rarely over 35% in soccer)
+    if adjusted_away > 0.35 and adjusted_home > 0.30:
+        excess = adjusted_away - 0.35
+        adjusted_away = 0.35
+        # Give most to draw, some to home
+        adjusted_draw += excess * 0.7
+        adjusted_home += excess * 0.3
     
-    # Ensure draw probability is reasonable (15-35%)
-    if draw_prob < 0.15:
-        excess = 0.15 - draw_prob
-        draw_prob = 0.15
-        # Reduce other probabilities proportionally
-        total = adjusted_home + adjusted_away
-        adjusted_home -= (excess * (adjusted_home / total))
-        adjusted_away -= (excess * (adjusted_away / total))
-    elif draw_prob > 0.35:
-        excess = draw_prob - 0.35
-        draw_prob = 0.35
-        # Distribute excess to other probabilities
-        adjusted_home += excess * 0.6
-        adjusted_away += excess * 0.4
-    
-    # Ensure final probabilities sum to 1
-    total = adjusted_home + adjusted_away + draw_prob
+    # Normalize to ensure they sum to 1
+    total = adjusted_home + adjusted_draw + adjusted_away
     home_win = adjusted_home / total
+    draw = adjusted_draw / total
     away_win = adjusted_away / total
-    draw = draw_prob / total
     
     return home_win, draw, away_win
 
@@ -2284,102 +2298,160 @@ def calculate_over_probability(home_xg, away_xg, threshold):
     # Probabilidade de Over = 1 - P(gols <= threshold)
     return min(0.95, max(0.05, 1 - cumulative_prob))
 
-def calculate_btts_probability(home_xg, away_xg, league_btts_factor):
-    """Calcula probabilidade de Ambos Marcam"""
-    # Probabilidade de cada time não marcar (Poisson para 0 gols)
-    p_home_no_goal = math.exp(-home_xg)
-    p_away_no_goal = math.exp(-away_xg)
+def calculate_btts_probability(home_expected_goals, away_expected_goals):
+    """
+    Calculate probability of both teams scoring
     
-    # Probabilidade de pelo menos um time não marcar
-    p_not_btts = p_home_no_goal + p_away_no_goal - (p_home_no_goal * p_away_no_goal)
+    Args:
+        home_expected_goals: Expected goals for home team
+        away_expected_goals: Expected goals for away team
+        
+    Returns:
+        tuple: (btts_yes_probability, btts_no_probability)
+    """
+    # Probability of each team not scoring (Poisson for 0 goals)
+    p_home_no_goal = math.exp(-home_expected_goals)
+    p_away_no_goal = math.exp(-away_expected_goals)
     
-    # Probabilidade de ambos marcarem
-    p_btts = 1 - p_not_btts
+    # BTTS Yes = 1 - (probability either team doesn't score)
+    btts_yes = 1 - (p_home_no_goal + p_away_no_goal - (p_home_no_goal * p_away_no_goal))
+    btts_no = 1 - btts_yes
     
-    # Ajustar pelo fator da liga
-    p_btts *= league_btts_factor
-    
-    # Limitar a valores razoáveis
-    p_btts = min(0.85, max(0.25, p_btts))
-    
-    return p_btts, 1 - p_btts
+    return btts_yes, btts_no
 
-def calculate_corners_probability(home_team, away_team, threshold, league_corner_factor):
-    """Calculates probabilities for corners markets"""
-    # Extract corner statistics
-    home_corners_for = home_team.get('corners_for', 0) / max(1, home_team.get('matches_played', 1))
-    home_corners_against = home_team.get('corners_against', 0) / max(1, home_team.get('matches_played', 1))
-    away_corners_for = away_team.get('corners_for', 0) / max(1, away_team.get('matches_played', 1))
-    away_corners_against = away_team.get('corners_against', 0) / max(1, away_team.get('matches_played', 1))
+def calculate_corners_probability(home_team, away_team, threshold=9.5):
+    """
+    Calculate corners probability based on team averages
     
-    # Expected corners for each team
-    home_expected = (home_corners_for + away_corners_against) / 2
-    away_expected = (away_corners_for + home_corners_against) / 2
+    Args:
+        home_team: Home team data with corners stats
+        away_team: Away team data with corners stats
+        threshold: Corners line (typically 9.5)
+        
+    Returns:
+        tuple: (over_probability, under_probability, expected_corners)
+    """
+    # Extract corner statistics (per game)
+    home_corners_for = home_team.get('home_corners_per_game', 0)
+    home_corners_against = home_team.get('home_corners_against', 0)
+    away_corners_for = away_team.get('away_corners_per_game', 0) 
+    away_corners_against = away_team.get('away_corners_against', 0)
+    
+    # If all corner stats are zero or very low, we have insufficient data
+    if (home_corners_for + home_corners_against + away_corners_for + away_corners_against) < 0.5:
+        # With insufficient data, probability should be close to market average
+        # Typical market is slightly favoring over (53-55%)
+        return 0.53, 0.47, 9.5
+        
+    # Calculate expected corners using average methods
+    home_expected_corners = (home_corners_for + away_corners_against) / 2
+    away_expected_corners = (away_corners_for + home_corners_against) / 2
     
     # Total expected corners
-    total_expected = (home_expected + away_expected) * league_corner_factor
+    expected_corners = home_expected_corners + away_expected_corners
     
-    # If both teams have very low corner data (near zero), make probability more balanced
-    if (home_corners_for + away_corners_for + home_corners_against + away_corners_against) < 0.5:
-        # Use league average expected corners - typically 9-10 per game
-        total_expected = 9.5
-        
-        # Make probability closer to 50-50 to represent high uncertainty
-        if threshold == 9.5:  # Common threshold
-            over_prob = 0.52  # Slightly favoring over is common in corners
-            under_prob = 0.48
-            return over_prob, under_prob, total_expected
+    # Use normal approximation for corners distribution
+    std_dev = math.sqrt(expected_corners * 0.8)  # Variance is typically lower than mean
     
-    # Standard calculation for normal data values
-    # Calculation using normal approximation
-    std_dev = math.sqrt(total_expected)
+    # Calculate probability using normal CDF
+    from scipy.stats import norm
+    under_prob = norm.cdf(threshold, loc=expected_corners, scale=std_dev)
+    over_prob = 1 - under_prob
     
-    # Z-score for threshold
-    z = (threshold - total_expected) / std_dev if std_dev > 0 else 0
+    # Constraint probabilities to reasonable ranges
+    over_prob = min(0.85, max(0.15, over_prob))
+    under_prob = 1 - over_prob
     
-    # Approximation of normal CDF
-    def normal_cdf(x):
-        return 0.5 * (1 + math.erf(x / math.sqrt(2)))
-    
-    # Probability under
-    p_under = normal_cdf(z)
-    
-    # Limit to reasonable values
-    p_under = min(0.9, max(0.1, p_under))
-    p_over = 1 - p_under
-    
-    return p_over, p_under, total_expected
+    return over_prob, under_prob, expected_corners
 
-def calculate_cards_probability(home_team, away_team, threshold, league_card_factor, team_diff):
-    """Calcula probabilidades para mercados de cartões"""
-    # Extrair estatísticas de cartões
-    home_cards = home_team.get('cards_per_game', 2)
-    away_cards = away_team.get('cards_per_game', 2)
+def calculate_cards_probability(home_team, away_team, threshold=4.5):
+    """
+    Calculate cards probability based on team averages
     
-    # Fator de intensidade baseado na proximidade das equipes
-    intensity_factor = 1 + 0.3 * (1 - min(1, team_diff * 2))
+    Args:
+        home_team: Home team data with cards stats
+        away_team: Away team data with cards stats
+        threshold: Cards line (typically 3.5 or 4.5)
+        
+    Returns:
+        tuple: (over_probability, under_probability, expected_cards)
+    """
+    # Extract cards statistics (per game)
+    home_cards = home_team.get('home_cards_per_game', 0)
+    away_cards = away_team.get('away_cards_per_game', 0)
     
-    # Cartões esperados ajustados por intensidade e fator da liga
-    expected_cards = (home_cards + away_cards) * intensity_factor * league_card_factor
+    # If all cards stats are zero, we have insufficient data
+    if (home_cards + away_cards) < 0.5:
+        # With insufficient data, probability should be close to market average
+        # Cards typically favor over slightly (52-55%)
+        return 0.52, 0.48, 4.5
+        
+    # Expected cards with intensity factor
+    # Closer games tend to have more cards
+    home_score = home_team.get('total_score', 0.5)
+    away_score = away_team.get('total_score', 0.5)
+    intensity = 1 + (0.2 * (1 - abs(home_score - away_score)))
     
-    # Usando aproximação normal
-    std_dev = math.sqrt(expected_cards * 0.7)  # Desvio estimado
+    expected_cards = (home_cards + away_cards) * intensity
     
-    # Z-score para threshold
-    z = (threshold - expected_cards) / std_dev
+    # Use normal approximation for cards distribution
+    std_dev = math.sqrt(expected_cards * 0.7)  # Cards variance typically lower than mean
     
-    # Aproximação da função de distribuição normal cumulativa
-    def normal_cdf(x):
-        return 0.5 * (1 + math.erf(x / math.sqrt(2)))
+    # Calculate probability using normal CDF
+    from scipy.stats import norm
+    under_prob = norm.cdf(threshold, loc=expected_cards, scale=std_dev)
+    over_prob = 1 - under_prob
     
-    # Probabilidade under
-    p_under = normal_cdf(z)
+    # Constraint probabilities to reasonable ranges
+    over_prob = min(0.8, max(0.2, over_prob))
+    under_prob = 1 - over_prob
     
-    # Limitar a valores razoáveis
-    p_under = min(0.85, max(0.15, p_under))
-    p_over = 1 - p_under
+    return over_prob, under_prob, expected_cards
+
+def calculate_double_chance_probabilities(home_win, draw, away_win):
+    """
+    Calculate double chance probabilities based on 1X2 probabilities
     
-    return p_over, p_under, expected_cards
+    Args:
+        home_win: Probability of home win
+        draw: Probability of draw
+        away_win: Probability of away win
+        
+    Returns:
+        dict: Probabilities for each double chance outcome
+    """
+    # Direct calculation from 1X2 probabilities
+    home_or_draw = home_win + draw
+    home_or_away = home_win + away_win
+    draw_or_away = draw + away_win
+    
+    # Check for consistency - the sum of all three should be 2
+    total = home_or_draw + home_or_away + draw_or_away
+    
+    # If there's a discrepancy (should be 2.0), normalize
+    if abs(total - 2.0) > 0.001:
+        factor = 2.0 / total
+        home_or_draw *= factor
+        home_or_away *= factor
+        draw_or_away *= factor
+    
+    # Ensure no probability exceeds 1.0
+    home_or_draw = min(0.98, home_or_draw)
+    home_or_away = min(0.98, home_or_away)
+    draw_or_away = min(0.98, draw_or_away)
+    
+    # For the example in your output:
+    # If home_win = 0.53, draw = 0.15, away_win = 0.32
+    # Then:
+    # - Home or Draw = 0.68 (68%)
+    # - Home or Away = 0.85 (85%)
+    # - Draw or Away = 0.47 (47%)
+    
+    return {
+        "home_or_draw": home_or_draw,
+        "home_or_away": home_or_away,
+        "draw_or_away": draw_or_away
+    }
 
 def calculate_home_advantage_modifier(conditions):
     """Calcula modificador para vantagem em casa baseado em condições da partida"""
