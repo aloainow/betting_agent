@@ -1081,7 +1081,7 @@ def generate_under_cards_justification(home_team, away_team, threshold, real_pro
 def generate_condensed_justification(team_name, home_team, away_team, real_prob, implied_prob, analysis_data, original_probabilities, expected_goals=None):
     """
     Gera uma justificativa condensada específica para cada tipo de mercado,
-    usando os nomes dos times e mostrando forma apenas para mercados relevantes.
+    usando os nomes dos times e mostrando forma apenas para mercados relevantes (moneyline e dupla chance).
     """
     import re
     
@@ -1098,7 +1098,7 @@ def generate_condensed_justification(team_name, home_team, away_team, real_prob,
         threshold_direction = threshold_match.group(1).lower()  # "over" ou "under"
         threshold = float(threshold_match.group(2))
     
-    # Extrair dados básicos apenas se formos usá-los
+    # Extrair dados básicos apenas se formos usá-los para moneyline e dupla chance
     home_form_points = analysis_data.get("home_form_points", 0) * 15
     away_form_points = analysis_data.get("away_form_points", 0) * 15
     
