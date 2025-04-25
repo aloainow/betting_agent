@@ -2247,6 +2247,9 @@ def calculate_1x2_probabilities(home_score, away_score, home_consistency, away_c
     """Calculates 1X2 probabilities with adjusted distribution"""
     # Base raw probabilities
     total_score = home_score + away_score
+    if total_score == 0:
+        total_score = 1  # Avoid division by zero
+        
     base_home = home_score / total_score
     base_away = away_score / total_score
     
@@ -2254,11 +2257,14 @@ def calculate_1x2_probabilities(home_score, away_score, home_consistency, away_c
     home_advantage = 0.07 * home_adv_mod  # Adjustable by conditions
     
     # Apply home advantage with caps
-    adjusted_home = min(0.75, base_home + home_advantage)
+    adjusted_home = min(0.70, base_home + home_advantage)
     adjusted_away = max(0.15, base_away - (home_advantage * 0.7))
     
     # Calculate draw based on consistencies and caps
-    # More consistent teams = fewer draws
+    # Ensure consistency values are in proper range (0-100)
+    home_consistency = min(100, max(0, home_consistency))
+    away_consistency = min(100, max(0, away_consistency))
+    
     avg_consistency = (home_consistency + away_consistency) / 2
     draw_factor = 1 - (avg_consistency / 100)  # Lower consistency = more draws
     
@@ -2277,35 +2283,14 @@ def calculate_1x2_probabilities(home_score, away_score, home_consistency, away_c
     
     return home_win, draw, away_win
 
-def calculate_over_probability(home_xg, away_xg, threshold):
-    """Calcula probabilidade de Over usando distribuição de Poisson"""
-    lambda_total = home_xg + away_xg
-    
-    # Usar cálculo exato de Poisson para o threshold
-    cumulative_prob = 0
-    for i in range(int(threshold) + 1):
-        cumulative_prob += math.exp(-lambda_total) * (lambda_total ** i) / math.factorial(i)
-    
-    # Probabilidade de Over = 1 - P(gols <= threshold)
-    return min(0.95, max(0.05, 1 - cumulative_prob))
 
 def calculate_btts_probability(home_expected_goals, away_expected_goals, league_btts_factor=1.0):
-    """
-    Calculate probability of both teams scoring
-    
-    Args:
-        home_expected_goals: Expected goals for home team
-        away_expected_goals: Expected goals for away team
-        league_btts_factor: League-specific adjustment factor
-        
-    Returns:
-        tuple: (btts_yes_probability, btts_no_probability)
-    """
+    """Calculate probability of both teams scoring"""
     # Probability of each team not scoring (Poisson for 0 goals)
     p_home_no_goal = math.exp(-home_expected_goals)
     p_away_no_goal = math.exp(-away_expected_goals)
     
-    # BTTS Yes = 1 - (probability either team doesn't score)
+    # BTTS Yes = 1 - (probability that at least one team doesn't score)
     p_not_btts = p_home_no_goal + p_away_no_goal - (p_home_no_goal * p_away_no_goal)
     
     # Apply league factor adjustment
@@ -2317,138 +2302,126 @@ def calculate_btts_probability(home_expected_goals, away_expected_goals, league_
     
     return p_btts, p_not_btts
 
-def calculate_corners_probability(home_team, away_team, threshold=9.5):
-    """
-    Calculate corners probability based on team averages
+
+def calculate_over_probability(home_xg, away_xg, threshold):
+    """Calculates probability of Over using Poisson distribution"""
+    lambda_total = home_xg + away_xg
     
-    Args:
-        home_team: Home team data with corners stats
-        away_team: Away team data with corners stats
-        threshold: Corners line (typically 9.5)
-        
-    Returns:
-        tuple: (over_probability, under_probability, expected_corners)
-    """
-    # Extract corner statistics (per game)
-    home_corners_for = home_team.get('home_corners_per_game', 0)
-    home_corners_against = home_team.get('home_corners_against', 0)
-    away_corners_for = away_team.get('away_corners_per_game', 0) 
-    away_corners_against = away_team.get('away_corners_against', 0)
+    # Usar cálculo exato de Poisson para o threshold
+    cumulative_prob = 0
+    for i in range(int(threshold) + 1):
+        cumulative_prob += math.exp(-lambda_total) * (lambda_total ** i) / math.factorial(i)
     
-    # If all corner stats are zero or very low, we have insufficient data
-    if (home_corners_for + home_corners_against + away_corners_for + away_corners_against) < 0.5:
-        # With insufficient data, probability should be close to market average
-        # Typical market is slightly favoring over (53-55%)
-        return 0.53, 0.47, 9.5
-        
-    # Calculate expected corners using average methods
-    home_expected_corners = (home_corners_for + away_corners_against) / 2
-    away_expected_corners = (away_corners_for + home_corners_against) / 2
+    # Probabilidade de Over = 1 - P(gols <= threshold)
+    over_prob = 1 - cumulative_prob
+    
+    # Ensure probability is in reasonable range
+    over_prob = min(0.95, max(0.05, over_prob))
+    
+    return over_prob
+
+
+def calculate_corners_probability(home_team, away_team, threshold=9.5, league_corner_factor=1.0):
+    """Calculates probabilities for corners markets"""
+    # Extract corners statistics
+    home_corners_for = home_team.get('corners_for', 0) / max(1, home_team.get('matches_played', 1))
+    home_corners_against = home_team.get('corners_against', 0) / max(1, home_team.get('matches_played', 1))
+    away_corners_for = away_team.get('corners_for', 0) / max(1, away_team.get('matches_played', 1))
+    away_corners_against = away_team.get('corners_against', 0) / max(1, away_team.get('matches_played', 1))
+    
+    # When both teams have zero or very low corners data,
+    # the probability should be closer to market average
+    if (home_corners_for + away_corners_for + home_corners_against + away_corners_against) < 0.5:
+        # Use more balanced probability (slightly favoring over)
+        over_prob = 0.53
+        under_prob = 0.47
+        expected_corners = 9.5  # League average
+        return over_prob, under_prob, expected_corners
+    
+    # Expected corners for each team
+    home_expected = (home_corners_for + away_corners_against) / 2
+    away_expected = (away_corners_for + home_corners_against) / 2
     
     # Total expected corners
-    expected_corners = home_expected_corners + away_expected_corners
+    total_expected = (home_expected + away_expected) * league_corner_factor
     
-    # Use normal approximation for corners distribution
-    std_dev = math.sqrt(expected_corners * 0.8)  # Variance is typically lower than mean
+    # Calculation using normal approximation
+    std_dev = math.sqrt(total_expected)
     
-    # Calculate probability using normal CDF
-    from scipy.stats import norm
-    under_prob = norm.cdf(threshold, loc=expected_corners, scale=std_dev)
-    over_prob = 1 - under_prob
+    # Z-score for threshold
+    z = (threshold - total_expected) / std_dev if std_dev > 0 else 0
     
-    # Constraint probabilities to reasonable ranges
-    over_prob = min(0.85, max(0.15, over_prob))
-    under_prob = 1 - over_prob
+    # Approximation of normal CDF
+    def normal_cdf(x):
+        return 0.5 * (1 + math.erf(x / math.sqrt(2)))
     
-    return over_prob, under_prob, expected_corners
+    # Probability under
+    p_under = normal_cdf(z)
+    
+    # Limit to reasonable values
+    p_under = min(0.85, max(0.15, p_under))
+    p_over = 1 - p_under
+    
+    return p_over, p_under, total_expected
 
-def calculate_cards_probability(home_team, away_team, threshold=4.5):
-    """
-    Calculate cards probability based on team averages
+
+def calculate_cards_probability(home_team, away_team, threshold=4.5, league_card_factor=1.0, team_diff=0.0):
+    """Calculates probabilities for cards markets"""
+    # Extract cards statistics
+    home_cards = home_team.get('cards_per_game', 0)
+    away_cards = away_team.get('cards_per_game', 0)
     
-    Args:
-        home_team: Home team data with cards stats
-        away_team: Away team data with cards stats
-        threshold: Cards line (typically 3.5 or 4.5)
-        
-    Returns:
-        tuple: (over_probability, under_probability, expected_cards)
-    """
-    # Extract cards statistics (per game)
-    home_cards = home_team.get('home_cards_per_game', 0)
-    away_cards = away_team.get('away_cards_per_game', 0)
-    
-    # If all cards stats are zero, we have insufficient data
+    # When both teams have zero or very low cards data,
+    # probability should be closer to market average
     if (home_cards + away_cards) < 0.5:
-        # With insufficient data, probability should be close to market average
-        # Cards typically favor over slightly (52-55%)
-        return 0.52, 0.48, 4.5
-        
-    # Expected cards with intensity factor
-    # Closer games tend to have more cards
-    home_score = home_team.get('total_score', 0.5)
-    away_score = away_team.get('total_score', 0.5)
-    intensity = 1 + (0.2 * (1 - abs(home_score - away_score)))
+        # Use more balanced probability (slightly favoring over)
+        over_prob = 0.52
+        under_prob = 0.48
+        expected_cards = 4.5  # League average
+        return over_prob, under_prob, expected_cards
     
-    expected_cards = (home_cards + away_cards) * intensity
+    # Fator de intensidade baseado na proximidade das equipes
+    intensity_factor = 1 + 0.3 * (1 - min(1, team_diff * 2))
     
-    # Use normal approximation for cards distribution
-    std_dev = math.sqrt(expected_cards * 0.7)  # Cards variance typically lower than mean
+    # Cartões esperados ajustados por intensidade e fator da liga
+    expected_cards = (home_cards + away_cards) * intensity_factor * league_card_factor
     
-    # Calculate probability using normal CDF
-    from scipy.stats import norm
-    under_prob = norm.cdf(threshold, loc=expected_cards, scale=std_dev)
-    over_prob = 1 - under_prob
+    # Usando aproximação normal
+    std_dev = math.sqrt(expected_cards * 0.7)  # Desvio estimado
     
-    # Constraint probabilities to reasonable ranges
-    over_prob = min(0.8, max(0.2, over_prob))
-    under_prob = 1 - over_prob
+    # Z-score para threshold
+    z = (threshold - expected_cards) / std_dev if std_dev > 0 else 0
     
-    return over_prob, under_prob, expected_cards
+    # Aproximação da função de distribuição normal cumulativa
+    def normal_cdf(x):
+        return 0.5 * (1 + math.erf(x / math.sqrt(2)))
+    
+    # Probabilidade under
+    p_under = normal_cdf(z)
+    
+    # Limitar a valores razoáveis
+    p_under = min(0.85, max(0.15, p_under))
+    p_over = 1 - p_under
+    
+    return p_over, p_under, expected_cards
+
 
 def calculate_double_chance_probabilities(home_win, draw, away_win):
-    """
-    Calculate double chance probabilities based on 1X2 probabilities
-    
-    Args:
-        home_win: Probability of home win
-        draw: Probability of draw
-        away_win: Probability of away win
-        
-    Returns:
-        dict: Probabilities for each double chance outcome
-    """
+    """Calculate double chance probabilities based on 1X2 probabilities"""
     # Direct calculation from 1X2 probabilities
     home_or_draw = home_win + draw
     home_or_away = home_win + away_win
     draw_or_away = draw + away_win
     
-    # Check for consistency - the sum of all three should be 2
-    total = home_or_draw + home_or_away + draw_or_away
-    
-    # If there's a discrepancy (should be 2.0), normalize
-    if abs(total - 2.0) > 0.001:
-        factor = 2.0 / total
-        home_or_draw *= factor
-        home_or_away *= factor
-        draw_or_away *= factor
-    
-    # Ensure no probability exceeds 1.0
+    # Ensure no probability exceeds 0.98
     home_or_draw = min(0.98, home_or_draw)
     home_or_away = min(0.98, home_or_away)
     draw_or_away = min(0.98, draw_or_away)
     
-    # For the example in your output:
-    # If home_win = 0.53, draw = 0.15, away_win = 0.32
-    # Then:
-    # - Home or Draw = 0.68 (68%)
-    # - Home or Away = 0.85 (85%)
-    # - Draw or Away = 0.47 (47%)
-    
     return {
         "home_or_draw": home_or_draw,
         "home_or_away": home_or_away,
-        "draw_or_away": draw_or_away
+        "away_or_draw": draw_or_away
     }
 
 def calculate_home_advantage_modifier(conditions):
