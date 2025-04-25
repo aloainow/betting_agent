@@ -2289,13 +2289,14 @@ def calculate_over_probability(home_xg, away_xg, threshold):
     # Probabilidade de Over = 1 - P(gols <= threshold)
     return min(0.95, max(0.05, 1 - cumulative_prob))
 
-def calculate_btts_probability(home_expected_goals, away_expected_goals):
+def calculate_btts_probability(home_expected_goals, away_expected_goals, league_btts_factor=1.0):
     """
     Calculate probability of both teams scoring
     
     Args:
         home_expected_goals: Expected goals for home team
         away_expected_goals: Expected goals for away team
+        league_btts_factor: League-specific adjustment factor
         
     Returns:
         tuple: (btts_yes_probability, btts_no_probability)
@@ -2305,10 +2306,16 @@ def calculate_btts_probability(home_expected_goals, away_expected_goals):
     p_away_no_goal = math.exp(-away_expected_goals)
     
     # BTTS Yes = 1 - (probability either team doesn't score)
-    btts_yes = 1 - (p_home_no_goal + p_away_no_goal - (p_home_no_goal * p_away_no_goal))
-    btts_no = 1 - btts_yes
+    p_not_btts = p_home_no_goal + p_away_no_goal - (p_home_no_goal * p_away_no_goal)
     
-    return btts_yes, btts_no
+    # Apply league factor adjustment
+    p_btts = (1 - p_not_btts) * league_btts_factor
+    
+    # Ensure probability is in reasonable range
+    p_btts = min(0.85, max(0.25, p_btts))
+    p_not_btts = 1 - p_btts
+    
+    return p_btts, p_not_btts
 
 def calculate_corners_probability(home_team, away_team, threshold=9.5):
     """
