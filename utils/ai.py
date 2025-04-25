@@ -2229,33 +2229,46 @@ def calculate_defensive_strength(team):
     return min(0.9, max(0.1, 1 - ((xga_per_game / 2.5) * 0.7 + (conceded_per_game / 2.5) * 0.3)))
 
 def calculate_1x2_probabilities(home_score, away_score, home_consistency, away_consistency, home_adv_mod=1.0):
-    """Calcula probabilidades 1X2 com distribuição ajustada"""
+    """Calculates 1X2 probabilities with adjusted distribution"""
+    # Ensure scores are positive to avoid division issues
+    home_score = max(0.1, home_score)
+    away_score = max(0.1, away_score)
+    
     # Base raw probabilities
     total_score = home_score + away_score
     base_home = home_score / total_score
     base_away = away_score / total_score
     
-    # Ajustar para vantagem em casa
-    home_advantage = 0.07 * home_adv_mod  # Ajustável por condições
+    # Apply home advantage
+    home_advantage = 0.07 * home_adv_mod
     
-    # Aplicar vantagem em casa
-    adjusted_home = min(0.75, base_home + home_advantage)
-    adjusted_away = max(0.15, base_away - (home_advantage * 0.7))
+    # Apply home advantage with constraints
+    adjusted_home = min(0.70, base_home + home_advantage)
+    adjusted_away = min(0.60, max(0.10, base_away - (home_advantage * 0.7)))
     
-    # Calcular empate baseado em consistências
-    # Equipes mais consistentes = menos empates
-    avg_consistency = (home_consistency + away_consistency) / 2
-    draw_factor = 1 - avg_consistency  # Menor consistência = mais empates
+    # Calculate draw probability
+    draw_prob = 1 - (adjusted_home + adjusted_away)
     
-    # Base draw probability
-    base_draw = 0.25 * draw_factor
+    # Ensure draw probability is reasonable (15-35%)
+    if draw_prob < 0.15:
+        excess = 0.15 - draw_prob
+        draw_prob = 0.15
+        # Reduce other probabilities proportionally
+        total = adjusted_home + adjusted_away
+        adjusted_home -= (excess * (adjusted_home / total))
+        adjusted_away -= (excess * (adjusted_away / total))
+    elif draw_prob > 0.35:
+        excess = draw_prob - 0.35
+        draw_prob = 0.35
+        # Distribute excess to other probabilities
+        adjusted_home += excess * 0.6
+        adjusted_away += excess * 0.4
     
-    # Ajustar distribuição para garantir soma 1
-    total_raw = adjusted_home + adjusted_away + base_draw
-    
-    home_win = adjusted_home / total_raw
-    away_win = adjusted_away / total_raw
-    draw = base_draw / total_raw
+    # Ensure final probabilities sum to 1
+    total = adjusted_home + adjusted_away + draw_prob
+    home_win = adjusted_home / total
+    away_win = adjusted_away / total
+    draw = draw_prob / total
     
     return home_win, draw, away_win
 
@@ -2292,35 +2305,46 @@ def calculate_btts_probability(home_xg, away_xg, league_btts_factor):
     return p_btts, 1 - p_btts
 
 def calculate_corners_probability(home_team, away_team, threshold, league_corner_factor):
-    """Calcula probabilidades para mercados de escanteios"""
-    # Extrair estatísticas de escanteios
+    """Calculates probabilities for corners markets"""
+    # Extract corner statistics
     home_corners_for = home_team.get('corners_for', 0) / max(1, home_team.get('matches_played', 1))
     home_corners_against = home_team.get('corners_against', 0) / max(1, home_team.get('matches_played', 1))
     away_corners_for = away_team.get('corners_for', 0) / max(1, away_team.get('matches_played', 1))
     away_corners_against = away_team.get('corners_against', 0) / max(1, away_team.get('matches_played', 1))
     
-    # Escanteios esperados para cada time
+    # Expected corners for each team
     home_expected = (home_corners_for + away_corners_against) / 2
     away_expected = (away_corners_for + home_corners_against) / 2
     
-    # Total esperado
+    # Total expected corners
     total_expected = (home_expected + away_expected) * league_corner_factor
     
-    # Cálculo de probabilidade usando aproximação normal
-    # Desvio padrão estimado
+    # If both teams have very low corner data (near zero), make probability more balanced
+    if (home_corners_for + away_corners_for + home_corners_against + away_corners_against) < 0.5:
+        # Use league average expected corners - typically 9-10 per game
+        total_expected = 9.5
+        
+        # Make probability closer to 50-50 to represent high uncertainty
+        if threshold == 9.5:  # Common threshold
+            over_prob = 0.52  # Slightly favoring over is common in corners
+            under_prob = 0.48
+            return over_prob, under_prob, total_expected
+    
+    # Standard calculation for normal data values
+    # Calculation using normal approximation
     std_dev = math.sqrt(total_expected)
     
-    # Z-score para threshold
-    z = (threshold - total_expected) / std_dev
+    # Z-score for threshold
+    z = (threshold - total_expected) / std_dev if std_dev > 0 else 0
     
-    # Aproximação da função de distribuição normal cumulativa
+    # Approximation of normal CDF
     def normal_cdf(x):
         return 0.5 * (1 + math.erf(x / math.sqrt(2)))
     
-    # Probabilidade under
+    # Probability under
     p_under = normal_cdf(z)
     
-    # Limitar a valores razoáveis
+    # Limit to reasonable values
     p_under = min(0.9, max(0.1, p_under))
     p_over = 1 - p_under
     
