@@ -1081,7 +1081,7 @@ def generate_under_cards_justification(home_team, away_team, threshold, real_pro
 def generate_condensed_justification(team_name, home_team, away_team, real_prob, implied_prob, analysis_data, original_probabilities, expected_goals=None):
     """
     Gera uma justificativa condensada específica para cada tipo de mercado,
-    usando os nomes dos times e suas estatísticas específicas.
+    usando os nomes dos times e mostrando forma apenas para mercados relevantes.
     """
     import re
     
@@ -1098,11 +1098,9 @@ def generate_condensed_justification(team_name, home_team, away_team, real_prob,
         threshold_direction = threshold_match.group(1).lower()  # "over" ou "under"
         threshold = float(threshold_match.group(2))
     
-    # Extrair dados básicos
+    # Extrair dados básicos apenas se formos usá-los
     home_form_points = analysis_data.get("home_form_points", 0) * 15
     away_form_points = analysis_data.get("away_form_points", 0) * 15
-    home_total_score = analysis_data.get("home_total_score", 0)
-    away_total_score = analysis_data.get("away_total_score", 0)
     
     # Extrair dados específicos de cada time
     home_team_data = original_probabilities.get("home_team", {})
@@ -1127,7 +1125,7 @@ def generate_condensed_justification(team_name, home_team, away_team, real_prob,
     # Construir justificativa com base no tipo de mercado
     justification = ""
     
-    # 1. MONEYLINE (1X2)
+    # 1. MONEYLINE (1X2) - INCLUI FORMA
     if market_type == "moneyline":
         if team_name == home_team:
             # Vitória do time da casa
@@ -1164,14 +1162,14 @@ def generate_condensed_justification(team_name, home_team, away_team, real_prob,
             home_draw_pct = home_team_data.get("draw_pct", 0)
             away_draw_pct = away_team_data.get("draw_pct", 0)
             
-            justification = f"{home_team} ({home_form_points:.0f}/15 pts) vs {away_team} ({away_form_points:.0f}/15 pts). "
+            justification = f"{home_team} vs {away_team}. "
             
             if home_draw_pct > 0 and away_draw_pct > 0:
                 justification += f"Tendência de empates: {home_team} {home_draw_pct:.0f}%, {away_team} {away_draw_pct:.0f}%. "
             
             justification += f"Odds {implied_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
     
-    # 2. DUPLA CHANCE
+    # 2. DUPLA CHANCE - INCLUI FORMA
     elif market_type == "double_chance":
         if home_team in team_name and "Empate" in team_name:
             # Casa ou Empate
@@ -1192,7 +1190,7 @@ def generate_condensed_justification(team_name, home_team, away_team, real_prob,
             justification = f"Baixa probabilidade de empate entre {home_team} e {away_team}. "
             justification += f"Probabilidade de {real_prob:.1f}% vs {implied_prob:.1f}% das odds."
     
-    # 3. AMBOS MARCAM (BTTS)
+    # 3. AMBOS MARCAM (BTTS) - SEM FORMA
     elif market_type == "btts":
         # Extrair estatísticas de BTTS
         home_btts_pct = home_team_data.get("btts_pct", 0)
@@ -1210,7 +1208,7 @@ def generate_condensed_justification(team_name, home_team, away_team, real_prob,
             justification = f"{home_team} vs {away_team}. Clean Sheets: {home_team} {home_cs_pct:.0f}%, {away_team} {away_cs_pct:.0f}%. "
             justification += f"Previsão {total_expected_goals:.2f} gols. Odds {implied_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
     
-    # 4. TOTAL DE GOLS
+    # 4. TOTAL DE GOLS - SEM FORMA
     elif market_type == "goals" and threshold is not None:
         # Extrair médias de gols
         home_goals_scored = home_team_data.get("home_goals_scored", 0)
@@ -1244,7 +1242,7 @@ def generate_condensed_justification(team_name, home_team, away_team, real_prob,
             justification += f"Previsão {total_expected_goals:.2f} gols, {comparison} de {threshold}. "
             justification += f"Odds {implied_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
     
-    # 5. ESCANTEIOS
+    # 5. ESCANTEIOS - SEM FORMA
     elif market_type == "corners" and threshold is not None:
         # Extrair médias de escanteios
         home_corners_home = home_team_data.get("home_corners_per_game", 0)
@@ -1273,7 +1271,7 @@ def generate_condensed_justification(team_name, home_team, away_team, real_prob,
             justification += f"Previsão {total_expected_corners:.1f} escanteios, {comparison} de {threshold}. "
             justification += f"Odds {implied_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
     
-    # 6. CARTÕES
+    # 6. CARTÕES - SEM FORMA
     elif market_type == "cards" and threshold is not None:
         # Extrair médias de cartões
         home_cards_home = home_team_data.get("home_cards_per_game", 0)
