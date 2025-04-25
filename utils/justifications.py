@@ -815,96 +815,72 @@ def generate_under_goals_justification(home_team, away_team, threshold, real_pro
         return f"Probabilidade real {real_prob:.1f}% vs implícita {implied_prob:.1f}%, vantagem de {real_prob-implied_prob:.1f}%."
 
 def generate_over_corners_justification(home_team, away_team, threshold, real_prob, implied_prob, original_probabilities, analysis_data):
-    """Justificativa para Over X.5 Escanteios"""
+    """Justification for Over X.5 Corners"""
     try:
-        # Extrair médias de escanteios
+        # Extract corner averages
         home_team_data = original_probabilities.get("home_team", {})
         away_team_data = original_probabilities.get("away_team", {})
         
         home_corners_home = home_team_data.get("home_corners_per_game", 0)
         away_corners_away = away_team_data.get("away_corners_per_game", 0)
         
-        # Total esperado de escanteios
-        expected_corners = 0
-        if "corners" in original_probabilities and isinstance(original_probabilities["corners"], dict):
-            expected_corners = original_probabilities["corners"].get("expected_corners", 0)
+        # Get expected corners
+        expected_corners = original_probabilities.get("corners", {}).get("expected_corners", 0)
         
-        # IMPORTANTE: Verificar se o valor é razoável
-        if not (3 <= expected_corners <= 15):
-            # Usar valores default baseados em médias típicas
-            expected_corners = 9.5
-            if real_prob > 70:
-                expected_corners = 11.0  # Maior probabilidade para over sugere mais escanteios
-            elif real_prob < 30:
-                expected_corners = 8.0   # Menor probabilidade sugere menos escanteios
-                
-        # Verificar valores razoáveis para médias de escanteios
-        if home_corners_home > 10 or home_corners_home < 0:
-            home_corners_home = 5.0
-        if away_corners_away > 10 or away_corners_away < 0:
-            away_corners_away = 4.5
-            
-        # Verificar consistência lógica
+        # Determine comparison text
         if expected_corners > threshold:
             comparison = "acima"
         else:
             comparison = "próximo"
-                
-        # Remover menção à forma
-        justification = f"{home_team} ({home_corners_home:.1f}) vs {away_team} ({away_corners_away:.1f}) escanteios em média. "
+        
+        # Start with team names
+        justification = f"{home_team} "
+        
+        # Include corner data regardless if it's zero - this makes the issue visible
+        justification += f"({home_corners_home:.1f}) vs {away_team} ({away_corners_away:.1f}) escanteios em média. "
+        
+        # Always include expected corners and odds comparison
         justification += f"Previsão {expected_corners:.1f} escanteios, {comparison} de {threshold}. "
         justification += f"Odds {implied_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
         
         return justification
     except Exception as e:
-        # Fallback seguro em caso de erro
-        return f"Previsão favorece mais de {threshold} escanteios. Probabilidade real de {real_prob:.1f}% vs implícita de {implied_prob:.1f}%."
+        # In case of error, return a minimal justification
+        return f"{home_team} vs {away_team}. Odds {implied_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
 
 def generate_under_corners_justification(home_team, away_team, threshold, real_prob, implied_prob, original_probabilities, analysis_data):
-    """Justificativa para Under X.5 Escanteios"""
+    """Justification for Under X.5 Corners"""
     try:
-        # Extrair médias de escanteios
+        # Extract corner averages
         home_team_data = original_probabilities.get("home_team", {})
         away_team_data = original_probabilities.get("away_team", {})
         
         home_corners_home = home_team_data.get("home_corners_per_game", 0)
         away_corners_away = away_team_data.get("away_corners_per_game", 0)
         
-        # Total esperado de escanteios
-        expected_corners = 0
-        if "corners" in original_probabilities and isinstance(original_probabilities["corners"], dict):
-            expected_corners = original_probabilities["corners"].get("expected_corners", 0)
+        # Get expected corners
+        expected_corners = original_probabilities.get("corners", {}).get("expected_corners", 0)
         
-        # IMPORTANTE: Verificar se o valor é razoável
-        if not (3 <= expected_corners <= 15):
-            # Usar valores default baseados em médias típicas
-            expected_corners = 9.5
-            if real_prob > 70:
-                expected_corners = 8.0   # Maior probabilidade para under sugere menos escanteios
-            elif real_prob < 30:
-                expected_corners = 11.0  # Menor probabilidade sugere mais escanteios
-                
-        # Verificar valores razoáveis para médias de escanteios
-        if home_corners_home > 10 or home_corners_home < 0:
-            home_corners_home = 5.0
-        if away_corners_away > 10 or away_corners_away < 0:
-            away_corners_away = 4.5
-            
-        # Verificar consistência lógica
+        # Determine comparison text
         if expected_corners < threshold:
             comparison = "abaixo"
         else:
             comparison = "próximo"
-                
-        # Remover menção à forma
-        justification = f"{home_team} ({home_corners_home:.1f}) vs {away_team} ({away_corners_away:.1f}) escanteios em média. "
+        
+        # Start with team names
+        justification = f"{home_team} "
+        
+        # Include corner data regardless if it's zero - this makes the issue visible
+        justification += f"({home_corners_home:.1f}) vs {away_team} ({away_corners_away:.1f}) escanteios em média. "
+        
+        # Always include expected corners and odds comparison
         justification += f"Previsão {expected_corners:.1f} escanteios, {comparison} de {threshold}. "
         justification += f"Odds {implied_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
         
         return justification
     except Exception as e:
-        # Fallback seguro em caso de erro
-        return f"Previsão favorece menos de {threshold} escanteios. Probabilidade real de {real_prob:.1f}% vs implícita de {implied_prob:.1f}%."
+        # In case of error, return a minimal justification
+        return f"{home_team} vs {away_team}. Odds {implied_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
 
 def generate_over_cards_justification(home_team, away_team, threshold, real_prob, implied_prob, original_probabilities, analysis_data):
     """Justificativa para Over X.5 Cartões"""
