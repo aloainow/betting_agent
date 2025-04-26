@@ -1621,19 +1621,24 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
         import numpy as np
         import logging
         
+        # Verificando se h2h_data é válido
         if not isinstance(h2h_data, dict) or len(h2h_data) < 3:
-        # Create a proper neutral H2H dictionary
-        h2h_data = {
-            "total_matches": 0,
-            "home_wins": 0,
-            "away_wins": 0,
-            "draws": 0
-        }
-        logger.warning("H2H data invalid or insufficient, created neutral structure")
+            # Create a proper neutral H2H dictionary
+            h2h_data = {
+                "total_matches": 0,
+                "home_wins": 0,
+                "away_wins": 0,
+                "draws": 0
+            }
+            logger = logging.getLogger("valueHunter.ai")
+            logger.warning("H2H data invalid or insufficient, created neutral structure")
             
         # Definir as variáveis de contexto de forma
         home_form_context = "como mandante"
         away_form_context = "como visitante"
+
+        # Calcular o fator de qualidade dos dados
+        data_quality = calculate_data_quality(home_team, away_team, h2h_data)
 
         # 1. Obter fatores específicos da liga
         league_factors = calculate_league_factors(league_id, None)
@@ -1687,8 +1692,8 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
         logger.info(f"Forma do time visitante: {away_form_points}/15 pontos")
         
         # 3. Calcular consistência
-        home_consistency = calculate_team_consistency(home_team) / 100.0
-        away_consistency = calculate_team_consistency(away_team) / 100.0
+        home_consistency = calculate_team_consistency(home_team) 
+        away_consistency = calculate_team_consistency(away_team)
         
         # 4. Calcular fatores de fadiga
         home_fatigue = calculate_team_fatigue(home_team)
@@ -1757,11 +1762,12 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
         
         # 10. CALCULAR PROBABILIDADES POR MERCADO
         
-        # 10.1. Moneyline (1X2)
+        # 10.1. Moneyline (1X2) - agora usando o fator de qualidade dos dados
         home_win_prob, draw_prob, away_win_prob = calculate_1x2_probabilities(
             home_total_score, away_total_score, 
             home_consistency, away_consistency,
-            home_advantage_modifier
+            home_advantage_modifier, 
+            data_quality_factor=data_quality  # Novo parâmetro
         )
         
         # 10.2. Expected goals e mercados relacionados
@@ -1775,24 +1781,45 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
         over_under_probabilities = {}
         for threshold in [0.5, 1.5, 2.5, 3.5, 4.5]:
             over_prob = calculate_over_probability(home_expected_goals, away_expected_goals, threshold)
-            over_under_probabilities[f"over_{threshold}"] = over_prob * 100
-            over_under_probabilities[f"under_{threshold}"] = (1 - over_prob) * 100
+            # Ajustar pela qualidade dos dados
+            # Se dados são de baixa qualidade, ajustar mais perto de 50-50
+            market_avg = 0.53 if threshold <= 2.5 else 0.47  # Odds típicas de mercado
+            adjusted_over = over_prob * data_quality + market_avg * (1 - data_quality)
+            adjusted_under = 1 - adjusted_over
+            
+            over_under_probabilities[f"over_{threshold}"] = adjusted_over * 100
+            over_under_probabilities[f"under_{threshold}"] = adjusted_under * 100
         
         # 10.4. Ambos Marcam (BTTS)
         btts_yes_prob, btts_no_prob = calculate_btts_probability(
             home_expected_goals, away_expected_goals, league_factors[1]
         )
         
+        # Ajustar pela qualidade dos dados
+        market_btts_yes = 0.58  # Odds típicas de mercado
+        adjusted_btts_yes = btts_yes_prob * data_quality + market_btts_yes * (1 - data_quality)
+        adjusted_btts_no = 1 - adjusted_btts_yes
+        
         # 10.5. Escanteios
         over_corners_prob, under_corners_prob, expected_corners = calculate_corners_probability(
             home_team, away_team, 9.5, league_factors[3]
         )
+        
+        # Ajustar pela qualidade dos dados
+        market_corners_over = 0.53  # Odds típicas de mercado
+        adjusted_corners_over = over_corners_prob * data_quality + market_corners_over * (1 - data_quality)
+        adjusted_corners_under = 1 - adjusted_corners_over
         
         # 10.6. Cartões
         over_cards_prob, under_cards_prob, expected_cards = calculate_cards_probability(
             home_team, away_team, 4.5, league_factors[2],
             abs(home_total_score - away_total_score)
         )
+        
+        # Ajustar pela qualidade dos dados
+        market_cards_over = 0.52  # Odds típicas de mercado
+        adjusted_cards_over = over_cards_prob * data_quality + market_cards_over * (1 - data_quality)
+        adjusted_cards_under = 1 - adjusted_cards_over
         
         # 11. Retornar resultados completos
         return {
@@ -1817,22 +1844,22 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
                 "under_3_5": round(over_under_probabilities["under_3.5"], 1)
             },
             "btts": {
-                "yes": round(btts_yes_prob * 100, 1),
-                "no": round(btts_no_prob * 100, 1)
+                "yes": round(adjusted_btts_yes * 100, 1),
+                "no": round(adjusted_btts_no * 100, 1)
             },
             "cards": {
-                "over_4_5": round(over_cards_prob * 100, 1),
-                "under_4_5": round(under_cards_prob * 100, 1),
+                "over_4_5": round(adjusted_cards_over * 100, 1),
+                "under_4_5": round(adjusted_cards_under * 100, 1),
                 "expected_cards": round(expected_cards, 1)
             },
             "corners": {
-                "over_9_5": round(over_corners_prob * 100, 1),
-                "under_9_5": round(under_corners_prob * 100, 1),
+                "over_9_5": round(adjusted_corners_over * 100, 1),
+                "under_9_5": round(adjusted_corners_under * 100, 1),
                 "expected_corners": round(expected_corners, 1)
             },
             "analysis_data": {
-                "home_consistency": round(home_consistency * 100, 1),
-                "away_consistency": round(away_consistency * 100, 1),
+                "home_consistency": round(home_consistency, 1),
+                "away_consistency": round(away_consistency, 1),
                 "home_form_points": home_form_points / 15.0,
                 "away_form_points": away_form_points / 15.0,
                 "home_form_context": home_form_context,
@@ -1841,6 +1868,7 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
                 "away_total_score": round(away_total_score, 2),
                 "home_fatigue": round(home_fatigue * 100, 1),
                 "away_fatigue": round(away_fatigue * 100, 1),
+                "data_quality": round(data_quality * 100, 1),  # Importante: indicador de qualidade
                 "form_details": {
                     "home_specific": {
                         "points": home_specific_points,
