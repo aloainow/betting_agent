@@ -1621,14 +1621,15 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
         import numpy as np
         import logging
         
-        # Verificando se h2h_data existe
-        if h2h_data is None:
-            h2h_data = {
-                "total_matches": 0,
-                "home_wins": 0,
-                "away_wins": 0,
-                "draws": 0
-            }
+        if not isinstance(h2h_data, dict) or len(h2h_data) < 3:
+        # Create a proper neutral H2H dictionary
+        h2h_data = {
+            "total_matches": 0,
+            "home_wins": 0,
+            "away_wins": 0,
+            "draws": 0
+        }
+        logger.warning("H2H data invalid or insufficient, created neutral structure")
             
         # Definir as variáveis de contexto de forma
         home_form_context = "como mandante"
@@ -2243,46 +2244,185 @@ def calculate_defensive_strength(team):
     # Força defensiva (inverso da fraqueza)
     return min(0.9, max(0.1, 1 - ((xga_per_game / 2.5) * 0.7 + (conceded_per_game / 2.5) * 0.3)))
 
-def calculate_1x2_probabilities(home_score, away_score, home_consistency, away_consistency, home_adv_mod=1.0):
-    """Calculates 1X2 probabilities with adjusted distribution"""
+def calculate_1x2_probabilities(home_score, away_score, home_consistency, away_consistency, home_adv_mod=1.0, data_quality_factor=1.0):
+    """
+    Calculates 1X2 probabilities with adjusted distribution and data quality consideration
+    
+    Args:
+        home_score (float): Score/rating for the home team
+        away_score (float): Score/rating for the away team
+        home_consistency (float): Consistency rating for home team (0-100)
+        away_consistency (float): Consistency rating for away team (0-100)
+        home_adv_mod (float): Home advantage modifier (default: 1.0)
+        data_quality_factor (float): Quality of data factor (0-1)
+        
+    Returns:
+        tuple: (home_win_probability, draw_probability, away_win_probability)
+    """
+    # Ensure positive scores to avoid division issues
+    home_score = max(0.1, home_score)
+    away_score = max(0.1, away_score)
+    
     # Base raw probabilities
     total_score = home_score + away_score
-    if total_score == 0:
-        total_score = 1  # Avoid division by zero
-        
     base_home = home_score / total_score
     base_away = away_score / total_score
     
-    # Adjust for home advantage
-    home_advantage = 0.07 * home_adv_mod  # Adjustable by conditions
+    # Apply home advantage (5-8% in football)
+    home_advantage = 0.07 * home_adv_mod
     
-    # Apply home advantage with caps
+    # Apply home advantage with constraints
     adjusted_home = min(0.70, base_home + home_advantage)
-    adjusted_away = max(0.15, base_away - (home_advantage * 0.7))
+    adjusted_away = max(0.15, base_away - (home_advantage * 0.5))
     
-    # Calculate draw based on consistencies and caps
-    # Ensure consistency values are in proper range (0-100)
+    # Ensure both teams have consistency values in proper range (0-100)
     home_consistency = min(100, max(0, home_consistency))
     away_consistency = min(100, max(0, away_consistency))
     
+    # Calculate draw based on consistencies
+    # More consistent teams = fewer draws
     avg_consistency = (home_consistency + away_consistency) / 2
     draw_factor = 1 - (avg_consistency / 100)  # Lower consistency = more draws
     
-    # Base draw probability (typically 25-30% in football)
+    # Base draw probability (typically 20-30% in football)
     base_draw = 0.25 * draw_factor
     
-    # Make sure draw is reasonable (not too low or high)
+    # Make sure draw is reasonable (15-35%)
     base_draw = max(0.15, min(0.35, base_draw))
     
-    # Adjust distribution to ensure sum is 1
+    # Cap teams with very high probabilities
+    if adjusted_home > 0.65:
+        excess = adjusted_home - 0.65
+        adjusted_home = 0.65
+        base_draw += excess * 0.7
+        adjusted_away += excess * 0.3
+        
+    if adjusted_away > 0.50:
+        excess = adjusted_away - 0.50
+        adjusted_away = 0.50
+        base_draw += excess * 0.7
+        adjusted_home += excess * 0.3
+    
+    # Ensure probabilities sum to 1
     total_raw = adjusted_home + adjusted_away + base_draw
     
     home_win = adjusted_home / total_raw
     away_win = adjusted_away / total_raw
     draw = base_draw / total_raw
     
+    # Apply data quality factor by pulling probabilities toward market average
+    # when data quality is low
+    if data_quality_factor < 1.0:
+        # Market averages for football 1X2 (based on historical bookmaker prices)
+        market_home = 0.46  # 46% home win 
+        market_draw = 0.26  # 26% draw
+        market_away = 0.28  # 28% away win
+        
+        # Apply data quality adjustment
+        home_win = home_win * data_quality_factor + market_home * (1 - data_quality_factor)
+        draw = draw * data_quality_factor + market_draw * (1 - data_quality_factor)
+        away_win = away_win * data_quality_factor + market_away * (1 - data_quality_factor)
+        
+        # Normalize to sum to 1 again
+        total = home_win + draw + away_win
+        home_win = home_win / total
+        draw = draw / total
+        away_win = away_win / total
+    
+    # Final sanity checks - make sure probabilities are reasonable
+    # Even with low quality data, probabilities shouldn't be extreme
+    if home_win > 0.75:
+        excess = home_win - 0.75
+        home_win = 0.75
+        draw += excess * 0.7
+        away_win += excess * 0.3
+    
+    if away_win > 0.60:
+        excess = away_win - 0.60
+        away_win = 0.60
+        draw += excess * 0.7
+        home_win += excess * 0.3
+    
+    if draw > 0.40:
+        excess = draw - 0.40
+        draw = 0.40
+        home_win += excess * 0.6
+        away_win += excess * 0.4
+    
+    # Ensure minimum values
+    home_win = max(0.20, home_win)
+    draw = max(0.15, draw)
+    away_win = max(0.10, away_win)
+    
+    # Final normalization
+    total = home_win + draw + away_win
+    home_win = home_win / total
+    draw = draw / total
+    away_win = away_win / total
+    
     return home_win, draw, away_win
 
+def calculate_data_quality(home_team, away_team, h2h_data=None):
+    """
+    Calculate overall data quality factor (0-1 scale) based on available statistics
+    
+    Args:
+        home_team (dict): Home team data
+        away_team (dict): Away team data
+        h2h_data (dict): Head-to-head data
+        
+    Returns:
+        float: Data quality factor (0-1)
+    """
+    quality_score = 1.0
+    issues_found = []
+    
+    # Check if h2h_data is valid
+    if not isinstance(h2h_data, dict):
+        quality_score *= 0.9
+        issues_found.append("H2H data missing or invalid")
+    elif h2h_data.get('total_matches', 0) < 2:
+        quality_score *= 0.95
+        issues_found.append("Limited H2H history")
+    
+    # Check for essential statistics
+    for team, team_name in [(home_team, "Home"), (away_team, "Away")]:
+        # Goals data
+        if team.get('goals_per_game', 0) == 0 or team.get('conceded_per_game', 0) == 0:
+            quality_score *= 0.85
+            issues_found.append(f"{team_name} team missing goal stats")
+        
+        # Form data
+        form = team.get('form', '').upper()
+        valid_form_chars = sum(1 for c in form if c in 'WDL')
+        if valid_form_chars < 3:
+            quality_score *= 0.9
+            issues_found.append(f"{team_name} team has limited form data")
+        
+        # xG data
+        if team.get('xg_for_avg_overall', 0) == 0:
+            quality_score *= 0.95
+            issues_found.append(f"{team_name} team missing xG data")
+            
+        # Corner data
+        if team.get('corners_per_game', 0) == 0:
+            quality_score *= 0.95
+            issues_found.append(f"{team_name} team missing corner stats")
+            
+        # Card data
+        if team.get('cards_per_game', 0) == 0:
+            quality_score *= 0.95
+            issues_found.append(f"{team_name} team missing card stats")
+    
+    # Log data quality issues if any
+    if issues_found:
+        import logging
+        logger = logging.getLogger("valueHunter.ai")
+        logger.info(f"Data quality issues: {', '.join(issues_found)}")
+        logger.info(f"Data quality factor: {quality_score:.2f}")
+    
+    # Ensure quality factor is in reasonable range (never below 0.6)
+    return max(0.6, quality_score)
 
 def calculate_btts_probability(home_expected_goals, away_expected_goals, league_btts_factor=1.0):
     """Calculate probability of both teams scoring"""
