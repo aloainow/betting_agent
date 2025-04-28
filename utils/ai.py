@@ -959,7 +959,7 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
     separa as oportunidades das justificativas detalhadas.
     """
     # Definir o limiar de valor como uma constante para fácil ajuste
-    VALUE_THRESHOLD = 5.0 # Original era 2.0
+    VALUE_THRESHOLD = 10.0 # Aumentado de 5.0 para 10.0 para ser muito mais conservador
     
     try:
         # Verificar se temos informações suficientes
@@ -1802,10 +1802,11 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
         over_under_probabilities = {}
         for threshold in [0.5, 1.5, 2.5, 3.5, 4.5]:
             over_prob = calculate_over_probability(home_expected_goals, away_expected_goals, threshold)
-            # Ajustar pela qualidade dos dados
+                        # Ajustar pela qualidade dos dados
             # Se dados são de baixa qualidade, ajustar mais perto de 50-50
             market_avg = 0.53 if threshold <= 2.5 else 0.47  # Odds típicas de mercado
-            adjusted_over = over_prob * data_quality + market_avg * (1 - data_quality)
+            # Aumentar o peso do market_avg para reduzir a confiança nas previsões
+            adjusted_over = over_prob * (data_quality * 0.7) + market_avg * (1 - (data_quality * 0.7))
             adjusted_under = 1 - adjusted_over
             
             over_under_probabilities[f"over_{threshold}"] = adjusted_over * 100
@@ -1818,7 +1819,8 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
         
         # Ajustar pela qualidade dos dados
         market_btts_yes = 0.58  # Odds típicas de mercado
-        adjusted_btts_yes = btts_yes_prob * data_quality + market_btts_yes * (1 - data_quality)
+        # Aumentar o peso do market_avg para reduzir a confiança nas previsões
+        adjusted_btts_yes = btts_yes_prob * (data_quality * 0.7) + market_btts_yes * (1 - (data_quality * 0.7))
         adjusted_btts_no = 1 - adjusted_btts_yes
         
         # 10.5. Escanteios
@@ -1828,7 +1830,8 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
         
         # Ajustar pela qualidade dos dados
         market_corners_over = 0.53  # Odds típicas de mercado
-        adjusted_corners_over = over_corners_prob * data_quality + market_corners_over * (1 - data_quality)
+        # Aumentar o peso do market_avg para reduzir a confiança nas previsões
+        adjusted_corners_over = over_corners_prob * (data_quality * 0.7) + market_corners_over * (1 - (data_quality * 0.7))
         adjusted_corners_under = 1 - adjusted_corners_over
         
         # 10.6. Cartões
@@ -1839,7 +1842,8 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
         
         # Ajustar pela qualidade dos dados
         market_cards_over = 0.52  # Odds típicas de mercado
-        adjusted_cards_over = over_cards_prob * data_quality + market_cards_over * (1 - data_quality)
+        # Aumentar o peso do market_avg para reduzir a confiança nas previsões
+        adjusted_cards_over = over_cards_prob * (data_quality * 0.7) + market_cards_over * (1 - (data_quality * 0.7))
         adjusted_cards_under = 1 - adjusted_cards_over
         
         # 11. Retornar resultados completos
