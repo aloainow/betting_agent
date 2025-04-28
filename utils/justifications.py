@@ -301,8 +301,18 @@ def generate_moneyline_home_justification(home_team, away_team, real_prob, impli
         home_team_data = original_probabilities.get("home_team", {})
         h2h_data = original_probabilities.get("h2h", {})
         
-        # Forma e consistência
-        home_form_points = analysis_data.get("home_form_points", 0) * 15
+        # Forma e consistência - CORRIGIDO
+        form_details = analysis_data.get("form_details", {})
+        home_specific = form_details.get("home_specific", {})
+        home_overall = form_details.get("home_overall", {})
+        
+        # Obter pontos de forma das fontes corretas
+        home_form_points = 0
+        if home_specific and "points" in home_specific:
+            home_form_points = home_specific.get("points", 0)
+        elif home_overall and "points" in home_overall:
+            home_form_points = home_overall.get("points", 0)
+        
         home_consistency = analysis_data.get("home_consistency", 0)
         
         # Desempenho em casa
@@ -329,7 +339,7 @@ def generate_moneyline_home_justification(home_team, away_team, real_prob, impli
         h2h_win_pct = (home_h2h_wins / total_h2h * 100) if total_h2h > 0 else 0
         
         # Construir justificativa
-        justification = f"- **Forma como mandante**: {home_form_points:.0f}/15 pontos, consistência de {home_consistency:.1f}%\n"
+        justification = f"- **Forma como mandante**: {home_form_points}/15 pontos, consistência de {home_consistency:.1f}%\n"
         
         if home_wins + home_draws + home_losses > 0:
             justification += f"- **Desempenho como mandante**: {home_wins}V {home_draws}E {home_losses}D ({win_pct:.0f}% vitórias)\n"
@@ -353,8 +363,18 @@ def generate_moneyline_away_justification(home_team, away_team, real_prob, impli
         away_team_data = original_probabilities.get("away_team", {})
         h2h_data = original_probabilities.get("h2h", {})
         
-        # Forma e consistência
-        away_form_points = analysis_data.get("away_form_points", 0) * 15
+        # Forma e consistência - CORRIGIDO
+        form_details = analysis_data.get("form_details", {})
+        away_specific = form_details.get("away_specific", {})
+        away_overall = form_details.get("away_overall", {})
+        
+        # Obter pontos de forma das fontes corretas
+        away_form_points = 0
+        if away_specific and "points" in away_specific:
+            away_form_points = away_specific.get("points", 0)
+        elif away_overall and "points" in away_overall:
+            away_form_points = away_overall.get("points", 0)
+        
         away_consistency = analysis_data.get("away_consistency", 0)
         
         # Desempenho fora
@@ -381,7 +401,7 @@ def generate_moneyline_away_justification(home_team, away_team, real_prob, impli
         h2h_win_pct = (away_h2h_wins / total_h2h * 100) if total_h2h > 0 else 0
         
         # Construir justificativa
-        justification = f"- **Forma como visitante**: {away_form_points:.0f}/15 pontos, consistência de {away_consistency:.1f}%\n"
+        justification = f"- **Forma como visitante**: {away_form_points}/15 pontos, consistência de {away_consistency:.1f}%\n"
         
         if away_wins + away_draws + away_losses > 0:
             justification += f"- **Desempenho como visitante**: {away_wins}V {away_draws}E {away_losses}D ({win_pct:.0f}% vitórias)\n"
@@ -406,9 +426,26 @@ def generate_draw_justification(home_team, away_team, real_prob, implied_prob, o
         away_team_data = original_probabilities.get("away_team", {})
         h2h_data = original_probabilities.get("h2h", {})
         
-        # Forma e consistência
-        home_form_points = analysis_data.get("home_form_points", 0) * 15
-        away_form_points = analysis_data.get("away_form_points", 0) * 15
+        # Forma e consistência - CORRIGIDO
+        form_details = analysis_data.get("form_details", {})
+        
+        # Obter pontos de forma para casa
+        home_specific = form_details.get("home_specific", {})
+        home_overall = form_details.get("home_overall", {})
+        home_form_points = 0
+        if home_specific and "points" in home_specific:
+            home_form_points = home_specific.get("points", 0)
+        elif home_overall and "points" in home_overall:
+            home_form_points = home_overall.get("points", 0)
+            
+        # Obter pontos de forma para fora
+        away_specific = form_details.get("away_specific", {})
+        away_overall = form_details.get("away_overall", {})
+        away_form_points = 0
+        if away_specific and "points" in away_specific:
+            away_form_points = away_specific.get("points", 0)
+        elif away_overall and "points" in away_overall:
+            away_form_points = away_overall.get("points", 0)
         
         # Percentuais de empate
         home_draw_pct = home_team_data.get("draw_pct", 0)
@@ -425,7 +462,7 @@ def generate_draw_justification(home_team, away_team, real_prob, implied_prob, o
         force_diff = abs(home_total_score - away_total_score)
         
         # Construir justificativa
-        justification = f"- **Forma dos times**: Casa com {home_form_points:.0f}/15 pts, Fora com {away_form_points:.0f}/15 pts\n"
+        justification = f"- **Forma dos times**: Casa com {home_form_points}/15 pts, Fora com {away_form_points}/15 pts\n"
         justification += f"- **Tendência de empates**: Casa {home_draw_pct:.0f}%, Fora {away_draw_pct:.0f}%\n"
         
         if force_diff < 0.15:
@@ -448,8 +485,18 @@ def generate_home_draw_justification(home_team, away_team, real_prob, implied_pr
         home_team_data = original_probabilities.get("home_team", {})
         h2h_data = original_probabilities.get("h2h", {})
         
-        # Forma e consistência
-        home_form_points = analysis_data.get("home_form_points", 0) * 15
+        # Forma e consistência - CORRIGIDO
+        form_details = analysis_data.get("form_details", {})
+        home_specific = form_details.get("home_specific", {})
+        home_overall = form_details.get("home_overall", {})
+        
+        # Obter pontos de forma das fontes corretas
+        home_form_points = 0
+        if home_specific and "points" in home_specific:
+            home_form_points = home_specific.get("points", 0)
+        elif home_overall and "points" in home_overall:
+            home_form_points = home_overall.get("points", 0)
+        
         home_consistency = analysis_data.get("home_consistency", 0)
         
         # Desempenho em casa
@@ -466,7 +513,7 @@ def generate_home_draw_justification(home_team, away_team, real_prob, implied_pr
         h2h_no_loss_pct = ((home_h2h_wins + draws_h2h) / total_h2h * 100) if total_h2h > 0 else 0
         
         # Construir justificativa
-        justification = f"- **Forma como mandante**: {home_form_points:.0f}/15 pontos, consistência de {home_consistency:.1f}%\n"
+        justification = f"- **Forma como mandante**: {home_form_points}/15 pontos, consistência de {home_consistency:.1f}%\n"
         
         if home_wins + home_draws + home_losses > 0:
             no_loss_pct = ((home_wins + home_draws) / (home_wins + home_draws + home_losses)) * 100
@@ -489,8 +536,18 @@ def generate_away_draw_justification(home_team, away_team, real_prob, implied_pr
         away_team_data = original_probabilities.get("away_team", {})
         h2h_data = original_probabilities.get("h2h", {})
         
-        # Forma e consistência
-        away_form_points = analysis_data.get("away_form_points", 0) * 15
+        # Forma e consistência - CORRIGIDO
+        form_details = analysis_data.get("form_details", {})
+        away_specific = form_details.get("away_specific", {})
+        away_overall = form_details.get("away_overall", {})
+        
+        # Obter pontos de forma das fontes corretas
+        away_form_points = 0
+        if away_specific and "points" in away_specific:
+            away_form_points = away_specific.get("points", 0)
+        elif away_overall and "points" in away_overall:
+            away_form_points = away_overall.get("points", 0)
+        
         away_consistency = analysis_data.get("away_consistency", 0)
         
         # Desempenho fora
@@ -507,7 +564,7 @@ def generate_away_draw_justification(home_team, away_team, real_prob, implied_pr
         h2h_no_loss_pct = ((away_h2h_wins + draws_h2h) / total_h2h * 100) if total_h2h > 0 else 0
         
         # Construir justificativa
-        justification = f"- **Forma como visitante**: {away_form_points:.0f}/15 pontos, consistência de {away_consistency:.1f}%\n"
+        justification = f"- **Forma como visitante**: {away_form_points}/15 pontos, consistência de {away_consistency:.1f}%\n"
         
         if away_wins + away_draws + away_losses > 0:
             no_loss_pct = ((away_wins + away_draws) / (away_wins + away_draws + away_losses)) * 100
@@ -568,40 +625,30 @@ def generate_btts_yes_justification(home_team, away_team, real_prob, implied_pro
         away_team_data = original_probabilities.get("away_team", {})
         h2h_data = original_probabilities.get("h2h", {})
         
-        # xG e médias de gols
-        home_xg = home_team_data.get("xg_for_avg_overall", 0)
-        home_xg_home = home_team_data.get("xg_for_avg_home", home_xg)
-        away_xg = away_team_data.get("xg_for_avg_overall", 0)
-        away_xg_away = away_team_data.get("xg_for_avg_away", away_xg)
-        
-        # Médias de gols
-        home_goals_scored = home_team_data.get("home_goals_scored", 0)
-        home_played = home_team_data.get("home_played", 1)
-        away_goals_scored = away_team_data.get("away_goals_scored", 0)
-        away_played = away_team_data.get("away_played", 1)
-        
-        home_goals_home = home_goals_scored / max(1, home_played)
-        away_goals_away = away_goals_scored / max(1, away_played)
+        # Estatísticas de gols
+        home_goals_per_game = home_team_data.get("goals_per_game", 0)
+        away_goals_per_game = away_team_data.get("goals_per_game", 0)
+        home_conceded_per_game = home_team_data.get("conceded_per_game", 0)
+        away_conceded_per_game = away_team_data.get("conceded_per_game", 0)
         
         # Percentuais de BTTS
         home_btts_pct = home_team_data.get("btts_pct", 0)
         away_btts_pct = away_team_data.get("btts_pct", 0)
-        h2h_btts_pct = h2h_data.get("btts_pct", 0)
         
-        # Total esperado de gols
-        total_expected_goals = original_probabilities.get("over_under", {}).get("expected_goals", 0)
+        # Dados H2H
+        h2h_btts_pct = h2h_data.get("btts_percentage", 0)
+        total_h2h = h2h_data.get("total_matches", 0)
         
         # Construir justificativa
-        justification = f"- **xG**: Casa {home_xg_home:.2f} (mandante), Fora {away_xg_away:.2f} (visitante)\n"
-        justification += f"- **Média de gols**: Casa {home_goals_home:.2f} (mandante), Fora {away_goals_away:.2f} (visitante)\n"
-        justification += f"- **Histórico BTTS**: Casa {home_btts_pct:.0f}%, Fora {away_btts_pct:.0f}%"
+        justification = f"- **Média de gols**: {home_team} marca {home_goals_per_game:.2f} e sofre {home_conceded_per_game:.2f} por jogo\n"
+        justification += f"- **Média de gols**: {away_team} marca {away_goals_per_game:.2f} e sofre {away_conceded_per_game:.2f} por jogo\n"
         
-        if h2h_btts_pct > 0:
-            justification += f", H2H {h2h_btts_pct:.0f}%\n"
-        else:
-            justification += "\n"
-            
-        justification += f"- **Previsão de gols**: {total_expected_goals:.2f} gols totais na partida\n"
+        justification += f"- **Tendência BTTS**: {home_team} tem {home_btts_pct:.0f}% de jogos com ambos marcam\n"
+        justification += f"- **Tendência BTTS**: {away_team} tem {away_btts_pct:.0f}% de jogos com ambos marcam\n"
+        
+        if total_h2h > 0:
+            justification += f"- **Histórico H2H**: {h2h_btts_pct:.0f}% dos confrontos terminaram com ambos marcando\n"
+        
         justification += f"- **Valor identificado**: Probabilidade real {real_prob:.1f}% vs implícita {implied_prob:.1f}%, representando uma vantagem de {real_prob-implied_prob:.1f}%"
         
         return justification
@@ -617,45 +664,31 @@ def generate_btts_no_justification(home_team, away_team, real_prob, implied_prob
         away_team_data = original_probabilities.get("away_team", {})
         h2h_data = original_probabilities.get("h2h", {})
         
-        # Clean sheets
-        home_cs_pct = home_team_data.get("clean_sheets_pct", 0)
-        away_cs_pct = away_team_data.get("clean_sheets_pct", 0)
-        
-        # xG e médias de gols
-        home_xg = home_team_data.get("xg_for_avg_overall", 0)
-        home_xg_home = home_team_data.get("xg_for_avg_home", home_xg)
-        away_xg = away_team_data.get("xg_for_avg_overall", 0)
-        away_xg_away = away_team_data.get("xg_for_avg_away", away_xg)
-        
-        # Médias de gols
-        home_goals_conceded = home_team_data.get("home_goals_conceded", 0)
-        home_played = home_team_data.get("home_played", 1)
-        away_goals_conceded = away_team_data.get("away_goals_conceded", 0)
-        away_played = away_team_data.get("away_played", 1)
-        
-        home_conceded_home = home_goals_conceded / max(1, home_played)
-        away_conceded_away = away_goals_conceded / max(1, away_played)
+        # Estatísticas de clean sheets
+        home_cs_pct = home_team_data.get("clean_sheet_pct", 0)
+        away_cs_pct = away_team_data.get("clean_sheet_pct", 0)
+        home_failed_to_score_pct = home_team_data.get("failed_to_score_pct", 0)
+        away_failed_to_score_pct = away_team_data.get("failed_to_score_pct", 0)
         
         # Percentuais de BTTS
         home_btts_pct = home_team_data.get("btts_pct", 0)
         away_btts_pct = away_team_data.get("btts_pct", 0)
-        h2h_btts_pct = h2h_data.get("btts_pct", 0)
         
-        # Total esperado de gols
-        total_expected_goals = original_probabilities.get("over_under", {}).get("expected_goals", 0)
+        # Dados H2H
+        h2h_btts_pct = h2h_data.get("btts_percentage", 0)
+        total_h2h = h2h_data.get("total_matches", 0)
         
         # Construir justificativa
-        justification = f"- **Clean Sheets**: Casa {home_cs_pct:.0f}%, Fora {away_cs_pct:.0f}%\n"
-        justification += f"- **xG**: Casa {home_xg_home:.2f} (mandante), Fora {away_xg_away:.2f} (visitante)\n"
-        justification += f"- **Média de gols sofridos**: Casa {home_conceded_home:.2f} (mandante), Fora {away_conceded_away:.2f} (visitante)\n"
-        justification += f"- **Histórico BTTS-Não**: Casa {100-home_btts_pct:.0f}%, Fora {100-away_btts_pct:.0f}%"
+        justification = f"- **Clean sheets**: {home_team} mantém o zero em {home_cs_pct:.0f}% dos jogos\n"
+        justification += f"- **Clean sheets**: {away_team} mantém o zero em {away_cs_pct:.0f}% dos jogos\n"
         
-        if h2h_btts_pct > 0:
-            justification += f", H2H {100-h2h_btts_pct:.0f}%\n"
-        else:
-            justification += "\n"
-            
-        justification += f"- **Previsão de gols**: {total_expected_goals:.2f} gols totais na partida\n"
+        justification += f"- **Falha em marcar**: {home_team} não marca em {home_failed_to_score_pct:.0f}% dos jogos\n"
+        justification += f"- **Falha em marcar**: {away_team} não marca em {away_failed_to_score_pct:.0f}% dos jogos\n"
+        
+        if total_h2h > 0:
+            no_btts_pct = 100 - h2h_btts_pct
+            justification += f"- **Histórico H2H**: {no_btts_pct:.0f}% dos confrontos terminaram sem ambos marcarem\n"
+        
         justification += f"- **Valor identificado**: Probabilidade real {real_prob:.1f}% vs implícita {implied_prob:.1f}%, representando uma vantagem de {real_prob-implied_prob:.1f}%"
         
         return justification
@@ -670,60 +703,42 @@ def generate_over_goals_justification(home_team, away_team, threshold, real_prob
         home_team_data = original_probabilities.get("home_team", {})
         away_team_data = original_probabilities.get("away_team", {})
         h2h_data = original_probabilities.get("h2h", {})
+        ou_data = original_probabilities.get("over_under", {})
         
-        # xG e médias de gols
-        home_xg = home_team_data.get("xg_for_avg_overall", 0)
-        home_xg_home = home_team_data.get("xg_for_avg_home", home_xg)
-        away_xg = away_team_data.get("xg_for_avg_overall", 0)
-        away_xg_away = away_team_data.get("xg_for_avg_away", away_xg)
+        # Estatísticas de gols
+        home_goals_per_game = home_team_data.get("goals_per_game", 0)
+        away_goals_per_game = away_team_data.get("goals_per_game", 0)
+        home_conceded_per_game = home_team_data.get("conceded_per_game", 0)
+        away_conceded_per_game = away_team_data.get("conceded_per_game", 0)
         
-        # Médias de gols
-        home_goals_scored = home_team_data.get("home_goals_scored", 0)
-        home_goals_conceded = home_team_data.get("home_goals_conceded", 0)
-        home_played = home_team_data.get("home_played", 1)
-        
-        away_goals_scored = away_team_data.get("away_goals_scored", 0)
-        away_goals_conceded = away_team_data.get("away_goals_conceded", 0)
-        away_played = away_team_data.get("away_played", 1)
-        
-        home_goals_home = home_goals_scored / max(1, home_played)
-        home_conceded_home = home_goals_conceded / max(1, home_played)
-        away_goals_away = away_goals_scored / max(1, away_played)
-        away_conceded_away = away_goals_conceded / max(1, away_played)
+        # Expected goals
+        expected_goals = ou_data.get("expected_goals", home_goals_per_game + away_goals_per_game)
         
         # Percentuais de Over
-        threshold_key = str(threshold).replace(".", "_")
-        home_over_key = f"over_{threshold_key}_percentage"
-        away_over_key = f"over_{threshold_key}_percentage"
-        h2h_over_key = f"over_{threshold_key}_percentage"
+        threshold_str = str(threshold).replace(".", "_")
+        home_over_pct_key = f"over_{threshold_str}_pct"
+        away_over_pct_key = f"over_{threshold_str}_pct"
+        h2h_over_pct_key = f"over_{threshold_str}_percentage"
         
-        home_over_pct = home_team_data.get(home_over_key, 0)
-        away_over_pct = away_team_data.get(away_over_key, 0)
-        h2h_over_pct = h2h_data.get(h2h_over_key, 0)
-        
-        # Total esperado de gols
-        total_expected_goals = original_probabilities.get("over_under", {}).get("expected_goals", 0)
-        
-        # Verificar se o total esperado é maior/menor que o threshold
-        if total_expected_goals > threshold:
-            comparison = "acima"
-        else:
-            comparison = "próximo"
+        home_over_pct = home_team_data.get(home_over_pct_key, 0)
+        away_over_pct = away_team_data.get(away_over_pct_key, 0)
+        h2h_over_pct = h2h_data.get(h2h_over_pct_key, 0)
         
         # Construir justificativa
-        justification = f"- **xG**: Casa {home_xg_home:.2f} (mandante), Fora {away_xg_away:.2f} (visitante)\n"
-        justification += f"- **Média de gols (mandante)**: Casa marca {home_goals_home:.2f} e sofre {home_conceded_home:.2f}\n"
-        justification += f"- **Média de gols (visitante)**: Fora marca {away_goals_away:.2f} e sofre {away_conceded_away:.2f}\n"
+        justification = f"- **Média de gols**: {home_team} marca {home_goals_per_game:.2f} e sofre {home_conceded_per_game:.2f} por jogo\n"
+        justification += f"- **Média de gols**: {away_team} marca {away_goals_per_game:.2f} e sofre {away_conceded_per_game:.2f} por jogo\n"
         
-        if home_over_pct > 0 or away_over_pct > 0:
-            justification += f"- **Histórico Over {threshold}**: Casa {home_over_pct:.0f}%, Fora {away_over_pct:.0f}%"
-            
-            if h2h_over_pct > 0:
-                justification += f", H2H {h2h_over_pct:.0f}%\n"
-            else:
-                justification += "\n"
+        justification += f"- **Expected goals**: Previsão de {expected_goals:.2f} gols nesta partida\n"
         
-        justification += f"- **Previsão de gols**: {total_expected_goals:.2f} gols totais, {comparison} do threshold {threshold}\n"
+        if home_over_pct > 0:
+            justification += f"- **Tendência Over {threshold}**: {home_team} tem {home_over_pct:.0f}% de jogos acima de {threshold} gols\n"
+        
+        if away_over_pct > 0:
+            justification += f"- **Tendência Over {threshold}**: {away_team} tem {away_over_pct:.0f}% de jogos acima de {threshold} gols\n"
+        
+        if h2h_over_pct > 0:
+            justification += f"- **Histórico H2H**: {h2h_over_pct:.0f}% dos confrontos terminaram com mais de {threshold} gols\n"
+        
         justification += f"- **Valor identificado**: Probabilidade real {real_prob:.1f}% vs implícita {implied_prob:.1f}%, representando uma vantagem de {real_prob-implied_prob:.1f}%"
         
         return justification
@@ -738,75 +753,42 @@ def generate_under_goals_justification(home_team, away_team, threshold, real_pro
         home_team_data = original_probabilities.get("home_team", {})
         away_team_data = original_probabilities.get("away_team", {})
         h2h_data = original_probabilities.get("h2h", {})
+        ou_data = original_probabilities.get("over_under", {})
         
-        # xG e médias de gols
-        home_xg = home_team_data.get("xg_for_avg_overall", 0)
-        home_xg_home = home_team_data.get("xg_for_avg_home", home_xg)
-        away_xg = away_team_data.get("xg_for_avg_overall", 0)
-        away_xg_away = away_team_data.get("xg_for_avg_away", away_xg)
+        # Estatísticas de gols
+        home_goals_per_game = home_team_data.get("goals_per_game", 0)
+        away_goals_per_game = away_team_data.get("goals_per_game", 0)
+        home_conceded_per_game = home_team_data.get("conceded_per_game", 0)
+        away_conceded_per_game = away_team_data.get("conceded_per_game", 0)
         
-        # Médias de gols
-        home_goals_scored = home_team_data.get("home_goals_scored", 0)
-        home_goals_conceded = home_team_data.get("home_goals_conceded", 0)
-        home_played = home_team_data.get("home_played", 1)
-        
-        away_goals_scored = away_team_data.get("away_goals_scored", 0)
-        away_goals_conceded = away_team_data.get("away_goals_conceded", 0)
-        away_played = away_team_data.get("away_played", 1)
-        
-        home_goals_home = home_goals_scored / max(1, home_played)
-        home_conceded_home = home_goals_conceded / max(1, home_played)
-        away_goals_away = away_goals_scored / max(1, away_played)
-        away_conceded_away = away_goals_conceded / max(1, away_played)
+        # Expected goals
+        expected_goals = ou_data.get("expected_goals", home_goals_per_game + away_goals_per_game)
         
         # Percentuais de Under
-        threshold_key = str(threshold).replace(".", "_")
-        home_under_key = f"under_{threshold_key}_percentage"
-        away_under_key = f"under_{threshold_key}_percentage"
-        h2h_under_key = f"under_{threshold_key}_percentage"
+        threshold_str = str(threshold).replace(".", "_")
+        home_under_pct_key = f"under_{threshold_str}_pct"
+        away_under_pct_key = f"under_{threshold_str}_pct"
+        h2h_under_pct_key = f"under_{threshold_str}_percentage"
         
-        # Se não existir direto, calcular como 100% - over%
-        if home_under_key not in home_team_data:
-            home_over_key = f"over_{threshold_key}_percentage"
-            home_under_pct = 100 - home_team_data.get(home_over_key, 0)
-        else:
-            home_under_pct = home_team_data.get(home_under_key, 0)
-            
-        if away_under_key not in away_team_data:
-            away_over_key = f"over_{threshold_key}_percentage"
-            away_under_pct = 100 - away_team_data.get(away_over_key, 0)
-        else:
-            away_under_pct = away_team_data.get(away_under_key, 0)
-            
-        if h2h_under_key not in h2h_data:
-            h2h_over_key = f"over_{threshold_key}_percentage"
-            h2h_under_pct = 100 - h2h_data.get(h2h_over_key, 0)
-        else:
-            h2h_under_pct = h2h_data.get(h2h_under_key, 0)
-        
-        # Total esperado de gols
-        total_expected_goals = original_probabilities.get("over_under", {}).get("expected_goals", 0)
-        
-        # Verificar se o total esperado é maior/menor que o threshold
-        if total_expected_goals < threshold:
-            comparison = "abaixo"
-        else:
-            comparison = "próximo"
+        home_under_pct = home_team_data.get(home_under_pct_key, 0)
+        away_under_pct = away_team_data.get(away_under_pct_key, 0)
+        h2h_under_pct = h2h_data.get(h2h_under_pct_key, 0)
         
         # Construir justificativa
-        justification = f"- **xG**: Casa {home_xg_home:.2f} (mandante), Fora {away_xg_away:.2f} (visitante)\n"
-        justification += f"- **Média de gols (mandante)**: Casa marca {home_goals_home:.2f} e sofre {home_conceded_home:.2f}\n"
-        justification += f"- **Média de gols (visitante)**: Fora marca {away_goals_away:.2f} e sofre {away_conceded_away:.2f}\n"
+        justification = f"- **Média de gols**: {home_team} marca {home_goals_per_game:.2f} e sofre {home_conceded_per_game:.2f} por jogo\n"
+        justification += f"- **Média de gols**: {away_team} marca {away_goals_per_game:.2f} e sofre {away_conceded_per_game:.2f} por jogo\n"
         
-        if home_under_pct > 0 or away_under_pct > 0:
-            justification += f"- **Histórico Under {threshold}**: Casa {home_under_pct:.0f}%, Fora {away_under_pct:.0f}%"
-            
-            if h2h_under_pct > 0:
-                justification += f", H2H {h2h_under_pct:.0f}%\n"
-            else:
-                justification += "\n"
+        justification += f"- **Expected goals**: Previsão de {expected_goals:.2f} gols nesta partida\n"
         
-        justification += f"- **Previsão de gols**: {total_expected_goals:.2f} gols totais, {comparison} do threshold {threshold}\n"
+        if home_under_pct > 0:
+            justification += f"- **Tendência Under {threshold}**: {home_team} tem {home_under_pct:.0f}% de jogos abaixo de {threshold} gols\n"
+        
+        if away_under_pct > 0:
+            justification += f"- **Tendência Under {threshold}**: {away_team} tem {away_under_pct:.0f}% de jogos abaixo de {threshold} gols\n"
+        
+        if h2h_under_pct > 0:
+            justification += f"- **Histórico H2H**: {h2h_under_pct:.0f}% dos confrontos terminaram com menos de {threshold} gols\n"
+        
         justification += f"- **Valor identificado**: Probabilidade real {real_prob:.1f}% vs implícita {implied_prob:.1f}%, representando uma vantagem de {real_prob-implied_prob:.1f}%"
         
         return justification
@@ -815,72 +797,84 @@ def generate_under_goals_justification(home_team, away_team, threshold, real_pro
         return f"Probabilidade real {real_prob:.1f}% vs implícita {implied_prob:.1f}%, vantagem de {real_prob-implied_prob:.1f}%."
 
 def generate_over_corners_justification(home_team, away_team, threshold, real_prob, implied_prob, original_probabilities, analysis_data):
-    """Justification for Over X.5 Corners"""
+    """Justificativa para Over X.5 Escanteios"""
     try:
-        # Extract corner averages
+        # Extrair dados relevantes
         home_team_data = original_probabilities.get("home_team", {})
         away_team_data = original_probabilities.get("away_team", {})
+        h2h_data = original_probabilities.get("h2h", {})
+        corners_data = original_probabilities.get("corners", {})
         
-        home_corners_home = home_team_data.get("home_corners_per_game", 0)
-        away_corners_away = away_team_data.get("away_corners_per_game", 0)
+        # Estatísticas de escanteios - CORRIGIDO
+        home_corners_per_game = home_team_data.get("corners_per_game", 0)
+        away_corners_per_game = away_team_data.get("corners_per_game", 0)
         
-        # Get expected corners
-        expected_corners = original_probabilities.get("corners", {}).get("expected_corners", 0)
+        # Expected corners
+        expected_corners = corners_data.get("expected_corners", home_corners_per_game + away_corners_per_game)
         
-        # Determine comparison text
-        if expected_corners > threshold:
-            comparison = "acima"
-        else:
-            comparison = "próximo"
+        # Percentuais de Over
+        threshold_str = str(threshold).replace(".", "_")
+        home_over_pct_key = f"over_{threshold_str}_corners_pct"
+        away_over_pct_key = f"over_{threshold_str}_corners_pct"
         
-        # Start with team names
-        justification = f"{home_team} "
+        home_over_pct = home_team_data.get(home_over_pct_key, 0)
+        away_over_pct = away_team_data.get(away_over_pct_key, 0)
         
-        # Include corner data regardless if it's zero - this makes the issue visible
-        justification += f"({home_corners_home:.1f}) vs {away_team} ({away_corners_away:.1f}) escanteios em média. "
+        # Construir justificativa
+        justification = f"- **Média de escanteios**: {home_team} ({home_corners_per_game:.1f}) vs {away_team} ({away_corners_per_game:.1f}) escanteios em média. Previsão {expected_corners:.1f} escanteios, acima de {threshold}.\n"
         
-        # Always include expected corners and odds comparison
-        justification += f"Previsão {expected_corners:.1f} escanteios, {comparison} de {threshold}. "
-        justification += f"Odds {implied_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
+        if home_over_pct > 0:
+            justification += f"- **Tendência Over {threshold}**: {home_team} tem {home_over_pct:.0f}% de jogos acima de {threshold} escanteios\n"
+        
+        if away_over_pct > 0:
+            justification += f"- **Tendência Over {threshold}**: {away_team} tem {away_over_pct:.0f}% de jogos acima de {threshold} escanteios\n"
+        
+        justification += f"- **Valor identificado**: Probabilidade real {real_prob:.1f}% vs implícita {implied_prob:.1f}%, representando uma vantagem de {real_prob-implied_prob:.1f}%"
         
         return justification
     except Exception as e:
-        # In case of error, return a minimal justification
-        return f"{home_team} vs {away_team}. Odds {implied_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
+        logging.getLogger("valueHunter.ai").error(f"Erro em justificativa over_corners: {str(e)}")
+        return f"Probabilidade real {real_prob:.1f}% vs implícita {implied_prob:.1f}%, vantagem de {real_prob-implied_prob:.1f}%."
 
 def generate_under_corners_justification(home_team, away_team, threshold, real_prob, implied_prob, original_probabilities, analysis_data):
-    """Justification for Under X.5 Corners"""
+    """Justificativa para Under X.5 Escanteios"""
     try:
-        # Extract corner averages
+        # Extrair dados relevantes
         home_team_data = original_probabilities.get("home_team", {})
         away_team_data = original_probabilities.get("away_team", {})
+        h2h_data = original_probabilities.get("h2h", {})
+        corners_data = original_probabilities.get("corners", {})
         
-        home_corners_home = home_team_data.get("home_corners_per_game", 0)
-        away_corners_away = away_team_data.get("away_corners_per_game", 0)
+        # Estatísticas de escanteios - CORRIGIDO
+        home_corners_per_game = home_team_data.get("corners_per_game", 0)
+        away_corners_per_game = away_team_data.get("corners_per_game", 0)
         
-        # Get expected corners
-        expected_corners = original_probabilities.get("corners", {}).get("expected_corners", 0)
+        # Expected corners
+        expected_corners = corners_data.get("expected_corners", home_corners_per_game + away_corners_per_game)
         
-        # Determine comparison text
-        if expected_corners < threshold:
-            comparison = "abaixo"
-        else:
-            comparison = "próximo"
+        # Percentuais de Under
+        threshold_str = str(threshold).replace(".", "_")
+        home_under_pct_key = f"under_{threshold_str}_corners_pct"
+        away_under_pct_key = f"under_{threshold_str}_corners_pct"
         
-        # Start with team names
-        justification = f"{home_team} "
+        home_under_pct = home_team_data.get(home_under_pct_key, 0)
+        away_under_pct = away_team_data.get(away_under_pct_key, 0)
         
-        # Include corner data regardless if it's zero - this makes the issue visible
-        justification += f"({home_corners_home:.1f}) vs {away_team} ({away_corners_away:.1f}) escanteios em média. "
+        # Construir justificativa
+        justification = f"- **Média de escanteios**: {home_team} ({home_corners_per_game:.1f}) vs {away_team} ({away_corners_per_game:.1f}) escanteios em média. Previsão {expected_corners:.1f} escanteios, abaixo de {threshold}.\n"
         
-        # Always include expected corners and odds comparison
-        justification += f"Previsão {expected_corners:.1f} escanteios, {comparison} de {threshold}. "
-        justification += f"Odds {implied_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
+        if home_under_pct > 0:
+            justification += f"- **Tendência Under {threshold}**: {home_team} tem {home_under_pct:.0f}% de jogos abaixo de {threshold} escanteios\n"
+        
+        if away_under_pct > 0:
+            justification += f"- **Tendência Under {threshold}**: {away_team} tem {away_under_pct:.0f}% de jogos abaixo de {threshold} escanteios\n"
+        
+        justification += f"- **Valor identificado**: Probabilidade real {real_prob:.1f}% vs implícita {implied_prob:.1f}%, representando uma vantagem de {real_prob-implied_prob:.1f}%"
         
         return justification
     except Exception as e:
-        # In case of error, return a minimal justification
-        return f"{home_team} vs {away_team}. Odds {implied_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
+        logging.getLogger("valueHunter.ai").error(f"Erro em justificativa under_corners: {str(e)}")
+        return f"Probabilidade real {real_prob:.1f}% vs implícita {implied_prob:.1f}%, vantagem de {real_prob-implied_prob:.1f}%."
 
 def generate_over_cards_justification(home_team, away_team, threshold, real_prob, implied_prob, original_probabilities, analysis_data):
     """Justificativa para Over X.5 Cartões"""
@@ -888,58 +882,33 @@ def generate_over_cards_justification(home_team, away_team, threshold, real_prob
         # Extrair dados relevantes
         home_team_data = original_probabilities.get("home_team", {})
         away_team_data = original_probabilities.get("away_team", {})
-        match_info = original_probabilities.get("match_info", {})
+        h2h_data = original_probabilities.get("h2h", {})
+        cards_data = original_probabilities.get("cards", {})
         
-        # Médias de cartões
-        home_cards_avg = home_team_data.get("cards_per_game", 0)
-        home_cards_home = home_team_data.get("home_cards_per_game", home_cards_avg)
-        away_cards_avg = away_team_data.get("cards_per_game", 0)
-        away_cards_away = away_team_data.get("away_cards_per_game", away_cards_avg)
+        # Estatísticas de cartões
+        home_cards_per_game = home_team_data.get("cards_per_game", 0)
+        away_cards_per_game = away_team_data.get("cards_per_game", 0)
         
-        # Cartões provocados (contra)
-        home_cards_against = home_team_data.get("cards_against", 0) / max(1, home_team_data.get("played", 1))
-        away_cards_against = away_team_data.get("cards_against", 0) / max(1, away_team_data.get("played", 1))
-        
-        # Árbitro
-        referee = match_info.get("referee", "")
-        referee_avg_cards = match_info.get("referee_avg_cards", 0)
+        # Expected cards
+        expected_cards = cards_data.get("expected_cards", home_cards_per_game + away_cards_per_game)
         
         # Percentuais de Over
-        threshold_key = str(threshold).replace(".", "_")
-        home_over_key = f"over_{threshold_key}_cards_percentage"
-        away_over_key = f"over_{threshold_key}_cards_percentage"
+        threshold_str = str(threshold).replace(".", "_")
+        home_over_pct_key = f"over_{threshold_str}_cards_pct"
+        away_over_pct_key = f"over_{threshold_str}_cards_pct"
         
-        home_over_pct = home_team_data.get(home_over_key, 0)
-        away_over_pct = away_team_data.get(away_over_key, 0)
-        
-        # Total esperado de cartões
-        total_expected_cards = original_probabilities.get("cards", {}).get("expected_cards", 0)
-        
-        # Verificar se o total esperado é maior/menor que o threshold
-        if total_expected_cards > threshold:
-            comparison = "acima"
-        else:
-            comparison = "próximo"
+        home_over_pct = home_team_data.get(home_over_pct_key, 0)
+        away_over_pct = away_team_data.get(away_over_pct_key, 0)
         
         # Construir justificativa
-        justification = f"- **Cartões (mandante)**: Casa {home_cards_home:.1f} recebidos / {home_cards_against:.1f} provocados\n"
-        justification += f"- **Cartões (visitante)**: Fora {away_cards_away:.1f} recebidos / {away_cards_against:.1f} provocados\n"
+        justification = f"- **Média de cartões**: {home_team} ({home_cards_per_game:.1f}) vs {away_team} ({away_cards_per_game:.1f}) cartões em média. Previsão {expected_cards:.1f} cartões, acima de {threshold}.\n"
         
-        if referee and referee_avg_cards > 0:
-            justification += f"- **Árbitro**: {referee} com média de {referee_avg_cards:.1f} cartões por jogo\n"
+        if home_over_pct > 0:
+            justification += f"- **Tendência Over {threshold}**: {home_team} tem {home_over_pct:.0f}% de jogos acima de {threshold} cartões\n"
         
-        if home_over_pct > 0 or away_over_pct > 0:
-            justification += f"- **Histórico Over {threshold}**: Casa {home_over_pct:.0f}%, Fora {away_over_pct:.0f}%\n"
+        if away_over_pct > 0:
+            justification += f"- **Tendência Over {threshold}**: {away_team} tem {away_over_pct:.0f}% de jogos acima de {threshold} cartões\n"
         
-        # Dados sobre intensidade do jogo
-        home_total_score = analysis_data.get("home_total_score", 0)
-        away_total_score = analysis_data.get("away_total_score", 0)
-        force_diff = abs(home_total_score - away_total_score)
-        
-        if force_diff < 0.15:
-            justification += "- **Intensidade**: Jogo equilibrado tende a ter mais cartões\n"
-        
-        justification += f"- **Previsão de cartões**: {total_expected_cards:.1f} totais, {comparison} do threshold {threshold}\n"
         justification += f"- **Valor identificado**: Probabilidade real {real_prob:.1f}% vs implícita {implied_prob:.1f}%, representando uma vantagem de {real_prob-implied_prob:.1f}%"
         
         return justification
@@ -953,68 +922,33 @@ def generate_under_cards_justification(home_team, away_team, threshold, real_pro
         # Extrair dados relevantes
         home_team_data = original_probabilities.get("home_team", {})
         away_team_data = original_probabilities.get("away_team", {})
-        match_info = original_probabilities.get("match_info", {})
+        h2h_data = original_probabilities.get("h2h", {})
+        cards_data = original_probabilities.get("cards", {})
         
-        # Médias de cartões
-        home_cards_avg = home_team_data.get("cards_per_game", 0)
-        home_cards_home = home_team_data.get("home_cards_per_game", home_cards_avg)
-        away_cards_avg = away_team_data.get("cards_per_game", 0)
-        away_cards_away = away_team_data.get("away_cards_per_game", away_cards_avg)
+        # Estatísticas de cartões
+        home_cards_per_game = home_team_data.get("cards_per_game", 0)
+        away_cards_per_game = away_team_data.get("cards_per_game", 0)
         
-        # Cartões provocados (contra)
-        home_cards_against = home_team_data.get("cards_against", 0) / max(1, home_team_data.get("played", 1))
-        away_cards_against = away_team_data.get("cards_against", 0) / max(1, away_team_data.get("played", 1))
-        
-        # Árbitro
-        referee = match_info.get("referee", "")
-        referee_avg_cards = match_info.get("referee_avg_cards", 0)
+        # Expected cards
+        expected_cards = cards_data.get("expected_cards", home_cards_per_game + away_cards_per_game)
         
         # Percentuais de Under
-        threshold_key = str(threshold).replace(".", "_")
-        home_under_key = f"under_{threshold_key}_cards_percentage"
-        away_under_key = f"under_{threshold_key}_cards_percentage"
+        threshold_str = str(threshold).replace(".", "_")
+        home_under_pct_key = f"under_{threshold_str}_cards_pct"
+        away_under_pct_key = f"under_{threshold_str}_cards_pct"
         
-        # Se não existir direto, calcular como 100% - over%
-        if home_under_key not in home_team_data:
-            home_over_key = f"over_{threshold_key}_cards_percentage"
-            home_under_pct = 100 - home_team_data.get(home_over_key, 0)
-        else:
-            home_under_pct = home_team_data.get(home_under_key, 0)
-            
-        if away_under_key not in away_team_data:
-            away_over_key = f"over_{threshold_key}_cards_percentage"
-            away_under_pct = 100 - away_team_data.get(away_over_key, 0)
-        else:
-            away_under_pct = away_team_data.get(away_under_key, 0)
-        
-        # Total esperado de cartões
-        total_expected_cards = original_probabilities.get("cards", {}).get("expected_cards", 0)
-        
-        # Verificar se o total esperado é maior/menor que o threshold
-        if total_expected_cards < threshold:
-            comparison = "abaixo"
-        else:
-            comparison = "próximo"
+        home_under_pct = home_team_data.get(home_under_pct_key, 0)
+        away_under_pct = away_team_data.get(away_under_pct_key, 0)
         
         # Construir justificativa
-        justification = f"- **Cartões (mandante)**: Casa {home_cards_home:.1f} recebidos / {home_cards_against:.1f} provocados\n"
-        justification += f"- **Cartões (visitante)**: Fora {away_cards_away:.1f} recebidos / {away_cards_against:.1f} provocados\n"
+        justification = f"- **Média de cartões**: {home_team} ({home_cards_per_game:.1f}) vs {away_team} ({away_cards_per_game:.1f}) cartões em média. Previsão {expected_cards:.1f} cartões, abaixo de {threshold}.\n"
         
-        if referee and referee_avg_cards > 0:
-            justification += f"- **Árbitro**: {referee} com média de {referee_avg_cards:.1f} cartões por jogo\n"
+        if home_under_pct > 0:
+            justification += f"- **Tendência Under {threshold}**: {home_team} tem {home_under_pct:.0f}% de jogos abaixo de {threshold} cartões\n"
         
-        if home_under_pct > 0 or away_under_pct > 0:
-            justification += f"- **Histórico Under {threshold}**: Casa {home_under_pct:.0f}%, Fora {away_under_pct:.0f}%\n"
+        if away_under_pct > 0:
+            justification += f"- **Tendência Under {threshold}**: {away_team} tem {away_under_pct:.0f}% de jogos abaixo de {threshold} cartões\n"
         
-        # Dados sobre intensidade do jogo
-        home_total_score = analysis_data.get("home_total_score", 0)
-        away_total_score = analysis_data.get("away_total_score", 0)
-        force_diff = abs(home_total_score - away_total_score)
-        
-        if force_diff > 0.25:
-            justification += "- **Intensidade**: Diferença de qualidade pode resultar em jogo menos disputado\n"
-        
-        justification += f"- **Previsão de cartões**: {total_expected_cards:.1f} totais, {comparison} do threshold {threshold}\n"
         justification += f"- **Valor identificado**: Probabilidade real {real_prob:.1f}% vs implícita {implied_prob:.1f}%, representando uma vantagem de {real_prob-implied_prob:.1f}%"
         
         return justification
@@ -1024,241 +958,145 @@ def generate_under_cards_justification(home_team, away_team, threshold, real_pro
 
 def generate_condensed_justification(team_name, home_team, away_team, real_prob, implied_prob, analysis_data, original_probabilities, expected_goals=None):
     """
-    Gera uma justificativa condensada específica para cada tipo de mercado,
-    usando os nomes dos times e mostrando forma apenas para mercados relevantes (moneyline e dupla chance).
+    Gera uma justificativa condensada para uso em oportunidades.
+    
+    Args:
+        team_name (str): Nome do time ou mercado
+        home_team (str): Nome do time da casa
+        away_team (str): Nome do time visitante
+        real_prob (float): Probabilidade real calculada
+        implied_prob (float): Probabilidade implícita na odd
+        analysis_data (dict): Dados de análise
+        original_probabilities (dict): Probabilidades originais calculadas
+        expected_goals (float, optional): Expected goals para mercados de gols
+        
+    Returns:
+        str: Justificativa condensada
     """
-    import re
-    
-    # Identificar o tipo de mercado e o threshold (se aplicável)
-    market_type = ""
-    threshold = None
-    threshold_direction = None
-    
-    # Padrão para identificar threshold (linha)
-    threshold_pattern = r'([Oo]ver|[Uu]nder)\s+(\d+\.?\d*)'
-    threshold_match = re.search(threshold_pattern, team_name)
-    
-    if threshold_match:
-        threshold_direction = threshold_match.group(1).lower()  # "over" ou "under"
-        threshold = float(threshold_match.group(2))
-    
-    # Extrair dados básicos apenas se formos usá-los para moneyline e dupla chance
-    home_form_points = analysis_data.get("home_form_points", 0) * 15
-    away_form_points = analysis_data.get("away_form_points", 0) * 15
-    
-    # Extrair dados específicos de cada time
-    home_team_data = original_probabilities.get("home_team", {})
-    away_team_data = original_probabilities.get("away_team", {})
-    
-    # Determinar o tipo de mercado
-    if team_name == home_team or team_name == away_team or team_name == "Empate":
-        market_type = "moneyline"
-    elif "ou" in team_name:
-        market_type = "double_chance"
-    elif "Ambos Marcam" in team_name:
-        market_type = "btts"
-    elif "Gols" in team_name:
-        market_type = "goals"
-    elif "Escanteios" in team_name:
-        market_type = "corners"
-    elif "Cartões" in team_name:
-        market_type = "cards"
-    else:
-        market_type = "unknown"
-    
-    # Construir justificativa com base no tipo de mercado
-    justification = ""
-    
-    # 1. MONEYLINE (1X2) - INCLUI FORMA
-    if market_type == "moneyline":
+    try:
+        # Identificar o tipo de mercado
         if team_name == home_team:
-            # Vitória do time da casa
-            home_consistency = analysis_data.get("home_consistency", 0)
-            home_wins = home_team_data.get("home_wins", 0)
-            home_draws = home_team_data.get("home_draws", 0)
-            home_losses = home_team_data.get("home_losses", 0)
+            # Mercado de vitória do time da casa
+            form_details = analysis_data.get("form_details", {})
+            home_specific = form_details.get("home_specific", {})
+            home_overall = form_details.get("home_overall", {})
             
-            justification = f"{home_team} em casa: {home_form_points:.0f}/15 pts, {home_consistency:.0f}% consistência. "
-            
-            if home_wins + home_draws + home_losses > 0:
-                win_pct = (home_wins / (home_wins + home_draws + home_losses)) * 100
-                justification += f"Venceu {win_pct:.0f}% dos jogos como mandante. "
-            
-            justification += f"Odds {implied_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
+            # Obter pontos de forma das fontes corretas
+            home_form_points = 0
+            if home_specific and "points" in home_specific:
+                home_form_points = home_specific.get("points", 0)
+            elif home_overall and "points" in home_overall:
+                home_form_points = home_overall.get("points", 0)
+                
+            consistency = analysis_data.get("home_consistency", 0)
+            return f"{home_team} em casa: {home_form_points}/15 pts, {consistency:.0f}% consistência.\nOdds {implied_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
             
         elif team_name == away_team:
-            # Vitória do time visitante
-            away_consistency = analysis_data.get("away_consistency", 0)
-            away_wins = away_team_data.get("away_wins", 0)
-            away_draws = away_team_data.get("away_draws", 0)
-            away_losses = away_team_data.get("away_losses", 0)
+            # Mercado de vitória do time visitante
+            form_details = analysis_data.get("form_details", {})
+            away_specific = form_details.get("away_specific", {})
+            away_overall = form_details.get("away_overall", {})
             
-            justification = f"{away_team} fora: {away_form_points:.0f}/15 pts, {away_consistency:.0f}% consistência. "
-            
-            if away_wins + away_draws + away_losses > 0:
-                win_pct = (away_wins / (away_wins + away_draws + away_losses)) * 100
-                justification += f"Venceu {win_pct:.0f}% dos jogos como visitante. "
-            
-            justification += f"Odds {implied_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
+            # Obter pontos de forma das fontes corretas
+            away_form_points = 0
+            if away_specific and "points" in away_specific:
+                away_form_points = away_specific.get("points", 0)
+            elif away_overall and "points" in away_overall:
+                away_form_points = away_overall.get("points", 0)
+                
+            consistency = analysis_data.get("away_consistency", 0)
+            return f"{away_team} fora: {away_form_points}/15 pts, {consistency:.0f}% consistência.\nOdds {implied_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
             
         elif team_name == "Empate":
-            # Empate
-            home_draw_pct = home_team_data.get("draw_pct", 0)
-            away_draw_pct = away_team_data.get("draw_pct", 0)
+            # Mercado de empate
+            return f"Equilíbrio entre as equipes favorece o empate.\nOdds {implied_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
             
-            justification = f"{home_team} vs {away_team}. "
-            
-            if home_draw_pct > 0 and away_draw_pct > 0:
-                justification += f"Tendência de empates: {home_team} {home_draw_pct:.0f}%, {away_team} {away_draw_pct:.0f}%. "
-            
-            justification += f"Odds {implied_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
-    
-    # 2. DUPLA CHANCE - INCLUI FORMA
-    elif market_type == "double_chance":
-        if home_team in team_name and "Empate" in team_name:
-            # Casa ou Empate
-            home_consistency = analysis_data.get("home_consistency", 0)
-            
-            justification = f"{home_team} em casa: {home_form_points:.0f}/15 pts, {home_consistency:.0f}% consistência. "
-            justification += f"Probabilidade de {real_prob:.1f}% de não perder vs {implied_prob:.1f}% das odds."
-            
-        elif away_team in team_name and "Empate" in team_name:
-            # Fora ou Empate
-            away_consistency = analysis_data.get("away_consistency", 0)
-            
-            justification = f"{away_team} fora: {away_form_points:.0f}/15 pts, {away_consistency:.0f}% consistência. "
-            justification += f"Probabilidade de {real_prob:.1f}% de não perder vs {implied_prob:.1f}% das odds."
-            
-        elif home_team in team_name and away_team in team_name:
-            # Casa ou Fora
-            justification = f"Baixa probabilidade de empate entre {home_team} e {away_team}. "
-            justification += f"Probabilidade de {real_prob:.1f}% vs {implied_prob:.1f}% das odds."
-    
-    # 3. AMBOS MARCAM (BTTS) - SEM FORMA
-    elif market_type == "btts":
-        # Extrair estatísticas de BTTS
-        home_btts_pct = home_team_data.get("btts_pct", 0)
-        away_btts_pct = away_team_data.get("btts_pct", 0)
-        home_cs_pct = home_team_data.get("clean_sheets_pct", 0)
-        away_cs_pct = away_team_data.get("clean_sheets_pct", 0)
-        
-        # Total esperado de gols
-        total_expected_goals = original_probabilities.get("over_under", {}).get("expected_goals", 0)
-        
-        if "Sim" in team_name:
-            justification = f"{home_team} vs {away_team}. BTTS: {home_team} {home_btts_pct:.0f}%, {away_team} {away_btts_pct:.0f}%. "
-            justification += f"Previsão {total_expected_goals:.2f} gols. Odds {implied_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
-        else:  # Não
-            justification = f"{home_team} vs {away_team}. Clean Sheets: {home_team} {home_cs_pct:.0f}%, {away_team} {away_cs_pct:.0f}%. "
-            justification += f"Previsão {total_expected_goals:.2f} gols. Odds {implied_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
-    
-    # 4. TOTAL DE GOLS - SEM FORMA
-    elif market_type == "goals" and threshold is not None:
-        # Extrair médias de gols
-        home_goals_scored = home_team_data.get("home_goals_scored", 0)
-        home_played = home_team_data.get("home_played", 1)
-        away_goals_scored = away_team_data.get("away_goals_scored", 0)
-        away_played = away_team_data.get("away_played", 1)
-        
-        home_goals_home = home_goals_scored / max(1, home_played)
-        away_goals_away = away_goals_scored / max(1, away_played)
-        
-        # Total esperado de gols
-        total_expected_goals = original_probabilities.get("over_under", {}).get("expected_goals", 0)
-        
-        # Verificar se o total esperado é maior/menor que o threshold
-        if threshold_direction == "over":
-            if total_expected_goals > threshold:
-                comparison = "acima"
+        elif "Over" in team_name and "Gols" in team_name:
+            # Mercado de Over gols
+            threshold = re.search(r"Over (\d+\.?\d*)", team_name).group(1)
+            if expected_goals:
+                return f"Previsão de {expected_goals:.1f} gols, acima de {threshold}. Odds {implied_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
             else:
-                comparison = "próximo"
+                return f"Tendência ofensiva favorece mais de {threshold} gols. Odds {implied_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
                 
-            justification = f"{home_team} marca {home_goals_home:.2f} e {away_team} marca {away_goals_away:.2f} gols em média. "
-            justification += f"Previsão {total_expected_goals:.2f} gols, {comparison} de {threshold}. "
-            justification += f"Odds {implied_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
-        else:  # under
-            if total_expected_goals < threshold:
-                comparison = "abaixo"
+        elif "Under" in team_name and "Gols" in team_name:
+            # Mercado de Under gols
+            threshold = re.search(r"Under (\d+\.?\d*)", team_name).group(1)
+            if expected_goals:
+                return f"Previsão de {expected_goals:.1f} gols, abaixo de {threshold}. Odds {implied_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
             else:
-                comparison = "próximo"
+                return f"Tendência defensiva favorece menos de {threshold} gols. Odds {implied_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
                 
-            justification = f"{home_team} marca {home_goals_home:.2f} e {away_team} marca {away_goals_away:.2f} gols em média. "
-            justification += f"Previsão {total_expected_goals:.2f} gols, {comparison} de {threshold}. "
-            justification += f"Odds {implied_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
-    
-    # 5. ESCANTEIOS - SEM FORMA
-    elif market_type == "corners" and threshold is not None:
-        # Extrair médias de escanteios
-        home_corners_home = home_team_data.get("home_corners_per_game", 0)
-        away_corners_away = away_team_data.get("away_corners_per_game", 0)
-        
-        # Total esperado de escanteios
-        total_expected_corners = original_probabilities.get("corners", {}).get("expected_corners", 0)
-        
-        # Verificar se o total esperado é maior/menor que o threshold
-        if threshold_direction == "over":
-            if total_expected_corners > threshold:
-                comparison = "acima"
-            else:
-                comparison = "próximo"
-                
-            justification = f"{home_team} ({home_corners_home:.1f}) vs {away_team} ({away_corners_away:.1f}) escanteios em média. "
-            justification += f"Previsão {total_expected_corners:.1f} escanteios, {comparison} de {threshold}. "
-            justification += f"Odds {implied_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
-        else:  # under
-            if total_expected_corners < threshold:
-                comparison = "abaixo"
-            else:
-                comparison = "próximo"
-                
-            justification = f"{home_team} ({home_corners_home:.1f}) vs {away_team} ({away_corners_away:.1f}) escanteios em média. "
-            justification += f"Previsão {total_expected_corners:.1f} escanteios, {comparison} de {threshold}. "
-            justification += f"Odds {implied_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
-    
-    # 6. CARTÕES - SEM FORMA
-    elif market_type == "cards" and threshold is not None:
-        # Extrair médias de cartões
-        home_cards_home = home_team_data.get("home_cards_per_game", 0)
-        away_cards_away = away_team_data.get("away_cards_per_game", 0)
-        
-        # Total esperado de cartões
-        total_expected_cards = original_probabilities.get("cards", {}).get("expected_cards", 0)
-        
-        # Árbitro (se disponível)
-        referee = original_probabilities.get("match_info", {}).get("referee", "")
-        referee_avg_cards = original_probabilities.get("match_info", {}).get("referee_avg_cards", 0)
-        
-        # Verificar se o total esperado é maior/menor que o threshold
-        if threshold_direction == "over":
-            if total_expected_cards > threshold:
-                comparison = "acima"
-            else:
-                comparison = "próximo"
-                
-            justification = f"{home_team} ({home_cards_home:.1f}) vs {away_team} ({away_cards_away:.1f}) cartões em média. "
+        elif "Ambos Marcam - Sim" in team_name:
+            # Mercado de BTTS Sim
+            return f"Ambas equipes têm boa capacidade ofensiva. Odds {implied_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
             
-            if referee and referee_avg_cards > 0:
-                justification += f"Árbitro: média de {referee_avg_cards:.1f} cartões/jogo. "
-                
-            justification += f"Previsão {total_expected_cards:.1f} cartões, {comparison} de {threshold}. "
-            justification += f"Odds {implied_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
-        else:  # under
-            if total_expected_cards < threshold:
-                comparison = "abaixo"
-            else:
-                comparison = "próximo"
-                
-            justification = f"{home_team} ({home_cards_home:.1f}) vs {away_team} ({away_cards_away:.1f}) cartões em média. "
+        elif "Ambos Marcam - Não" in team_name:
+            # Mercado de BTTS Não
+            return f"Pelo menos uma equipe deve manter o zero. Odds {implied_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
             
-            if referee and referee_avg_cards > 0:
-                justification += f"Árbitro: média de {referee_avg_cards:.1f} cartões/jogo. "
+        elif "Escanteios" in team_name:
+            # Mercado de escanteios
+            corners_data = original_probabilities.get("corners", {})
+            expected_corners = corners_data.get("expected_corners", 0)
+            
+            # Estatísticas de escanteios - CORRIGIDO
+            home_team_data = original_probabilities.get("home_team", {})
+            away_team_data = original_probabilities.get("away_team", {})
+            home_corners_per_game = home_team_data.get("corners_per_game", 0)
+            away_corners_per_game = away_team_data.get("corners_per_game", 0)
+            
+            if "Over" in team_name:
+                threshold = re.search(r"Over (\d+\.?\d*)", team_name).group(1)
+                return f"{home_team} ({home_corners_per_game:.1f}) vs {away_team} ({away_corners_per_game:.1f})\nescanteios em média. Previsão {expected_corners:.1f} escanteios, acima de {threshold}. Odds {implied_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
+            else:
+                threshold = re.search(r"Under (\d+\.?\d*)", team_name).group(1)
+                return f"{home_team} ({home_corners_per_game:.1f}) vs {away_team} ({away_corners_per_game:.1f})\nescanteios em média. Previsão {expected_corners:.1f} escanteios, abaixo de {threshold}. Odds {implied_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
                 
-            justification += f"Previsão {total_expected_cards:.1f} cartões, {comparison} de {threshold}. "
-            justification += f"Odds {implied_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
+        elif "Cartões" in team_name:
+            # Mercado de cartões
+            cards_data = original_probabilities.get("cards", {})
+            expected_cards = cards_data.get("expected_cards", 0)
+            
+            if "Over" in team_name:
+                threshold = re.search(r"Over (\d+\.?\d*)", team_name).group(1)
+                return f"Previsão de {expected_cards:.1f} cartões, acima de {threshold}. Odds {implied_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
+            else:
+                threshold = re.search(r"Under (\d+\.?\d*)", team_name).group(1)
+                return f"Previsão de {expected_cards:.1f} cartões, abaixo de {threshold}. Odds {implied_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
+                
+        else:
+            # Mercado genérico
+            return f"Odds {implied_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%, vantagem de {real_prob-implied_prob:.1f}%."
+            
+    except Exception as e:
+        logging.getLogger("valueHunter.ai").error(f"Erro ao gerar justificativa condensada: {str(e)}")
+        return f"Odds {implied_prob:.1f}% subestimam probabilidade real de {real_prob:.1f}%."
+
+def form_to_points(form_str):
+    """
+    Converte string de forma em pontos (W=3, D=1, L=0)
     
-    # Caso não identifique o mercado, retorna justificativa genérica
-    else:
-        justification = f"{home_team} vs {away_team}. "
-        justification += f"Valor de {real_prob-implied_prob:.1f}% entre probabilidade real ({real_prob:.1f}%) e odds ({implied_prob:.1f}%)."
+    Args:
+        form_str (str): String com a sequência de resultados (ex: "WDLWW")
+        
+    Returns:
+        int: Pontuação total (máximo 15 pontos para 5 jogos)
+    """
+    if not form_str or not isinstance(form_str, str):
+        return 0
+        
+    points = 0
+    # Garantir que estamos usando apenas os últimos 5 jogos
+    recent_form = form_str[-5:] if len(form_str) >= 5 else form_str
     
-    return justification
+    # Calcular pontos
+    for result in recent_form:
+        result = result.upper()  # Converter para maiúscula para garantir
+        if result == 'W':
+            points += 3
+        elif result == 'D':
+            points += 1
+        # result == 'L' ou outros caracteres = 0 pontos
+    
+    return points  # Valor entre 0 e 15
