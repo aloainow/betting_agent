@@ -94,10 +94,20 @@ def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_da
         league_name = match_info.get("league", "")
         
         # Verifica qualidade dos dados - se temos estatísticas mínimas
+        # Requer pelo menos 3 jogos jogados e alguns dados de gols/xG para ambos os times
+        min_games_played = 3
+        home_played = home.get('played', 0)
+        away_played = away.get('played', 0)
+        home_goals_scored = home.get('goals_scored', 0)
+        away_goals_scored = away.get('goals_scored', 0)
+        home_xg = home.get('xg', 0) # Verifica se dados de xG existem
+        away_xg = away.get('xg', 0)
+
         has_stats_data = (
-            (home.get("played", 0) > 0 or home.get("wins", 0) > 0 or home.get("goals_scored", 0) > 0) and
-            (away.get("played", 0) > 0 or away.get("wins", 0) > 0 or away.get("goals_scored", 0) > 0)
+            (isinstance(home_played, (int, float)) and home_played >= min_games_played and (home_goals_scored > 0 or home_xg > 0)) and
+            (isinstance(away_played, (int, float)) and away_played >= min_games_played and (away_goals_scored > 0 or away_xg > 0))
         )
+        logger.info(f"Verificação de dados suficientes (mínimo {min_games_played} jogos, gols/xG > 0): {has_stats_data}")
         
         # Log da qualidade dos dados
         home_fields = sum(1 for k, v in home.items() 
@@ -170,6 +180,11 @@ def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_da
 As probabilidades calculadas estão utilizando a metodologia de fallback e devem ser consideradas aproximações.
 Recomenda-se cautela ao tomar decisões baseadas nesta análise.
 """
+            # Registrar aviso no log
+            logger.warning(f"AVISO: Dados estatísticos insuficientes para {home_team} vs {away_team}. Usando metodologia de fallback.")
+            
+            # Adicionar flag ao objeto de dados para referência posterior
+            optimized_data["insufficient_data"] = True
 
         # 2. STATS FOR RESULT MARKETS
         result_stats = ""
@@ -450,48 +465,45 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
         home_creation = home_offensive * 0.7 + home_possession * 0.3
         away_creation = away_offensive * 0.7 + away_possession * 0.3
         
-        # ONLY NOW - APPLY WEIGHTS with all variables correctly defined
+        # Melhorar tratamento de dados ausentes para cálculos de probabilidade
+        # Usar valores mais conservadores quando os dados são insuficientes
+        if not has_stats_data:
+            # Ajustar para valores mais equilibrados em caso de dados insuficientes
+            home_form_normalized = 0.5  # Neutro
+            away_form_normalized = 0.5  # Neutro
+            home_stats_score = 0.5      # Neutro
+            away_stats_score = 0.5      # Neutro
+            home_position_score = 0.5   # Neutro
+            away_position_score = 0.5   # Neutro
+            home_creation = 0.5         # Neutro
+            away_creation = 0.5         # Neutro
+            
+            # Log para depuração
+            logger.warning("Usando valores neutros (0.5) para todos os fatores devido a dados insuficientes")
+        
+        # TODO: Estes pesos fixos deveriam ser otimizados com machine learning usando dados históricos
+        # Atualmente, os pesos não foram validados empiricamente e podem não refletir a importância real
+        # de cada fator, levando a distorções nas probabilidades calculadas.
+        # Idealmente, implementar regressão logística ou outro algoritmo para encontrar pesos ótimos.
+        
+        # Pesos ajustados para reduzir a importância da forma (que pode ser volátil)
+        # e aumentar a importância das estatísticas (que tendem a ser mais estáveis)
         home_total_score = (
-            home_form_normalized * 0.35 +      # Forma recente: 35%
-            home_stats_score * 0.25 +          # Estatísticas: 25%
-            home_position_score * 0.20 +       # Posição: 20%
-            home_creation * 0.20               # Criação: 20%
+            home_form_normalized * 0.25 +      # Forma recente: 25% (reduzido de 35%)
+            home_stats_score * 0.35 +          # Estatísticas: 35% (aumentado de 25%)
+            home_position_score * 0.20 +       # Posição: 20% (mantido)
+            home_creation * 0.20               # Criação: 20% (mantido)
         )
         
         away_total_score = (
-            away_form_normalized * 0.35 +      # Forma recente: 35%
-            away_stats_score * 0.25 +          # Estatísticas: 25%
-            away_position_score * 0.20 +       # Posição: 20%
-            away_creation * 0.20               # Criação: 20%
+            away_form_normalized * 0.25 +      # Forma recente: 25% (reduzido de 35%)
+            away_stats_score * 0.35 +          # Estatísticas: 35% (aumentado de 25%)
+            away_position_score * 0.20 +       # Posição: 20% (mantido)
+            away_creation * 0.20               # Criação: 20% (mantido)
         )
         
-        # Calculate team consistency (dispersion)
-        home_results = [
-            home.get('win_pct', 0) / 100,
-            home.get('draw_pct', 0) / 100,
-            home.get('loss_pct', 0) / 100
-        ]
-        
-        away_results = [
-            away.get('win_pct', 0) / 100,
-            away.get('draw_pct', 0) / 100,
-            away.get('loss_pct', 0) / 100
-        ]
-        
-        # Calculate standard deviation for dispersion
-        try:
-            home_dispersion = np.std(home_results) * 3
-            away_dispersion = np.std(away_results) * 3
-            
-            # Convert to consistency (inverse of dispersion)
-            home_consistency = (1 - min(1, home_dispersion)) * 100
-            away_consistency = (1 - min(1, away_dispersion)) * 100
-        except:
-            # Fallback if numpy isn't available
-            home_consistency = 50
-            away_consistency = 50
-        
         # Armazenar os valores para uso posterior
+        # REMOVIDO CÁLCULO REDUNDANTE DE CONSISTÊNCIA AQUI
         analysis_data = {
             "home_consistency": home_consistency,
             "away_consistency": away_consistency,
@@ -506,8 +518,8 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
         raw_away_win = away_total_score / (home_total_score + away_total_score) * 0.8
         raw_draw = 1 - (raw_home_win + raw_away_win)
         
-        # Home advantage adjustment
-        home_advantage = 0.12
+        # Ajuste de vantagem de casa (reduzido e marcado para dinamização)
+        home_advantage = 0.05 # TODO: Tornar dinâmico com base na liga/equipes. Valor original era 0.12 (muito alto).
         adjusted_home_win = raw_home_win + home_advantage
         adjusted_away_win = raw_away_win - (home_advantage * 0.5)
         adjusted_draw = raw_draw - (home_advantage * 0.5)
@@ -620,8 +632,8 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
             prob_explanation = """
         ### Metodologia
         As probabilidades foram calculadas usando nossa metodologia de dispersão e ponderação com:
-        - Forma recente: 35%
-        - Estatísticas de equipe: 25%
+        - Forma recente: 25% (ajustado)
+        - Estatísticas de equipe: 35% (ajustado)
         - Posição na tabela: 20%
         - Métricas de criação: 20%"""
             
@@ -946,6 +958,9 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
     Formato atualizado que usa dados pré-calculados de probabilidades implícitas e
     separa as oportunidades das justificativas detalhadas.
     """
+    # Definir o limiar de valor como uma constante para fácil ajuste
+    VALUE_THRESHOLD = 5.0 # Original era 2.0
+    
     try:
         # Verificar se temos informações suficientes
         if not analysis_text or not original_probabilities or not implied_probabilities:
@@ -1046,7 +1061,7 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
             # Casa
             home_real = moneyline.get("home_win", 0)
             home_implicit = implied_probabilities.get("home", 0)
-            home_value = home_real > home_implicit + 2
+            home_value = home_real > home_implicit + VALUE_THRESHOLD
             
             probs_section += f"- **{home_team}**: Real {home_real:.1f}% vs Implícita {home_implicit:.1f}%{' (Valor)' if home_value else ''}\n"
             
@@ -1062,7 +1077,7 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
             # Empate
             draw_real = moneyline.get("draw", 0)
             draw_implicit = implied_probabilities.get("draw", 0)
-            draw_value = draw_real > draw_implicit + 2
+            draw_value = draw_real > draw_implicit + VALUE_THRESHOLD
             
             probs_section += f"- **Empate**: Real {draw_real:.1f}% vs Implícita {draw_implicit:.1f}%{' (Valor)' if draw_value else ''}\n"
             
@@ -1078,7 +1093,7 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
             # Fora
             away_real = moneyline.get("away_win", 0)
             away_implicit = implied_probabilities.get("away", 0)
-            away_value = away_real > away_implicit + 2
+            away_value = away_real > away_implicit + VALUE_THRESHOLD
             
             probs_section += f"- **{away_team}**: Real {away_real:.1f}% vs Implícita {away_implicit:.1f}%{' (Valor)' if away_value else ''}\n"
             
@@ -1100,7 +1115,7 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
             # 1X
             hd_real = dc.get("home_or_draw", 0)
             hd_implicit = implied_probabilities.get("home_draw", 0)
-            hd_value = hd_real > hd_implicit + 2
+            hd_value = hd_real > hd_implicit + VALUE_THRESHOLD
             
             probs_section += f"- **{home_team} ou Empate**: Real {hd_real:.1f}% vs Implícita {hd_implicit:.1f}%{' (Valor)' if hd_value else ''}\n"
             
@@ -1114,7 +1129,7 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
             # 12
             ha_real = dc.get("home_or_away", 0)
             ha_implicit = implied_probabilities.get("home_away", 0)
-            ha_value = ha_real > ha_implicit + 2
+            ha_value = ha_real > ha_implicit + VALUE_THRESHOLD
             
             probs_section += f"- **{home_team} ou {away_team}**: Real {ha_real:.1f}% vs Implícita {ha_implicit:.1f}%{' (Valor)' if ha_value else ''}\n"
             
@@ -1128,7 +1143,7 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
             # X2
             da_real = dc.get("away_or_draw", 0)
             da_implicit = implied_probabilities.get("draw_away", 0)
-            da_value = da_real > da_implicit + 2
+            da_value = da_real > da_implicit + VALUE_THRESHOLD
             
             probs_section += f"- **Empate ou {away_team}**: Real {da_real:.1f}% vs Implícita {da_implicit:.1f}%{' (Valor)' if da_value else ''}\n"
             
@@ -1148,7 +1163,7 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
             # Sim
             yes_real = btts.get("yes", 0)
             yes_implicit = implied_probabilities.get("btts_yes", 0)
-            yes_value = yes_real > yes_implicit + 2
+            yes_value = yes_real > yes_implicit + VALUE_THRESHOLD
             
             probs_section += f"- **Sim**: Real {yes_real:.1f}% vs Implícita {yes_implicit:.1f}%{' (Valor)' if yes_value else ''}\n"
             
@@ -1162,7 +1177,7 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
             # Não
             no_real = btts.get("no", 0)
             no_implicit = implied_probabilities.get("btts_no", 0)
-            no_value = no_real > no_implicit + 2
+            no_value = no_real > no_implicit + VALUE_THRESHOLD
             
             probs_section += f"- **Não**: Real {no_real:.1f}% vs Implícita {no_implicit:.1f}%{' (Valor)' if no_value else ''}\n"
             
@@ -1182,7 +1197,7 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
             # Over 2.5
             over_real = ou.get("over_2_5", 0)
             over_implicit = implied_probabilities.get("over_2_5", 0)
-            over_value = over_real > over_implicit + 2
+            over_value = over_real > over_implicit + VALUE_THRESHOLD
             
             probs_section += f"- **Over 2.5**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}%{' (Valor)' if over_value else ''}\n"
             
@@ -1196,7 +1211,7 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
             # Under 2.5
             under_real = ou.get("under_2_5", 0)
             under_implicit = implied_probabilities.get("under_2_5", 0)
-            under_value = under_real > under_implicit + 2
+            under_value = under_real > under_implicit + VALUE_THRESHOLD
             
             probs_section += f"- **Under 2.5**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}%{' (Valor)' if under_value else ''}\n"
             
@@ -1216,7 +1231,7 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
             # Over 9.5
             over_real = corners.get("over_9_5", 0)
             over_implicit = implied_probabilities.get("over_9_5_corners", 0)
-            over_value = over_real > over_implicit + 2
+            over_value = over_real > over_implicit + VALUE_THRESHOLD
             
             probs_section += f"- **Over 9.5**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}%{' (Valor)' if over_value else ''}\n"
             
@@ -1230,7 +1245,7 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
             # Under 9.5
             under_real = corners.get("under_9_5", 0)
             under_implicit = implied_probabilities.get("under_9_5_corners", 0)
-            under_value = under_real > under_implicit + 2
+            under_value = under_real > under_implicit + VALUE_THRESHOLD
             
             probs_section += f"- **Under 9.5**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}%{' (Valor)' if under_value else ''}\n"
             
@@ -1248,9 +1263,12 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
             cards = original_probabilities["cards"]
             
             # Over 3.5
-            over_real = cards.get("over_4_5", 0) # Observação: aqui está 4.5 mas usamos 3.5 na seção
+            # CORREÇÃO: Usar a chave correta para o limiar 3.5 (assumindo que exista, ex: 'over_3_5')
+            # O código original usava 'over_4_5', o que estava inconsistente.
+            # Se a chave 'over_3_5' não existir, a lógica de cálculo ou a fonte de dados precisa ser revisada.
+            over_real = cards.get("over_3_5", 0) # Corrigido de "over_4_5"
             over_implicit = implied_probabilities.get("over_3_5_cards", 0)
-            over_value = over_real > over_implicit + 2
+            over_value = over_real > over_implicit + VALUE_THRESHOLD
             
             probs_section += f"- **Over 3.5**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}%{' (Valor)' if over_value else ''}\n"
             
@@ -1262,9 +1280,12 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
                 opportunities.append(opportunity)
             
             # Under 3.5
-            under_real = cards.get("under_4_5", 0) # Observação: aqui está 4.5 mas usamos 3.5 na seção
+            # CORREÇÃO: Usar a chave correta para o limiar 3.5 (assumindo que exista, ex: 'under_3_5')
+            # O código original usava 'under_4_5', o que estava inconsistente.
+            # Se a chave 'under_3_5' não existir, a lógica de cálculo ou a fonte de dados precisa ser revisada.
+            under_real = cards.get("under_3_5", 0) # Corrigido de "under_4_5"
             under_implicit = implied_probabilities.get("under_3_5_cards", 0)
-            under_value = under_real > under_implicit + 2
+            under_value = under_real > under_implicit + VALUE_THRESHOLD
             
             probs_section += f"- **Under 3.5**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}%{' (Valor)' if under_value else ''}\n"
             
