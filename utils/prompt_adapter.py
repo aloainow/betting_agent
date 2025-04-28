@@ -2020,6 +2020,14 @@ def transform_to_optimized_data(api_data, home_team_name, away_team_name, select
         # Ensure all critical fields have reasonable values
         ensure_critical_fields(optimized_data, home_team_name, away_team_name)
         
+        # Validate data types to fix form strings in numeric fields
+        optimized_data["home_team"] = validate_data_types(optimized_data["home_team"])
+        optimized_data["away_team"] = validate_data_types(optimized_data["away_team"])
+        
+        # Log specific fields after validation
+        logger.info(f"HOME TEAM CORNERS: {optimized_data['home_team'].get('corners_per_game')}, {type(optimized_data['home_team'].get('corners_per_game'))}")
+        logger.info(f"AWAY TEAM CORNERS: {optimized_data['away_team'].get('corners_per_game')}, {type(optimized_data['away_team'].get('corners_per_game'))}")
+        
         logger.info(f"Data structure optimized successfully for {home_team_name} vs {away_team_name}")
         return optimized_data
         
@@ -4686,3 +4694,105 @@ def simplify_api_data(api_data, home_team_name, away_team_name):
     simplified_data["away_team"]["name"] = away_team_name
     
     return simplified_data
+def is_form_string(value):
+    """
+    Verifica se um valor parece ser uma sequência de forma (W/L/D)
+    
+    Args:
+        value: Valor a ser verificado
+        
+    Returns:
+        bool: True se parece ser uma string de forma, False caso contrário
+    """
+    if not isinstance(value, str):
+        return False
+    # Verifica se a string contém principalmente W, L, D (case insensitive)
+    form_chars = 0
+    for char in str(value).upper():
+        if char in 'WLD?':
+            form_chars += 1
+    # Se mais de 70% são W, L, D ou ?, é uma string de forma
+    return form_chars > len(str(value)) * 0.7 if len(str(value)) > 0 else False
+
+def validate_data_types(data_dict):
+    """
+    Valida e corrige os tipos de dados em um dicionário de estatísticas
+    
+    Args:
+        data_dict (dict): Dicionário contendo estatísticas
+        
+    Returns:
+        dict: Dicionário com tipos de dados corrigidos
+    """
+    import logging
+    logger = logging.getLogger("valueHunter.prompt_adapter")
+    
+    if not isinstance(data_dict, dict):
+        return data_dict
+    
+    # Campos que devem ser numéricos
+    numeric_fields = [
+        # Corners
+        'cornersAVG_overall', 'cornersAVG_home', 'cornersAVG_away',
+        'corners_per_game', 'home_corners_per_game', 'away_corners_per_game',
+        'corners_total', 'corners_for', 'corners_against',
+        'cornersTotal_overall', 'cornersTotalAVG_overall',
+        
+        # Cards
+        'cards_per_game', 'home_cards_per_game', 'away_cards_per_game',
+        'cards_total', 'yellow_cards', 'red_cards', 'cardsTotal_overall',
+        'cardsAVG_overall',
+        
+        # Goals
+        'goals_per_game', 'conceded_per_game', 'goals_scored', 'goals_conceded',
+        
+        # Percentages
+        'win_pct', 'draw_pct', 'loss_pct', 'clean_sheets_pct', 'btts_pct', 
+        'over_2_5_pct', 'over_3_5_cards_pct', 'over_9_5_corners_pct',
+        
+        # xG
+        'xg', 'xga', 'xg_for_overall', 'xg_against_overall',
+        
+        # Other statistics
+        'ppda', 'possession'
+    ]
+    
+    # Campos que devem ser strings de forma
+    form_fields = [
+        'form', 'home_form', 'away_form', 
+        'formRun_overall', 'formRun_home', 'formRun_away'
+    ]
+    
+    # Corrigir cada campo
+    for key, value in list(data_dict.items()):
+        # Campos numéricos
+        if key in numeric_fields:
+            # Se for string de forma em campo numérico, corrigir
+            if is_form_string(value):
+                logger.warning(f"Campo numérico '{key}' contém string de forma: '{value}'. Definindo como 0.")
+                data_dict[key] = 0
+            else:
+                # Tentar converter para número
+                try:
+                    data_dict[key] = float(value) if value is not None else 0
+                except (ValueError, TypeError):
+                    logger.warning(f"Não foi possível converter '{key}={value}' para número. Definindo como 0.")
+                    data_dict[key] = 0
+        
+        # Campos de forma
+        elif key in form_fields:
+            # Se não for string mas deveria ser
+            if not isinstance(value, str):
+                try:
+                    data_dict[key] = str(value)
+                except (ValueError, TypeError):
+                    logger.warning(f"Não foi possível converter '{key}={value}' para string. Definindo como '?????'.")
+                    data_dict[key] = "?????"
+            
+            # Garantir que a forma tenha 5 caracteres
+            if isinstance(data_dict[key], str) and len(data_dict[key]) > 0:
+                # Limitar a 5 caracteres e preencher se necessário
+                data_dict[key] = data_dict[key][:5].ljust(5, '?')
+    
+    return data_dict
+
