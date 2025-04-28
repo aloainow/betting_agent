@@ -260,49 +260,40 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
   - Chutes no alvo por jogo: {away.get('shotsOnTargetAVG_overall', 0)} geral | {away.get('shotsOnTargetAVG_away', 0)} fora
 """
 
-        # 4. CARDS AND CORNERS if selected
+       # 4. CARDS AND CORNERS if selected
+
+        # ─── CÁLCULO CORRETO DE MÉDIAS ──────────────────────────────
+        home_avg_corners = home.get("corners_per_game", 0)
+        away_avg_corners = away.get("corners_per_game", 0)
+        avg_corners      = home_avg_corners + away_avg_corners
+        
+        home_avg_cards   = home.get("cards_per_game", 0)
+        away_avg_cards   = away.get("cards_per_game", 0)
+        avg_cards        = home_avg_cards + away_avg_cards
+        # ───────────────────────────────────────────────────────────
+        
         other_stats = ""
+        
         if selected_markets.get("escanteios"):
             other_stats += f"""
-# ESTATÍSTICAS PARA MERCADOS DE ESCANTEIOS
-
-### Dados de Escanteios
-* {home_team}:
-  - Média de escanteios por jogo: {home.get('corners_per_game', 0)} geral | {home.get('home_corners_per_game', 0)} em casa
-  - Escanteios a favor: {home.get('corners_for', 0)} total | {home.get('cornersAVG_overall', 0)} média geral | {home.get('cornersAVG_home', 0)} média em casa
-  - Escanteios contra: {home.get('corners_against', 0)} total | {home.get('cornersAgainstAVG_overall', 0)} média geral | {home.get('cornersAgainstAVG_home', 0)} média em casa
-  - Jogos com Over 9.5 escanteios: {home.get('over_9_5_corners_pct', 0)}%
-
-* {away_team}:
-  - Média de escanteios por jogo: {away.get('corners_per_game', 0)} geral | {away.get('away_corners_per_game', 0)} fora
-  - Escanteios a favor: {away.get('corners_for', 0)} total | {away.get('cornersAVG_overall', 0)} média geral | {away.get('cornersAVG_away', 0)} média fora
-  - Escanteios contra: {away.get('corners_against', 0)} total | {away.get('cornersAgainstAVG_overall', 0)} média geral | {away.get('cornersAgainstAVG_away', 0)} média fora
-  - Jogos com Over 9.5 escanteios: {away.get('over_9_5_corners_pct', 0)}%
-
-* Média de escanteios em confrontos diretos: {h2h.get('avg_corners', 0)}
-"""
-
+        # ESTATÍSTICAS PARA MERCADOS DE ESCANTEIOS
+        
+        ### Dados de Escanteios
+        …  
+        * Média combinada de escanteios: {avg_corners:.2f} por jogo  
+          (Casa: {home_avg_corners:.2f} | Fora: {away_avg_corners:.2f})
+        """
+        
         if selected_markets.get("cartoes"):
             other_stats += f"""
-# ESTATÍSTICAS PARA MERCADOS DE CARTÕES
+        # ESTATÍSTICAS PARA MERCADOS DE CARTÕES
+        
+        ### Dados de Cartões
+        …  
+        * Média combinada de cartões: {avg_cards:.2f} por jogo  
+          (Casa: {home_avg_cards:.2f} | Fora: {away_avg_cards:.2f})
+        """
 
-### Dados de Cartões
-* {home_team}:
-  - Média de cartões por jogo: {home.get('cards_per_game', 0)} geral | {home.get('home_cards_per_game', 0)} em casa
-  - Total de cartões: {home.get('cardsTotal_overall', 0)} geral | {home.get('cardsTotal_home', 0)} em casa
-  - Cartões amarelos: {home.get('yellow_cards', 0)}
-  - Cartões vermelhos: {home.get('red_cards', 0)}
-  - Jogos com Over 3.5 cartões: {home.get('over_3_5_cards_pct', 0)}%
-
-* {away_team}:
-  - Média de cartões por jogo: {away.get('cards_per_game', 0)} geral | {away.get('away_cards_per_game', 0)} fora
-  - Total de cartões: {away.get('cardsTotal_overall', 0)} geral | {away.get('cardsTotal_away', 0)} fora
-  - Cartões amarelos: {away.get('yellow_cards', 0)}
-  - Cartões vermelhos: {away.get('red_cards', 0)}
-  - Jogos com Over 3.5 cartões: {away.get('over_3_5_cards_pct', 0)}%
-
-* Média de cartões em confrontos diretos: {h2h.get('avg_cards', 0)}
-"""
 
         # 5. PROBABILITY CALCULATION USING DISPERSAL AND WEIGHTING METHOD
         # Calculate probability using our advanced method
