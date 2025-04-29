@@ -859,13 +859,17 @@ if __name__ == "__main__":
 # Adicione esta função no app.py para injetar o favicon diretamente no HTML
 # Coloque este código logo após importar os módulos
 
+# Aqui está a versão corrigida da função inject_favicon():
+
 def inject_favicon():
     """Injetar favicon diretamente no HTML para garantir que funcione"""
     favicon_path = os.path.join(os.getcwd(), "favicon_svg.svg")
     if os.path.exists(favicon_path):
         try:
-            with open(favicon_path, "r") as f:
-                favicon_svg = f.read()
+            with open(favicon_path, "rb") as f:  # Note que mudamos para "rb" (binário)
+                favicon_data = f.read()
+                
+            favicon_b64 = base64.b64encode(favicon_data).decode()
                 
             favicon_html = f"""
             <style>
@@ -874,7 +878,7 @@ def inject_favicon():
                     content: none !important;
                 }}
             </style>
-            <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,{base64.b64encode(favicon_svg.encode()).decode()}">
+            <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,{favicon_b64}">
             """
             st.markdown(favicon_html, unsafe_allow_html=True)
             logger.info(f"Favicon SVG injetado com sucesso: {favicon_path}")
