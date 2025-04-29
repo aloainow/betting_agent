@@ -7,30 +7,50 @@ import time
 from datetime import datetime
 import base64
 
+# Remova completamente a função inject_favicon() e use esta abordagem simplificada:
+
 # === 1. CONFIGURAR FAVICON & PAGE CONFIG ===
 st.set_page_config(
     page_title="ValueHunter - Análise de Apostas Esportivas",
-    page_icon="favicon_svg.svg",  # Usando o arquivo SVG como favicon
+    page_icon="📊",  # Usando um emoji como favicon temporário
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items=None
 )
 
-# Função auxiliar para converter arquivo em base64
+# Função auxiliar para converter arquivo em base64 com tratamento de erro
 def _get_base64(path: str) -> str:
-    """Converte qualquer arquivo binário em string base64."""
-    with open(path, "rb") as f:
-        return base64.b64encode(f.read()).decode()
+    """Converte qualquer arquivo binário em string base64 com segurança."""
+    try:
+        with open(path, "rb") as f:
+            return base64.b64encode(f.read()).decode()
+    except Exception as e:
+        logger.error(f"Erro ao carregar arquivo {path}: {str(e)}")
+        return ""
 
 # Verifica se o arquivo existe antes de tentar carregar
 logo_path = os.path.join(os.getcwd(), "3F3F45.png")
+_LOGO_B64 = ""  # Inicializa vazio por padrão
+
 if os.path.exists(logo_path):
     _LOGO_B64 = _get_base64(logo_path)
     logger.info(f"Logo carregado com sucesso: {logo_path}")
 else:
     logger.error(f"Arquivo de logo não encontrado: {logo_path}")
-    # Fallback para evitar erros
-    _LOGO_B64 = ""
+
+# Tenta injetar o favicon de maneira simples - sem função separada
+try:
+    favicon_path = os.path.join(os.getcwd(), "favicon_svg.svg")
+    if os.path.exists(favicon_path):
+        favicon_b64 = _get_base64(favicon_path)
+        if favicon_b64:
+            st.markdown(
+                f'<link rel="icon" href="data:image/svg+xml;base64,{favicon_b64}">',
+                unsafe_allow_html=True
+            )
+            logger.info("Favicon SVG injetado com sucesso")
+except Exception as e:
+    logger.error(f"Erro ao injetar favicon: {str(e)}")
 # === 2. SETUP DE LOGS ===
 logging.basicConfig(
     level=logging.INFO,
@@ -856,36 +876,3 @@ if __name__ == "__main__":
     except Exception as e:
         logger.critical(f"Erro fatal na aplicação: {str(e)}")
         st.error("Ocorreu um erro inesperado. Por favor, recarregue a página e tente novamente.")
-# Adicione esta função no app.py para injetar o favicon diretamente no HTML
-# Coloque este código logo após importar os módulos
-
-# Aqui está a versão corrigida da função inject_favicon():
-
-def inject_favicon():
-    """Injetar favicon diretamente no HTML para garantir que funcione"""
-    favicon_path = os.path.join(os.getcwd(), "favicon_svg.svg")
-    if os.path.exists(favicon_path):
-        try:
-            with open(favicon_path, "rb") as f:  # Note que mudamos para "rb" (binário)
-                favicon_data = f.read()
-                
-            favicon_b64 = base64.b64encode(favicon_data).decode()
-                
-            favicon_html = f"""
-            <style>
-                /* Forçar o favicon a ser usado, sobrescrevendo o favicon padrão do Streamlit */
-                link[rel="shortcut icon"] {{
-                    content: none !important;
-                }}
-            </style>
-            <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,{favicon_b64}">
-            """
-            st.markdown(favicon_html, unsafe_allow_html=True)
-            logger.info(f"Favicon SVG injetado com sucesso: {favicon_path}")
-        except Exception as e:
-            logger.error(f"Erro ao injetar favicon SVG: {str(e)}")
-    else:
-        logger.warning(f"Arquivo de favicon não encontrado: {favicon_path}")
-
-# Chamar a função logo após a configuração da página
-inject_favicon()
