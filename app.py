@@ -1,6 +1,3 @@
-# Solução mínima para resolver o problema de strings triplas
-# Substitua TODO o arquivo app.py por este código
-
 import os
 import logging
 import sys
@@ -9,117 +6,368 @@ import time
 from datetime import datetime
 import base64
 
-# Configuração básica da página
+# Verificação avançada de arquivos em múltiplos diretórios
+def check_files_in_directories():
+    """Verifica se os arquivos existem em diferentes diretórios possíveis"""
+    # Diretórios a verificar
+    directories = [
+        os.getcwd(),                               # Diretório atual
+        os.path.join(os.getcwd(), "static"),       # Pasta static
+        "/opt/render/project/src",                 # Raiz do Render
+        "/app",                                    # Outra pasta comum
+        os.path.dirname(os.path.abspath(__file__)) # Diretório do script
+    ]
+    
+    # Arquivos a procurar
+    files = ["3F3F45.png", "favicon_svg.svg", "logo.png"]
+    
+    results = {}
+    
+    # Verificar cada diretório
+    for directory in directories:
+        if os.path.exists(directory):
+            print(f"Verificando diretório: {directory}")
+            try:
+                dir_files = os.listdir(directory)
+                print(f"Arquivos em {directory}: {dir_files}")
+                
+                # Verificar cada arquivo
+                for file in files:
+                    file_path = os.path.join(directory, file)
+                    exists = os.path.exists(file_path)
+                    results[f"{directory}/{file}"] = exists
+                    
+                    if exists:
+                        print(f"ENCONTRADO: {file} em {directory}")
+            except Exception as e:
+                print(f"Erro ao listar {directory}: {str(e)}")
+        else:
+            print(f"Diretório não existe: {directory}")
+    
+    return results
+
+# Chamar a função no início do aplicativo
+file_check_results = check_files_in_directories()
+
+# Descobrir caminhos corretos para o logo e favicon
+logo_path = None
+favicon_path = None
+
+for path, exists in file_check_results.items():
+    if exists and ("3F3F45.png" in path or "logo.png" in path):
+        logo_path = path
+        print(f"Usando logo encontrado em: {logo_path}")
+    if exists and "favicon_svg.svg" in path:
+        favicon_path = path
+        print(f"Usando favicon encontrado em: {favicon_path}")
+
+# === 1. CONFIGURAR FAVICON & PAGE CONFIG ===
 st.set_page_config(
-    page_title="ValueHunter",
-    page_icon="📊",
+    page_title="ValueHunter - Análise de Apostas Esportivas",
+    page_icon="📊",  # Usando emoji como favicon temporário
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
+    menu_items=None
 )
 
-# Setup de logging
+# Tentar inserir o favicon SVG
+try:
+    if favicon_path and os.path.exists(favicon_path):
+        with open(favicon_path, "rb") as f:
+            favicon_data = f.read()
+        favicon_b64 = base64.b64encode(favicon_data).decode()
+        favicon_html = f"<link rel='icon' type='image/svg+xml' href='data:image/svg+xml;base64,{favicon_b64}'>"
+        st.markdown(favicon_html, unsafe_allow_html=True)
+        print("Favicon inserido com sucesso")
+except Exception as e:
+    print(f"Erro ao inserir favicon: {str(e)}")
+
+# Função auxiliar para converter arquivo em base64
+def _get_base64(path):
+    try:
+        with open(path, "rb") as f:
+            return base64.b64encode(f.read()).decode()
+    except Exception as e:
+        print(f"Erro ao carregar {path}: {str(e)}")
+        return ""
+
+# Carregar logo
+_LOGO_B64 = ""
+if logo_path and os.path.exists(logo_path):
+    _LOGO_B64 = _get_base64(logo_path)
+    print(f"Logo carregado com sucesso: {logo_path}")
+else:
+    print(f"Arquivo de logo não encontrado ou caminho inválido")
+
+# === 2. SETUP DE LOGS ===
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger("valueHunter")
+logger.info(f"Python version: {sys.version}")
+logger.info(f"Current directory: {os.getcwd()}")
+try:
+    logger.info(f"Directory contents: {os.listdir('.')}")
+except Exception as e:
+    logger.error(f"Erro ao listar diretório: {str(e)}")
 
-# Ocultar elementos de navegação com CSS simples
-st.markdown(
+# Aplicar CSS para ocultar elementos de navegação - sem strings triplas
+css = (
     "<style>"
     "[data-testid='stSidebarNavItems'] {display: none !important;}"
-    "header[data-testid='stHeader'], footer, #MainMenu {display: none !important;}"
-    "</style>",
-    unsafe_allow_html=True
+    "section[data-testid='stSidebarUserContent'] {margin-top: 0 !important;}"
+    "div[class*='st-emotion-cache-16idsys'], "
+    "div[class*='st-emotion-cache-1cypcdb'], "
+    "div[class*='st-emotion-cache-vk3wp9'], "
+    "div[class*='st-emotion-cache-ue6h4q'], "
+    "div[class*='st-emotion-cache-jnd7a1'] {display: none !important;}"
+    "header[data-testid='stHeader'], button[kind='header'], #MainMenu, footer "
+    "{display: none !important;}"
+    "[data-testid='stSidebar'] {display: block !important; visibility: visible !important; opacity: 1 !important;}"
+    "div.stButton > button, button.css-1rs6os.edgvbvh3 {"
+    "background-color: #fd7014 !important;"
+    "color: #FFFFFF !important;"
+    "border: none !important;"
+    "border-radius: 4px;"
+    "font-weight: bold;"
+    "transition: background-color 0.3s ease;"
+    "}"
+    "div.stButton > button:hover, button.css-1rs6os.edgvbvh3:hover {"
+    "background-color: #27272a !important;"
+    "color: white !important;"
+    "}"
+    "</style>"
 )
+st.markdown(css, unsafe_allow_html=True)
 
-# Importar módulos de utilidade
-try:
-    from utils.core import (
-        DATA_DIR, init_session_state, show_valuehunter_logo, 
-        init_stripe, check_payment_success, handle_stripe_errors
-    )
-    from utils.data import UserManager
-    from pages.dashboard import show_main_dashboard
-    from pages.landing import show_landing_page
-    from pages.auth import show_login, show_register, show_verification
-    from pages.packages import show_packages_page
-except Exception as e:
-    st.error(f"Erro ao importar módulos: {str(e)}")
-    logger.error(f"Erro ao importar módulos: {str(e)}")
+# Tela de carregamento simplificada
+loading_css = (
+    "<style>"
+    "#loading-spinner {position: fixed; top: 0; left: 0; width: 100%; height: 100%;"
+    "background-color: #1a1a1a; display: flex; justify-content: center;"
+    "align-items: center; z-index: 9999; transition: opacity 0.5s;}"
+    ".spinner {width: 50px; height: 50px; border: 5px solid #fd7014;"
+    "border-top: 5px solid transparent; border-radius: 50%;"
+    "animation: spin 1s linear infinite;}"
+    "@keyframes spin {0% {transform: rotate(0deg);} 100% {transform: rotate(360deg);}}"
+    "</style>"
+    "<div id='loading-spinner'><div class='spinner'></div></div>"
+    "<script>"
+    "setTimeout(function() {"
+    "document.getElementById('loading-spinner').style.opacity = '0';"
+    "setTimeout(function() {"
+    "document.getElementById('loading-spinner').style.display = 'none';"
+    "}, 500);"
+    "}, 2000);"
+    "</script>"
+)
+st.components.v1.html(loading_css, height=0)
 
-# Funções de navegação
-def go_to_login():
-    st.session_state.page = "login"
-    st.session_state.show_register = False
-    st.experimental_rerun()
+# Importar módulos de utilidade - colocado antes da configuração do Streamlit
+from utils.core import (
+    DATA_DIR, init_session_state, show_valuehunter_logo, 
+    configure_sidebar_visibility, apply_global_css, init_stripe,
+    check_payment_success, handle_stripe_errors, apply_custom_styles,
+    remove_loading_screen, apply_responsive_styles, hide_sidebar_completely
+)
+from utils.data import UserManager
 
-def go_to_register():
-    st.session_state.page = "register"
-    st.session_state.show_register = True
-    st.experimental_rerun()
+# Criar diretório de dados se não existir
+os.makedirs(DATA_DIR, exist_ok=True)
+logger.info(f"Diretório de dados configurado: {DATA_DIR}")
+logger.info(f"Conteúdo do diretório de dados: {os.listdir(DATA_DIR) if os.path.exists(DATA_DIR) else 'Diretório não existe'}")
 
-def go_to_landing():
-    st.session_state.page = "landing"
-    st.experimental_rerun()
+# Importar funções e classes principais
+from utils.core import (
+    go_to_login, go_to_register, go_to_landing,
+    get_base_url, redirect_to_stripe, update_purchase_button
+)
+from pages.dashboard import show_main_dashboard
+from pages.landing import show_landing_page
+from pages.auth import show_login, show_register, show_verification, show_password_recovery, show_password_reset_code, show_password_reset
+from pages.packages import show_packages_page
 
-# Inicialização básica
-try:
-    # Criar diretório de dados
-    os.makedirs(DATA_DIR, exist_ok=True)
-    
-    # Inicializar estado da sessão
-    init_session_state()
-    
-    # Inicializar Stripe
-    init_stripe()
-    
-    # Verificar pagamentos
-    check_payment_success()
-    handle_stripe_errors()
-except Exception as e:
-    st.error(f"Erro de inicialização: {str(e)}")
-    logger.error(f"Erro de inicialização: {str(e)}")
-
-# Roteamento básico
-try:
-    if "page" in st.session_state:
-        page = st.session_state.page
+# Função para modo de debug
+def enable_debug_mode():
+    """Ativa o modo de debug para ajudar na resolução de problemas"""
+    if "debug_mode" not in st.session_state:
+        st.session_state.debug_mode = False
         
-        if page == "landing":
-            show_landing_page()
-        elif page == "login":
-            show_login()
-        elif page == "register":
-            show_register()
-        elif page == "verification":
-            show_verification()
-        elif page == "main":
-            if st.session_state.authenticated:
-                show_main_dashboard()
-            else:
-                go_to_login()
-        elif page == "packages":
-            if st.session_state.authenticated:
-                show_packages_page()
-            else:
-                go_to_login()
-        else:
-            # Página desconhecida, voltar para landing
-            go_to_landing()
+    # Verificar se o modo de debug deve ser ativado
+    if st.sidebar.checkbox("Modo de Debug", value=st.session_state.debug_mode):
+        st.session_state.debug_mode = True
+        st.session_state.use_sample_data = True
+        
+        st.sidebar.success("Modo de debug ativado")
+        
+        # Exibir informações de debug
+        if st.sidebar.checkbox("Mostrar informações do sistema"):
+            st.sidebar.subheader("Informações do Sistema")
+            st.sidebar.info(f"Python: {sys.version}")
+            st.sidebar.info(f"Diretório: {os.getcwd()}")
+            st.sidebar.info(f"DATA_DIR: {DATA_DIR}")
+            
+        # Exibir logs recentes
+        if st.sidebar.checkbox("Mostrar logs recentes"):
+            st.sidebar.subheader("Logs Recentes")
+            try:
+                log_file = "valueHunter.log"
+                if os.path.exists(log_file):
+                    with open(log_file, "r") as f:
+                        logs = f.readlines()[-20:]  # Últimas 20 linhas
+                    for log in logs:
+                        st.sidebar.text(log.strip())
+                else:
+                    st.sidebar.warning("Arquivo de log não encontrado")
+            except Exception as e:
+                st.sidebar.error(f"Erro ao ler logs: {str(e)}")
+        
+        # Ativar dados de exemplo
+        st.session_state.use_sample_data = st.sidebar.checkbox(
+            "Usar dados de exemplo", 
+            value=st.session_state.get("use_sample_data", True)
+        )
+        
+        # Permitir forçar reload do cache
+        if st.sidebar.button("Limpar cache"):
+            import glob
+            cache_files = glob.glob(os.path.join(DATA_DIR, "cache_*.html"))
+            for f in cache_files:
+                try:
+                    os.remove(f)
+                    st.sidebar.success(f"Removido: {os.path.basename(f)}")
+                except Exception as e:
+                    st.sidebar.error(f"Erro ao remover {f}: {str(e)}")
     else:
-        # Estado não inicializado
-        st.session_state.page = "landing"
-        st.experimental_rerun()
-except Exception as e:
-    st.error(f"Erro no roteamento: {str(e)}")
-    logger.error(f"Erro no roteamento: {str(e)}")
-    
-    # Mostrar informações de debug em caso de erro
-    st.write("Informações de depuração:")
-    st.write(f"Python: {sys.version}")
-    st.write(f"Diretório: {os.getcwd()}")
+        st.session_state.debug_mode = False
+
+# Função principal
+def main():
+    """Função principal que controla o fluxo do aplicativo"""
     try:
-        st.write(f"Arquivos: {os.listdir('.')}")
-    except:
-        st.write("Não foi possível listar arquivos")
+        # Verificar se precisamos fechar a janela atual
+        if 'close_window' in st.query_params and st.query_params.close_window == 'true':
+            st.components.v1.html("""
+                <script>
+                    window.opener && window.opener.postMessage('payment_complete', '*');
+                    window.close();
+                </script>
+            """, height=0)
+            st.success("Pagamento concluído! Você pode fechar esta janela.")
+            return
+            
+        # Initialize session state com valores padrão
+        init_session_state()
+        
+        # Ativar modo de debug se necessário
+        enable_debug_mode()
+        
+        # Initialize Stripe
+        init_stripe()
+        
+        # Check for payment from popup
+        popup_payment = False
+        if 'check_payment' in st.query_params and st.query_params.check_payment == 'true':
+            popup_payment = True
+        
+        # Handle page routing
+        if popup_payment and st.session_state.authenticated:
+            check_payment_success()
+            
+        # Regular payment callback check
+        payment_result = check_payment_success()
+        
+        # Stripe error handling
+        handle_stripe_errors()
+        
+        # Roteamento para páginas
+        if "page" in st.session_state:
+            page = st.session_state.page
+            
+            # Configurar CSS e visibilidade da barra lateral com base na página
+            if page in ["landing", "login", "register", "verification", 
+                       "password_recovery", "password_reset_code", "password_reset"]:
+                # Páginas de autenticação - ocultar totalmente a barra lateral
+                st.markdown("""
+                <style>
+                [data-testid="stSidebar"] {
+                    display: none !important;
+                }
+                </style>
+                """, unsafe_allow_html=True)
+            else:
+                # Outras páginas - configurar barra lateral normalmente
+                configure_sidebar_visibility()
+                
+            # Aplicar CSS global - versão simplificada
+            apply_global_css()
+            
+            # Roteamento para a página correta
+            if page == "landing":
+                show_landing_page()
+            elif page == "login":
+                show_login()
+            elif page == "register":
+                show_register()
+            elif page == "verification":
+                show_verification()
+            elif page == "password_recovery":
+                show_password_recovery()
+            elif page == "password_reset_code":
+                show_password_reset_code()
+            elif page == "password_reset":
+                show_password_reset()
+            elif page == "main":
+                if st.session_state.authenticated:
+                    # Aplicar estilo responsivo
+                    apply_custom_styles()
+                    show_main_dashboard()
+                else:
+                    go_to_login()
+            elif page == "admin":
+                # Verificar se é admin antes de mostrar (implementação futura)
+                if st.session_state.authenticated:
+                    try:
+                        from pages._admin import show_admin_panel
+                        show_admin_panel()
+                    except Exception as e:
+                        logger.error(f"Erro ao carregar painel admin: {str(e)}")
+                        st.error("Erro ao carregar painel administrativo")
+                else:
+                    go_to_login()
+            elif page == "packages":
+                if st.session_state.authenticated:
+                    show_packages_page()
+                else:
+                    go_to_login()
+            else:
+                # Página desconhecida, voltar para a landing
+                st.session_state.page = "landing"
+                st.experimental_rerun()
+        else:
+            # Estado da sessão não inicializado, voltar para a landing
+            st.session_state.page = "landing"
+            st.experimental_rerun()
+        
+        # Remover a tela de carregamento quando tudo estiver pronto
+        remove_loading_screen()
+        
+    except Exception as e:
+        logger.error(f"Erro geral na aplicação: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        st.error("Ocorreu um erro inesperado. Por favor, recarregue a página e tente novamente.")
+        
+        if "debug_mode" in st.session_state and st.session_state.debug_mode:
+            with st.expander("Detalhes do erro", expanded=True):
+                st.code(traceback.format_exc())
+
+# Executar a aplicação
+if __name__ == "__main__":
+    try:
+        logger.info("Iniciando aplicação ValueHunter")
+        main()
+    except Exception as e:
+        logger.critical(f"Erro fatal na aplicação: {str(e)}")
+        st.error("Ocorreu um erro inesperado. Por favor, recarregue a página e tente novamente.")
