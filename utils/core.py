@@ -349,14 +349,50 @@ def apply_global_css():
     </style>
     """ + hide_streamlit_menu(), unsafe_allow_html=True)
 # Função para exibir a logo do ValueHunter de forma consistente
-def show_valuehunter_logo():
-    """Display the ValueHunter logo"""
-    # Logo mantido consistente com o design atual
-    st.markdown("""
-    <div style="background-color: #fd7014; padding: 15px; border-radius: 5px; display: inline-block; margin-top: 0; margin-bottom: 0;">
-        <h1 style="color: white; margin: 0; font-family: 'Arial', sans-serif; font-size: 1.8rem;"><span style="color: #333;">V</span>ValueHunter</h1>
+def show_valuehunter_logo(container=None, size="medium"):
+    """Exibe o logo do ValueHunter
+    
+    Args:
+        container: Container do Streamlit onde o logo será exibido (opcional)
+        size: Tamanho do logo ('small', 'medium', 'large')
+    """
+    target = container if container else st
+    
+    # Define tamanhos baseados no parâmetro
+    sizes = {
+        "small": {"container": "160px", "logo": "30px", "text": "1.2rem"},
+        "medium": {"container": "220px", "logo": "40px", "text": "1.8rem"},
+        "large": {"container": "300px", "logo": "60px", "text": "2.5rem"}
+    }
+    
+    size_config = sizes.get(size, sizes["medium"])
+    
+    logo_html = f"""
+    <div style="
+        background-color: #fd7014;
+        padding: 10px 20px;
+        border-radius: 5px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        width: {size_config['container']};
+        margin-bottom: 1rem;
+    ">
+        <!-- SVG binoculars logo -->
+        <svg style="width:{size_config['logo']}; height:{size_config['logo']};" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M35 25C25.5 25 20 35 20 45C20 55 25.5 65 35 65C44.5 65 50 55 50 45C50 35 44.5 25 35 25Z" fill="white"/>
+            <path d="M65 25C74.5 25 80 35 80 45C80 55 74.5 65 65 65C55.5 65 50 55 50 45C50 35 55.5 25 65 25Z" fill="white"/>
+            <path d="M50 40V50M43 45L57 45M35 35C31.7 35 30 39 30 45C30 51 31.7 55 35 55C38.3 55 40 51 40 45C40 39 38.3 35 35 35ZM65 35C61.7 35 60 39 60 45C60 51 61.7 55 65 55C68.3 55 70 51 70 45C70 39 68.3 35 65 35Z" stroke="#3F3F45" stroke-width="3"/>
+        </svg>
+        <span style="
+            font-size: {size_config['text']};
+            font-weight: bold;
+            color: #FFFFFF;
+        ">VALUEHUNTER</span>
     </div>
-    """, unsafe_allow_html=True)
+    """
+    
+    target.markdown(logo_html, unsafe_allow_html=True)
 
 # Funções de navegação
 def go_to_login():
@@ -827,24 +863,20 @@ def handle_success_page():
                     max-width: 500px;
                     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
                 }}
-                .logo {{
+                .logo {
                     background-color: #fd7014;
                     padding: 10px 20px;
                     border-radius: 8px;
                     display: inline-flex;
                     align-items: center;
+                    gap: 12px;
                     margin-bottom: 20px;
-                }}
-                .logo-v {{
-                    color: #3F3F45;
-                    font-size: 2rem;
-                    font-weight: bold;
-                }}
-                .logo-text {{
+                }
+                .logo-text {
                     font-size: 1.7rem;
                     font-weight: bold;
                     color: white;
-                }}
+                }
                 h1 {{
                     font-size: 1.8rem;
                     margin: 15px 0;
@@ -953,13 +985,14 @@ def handle_success_page():
         <body>
             <div class="message-box">
                 <div class="logo">
-                    <span class="logo-v">V</span>
-                    <span class="logo-text">ValueHunter</span>
+                    <!-- SVG binoculars logo -->
+                    <svg style="width:40px; height:40px;" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M35 25C25.5 25 20 35 20 45C20 55 25.5 65 35 65C44.5 65 50 55 50 45C50 35 44.5 25 35 25Z" fill="white"/>
+                        <path d="M65 25C74.5 25 80 35 80 45C80 55 74.5 65 65 65C55.5 65 50 55 50 45C50 35 55.5 25 65 25Z" fill="white"/>
+                        <path d="M50 40V50M43 45L57 45M35 35C31.7 35 30 39 30 45C30 51 31.7 55 35 55C38.3 55 40 51 40 45C40 39 38.3 35 35 35ZM65 35C61.7 35 60 39 60 45C60 51 61.7 55 65 55C68.3 55 70 51 70 45C70 39 68.3 35 65 35Z" stroke="#3F3F45" stroke-width="3"/>
+                    </svg>
+                    <span class="logo-text">VALUEHUNTER</span>
                 </div>
-                <h1>Processando Pagamento</h1>
-                <p>Estamos verificando seu pagamento.</p>
-                <p><strong>Feche esta janela para continuar.</strong></p>
-            </div>
         </body>
         </html>
         """
@@ -1031,8 +1064,13 @@ def handle_cancel_page():
         <body>
             <div class="message-box">
                 <div class="logo">
-                    <span class="logo-v">V</span>
-                    <span class="logo-text">ValueHunter</span>
+                    <!-- SVG binoculars logo -->
+                    <svg style="width:40px; height:40px;" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M35 25C25.5 25 20 35 20 45C20 55 25.5 65 35 65C44.5 65 50 55 50 45C50 35 44.5 25 35 25Z" fill="white"/>
+                        <path d="M65 25C74.5 25 80 35 80 45C80 55 74.5 65 65 65C55.5 65 50 55 50 45C50 35 55.5 25 65 25Z" fill="white"/>
+                        <path d="M50 40V50M43 45L57 45M35 35C31.7 35 30 39 30 45C30 51 31.7 55 35 55C38.3 55 40 51 40 45C40 39 38.3 35 35 35ZM65 35C61.7 35 60 39 60 45C60 51 61.7 55 65 55C68.3 55 70 51 70 45C70 39 68.3 35 65 35Z" stroke="#3F3F45" stroke-width="3"/>
+                    </svg>
+                    <span class="logo-text">VALUEHUNTER</span>
                 </div>
                 <h1>⚠️ Pagamento Não Aprovado</h1>
                 <p>O pagamento não foi concluído.</p>
