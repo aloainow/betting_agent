@@ -4,7 +4,23 @@ import sys
 import streamlit as st
 import time
 from datetime import datetime
+import base64
 
+
+# 1. CONFIGURAR FAVICON
+st.set_page_config(
+    page_title="ValueHunter",
+    page_icon="favicon.svg",  # ou "favicon.png"
+    layout="wide"
+)
+
+# Função auxiliar para converter arquivo em base64
+def _get_base64(path):
+    with open(path, "rb") as f:
+        return base64.b64encode(f.read()).decode()
+
+# Carrega o base64 do logo
+_LOGO_B64 = _get_base64(os.path.join(os.getcwd(), "logo.png"))
 # Configuração de logging
 logging.basicConfig(
     level=logging.INFO,
@@ -151,12 +167,12 @@ body.loading .stDeployButton {
 }
 </style>
 
+loading_html = f"""
 <div class="vh-loading-container" id="vh-loading-screen">
   <div class="vh-logo-container">
-    <!-- cole aqui seu novo <svg> ou apenas os <path> do seu SVG -->
-    <svg class="vh-logo-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-      <!-- cole aqui seu novo <path> ... -->
-    </svg>
+    <!-- aqui embutimos o PNG do seu logo -->
+    <img src="data:image/png;base64,{_LOGO_B64}"
+         style="width:40px; height:40px;" />
     <span class="vh-logo-text">VALUEHUNTER</span>
   </div>
 
@@ -168,6 +184,8 @@ body.loading .stDeployButton {
     <div class="vh-progress-bar" id="vh-progress-bar"></div>
   </div>
 </div>
+"""
+st.markdown(loading_html, unsafe_allow_html=True)
 
 
 <script>
