@@ -9,7 +9,6 @@ from utils.core import show_valuehunter_logo, go_to_login, update_purchase_butto
 from utils.data import parse_team_stats, get_odds_data, format_prompt
 from utils.ai import analyze_with_gpt, format_enhanced_prompt, format_highly_optimized_prompt
 from utils.ai import analyze_with_gpt, format_enhanced_prompt, format_highly_optimized_prompt, calculate_advanced_probabilities
-from utils.justifications import generate_condensed_justification as generate_justification
 
 # Configuração de logging
 logger = logging.getLogger("valueHunter.dashboard")
@@ -198,15 +197,14 @@ def update_opportunities_format(opportunities_section):
 
 def format_opportunities_section(section):
     """
-    Formata especificamente a seção de Oportunidades Identificadas
-    para garantir que as justificativas sejam preservadas integralmente,
-    inclusive a primeira letra.
+    Formata especificamente a seção de Oportunidades Identificadas,
+    removendo as justificativas.
     
     Args:
         section (str): Texto da seção de oportunidades
         
     Returns:
-        str: Seção de oportunidades formatada
+        str: Seção de oportunidades formatada, sem justificativas
     """
     # Se não houver oportunidades ou apenas a mensagem de que não há valor
     if "Infelizmente não detectamos valor" in section:
@@ -222,7 +220,7 @@ def format_opportunities_section(section):
     else:
         start_idx = 0
     
-    # Para cada linha, detectar e formatar oportunidades e justificativas
+    # Para cada linha, detectar oportunidades e remover justificativas
     i = start_idx
     while i < len(lines):
         line = lines[i].strip()
@@ -234,62 +232,13 @@ def format_opportunities_section(section):
             
             # Verificar se a próxima linha contém a justificativa
             if i + 1 < len(lines) and '*Justificativa:' in lines[i + 1]:
-                original_justification = lines[i + 1].strip()
-                
-                # Extrair corretamente o prefixo e o texto da justificativa
-                prefix_parts = original_justification.split('*Justificativa:', 1)
-                if len(prefix_parts) > 1:
-                    justification_text = prefix_parts[1].strip()
-                    
-                    # Construir a justificativa completa com prefixo
-                    full_justification = "  *Justificativa: " + justification_text
-                    
-                    # Dividir em múltiplas linhas se necessário
-                    if len(full_justification) > 70:
-                        # Primeira linha com pelo menos 2 palavras
-                        words = full_justification.split()
-                        first_line = words[0] + " " + words[1]  # Prefixo + primeira palavra
-                        
-                        # Adicionar mais palavras até atingir o limite
-                        word_index = 2
-                        while word_index < len(words) and len(first_line + " " + words[word_index]) <= 70:
-                            first_line += " " + words[word_index]
-                            word_index += 1
-                        
-                        formatted_lines.append(first_line)
-                        
-                        # Construir linhas subsequentes
-                        if word_index < len(words):
-                            # Criar uma string com as palavras restantes
-                            reing_words = words[word_index:]
-                            current_line = "    "  # 4 espaços de indentação
-                            
-                            for word in reing_words:
-                                if len(current_line + word) + 1 <= 70:  # +1 para o espaço
-                                    if current_line == "    ":
-                                        current_line += word
-                                    else:
-                                        current_line += " " + word
-                                else:
-                                    # Adicionar linha atual e iniciar nova
-                                    formatted_lines.append(current_line)
-                                    current_line = "    " + word
-                            
-                            # Adicionar a última linha se necessário
-                            if current_line != "    ":
-                                formatted_lines.append(current_line)
-                    else:
-                        formatted_lines.append(full_justification)
-                else:
-                    # Se houver problema ao extrair, adicionar a linha original
-                    formatted_lines.append(original_justification)
-                
-                # Avançar para pular a linha da justificativa
+                # Pular a linha da justificativa
                 i += 2
                 continue
         else:
-            # Adicionar outras linhas como estão
-            formatted_lines.append(line)
+            # Adicionar outras linhas como estão (exceto justificativas)
+            if not '*Justificativa:' in line:
+                formatted_lines.append(line)
         
         i += 1
     
