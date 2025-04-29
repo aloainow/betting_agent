@@ -201,263 +201,246 @@ def hide_app_admin_from_modal():
     """, unsafe_allow_html=True)
 
 def apply_global_css():
-    """Aplica estilos CSS globais para toda a aplicação"""
-    st.markdown("""
-    <style>
-        /* Estilo para TODOS os botões - LARANJA COM TEXTO BRANCO */
-        div.stButton > button, button.css-1rs6os.edgvbvh3 {
-            background-color: #fd7014 !important;
-            color: #FFFFFF !important;
-            border: none !important;
-            border-radius: 4px;
-            font-weight: bold;
-            transition: background-color 0.3s ease;
-        }
-        
-        div.stButton > button:hover, button.css-1rs6os.edgvbvh3:hover {
-            background-color: #27272a !important; /* Cinza escuro no hover */
-            color: white !important;
-        }
-        
-        /* Logo consistente */
-        .logo-container {
-            background-color: #fd7014;
-            padding: 12px 25px !important;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            width: fit-content;
-            margin-bottom: 20px;
-        }
-        
-        .logo-v {
-            color: #3F3F45;
-            font-size: 3rem !important;
-            font-weight: bold;
-        }
-        
-        .logo-text {
-            font-size: 2.5rem !important;
-            font-weight: bold;
-            color: #FFFFFF;
-        }
-        
-        body {
-            background-color: #3F3F45;
-            color: #FFFFFF;
-        }
-        .landing-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 2rem;
-        }
-        .navbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.5rem;
-        }
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .hero {
-            margin: 2rem 0;
-            text-align: left;
-        }
-        .hero h1 {
-            font-size: 2.8rem;
-            color: #fd7014;
-            margin-bottom: 1rem;
-        }
-        .hero p {
-            font-size: 1.25rem;
-            color: #FFFFFF;
-            max-width: 90%;
-            margin-left: 0;
-        }
-        .about-content {
-            max-width: 90%;
-            margin-left: 0;
-            line-height: 1.6;
-            margin-top: 2rem;
-            margin-bottom: 2rem;
-        }
-        .about-content h2 {
-            color: #fd7014;
-            margin-bottom: 0.8rem;
-            text-align: left;
-        }
-        .footer {
-            margin-top: 2rem;
-            text-align: center;
-            color: #b0b0b0;
-        }
-        .btn-container {
-            display: flex;
-            justify-content: flex-start;
-            gap: 20px;
-            margin-top: 1.5rem;
-        }
-        p, li {
-            color: #FFFFFF !important;
-        }
-        
-        /* Aumentar a largura máxima do container principal */
-        .main .block-container {
-            max-width: 100% !important; 
-            padding: 1rem !important;
-        }
-        
-        /* Resultado da análise em largura total */
-        .analysis-result {
-            width: 100% !important;
-            max-width: 100% !important; 
-            padding: 2rem !important;
-            background-color: #575760;
-            border-radius: 8px;
-            border: 1px solid #6b6b74;
-            margin: 1rem 0;
-        }
-        
-        /* Estilo para os cartões de crédito */
-        .credit-card {
-            background-color: #3F3F45;
-            border: 1px solid #575760;
-            border-radius: 12px;
-            padding: 25px;
-            margin-bottom: 20px;
-            color: white;
-            text-align: center;
-        }
-        .credit-title {
-            font-size: 28px;
-            font-weight: bold;
-            margin-bottom: 15px;
-        }
-        .credit-price {
-            font-size: 42px;
-            font-weight: bold;
-            margin-bottom: 15px;
-            color: white;
-        }
-        .credit-desc {
-            font-size: 16px;
-            color: #b0b0b0;
-            margin-bottom: 15px;
-        }
-    </style>
-    """ + hide_streamlit_menu(), unsafe_allow_html=True)
+    """
+    Aplica estilos CSS globais para toda a aplicação
+    Versão simplificada sem strings triplas.
+    """
+    css_parte1 = (
+        "<style>"
+        "div.stButton > button, button.css-1rs6os.edgvbvh3 {"
+        "background-color: #fd7014 !important;"
+        "color: #FFFFFF !important;"
+        "border: none !important;"
+        "border-radius: 4px;"
+        "font-weight: bold;"
+        "transition: background-color 0.3s ease;"
+        "}"
+        "div.stButton > button:hover, button.css-1rs6os.edgvbvh3:hover {"
+        "background-color: #27272a !important;"
+        "color: white !important;"
+        "}"
+        ".logo-container {"
+        "background-color: #fd7014;"
+        "padding: 12px 25px !important;"
+        "border-radius: 8px;"
+        "display: flex;"
+        "align-items: center;"
+        "gap: 5px;"
+        "width: fit-content;"
+        "margin-bottom: 20px;"
+        "}"
+        ".logo-v {"
+        "color: #3F3F45;"
+        "font-size: 3rem !important;"
+        "font-weight: bold;"
+        "}"
+        ".logo-text {"
+        "font-size: 2.5rem !important;"
+        "font-weight: bold;"
+        "color: #FFFFFF;"
+        "}"
+    )
+    
+    css_parte2 = (
+        "body {"
+        "background-color: #3F3F45;"
+        "color: #FFFFFF;"
+        "}"
+        ".landing-container {"
+        "max-width: 1200px;"
+        "margin: 0 auto;"
+        "padding: 2rem;"
+        "}"
+        ".navbar {"
+        "display: flex;"
+        "justify-content: space-between;"
+        "align-items: center;"
+        "margin-bottom: 1.5rem;"
+        "}"
+        ".logo {"
+        "display: flex;"
+        "align-items: center;"
+        "gap: 10px;"
+        "}"
+        ".hero {"
+        "margin: 2rem 0;"
+        "text-align: left;"
+        "}"
+        ".hero h1 {"
+        "font-size: 2.8rem;"
+        "color: #fd7014;"
+        "margin-bottom: 1rem;"
+        "}"
+    )
+    
+    css_parte3 = (
+        ".hero p {"
+        "font-size: 1.25rem;"
+        "color: #FFFFFF;"
+        "max-width: 90%;"
+        "margin-left: 0;"
+        "}"
+        ".about-content {"
+        "max-width: 90%;"
+        "margin-left: 0;"
+        "line-height: 1.6;"
+        "margin-top: 2rem;"
+        "margin-bottom: 2rem;"
+        "}"
+        ".about-content h2 {"
+        "color: #fd7014;"
+        "margin-bottom: 0.8rem;"
+        "text-align: left;"
+        "}"
+        ".footer {"
+        "margin-top: 2rem;"
+        "text-align: center;"
+        "color: #b0b0b0;"
+        "}"
+        ".btn-container {"
+        "display: flex;"
+        "justify-content: flex-start;"
+        "gap: 20px;"
+        "margin-top: 1.5rem;"
+        "}"
+    )
+    
+    css_parte4 = (
+        "p, li {"
+        "color: #FFFFFF !important;"
+        "}"
+        ".main .block-container {"
+        "max-width: 100% !important;"
+        "padding: 1rem !important;"
+        "}"
+        ".analysis-result {"
+        "width: 100% !important;"
+        "max-width: 100% !important;"
+        "padding: 2rem !important;"
+        "background-color: #575760;"
+        "border-radius: 8px;"
+        "border: 1px solid #6b6b74;"
+        "margin: 1rem 0;"
+        "}"
+        ".credit-card {"
+        "background-color: #3F3F45;"
+        "border: 1px solid #575760;"
+        "border-radius: 12px;"
+        "padding: 25px;"
+        "margin-bottom: 20px;"
+        "color: white;"
+        "text-align: center;"
+        "}"
+    )
+    
+    css_parte5 = (
+        ".credit-title {"
+        "font-size: 28px;"
+        "font-weight: bold;"
+        "margin-bottom: 15px;"
+        "}"
+        ".credit-price {"
+        "font-size: 42px;"
+        "font-weight: bold;"
+        "margin-bottom: 15px;"
+        "color: white;"
+        "}"
+        ".credit-desc {"
+        "font-size: 16px;"
+        "color: #b0b0b0;"
+        "margin-bottom: 15px;"
+        "}"
+        "</style>"
+    )
+    
+    # Adiciona o código para esconder o menu streamlit
+    hide_menu = (
+        "<style>"
+        "[data-testid='stSidebarNavItems'] {display: none !important;}"
+        "div.stSidebarNavItems, button.stSidebarButton {display: none !important;}"
+        "div[class*='st-emotion-cache-16idsys'], div[class*='st-emotion-cache-1cypcdb'], "
+        "div[class*='st-emotion-cache-vk3wp9'], div[class*='st-emotion-cache-ue6h4q'], "
+        "div[class*='st-emotion-cache-jnd7a1'] {display: none !important;}"
+        "section[data-testid='stSidebarUserContent'] {margin-top: 0 !important;}"
+        "header[data-testid='stHeader'], button[kind='header'], #MainMenu, footer, "
+        "[data-testid='collapsedControl'] {display: none !important;}"
+        "</style>"
+    )
+    
+    # Concatenar todas as partes do CSS e aplicar
+    st.markdown(css_parte1 + css_parte2 + css_parte3 + css_parte4 + css_parte5 + hide_menu, 
+                unsafe_allow_html=True)
 # Função para exibir a logo do ValueHunter de forma consistente
 def _get_base64(path: str) -> str:
     """Converte qualquer arquivo binário em string base64."""
     with open(path, "rb") as f:
         return base64.b64encode(f.read()).decode()
 
-# Modificar a função show_valuehunter_logo em utils/core.py:
+# Modificar a função  em utils/core.py:
+
+# Substitua a função show_valuehunter_logo em utils/core.py por esta versão simplificada:
 
 def show_valuehunter_logo(container=None, size="medium"):
     """
     Exibe o logo do ValueHunter (PNG) + texto em qualquer container Streamlit.
+    Versão simplificada sem strings triplas.
     """
     target = container if container else st
 
-    sizes = {
-        "small":  {"container": "160px", "logo": "30px", "text": "1.2rem"},
-        "medium": {"container": "220px", "logo": "40px", "text": "1.8rem"},
-        "large":  {"container": "300px", "logo": "60px", "text": "2.5rem"},
-    }
-    cfg = sizes.get(size, sizes["medium"])
-
-    # busca o logo na raiz do projeto
+    # Configurações de tamanho
+    if size == "small":
+        container_size = "160px"
+        logo_size = "30px"
+        text_size = "1.2rem"
+    elif size == "large":
+        container_size = "300px"
+        logo_size = "60px"
+        text_size = "2.5rem"
+    else:  # medium é o padrão
+        container_size = "220px"
+        logo_size = "40px"
+        text_size = "1.8rem"
+    
+    # Busca o logo na raiz do projeto
     logo_path = os.path.join(os.getcwd(), "3F3F45.png")
     
     try:
-        # Verifica se o arquivo existe
+        # Verificar se o arquivo existe
         if not os.path.exists(logo_path):
-            logger.warning(f"Arquivo de logo não encontrado: {logo_path}")
-            # Caso o arquivo não exista, criar um logo com CSS apenas
-            logo_html = f"""
-            <div style="
-                background-color: #fd7014;
-                padding: 10px 20px;
-                border-radius: 5px;
-                display: flex;
-                align-items: center;
-                gap: 12px;
-                width: {cfg['container']};
-                margin-bottom: 1rem;
-            ">
-                <div style="
-                    width: {cfg['logo']};
-                    height: {cfg['logo']};
-                    background-color: #3F3F45;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    color: white;
-                    font-weight: bold;
-                    border-radius: 5px;
-                ">V</div>
-                <span style="
-                    font-size: {cfg['text']};
-                    font-weight: bold;
-                    color: #FFFFFF;
-                ">
-                    VALUEHUNTER
-                </span>
-            </div>
-            """
+            # Fallback para um logo baseado apenas em HTML/CSS
+            logo_html = (
+                "<div style='background-color: #fd7014; padding: 10px 20px; "
+                f"border-radius: 5px; display: flex; align-items: center; gap: 12px; width: {container_size}; margin-bottom: 1rem;'>"
+                f"<div style='width: {logo_size}; height: {logo_size}; background-color: #3F3F45; "
+                "display: flex; align-items: center; justify-content: center; color: white; "
+                "font-weight: bold; border-radius: 5px;'>V</div>"
+                f"<span style='font-size: {text_size}; font-weight: bold; color: #FFFFFF;'>VALUEHUNTER</span>"
+                "</div>"
+            )
         else:
             # Carregar o logo como base64
-            logo_b64 = _get_base64(logo_path)
+            with open(logo_path, "rb") as f:
+                logo_b64 = base64.b64encode(f.read()).decode()
             
-            logo_html = f"""
-            <div style="
-                background-color: #fd7014;
-                padding: 10px 20px;
-                border-radius: 5px;
-                display: flex;
-                align-items: center;
-                gap: 12px;
-                width: {cfg['container']};
-                margin-bottom: 1rem;
-            ">
-                <img src="data:image/png;base64,{logo_b64}"
-                     style="width:{cfg['logo']};height:{cfg['logo']};" />
-                <span style="
-                    font-size: {cfg['text']};
-                    font-weight: bold;
-                    color: #FFFFFF;
-                ">
-                    VALUEHUNTER
-                </span>
-            </div>
-            """
+            # Criar o HTML com o logo
+            logo_html = (
+                "<div style='background-color: #fd7014; padding: 10px 20px; "
+                f"border-radius: 5px; display: flex; align-items: center; gap: 12px; width: {container_size}; margin-bottom: 1rem;'>"
+                f"<img src='data:image/png;base64,{logo_b64}' style='width:{logo_size};height:{logo_size};' />"
+                f"<span style='font-size: {text_size}; font-weight: bold; color: #FFFFFF;'>VALUEHUNTER</span>"
+                "</div>"
+            )
     except Exception as e:
         # Garantir que a função não falhe completamente
         logger.error(f"Erro ao carregar logo: {str(e)}")
-        logo_html = f"""
-        <div style="
-            background-color: #fd7014;
-            padding: 10px 20px;
-            border-radius: 5px;
-            text-align: center;
-            width: {cfg['container']};
-            margin-bottom: 1rem;
-        ">
-            <span style="
-                font-size: {cfg['text']};
-                font-weight: bold;
-                color: #FFFFFF;
-            ">
-                VALUEHUNTER
-            </span>
-        </div>
-        """
+        logo_html = (
+            "<div style='background-color: #fd7014; padding: 10px 20px; "
+            f"border-radius: 5px; text-align: center; width: {container_size}; margin-bottom: 1rem;'>"
+            f"<span style='font-size: {text_size}; font-weight: bold; color: #FFFFFF;'>VALUEHUNTER</span>"
+            "</div>"
+        )
     
+    # Renderizar o HTML
     target.markdown(logo_html, unsafe_allow_html=True)
 
 # Funções de navegação
@@ -1162,263 +1145,188 @@ def handle_stripe_errors():
     if 'error' in st.query_params:
         st.error("Erro no processamento do pagamento...")
         st.query_params.clear()
+
 def apply_responsive_styles():
     """
     Aplica estilos CSS responsivos para melhorar a aparência e usabilidade 
     do aplicativo em diferentes dispositivos.
+    Versão simplificada sem strings triplas.
     """
     import streamlit as st
     
-    # CSS para melhorar a responsividade e margens do aplicativo
-    st.markdown("""
-    <style>
-    /* Configurações principais de layout */
-    .main .block-container {
-        padding-left: max(1rem, 5%);
-        padding-right: max(1rem, 5%);
-        padding-top: 1rem;
-        padding-bottom: 1rem;
-        max-width: 1200px;
-        margin: 0 auto;
-    }
-
-    /* Melhor espaçamento para contêineres */
-    div.stApp {
-        background-color: #1a1a1a;
-    }
-
-    /* Melhorar margens laterais */
-    [data-testid="column"] {
-        padding: 0.5rem;
-    }
-
-    /* Aumentar margens responsivas para conteúdo principal */
-    @media (min-width: 768px) {
-        .main .block-container {
-            padding-left: max(2rem, 8%);
-            padding-right: max(2rem, 8%);
-        }
-        
-        /* Margens laterais melhores em desktop */
-        [data-testid="column"] {
-            padding: 0.75rem;
-        }
-        
-        /* Em desktop, a sidebar tem largura fixa menor */
-        [data-testid="stSidebar"] {
-            min-width: 14rem !important;
-            max-width: 20rem !important;
-        }
-    }
-
-    /* Ajustes para dispositivos móveis */
-    @media (max-width: 767px) {
-        .main .block-container {
-            padding-left: 0.75rem;
-            padding-right: 0.75rem;
-        }
-        
-        /* Estilo específico para botões em mobile */
-        button[data-testid="baseButton-primary"] {
-            width: 100%;
-            margin: 0.25rem 0;
-        }
-        
-        /* Ajustar barra lateral em modo móvel */
-        [data-testid="stSidebar"] {
-            min-width: 85% !important;
-            max-width: 85% !important;
-        }
-    }
-
-    /* Melhorar espaçamento dos formulários e inputs */
-    input[type="text"], 
-    input[type="email"], 
-    input[type="password"], 
-    textarea {
-        margin-bottom: 0.75rem !important;
-    }
-
-    /* Estilo para cards de pacotes */
-    .credit-card {
-        background-color: #292929;
-        border-radius: 8px;
-        padding: 1.5rem;
-        margin-bottom: 1rem;
-        text-align: center;
-        border: 1px solid #3a3a3a;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        transition: transform 0.2s, box-shadow 0.2s;
-    }
-
-    .credit-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
-    }
-
-    .credit-title {
-        font-size: 1.5rem;
-        font-weight: bold;
-        margin-bottom: 0.5rem;
-        color: #fd7014;
-    }
-
-    .credit-price {
-        font-size: 2rem;
-        font-weight: bold;
-        margin-bottom: 0.5rem;
-        color: white;
-    }
-
-    .credit-desc {
-        color: #b0b0b0;
-        font-size: 1rem;
-    }
-
-    /* Melhorar aparência em geral */
-    h1, h2, h3 {
-        color: #fd7014;
-        margin-bottom: 1rem;
-    }
-
-    /* Estilo para mensagens de alerta, erro e sucesso */
-    [data-testid="stAlert"] {
-        border-radius: 8px;
-        padding: 0.75rem 1rem;
-        margin: 1rem 0;
-    }
-
-    /* Header com logo */
-    .vh-logo {
-        max-height: 60px;
-        display: block;
-    }
-
-    /* Estilo para a landing page */
-    .hero {
-        padding: 2rem 0;
-        text-align: center;
-        margin-bottom: 2rem;
-    }
-
-    .hero h1 {
-        color: #fd7014;
-        font-size: 2.5rem;
-        margin-bottom: 1rem;
-    }
-
-    @media (max-width: 576px) {
-        .hero h1 {
-            font-size: 1.8rem;
-        }
-    }
-
-    /* Footer */
-    .footer {
-        text-align: center;
-        padding: 2rem 0;
-        margin-top: 3rem;
-        border-top: 1px solid #3a3a3a;
-    }
+    css = (
+        "<style>"
+        ".main .block-container {"
+        "padding-left: max(1rem, 5%);"
+        "padding-right: max(1rem, 5%);"
+        "padding-top: 1rem;"
+        "padding-bottom: 1rem;"
+        "max-width: 1200px;"
+        "margin: 0 auto;"
+        "}"
+        "div.stApp {background-color: #1a1a1a;}"
+        "[data-testid='column'] {padding: 0.5rem;}"
+        "@media (min-width: 768px) {"
+        ".main .block-container {"
+        "padding-left: max(2rem, 8%);"
+        "padding-right: max(2rem, 8%);"
+        "}"
+        "[data-testid='column'] {padding: 0.75rem;}"
+        "[data-testid='stSidebar'] {"
+        "min-width: 14rem !important;"
+        "max-width: 20rem !important;"
+        "}"
+        "}"
+        "@media (max-width: 767px) {"
+        ".main .block-container {"
+        "padding-left: 0.75rem;"
+        "padding-right: 0.75rem;"
+        "}"
+        "button[data-testid='baseButton-primary'] {"
+        "width: 100%;"
+        "margin: 0.25rem 0;"
+        "}"
+        "[data-testid='stSidebar'] {"
+        "min-width: 85% !important;"
+        "max-width: 85% !important;"
+        "}"
+        "}"
+        "input[type='text'], input[type='email'], input[type='password'], textarea {"
+        "margin-bottom: 0.75rem !important;"
+        "}"
+        ".credit-card {"
+        "background-color: #292929;"
+        "border-radius: 8px;"
+        "padding: 1.5rem;"
+        "margin-bottom: 1rem;"
+        "text-align: center;"
+        "border: 1px solid #3a3a3a;"
+        "box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);"
+        "transition: transform 0.2s, box-shadow 0.2s;"
+        "}"
+        ".credit-card:hover {"
+        "transform: translateY(-5px);"
+        "box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);"
+        "}"
+        ".credit-title {"
+        "font-size: 1.5rem;"
+        "font-weight: bold;"
+        "margin-bottom: 0.5rem;"
+        "color: #fd7014;"
+        "}"
+        ".credit-price {"
+        "font-size: 2rem;"
+        "font-weight: bold;"
+        "margin-bottom: 0.5rem;"
+        "color: white;"
+        "}"
+        ".credit-desc {"
+        "color: #b0b0b0;"
+        "font-size: 1rem;"
+        "}"
+        "h1, h2, h3 {"
+        "color: #fd7014;"
+        "margin-bottom: 1rem;"
+        "}"
+        "[data-testid='stAlert'] {"
+        "border-radius: 8px;"
+        "padding: 0.75rem 1rem;"
+        "margin: 1rem 0;"
+        "}"
+        ".vh-logo {max-height: 60px; display: block;}"
+        ".hero {"
+        "padding: 2rem 0;"
+        "text-align: center;"
+        "margin-bottom: 2rem;"
+        "}"
+        ".hero h1 {"
+        "color: #fd7014;"
+        "font-size: 2.5rem;"
+        "margin-bottom: 1rem;"
+        "}"
+        "@media (max-width: 576px) {"
+        ".hero h1 {font-size: 1.8rem;}"
+        "}"
+        ".footer {"
+        "text-align: center;"
+        "padding: 2rem 0;"
+        "margin-top: 3rem;"
+        "border-top: 1px solid #3a3a3a;"
+        "}"
+        "[data-testid='collapsedControl'] {display: none !important;}"
+        "</style>"
+    )
     
-    /* Remover botão nativo de colapso do Streamlit */
-    [data-testid="collapsedControl"] {
-        display: none !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+    st.markdown(css, unsafe_allow_html=True)
 # Adicione esta função à utils/core.py
 
 def apply_navigation_hiding(hide_sidebar_completely=False):
     """
     Aplica CSS para ocultar elementos de navegação do Streamlit
+    Versão simplificada sem strings triplas.
     
     Args:
         hide_sidebar_completely (bool): Se True, oculta toda a barra lateral,
                                        caso contrário, oculta apenas os itens de navegação
     """
+    import streamlit as st
+    
     if hide_sidebar_completely:
-        # Use a função dedicada para ocultar completamente
-        hide_sidebar_completely()
+        # Ocultar completamente a barra lateral
+        css = (
+            "<style>"
+            "[data-testid='stSidebar'] {display: none !important; width: 0px !important; "
+            "height: 0px !important; visibility: hidden !important; margin: 0px !important; "
+            "padding: 0px !important; opacity: 0 !important; pointer-events: none !important;}"
+            "button[kind='header'], [data-testid='collapsedControl'] {display: none !important;}"
+            "</style>"
+        )
     else:
         # Apenas ocultar os itens de navegação
-        import streamlit as st
-        st.markdown("""
-        <style>
-        /* Ocultar apenas os itens de navegação */
-        [data-testid="stSidebarNavItems"],
-        div.stSidebarNavItems, 
-        button.stSidebarButton {
-            display: none !important;
-        }
-        
-        /* Ocultar classes específicas com seletores universais */
-        div[class*="st-emotion-cache-16idsys"], 
-        div[class*="st-emotion-cache-1cypcdb"],
-        div[class*="st-emotion-cache-vk3wp9"],
-        div[class*="st-emotion-cache-ue6h4q"],
-        div[class*="st-emotion-cache-jnd7a1"],
-        ul[class*="st-emotion-cache-pbk8do"] {
-            display: none !important;
-        }
-        
-        /* Remover margens superiores desnecessárias */
-        section[data-testid="stSidebarUserContent"] {
-            margin-top: 0 !important;
-        }
-        
-        /* Ocultar outros elementos de navegação */
-        header[data-testid="stHeader"],
-        button[kind="header"],
-        #MainMenu,
-        footer,
-        [data-testid="collapsedControl"] {
-            display: none !important;
-        }
-        
-        /* Garantir que a barra lateral esteja visível */
-        [data-testid="stSidebar"] {
-            display: block !important;
-            visibility: visible !important;
-            opacity: 1 !important;
-            width: auto !important;
-            transform: none !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
+        css = (
+            "<style>"
+            "[data-testid='stSidebarNavItems'], div.stSidebarNavItems, button.stSidebarButton "
+            "{display: none !important;}"
+            "div[class*='st-emotion-cache-16idsys'], div[class*='st-emotion-cache-1cypcdb'], "
+            "div[class*='st-emotion-cache-vk3wp9'], div[class*='st-emotion-cache-ue6h4q'], "
+            "div[class*='st-emotion-cache-jnd7a1'], ul[class*='st-emotion-cache-pbk8do'] "
+            "{display: none !important;}"
+            "section[data-testid='stSidebarUserContent'] {margin-top: 0 !important;}"
+            "header[data-testid='stHeader'], button[kind='header'], #MainMenu, footer, "
+            "[data-testid='collapsedControl'] {display: none !important;}"
+            "[data-testid='stSidebar'] {display: block !important; visibility: visible !important; "
+            "opacity: 1 !important; width: auto !important; transform: none !important;}"
+            "</style>"
+        )
+    
+    st.markdown(css, unsafe_allow_html=True)
+
 def remove_loading_screen():
     """
     Remove a tela de carregamento e revela o aplicativo
     Deve ser chamada depois que todos os elementos principais foram carregados
+    Versão simplificada sem strings triplas.
     """
-    js_code = """
-    <script>
-    // Remover a tela de carregamento
-    const loadingScreen = document.getElementById('loading-screen');
-    if (loadingScreen) {
-        // Adicionar classe para fazer fade-out
-        loadingScreen.style.opacity = '0';
-        
-        // Remover após a transição
-        setTimeout(() => {
-            loadingScreen.style.display = 'none';
-            
-            // Quando remover o loading, garantir que o app esteja totalmente visível
-            document.querySelectorAll('.stApp, .main, [data-testid="stSidebarContent"]').forEach(el => {
-                if (el) {
-                    el.style.visibility = 'visible';
-                    el.style.opacity = '1';
-                }
-            });
-            
-            // Garantir que a navegação está oculta
-            document.querySelectorAll('[data-testid="stSidebarNavItems"], .st-emotion-cache-16idsys').forEach(el => {
-                if (el) el.style.display = 'none';
-            });
-        }, 500);
-    }
-    </script>
-    """
+    js_code = (
+        "<script>"
+        "var loadingScreen = document.getElementById('loading-screen');"
+        "if (loadingScreen) {"
+        "loadingScreen.style.opacity = '0';"
+        "setTimeout(function() {"
+        "loadingScreen.style.display = 'none';"
+        "document.querySelectorAll('.stApp, .main, [data-testid=\"stSidebarContent\"]').forEach(function(el) {"
+        "if (el) {"
+        "el.style.visibility = 'visible';"
+        "el.style.opacity = '1';"
+        "}"
+        "});"
+        "document.querySelectorAll('[data-testid=\"stSidebarNavItems\"], .st-emotion-cache-16idsys').forEach(function(el) {"
+        "if (el) el.style.display = 'none';"
+        "});"
+        "}, 500);"
+        "}"
+        "</script>"
+    )
     return st.components.v1.html(js_code, height=0)
 def show_valuehunter_logo():
     """Display the ValueHunter logo"""
@@ -1510,27 +1418,17 @@ def apply_custom_styles():
 def hide_sidebar_completely():
     """
     Oculta completamente a barra lateral do Streamlit
+    Versão simplificada sem strings triplas.
     """
     import streamlit as st
     
-    st.markdown("""
-    <style>
-    /* Ocultar barra lateral completamente */
-    [data-testid="stSidebar"] {
-        display: none !important;
-        width: 0px !important;
-        height: 0px !important;
-        visibility: hidden !important;
-        margin: 0px !important;
-        padding: 0px !important;
-        opacity: 0 !important;
-        pointer-events: none !important;
-    }
+    css = (
+        "<style>"
+        "[data-testid='stSidebar'] {display: none !important; width: 0px !important; "
+        "height: 0px !important; visibility: hidden !important; margin: 0px !important; "
+        "padding: 0px !important; opacity: 0 !important; pointer-events: none !important;}"
+        "button[kind='header'], [data-testid='collapsedControl'] {display: none !important;}"
+        "</style>"
+    )
     
-    /* Esconder botão de expansão da barra lateral */
-    button[kind="header"],
-    [data-testid="collapsedControl"] {
-        display: none !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+    st.markdown(css, unsafe_allow_html=True)
