@@ -1,4 +1,5 @@
-import os
+# Modifique o início do seu app.py para esta versão simplificada:
+
 import os
 import logging
 import sys
@@ -7,50 +8,33 @@ import time
 from datetime import datetime
 import base64
 
-# Remova completamente a função inject_favicon() e use esta abordagem simplificada:
-
 # === 1. CONFIGURAR FAVICON & PAGE CONFIG ===
 st.set_page_config(
     page_title="ValueHunter - Análise de Apostas Esportivas",
-    page_icon="📊",  # Usando um emoji como favicon temporário
+    page_icon="📊",  # Usando emoji como favicon temporário
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items=None
 )
 
-# Função auxiliar para converter arquivo em base64 com tratamento de erro
-def _get_base64(path: str) -> str:
-    """Converte qualquer arquivo binário em string base64 com segurança."""
+# Função auxiliar para converter arquivo em base64
+def _get_base64(path):
     try:
         with open(path, "rb") as f:
             return base64.b64encode(f.read()).decode()
     except Exception as e:
-        logger.error(f"Erro ao carregar arquivo {path}: {str(e)}")
+        print(f"Erro ao carregar {path}: {str(e)}")
         return ""
 
 # Verifica se o arquivo existe antes de tentar carregar
 logo_path = os.path.join(os.getcwd(), "3F3F45.png")
-_LOGO_B64 = ""  # Inicializa vazio por padrão
-
+_LOGO_B64 = ""
 if os.path.exists(logo_path):
     _LOGO_B64 = _get_base64(logo_path)
-    logger.info(f"Logo carregado com sucesso: {logo_path}")
+    print(f"Logo carregado com sucesso: {logo_path}")
 else:
-    logger.error(f"Arquivo de logo não encontrado: {logo_path}")
+    print(f"Arquivo de logo não encontrado: {logo_path}")
 
-# Tenta injetar o favicon de maneira simples - sem função separada
-try:
-    favicon_path = os.path.join(os.getcwd(), "favicon_svg.svg")
-    if os.path.exists(favicon_path):
-        favicon_b64 = _get_base64(favicon_path)
-        if favicon_b64:
-            st.markdown(
-                f'<link rel="icon" href="data:image/svg+xml;base64,{favicon_b64}">',
-                unsafe_allow_html=True
-            )
-            logger.info("Favicon SVG injetado com sucesso")
-except Exception as e:
-    logger.error(f"Erro ao injetar favicon: {str(e)}")
 # === 2. SETUP DE LOGS ===
 logging.basicConfig(
     level=logging.INFO,
@@ -63,6 +47,60 @@ try:
     logger.info(f"Directory contents: {os.listdir('.')}")
 except Exception as e:
     logger.error(f"Erro ao listar diretório: {str(e)}")
+
+# Aplicar CSS para ocultar elementos de navegação - sem strings triplas
+css = (
+    "<style>"
+    "[data-testid='stSidebarNavItems'] {display: none !important;}"
+    "section[data-testid='stSidebarUserContent'] {margin-top: 0 !important;}"
+    "div[class*='st-emotion-cache-16idsys'], "
+    "div[class*='st-emotion-cache-1cypcdb'], "
+    "div[class*='st-emotion-cache-vk3wp9'], "
+    "div[class*='st-emotion-cache-ue6h4q'], "
+    "div[class*='st-emotion-cache-jnd7a1'] {display: none !important;}"
+    "header[data-testid='stHeader'], button[kind='header'], #MainMenu, footer "
+    "{display: none !important;}"
+    "[data-testid='stSidebar'] {display: block !important; visibility: visible !important; opacity: 1 !important;}"
+    "</style>"
+)
+st.markdown(css, unsafe_allow_html=True)
+
+# Tela de carregamento simplificada
+loading_css = (
+    "<style>"
+    "#loading-spinner {position: fixed; top: 0; left: 0; width: 100%; height: 100%;"
+    "background-color: #1a1a1a; display: flex; justify-content: center;"
+    "align-items: center; z-index: 9999; transition: opacity 0.5s;}"
+    ".spinner {width: 50px; height: 50px; border: 5px solid #fd7014;"
+    "border-top: 5px solid transparent; border-radius: 50%;"
+    "animation: spin 1s linear infinite;}"
+    "@keyframes spin {0% {transform: rotate(0deg);} 100% {transform: rotate(360deg);}}"
+    "</style>"
+    "<div id='loading-spinner'><div class='spinner'></div></div>"
+    "<script>"
+    "setTimeout(function() {"
+    "document.getElementById('loading-spinner').style.opacity = '0';"
+    "setTimeout(function() {"
+    "document.getElementById('loading-spinner').style.display = 'none';"
+    "}, 500);"
+    "}, 2000);"
+    "</script>"
+)
+st.components.v1.html(loading_css, height=0)
+
+# Importar módulos de utilidade - colocado antes da configuração do Streamlit
+from utils.core import (
+    DATA_DIR, init_session_state, show_valuehunter_logo, 
+    configure_sidebar_visibility, apply_global_css, init_stripe,
+    check_payment_success, handle_stripe_errors, apply_custom_styles,
+    remove_loading_screen, apply_responsive_styles, hide_sidebar_completely
+)
+from utils.data import UserManager
+
+# Criar diretório de dados se não existir
+os.makedirs(DATA_DIR, exist_ok=True)
+logger.info(f"Diretório de dados configurado: {DATA_DIR}")
+logger.info(f"Conteúdo do diretório de dados: {os.listdir(DATA_DIR) if os.path.exists(DATA_DIR) else 'Diretório não existe'}")
 
 # === 3. LOADING SCREEN CSS ===
 loading_css = """
