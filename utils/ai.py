@@ -4,10 +4,7 @@ import streamlit as st
 import json
 import math
 import numpy as np  # Se você também estiver usando numpy
-from utils.justifications import (
-    generate_justifications_for_opportunities,
-    format_justifications_section
-)
+
 # Configuração de logging
 logger = logging.getLogger("valueHunter.ai")
 
