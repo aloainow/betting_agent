@@ -83,15 +83,15 @@ body.loading .stDeployButton {
     border-radius: 10px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 15px;
     margin-bottom: 40px;
     box-shadow: 0 4px 15px rgba(253, 112, 20, 0.3);
 }
 
-.vh-logo-v {
-    color: #3F3F45;
-    font-size: 3rem;
-    font-weight: bold;
+/* SVG Logo Style */
+.vh-logo-svg {
+    width: 40px;
+    height: 40px;
 }
 
 .vh-logo-text {
@@ -153,8 +153,13 @@ body.loading .stDeployButton {
 
 <div class="vh-loading-container" id="vh-loading-screen">
     <div class="vh-logo-container">
-        <span class="vh-logo-v">V</span>
-        <span class="vh-logo-text">ValueHunter</span>
+        <!-- SVG binoculars logo -->
+        <svg class="vh-logo-svg" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M35 25C25.5 25 20 35 20 45C20 55 25.5 65 35 65C44.5 65 50 55 50 45C50 35 44.5 25 35 25Z" fill="white"/>
+            <path d="M65 25C74.5 25 80 35 80 45C80 55 74.5 65 65 65C55.5 65 50 55 50 45C50 35 55.5 25 65 25Z" fill="white"/>
+            <path d="M50 40V50M43 45L57 45M35 35C31.7 35 30 39 30 45C30 51 31.7 55 35 55C38.3 55 40 51 40 45C40 39 38.3 35 35 35ZM65 35C61.7 35 60 39 60 45C60 51 61.7 55 65 55C68.3 55 70 51 70 45C70 39 68.3 35 65 35Z" stroke="#3F3F45" stroke-width="3"/>
+        </svg>
+        <span class="vh-logo-text">VALUEHUNTER</span>
     </div>
     <div class="vh-loader"></div>
     <div class="vh-loading-text" id="vh-loading-text">Inicializando aplicação...</div>
