@@ -198,17 +198,19 @@ def update_opportunities_format(opportunities_section):
 def format_opportunities_section(section):
     """
     Formata especificamente a seção de Oportunidades Identificadas,
-    removendo as justificativas.
+    mantendo apenas o formato básico da oportunidade sem estatísticas adicionais.
     
     Args:
         section (str): Texto da seção de oportunidades
         
     Returns:
-        str: Seção de oportunidades formatada, sem justificativas
+        str: Seção de oportunidades formatada e simplificada
     """
     # Se não houver oportunidades ou apenas a mensagem de que não há valor
     if "Infelizmente não detectamos valor" in section:
         return section
+    
+    import re
     
     lines = section.split('\n')
     formatted_lines = []
@@ -216,33 +218,21 @@ def format_opportunities_section(section):
     # Cabeçalho sempre permanece igual
     if lines and lines[0].startswith('# '):
         formatted_lines.append(lines[0])
-        start_idx = 1
     else:
-        start_idx = 0
+        formatted_lines.append("# Oportunidades Identificadas:")
     
-    # Para cada linha, detectar oportunidades e remover justificativas
-    i = start_idx
-    while i < len(lines):
-        line = lines[i].strip()
-        
-        # Se for uma linha de oportunidade
-        if line.startswith('- **'):
-            # Adicionar a linha de oportunidade como está
-            formatted_lines.append(line)
-            
-            # Verificar se a próxima linha contém a justificativa
-            if i + 1 < len(lines) and '*Justificativa:' in lines[i + 1]:
-                # Pular a linha da justificativa
-                i += 2
-                continue
-        else:
-            # Adicionar outras linhas como estão (exceto justificativas)
-            if not '*Justificativa:' in line:
-                formatted_lines.append(line)
-        
-        i += 1
+    # Procurar padrões de oportunidades e reescrever no formato desejado
+    pattern = r"- \*\*([^*]+)\*\*: Real (\d+\.\d+)% vs Implícita (\d+\.\d+)% \(Valor de (\d+\.\d+)%\)"
     
-    return '\n'.join(formatted_lines)
+    for line in lines:
+        match = re.search(pattern, line)
+        if match:
+            opportunity_name, real_prob, implied_prob, margin = match.groups()
+            # Formatar exatamente como desejado, sem nenhuma estatística adicional
+            formatted_line = f"- **{opportunity_name.strip()}**: Real {real_prob}% vs Implícita {implied_prob}% (Valor de {margin}%)"
+            formatted_lines.append(formatted_line)
+    
+    return "\n".join(formatted_lines)
 
 def format_all_analysis_sections(analysis_text):
     """
