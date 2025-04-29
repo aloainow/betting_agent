@@ -152,21 +152,23 @@ body.loading .stDeployButton {
 </style>
 
 <div class="vh-loading-container" id="vh-loading-screen">
-    <div class="vh-logo-container">
-        <!-- SVG binoculars logo -->
-        <svg class="vh-logo-svg" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M35 25C25.5 25 20 35 20 45C20 55 25.5 65 35 65C44.5 65 50 55 50 45C50 35 44.5 25 35 25Z" fill="white"/>
-            <path d="M65 25C74.5 25 80 35 80 45C80 55 74.5 65 65 65C55.5 65 50 55 50 45C50 35 55.5 25 65 25Z" fill="white"/>
-            <path d="M50 40V50M43 45L57 45M35 35C31.7 35 30 39 30 45C30 51 31.7 55 35 55C38.3 55 40 51 40 45C40 39 38.3 35 35 35ZM65 35C61.7 35 60 39 60 45C60 51 61.7 55 65 55C68.3 55 70 51 70 45C70 39 68.3 35 65 35Z" stroke="#3F3F45" stroke-width="3"/>
-        </svg>
-        <span class="vh-logo-text">VALUEHUNTER</span>
-    </div>
-    <div class="vh-loader"></div>
-    <div class="vh-loading-text" id="vh-loading-text">Inicializando aplicação...</div>
-    <div class="vh-loading-progress">
-        <div class="vh-progress-bar" id="vh-progress-bar"></div>
-    </div>
+  <div class="vh-logo-container">
+    <!-- cole aqui seu novo <svg> ou apenas os <path> do seu SVG -->
+    <svg class="vh-logo-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <!-- cole aqui seu novo <path> ... -->
+    </svg>
+    <span class="vh-logo-text">VALUEHUNTER</span>
+  </div>
+
+  <div class="vh-loader"></div>
+  <div class="vh-loading-text" id="vh-loading-text">
+    Inicializando aplicação...
+  </div>
+  <div class="vh-loading-progress">
+    <div class="vh-progress-bar" id="vh-progress-bar"></div>
+  </div>
 </div>
+
 
 <script>
 // Adicionar a classe 'loading' ao body para esconder elementos do Streamlit
