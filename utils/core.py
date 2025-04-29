@@ -223,20 +223,110 @@ def _get_base64(path: str) -> str:
 
 # Substitua a função show_valuehunter_logo em utils/core.py por esta versão simplificada:
 
+# Atualize a função show_valuehunter_logo em utils/core.py
+
 def show_valuehunter_logo(container=None, size="medium"):
-    """Exibe o logo do ValueHunter de forma simplificada"""
+    """
+    Exibe o logo do ValueHunter (PNG) + texto em qualquer container Streamlit.
+    """
     target = container if container else st
     
-    # Logo básico em HTML
-    logo_html = (
-        "<div style='background-color: #fd7014; padding: 10px; "
-        "border-radius: 5px; display: inline-block; margin-bottom: 1rem;'>"
-        "<h1 style='color: white; margin: 0; font-family: Arial, sans-serif;'>"
-        "<span style='color: #333;'>V</span>ValueHunter</h1>"
-        "</div>"
-    )
+    # Configurações de tamanho
+    if size == "small":
+        logo_size = "30px"
+        text_size = "1.2rem"
+    elif size == "large":
+        logo_size = "60px"
+        text_size = "2.5rem"
+    else:  # medium é o padrão
+        logo_size = "40px"
+        text_size = "1.8rem"
     
+    # Caminho para o logo - especificamente procurando pelo nome 3F3F45.png
+    logo_path = os.path.join(os.getcwd(), "3F3F45.png")
+    
+    try:
+        # Verificar se o arquivo existe
+        if os.path.exists(logo_path):
+            # Ler o arquivo
+            with open(logo_path, "rb") as f:
+                logo_data = f.read()
+            
+            # Converter para base64
+            logo_b64 = base64.b64encode(logo_data).decode()
+            
+            # Logo HTML com a imagem
+            logo_html = (
+                f"<div style='background-color: #fd7014; padding: 10px 20px; "
+                f"border-radius: 5px; display: flex; align-items: center; "
+                f"gap: 10px; margin-bottom: 1rem;'>"
+                f"<img src='data:image/png;base64,{logo_b64}' "
+                f"style='width: {logo_size}; height: {logo_size};' />"
+                f"<span style='font-size: {text_size}; font-weight: bold; color: white;'>"
+                f"VALUEHUNTER</span></div>"
+            )
+        else:
+            # Logo HTML com letra V como fallback
+            logo_html = (
+                f"<div style='background-color: #fd7014; padding: 10px 20px; "
+                f"border-radius: 5px; display: flex; align-items: center; "
+                f"gap: 10px; margin-bottom: 1rem;'>"
+                f"<div style='width: {logo_size}; height: {logo_size}; background-color: #3F3F45; "
+                f"display: flex; align-items: center; justify-content: center; "
+                f"font-weight: bold; color: white; border-radius: 5px;'>V</div>"
+                f"<span style='font-size: {text_size}; font-weight: bold; color: white;'>"
+                f"VALUEHUNTER</span></div>"
+            )
+            
+            # Log o problema
+            logger.warning(f"Logo não encontrado: {logo_path}")
+    except Exception as e:
+        # Em caso de erro, mostrar texto simples
+        logo_html = (
+            f"<div style='background-color: #fd7014; padding: 10px 20px; "
+            f"border-radius: 5px; text-align: center; margin-bottom: 1rem;'>"
+            f"<span style='font-size: {text_size}; font-weight: bold; color: white;'>"
+            f"VALUEHUNTER</span></div>"
+        )
+        
+        # Log o erro
+        logger.error(f"Erro ao mostrar logo: {str(e)}")
+    
+    # Exibir HTML
     target.markdown(logo_html, unsafe_allow_html=True)
+
+# Adicione esta função para inserir o favicon no app.py logo após a linha st.set_page_config()
+
+def insert_favicon():
+    """
+    Insere o favicon SVG diretamente no HTML
+    """
+    # Caminho para o favicon
+    favicon_path = os.path.join(os.getcwd(), "favicon_svg.svg")
+    
+    try:
+        # Verificar se o arquivo existe
+        if os.path.exists(favicon_path):
+            # Ler o arquivo como binário
+            with open(favicon_path, "rb") as f:
+                favicon_data = f.read()
+            
+            # Converter para base64
+            favicon_b64 = base64.b64encode(favicon_data).decode()
+            
+            # Inserir como tag link
+            favicon_html = (
+                "<link rel='icon' type='image/svg+xml' "
+                f"href='data:image/svg+xml;base64,{favicon_b64}'>"
+            )
+            
+            # Exibir
+            st.markdown(favicon_html, unsafe_allow_html=True)
+            logger.info(f"Favicon inserido com sucesso: {favicon_path}")
+        else:
+            logger.warning(f"Favicon não encontrado: {favicon_path}")
+    except Exception as e:
+        logger.error(f"Erro ao inserir favicon: {str(e)}")
 
 # Funções de navegação
 def go_to_login():
