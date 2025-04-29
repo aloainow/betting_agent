@@ -1,0 +1,71 @@
+# Abordagem alternativa - usar um arquivo HTML separado:
+
+# 1. Crie um novo arquivo chamado 'hide_nav.html' na raiz do projeto com o seguinte conteúdo:
+"""
+<script>
+    // Função para remover elementos do menu de navegação
+    function hideNavItems() {
+        // Encontrar e ocultar elementos de navegação
+        const navItems = document.querySelectorAll('[data-testid="stSidebarNavItems"]');
+        navItems.forEach(item => {
+            item.style.display = 'none';
+        });
+        
+        // Procurar por outros seletores possíveis
+        const otherClasses = [
+            'st-emotion-cache-16idsys', 
+            'st-emotion-cache-1cypcdb',
+            'st-emotion-cache-vk3wp9',
+            'st-emotion-cache-ue6h4q',
+            'st-emotion-cache-jnd7a1',
+            'st-emotion-cache-pbk8do'
+        ];
+        
+        otherClasses.forEach(className => {
+            document.querySelectorAll('div[class*="' + className + '"]').forEach(el => {
+                if (el) el.style.display = 'none';
+            });
+        });
+        
+        // Ocultar outros elementos
+        document.querySelectorAll('header[data-testid="stHeader"], footer, #MainMenu').forEach(el => {
+            if (el) el.style.display = 'none';
+        });
+    }
+    
+    // Executar imediatamente
+    hideNavItems();
+    
+    // Executar novamente após o carregamento completo da página
+    window.addEventListener('load', hideNavItems);
+    
+    // Executar a cada 500ms nos primeiros 5 segundos para garantir
+    let attempts = 0;
+    const interval = setInterval(() => {
+        hideNavItems();
+        attempts++;
+        if (attempts >= 10) clearInterval(interval);
+    }, 500);
+</script>
+"""
+
+# 2. Substitua o bloco js_ocultacao no app.py pelo seguinte código:
+"""
+# Carregar o script de ocultação de navegação a partir do arquivo HTML
+try:
+    with open("hide_nav.html", "r") as f:
+        js_ocultacao = f.read()
+    st.components.v1.html(js_ocultacao, height=0)
+except Exception as e:
+    logger.error(f"Erro ao carregar script de ocultação: {str(e)}")
+    # Fallback simples caso o arquivo não seja encontrado
+    st.markdown('''
+    <style>
+    [data-testid="stSidebarNavItems"], 
+    header[data-testid="stHeader"],
+    footer, #MainMenu {
+        display: none !important;
+    }
+    </style>
+    ''', unsafe_allow_html=True)
+"""
