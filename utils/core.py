@@ -6,6 +6,8 @@ import logging
 import streamlit as st
 from datetime import datetime, timedelta
 from urllib.parse import urlencode
+import base64
+
 # Importando dependências
 try:
     import stripe
@@ -349,8 +351,15 @@ def apply_global_css():
     </style>
     """ + hide_streamlit_menu(), unsafe_allow_html=True)
 # Função para exibir a logo do ValueHunter de forma consistente
+def _get_base64(path: str) -> str:
+    """Converte qualquer arquivo binário em string base64."""
+    with open(path, "rb") as f:
+        return base64.b64encode(f.read()).decode()
+
 def show_valuehunter_logo(container=None, size="medium"):
-    """Exibe o logo do ValueHunter com SVG personalizado."""
+    """
+    Exibe o logo do ValueHunter (PNG) + texto em qualquer container Streamlit.
+    """
     target = container if container else st
 
     sizes = {
@@ -359,6 +368,10 @@ def show_valuehunter_logo(container=None, size="medium"):
         "large":  {"container": "300px", "logo": "60px", "text": "2.5rem"},
     }
     cfg = sizes.get(size, sizes["medium"])
+
+    # busca o logo.png na raiz do projeto
+    logo_path = os.path.join(os.getcwd(), "logo.png")
+    logo_b64 = _get_base64(logo_path)
 
     logo_html = f"""
     <div style="
@@ -371,11 +384,8 @@ def show_valuehunter_logo(container=None, size="medium"):
         width: {cfg['container']};
         margin-bottom: 1rem;
     ">
-        <!-- cole aqui seu novo <svg> ou apenas os <path> do seu SVG -->
-        <svg style="width:{cfg['logo']};height:{cfg['logo']}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-            <!-- cole aqui seu novo <path> ... -->
-        </svg>
-
+        <img src="data:image/png;base64,{logo_b64}"
+             style="width:{cfg['logo']};height:{cfg['logo']};" />
         <span style="
             font-size: {cfg['text']};
             font-weight: bold;
