@@ -465,6 +465,7 @@ setTimeout(() => {{
 st.components.v1.html(loading_html, height=0)
 
 # Aplicar CSS imediatamente após o set_page_config para ocultar a navegação
+
 st.markdown("""
 <style>
 /* Ocultar completamente o menu de navegação lateral */
@@ -475,11 +476,11 @@ section[data-testid="stSidebarUserContent"] {
     margin-top: 0 !important;
 }
 /* Seletores adicionais para ocultar a navegação, incluindo versões mais recentes */
-.st-emotion-cache-16idsys, 
-.st-emotion-cache-1cypcdb,
-.st-emotion-cache-vk3wp9,
-.st-emotion-cache-ue6h4q,
-.st-emotion-cache-jnd7a1 {
+div[class*="st-emotion-cache-16idsys"], 
+div[class*="st-emotion-cache-1cypcdb"],
+div[class*="st-emotion-cache-vk3wp9"],
+div[class*="st-emotion-cache-ue6h4q"],
+div[class*="st-emotion-cache-jnd7a1"] {
     display: none !important;
 }
 /* Ocultar o menu principal e o botão de navegação */
@@ -509,6 +510,8 @@ from pages.auth import show_login, show_register, show_verification, show_passwo
 from pages.packages import show_packages_page
 
 # Adicionar script JavaScript para ocultar a navegação dinamicamente
+# Substitua o script JavaScript que está ocultando os itens de navegação por este:
+
 js_ocultacao = """
 <script>
     // Função para remover elementos do menu de navegação
@@ -520,18 +523,18 @@ js_ocultacao = """
         });
         
         // Procurar por outros seletores possíveis
-        const otherSelectors = [
-            '.st-emotion-cache-16idsys', 
-            '.st-emotion-cache-1cypcdb',
-            '.st-emotion-cache-vk3wp9',
-            '.st-emotion-cache-ue6h4q',
-            '.st-emotion-cache-jnd7a1',
-            'ul.st-emotion-cache-pbk8do'
+        const otherClasses = [
+            'st-emotion-cache-16idsys', 
+            'st-emotion-cache-1cypcdb',
+            'st-emotion-cache-vk3wp9',
+            'st-emotion-cache-ue6h4q',
+            'st-emotion-cache-jnd7a1',
+            'st-emotion-cache-pbk8do'
         ];
         
-        otherSelectors.forEach(selector => {
-            document.querySelectorAll(selector).forEach(el => {
-                el.style.display = 'none';
+        otherClasses.forEach(className => {
+            document.querySelectorAll('div[class*="' + className + '"]').forEach(el => {
+                if (el) el.style.display = 'none';
             });
         });
         
