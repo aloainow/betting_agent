@@ -1,4 +1,5 @@
 import os
+import os
 import logging
 import sys
 import streamlit as st
@@ -152,41 +153,47 @@ let val=0, idx=0;
 const bar = document.getElementById('vh-progress-bar');
 const txt = document.getElementById('vh-loading-text');
 
-function update() {
-  if(val<30) val+=Math.random()*5+3;
-  else if(val<70) val+=Math.random()*3+1;
-  else if(val<90) val+=Math.random()*1+0.3;
+function update() {{
+  if(val<30) {{
+    val+=Math.random()*5+3;
+  }}
+  else if(val<70) {{
+    val+=Math.random()*3+1;
+  }}
+  else if(val<90) {{
+    val+=Math.random()*1+0.3;
+  }}
   bar.style.width = Math.min(val,95) + '%';
-  if(Math.floor(val/20)>idx && idx<texts.length-1){
+  if(Math.floor(val/20)>idx && idx<texts.length-1){{
     idx++; txt.textContent = texts[idx];
-  }
+  }}
   if(val<95) setTimeout(update,300+Math.random()*500);
-}
+}}
 update();
 
-function checkReady(){
-  if(document.querySelector('.stApp') && document.querySelector('.main .block-container')){
+function checkReady(){{
+  if(document.querySelector('.stApp') && document.querySelector('.main .block-container')){{
     val=100; bar.style.width='100%'; txt.textContent="Carregamento concluído!";
-    setTimeout(()=>{
+    setTimeout(()=>{{
       const lg = document.getElementById('vh-loading-screen');
       lg.style.opacity='0'; lg.style.visibility='hidden';
       document.body.classList.remove('loading');
       setTimeout(()=> lg.remove(),700);
-    },1000);
+    }},1000);
     return true;
-  }
+  }}
   return false;
-}
-const iv = setInterval(()=>{
+}}
+const iv = setInterval(()=>{{
   if(checkReady()) clearInterval(iv);
-},200);
-setTimeout(()=>{
+}},200);
+setTimeout(()=>{{
   clearInterval(iv);
   const lg = document.getElementById('vh-loading-screen');
-  if(lg){ lg.style.opacity='0'; lg.style.visibility='hidden'; document.body.classList.remove('loading');
+  if(lg){{ lg.style.opacity='0'; lg.style.visibility='hidden'; document.body.classList.remove('loading');
     setTimeout(()=>lg.remove(),700);
-  }
-},12000);
+  }}
+}},12000);
 </script>
 """
 # Renderiza o loading screen
@@ -322,6 +329,7 @@ body.loading .stDeployButton {
     transition: width 0.5s ease;
 }
 </style>
+"""
 
 loading_html = f"""
 <div class="vh-loading-container" id="vh-loading-screen">
@@ -340,8 +348,6 @@ loading_html = f"""
     <div class="vh-progress-bar" id="vh-progress-bar"></div>
   </div>
 </div>
-"""
-st.markdown(loading_html, unsafe_allow_html=True)
 
 
 <script>
@@ -364,53 +370,53 @@ const progressBar = document.getElementById('vh-progress-bar');
 const loadingText = document.getElementById('vh-loading-text');
 
 // Função para atualizar o progresso de maneira realista
-function updateProgress() {
+function updateProgress() {{
     // Se o progresso é pequeno, avanços maiores
-    if (progressValue < 30) {
+    if (progressValue < 30) {{
         progressValue += Math.random() * 5 + 3;
-    } 
+    }} 
     // Progresso médio, avanços médios
-    else if (progressValue < 70) {
+    else if (progressValue < 70) {{
         progressValue += Math.random() * 3 + 1;
-    } 
+    }} 
     // Progresso alto, avanços lentos
-    else if (progressValue < 90) {
+    else if (progressValue < 90) {{
         progressValue += Math.random() * 1 + 0.3;
-    }
+    }}
     // Não chegar a 100% até estar realmente pronto
     
     // Atualizar barra de progresso
     progressBar.style.width = Math.min(progressValue, 95) + '%';
     
     // Atualizar texto periodicamente
-    if (Math.floor(progressValue / 20) > textIndex && textIndex < loadingTexts.length - 1) {
+    if (Math.floor(progressValue / 20) > textIndex && textIndex < loadingTexts.length - 1) {{
         textIndex++;
         loadingText.textContent = loadingTexts[textIndex];
-    }
+    }}
     
     // Continuar atualizando se não chegou a 100%
-    if (progressValue < 95) {
+    if (progressValue < 95) {{
         setTimeout(updateProgress, 300 + Math.random() * 500);
-    }
-}
+    }}
+}}
 
 // Iniciar o progresso
 updateProgress();
 
 // Função para verificar se o app do Streamlit foi carregado
-function checkAppReady() {
+function checkAppReady() {{
     // Verificar elementos que indicam que o app está pronto
     if (document.querySelector('.stApp') && 
-        document.querySelector('.main .block-container')) {
+        document.querySelector('.main .block-container')) {{
         // Completar o progresso
         progressValue = 100;
         progressBar.style.width = '100%';
         loadingText.textContent = "Carregamento concluído!";
         
         // Esperar um momento e então fazer o fade out
-        setTimeout(() => {
+        setTimeout(() => {{
             const loadingScreen = document.getElementById('vh-loading-screen');
-            if (loadingScreen) {
+            if (loadingScreen) {{
                 loadingScreen.style.opacity = '0';
                 loadingScreen.style.visibility = 'hidden';
                 
@@ -418,43 +424,43 @@ function checkAppReady() {
                 document.body.classList.remove('loading');
                 
                 // Depois da transição, remover completamente
-                setTimeout(() => {
+                setTimeout(() => {{
                     loadingScreen.remove();
                     
                     // Ocultar novamente os elementos de navegação, para garantir
-                    document.querySelectorAll('[data-testid="stSidebarNavItems"], .st-emotion-cache-16idsys, .st-emotion-cache-1cypcdb, header[data-testid="stHeader"], footer, #MainMenu').forEach(el => {
+                    document.querySelectorAll('[data-testid="stSidebarNavItems"], .st-emotion-cache-16idsys, .st-emotion-cache-1cypcdb, header[data-testid="stHeader"], footer, #MainMenu').forEach(el => {{
                         if (el) el.style.display = 'none';
-                    });
-                }, 700);
-            }
-        }, 1000);
+                    }});
+                }}, 700);
+            }}
+        }}, 1000);
         
         return true;
-    }
+    }}
     return false;
-}
+}}
 
 // Verificar periodicamente se o app está pronto
-const readyInterval = setInterval(() => {
-    if (checkAppReady()) {
+const readyInterval = setInterval(() => {{
+    if (checkAppReady()) {{
         clearInterval(readyInterval);
-    }
-}, 200);
+    }}
+}}, 200);
 
 // Escape hatch - remover o loading depois de 10 segundos de qualquer forma
-setTimeout(() => {
+setTimeout(() => {{
     clearInterval(readyInterval);
     const loadingScreen = document.getElementById('vh-loading-screen');
-    if (loadingScreen) {
+    if (loadingScreen) {{
         loadingScreen.style.opacity = '0';
         loadingScreen.style.visibility = 'hidden';
         document.body.classList.remove('loading');
         
-        setTimeout(() => {
+        setTimeout(() => {{
             loadingScreen.remove();
-        }, 700);
-    }
-}, 12000);
+        }}, 700);
+    }}
+}}, 12000);
 </script>
 """
 st.components.v1.html(loading_html, height=0)
