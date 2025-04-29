@@ -356,6 +356,8 @@ def _get_base64(path: str) -> str:
     with open(path, "rb") as f:
         return base64.b64encode(f.read()).decode()
 
+# Modificar a função show_valuehunter_logo em utils/core.py:
+
 def show_valuehunter_logo(container=None, size="medium"):
     """
     Exibe o logo do ValueHunter (PNG) + texto em qualquer container Streamlit.
@@ -369,32 +371,93 @@ def show_valuehunter_logo(container=None, size="medium"):
     }
     cfg = sizes.get(size, sizes["medium"])
 
-    # busca o logo.png na raiz do projeto
-    logo_path = os.path.join(os.getcwd(), "logo.png")
-    logo_b64 = _get_base64(logo_path)
-
-    logo_html = f"""
-    <div style="
-        background-color: #fd7014;
-        padding: 10px 20px;
-        border-radius: 5px;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        width: {cfg['container']};
-        margin-bottom: 1rem;
-    ">
-        <img src="data:image/png;base64,{logo_b64}"
-             style="width:{cfg['logo']};height:{cfg['logo']};" />
-        <span style="
-            font-size: {cfg['text']};
-            font-weight: bold;
-            color: #FFFFFF;
+    # busca o logo na raiz do projeto
+    logo_path = os.path.join(os.getcwd(), "3F3F45.png")
+    
+    try:
+        # Verifica se o arquivo existe
+        if not os.path.exists(logo_path):
+            logger.warning(f"Arquivo de logo não encontrado: {logo_path}")
+            # Caso o arquivo não exista, criar um logo com CSS apenas
+            logo_html = f"""
+            <div style="
+                background-color: #fd7014;
+                padding: 10px 20px;
+                border-radius: 5px;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                width: {cfg['container']};
+                margin-bottom: 1rem;
+            ">
+                <div style="
+                    width: {cfg['logo']};
+                    height: {cfg['logo']};
+                    background-color: #3F3F45;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: white;
+                    font-weight: bold;
+                    border-radius: 5px;
+                ">V</div>
+                <span style="
+                    font-size: {cfg['text']};
+                    font-weight: bold;
+                    color: #FFFFFF;
+                ">
+                    VALUEHUNTER
+                </span>
+            </div>
+            """
+        else:
+            # Carregar o logo como base64
+            logo_b64 = _get_base64(logo_path)
+            
+            logo_html = f"""
+            <div style="
+                background-color: #fd7014;
+                padding: 10px 20px;
+                border-radius: 5px;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                width: {cfg['container']};
+                margin-bottom: 1rem;
+            ">
+                <img src="data:image/png;base64,{logo_b64}"
+                     style="width:{cfg['logo']};height:{cfg['logo']};" />
+                <span style="
+                    font-size: {cfg['text']};
+                    font-weight: bold;
+                    color: #FFFFFF;
+                ">
+                    VALUEHUNTER
+                </span>
+            </div>
+            """
+    except Exception as e:
+        # Garantir que a função não falhe completamente
+        logger.error(f"Erro ao carregar logo: {str(e)}")
+        logo_html = f"""
+        <div style="
+            background-color: #fd7014;
+            padding: 10px 20px;
+            border-radius: 5px;
+            text-align: center;
+            width: {cfg['container']};
+            margin-bottom: 1rem;
         ">
-            VALUEHUNTER
-        </span>
-    </div>
-    """
+            <span style="
+                font-size: {cfg['text']};
+                font-weight: bold;
+                color: #FFFFFF;
+            ">
+                VALUEHUNTER
+            </span>
+        </div>
+        """
+    
     target.markdown(logo_html, unsafe_allow_html=True)
 
 # Funções de navegação
