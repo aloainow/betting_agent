@@ -10,7 +10,7 @@ import base64
 # === 1. CONFIGURAR FAVICON & PAGE CONFIG ===
 st.set_page_config(
     page_title="ValueHunter - Análise de Apostas Esportivas",
-    page_icon="favicon.svg",  # ou "favicon.png"
+    page_icon="favicon_svg.svg",  # ou "favicon.png"
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items=None
