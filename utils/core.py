@@ -1328,6 +1328,7 @@ def apply_responsive_styles():
     </style>
     """, unsafe_allow_html=True)
 # Adicione esta função à utils/core.py
+
 def apply_navigation_hiding(hide_sidebar_completely=False):
     """
     Aplica CSS para ocultar elementos de navegação do Streamlit
@@ -1347,13 +1348,17 @@ def apply_navigation_hiding(hide_sidebar_completely=False):
         /* Ocultar apenas os itens de navegação */
         [data-testid="stSidebarNavItems"],
         div.stSidebarNavItems, 
-        button.stSidebarButton,
-        .st-emotion-cache-16idsys, 
-        .st-emotion-cache-1cypcdb,
-        .st-emotion-cache-vk3wp9,
-        .st-emotion-cache-ue6h4q,
-        .st-emotion-cache-jnd7a1,
-        ul.st-emotion-cache-pbk8do {
+        button.stSidebarButton {
+            display: none !important;
+        }
+        
+        /* Ocultar classes específicas com seletores universais */
+        div[class*="st-emotion-cache-16idsys"], 
+        div[class*="st-emotion-cache-1cypcdb"],
+        div[class*="st-emotion-cache-vk3wp9"],
+        div[class*="st-emotion-cache-ue6h4q"],
+        div[class*="st-emotion-cache-jnd7a1"],
+        ul[class*="st-emotion-cache-pbk8do"] {
             display: none !important;
         }
         
