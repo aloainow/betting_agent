@@ -22,7 +22,7 @@ def _get_base64(path: str) -> str:
         return base64.b64encode(f.read()).decode()
 
 # Carrega o base64 do logo.png (coloque logo.png na raiz do projeto)
-_LOGO_B64 = _get_base64(os.path.join(os.getcwd(), "logo.png"))
+_LOGO_B64 = _get_base64(os.path.join(os.getcwd(), "3F3F45.png"))
 
 # === 2. SETUP DE LOGS ===
 logging.basicConfig(
