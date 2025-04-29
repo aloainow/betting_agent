@@ -213,14 +213,6 @@ os.makedirs(DATA_DIR, exist_ok=True)
 logger.info(f"Diretório de dados configurado: {DATA_DIR}")
 logger.info(f"Conteúdo do diretório de dados: {os.listdir(DATA_DIR) if os.path.exists(DATA_DIR) else 'Diretório não existe'}")
 
-# Configuração do Streamlit DEVE ser o primeiro comando Streamlit
-st.set_page_config(
-    page_title="ValueHunter - Análise de Apostas Esportivas",
-    page_icon="⚽",
-    layout="wide",
-    initial_sidebar_state="expanded",
-    menu_items=None  # Tenta remover o menu
-)
 
 # Adicionar a tela de carregamento personalizada
 loading_html = """
