@@ -514,6 +514,8 @@ from pages.packages import show_packages_page
 
 # Substitua o script JavaScript com os comentários corrigidos:
 
+# Substitua todo o bloco js_ocultacao por esta versão mais segura:
+
 js_ocultacao = """
 <script>
     /* Função para remover elementos do menu de navegação */
@@ -552,9 +554,9 @@ js_ocultacao = """
     /* Executar novamente após o carregamento completo da página */
     window.addEventListener('load', hideNavItems);
     
-    /* Executar a cada 500ms nos primeiros 5 segundos para garantir */
+    /* Executar periodicamente por alguns segundos */
     let attempts = 0;
-    const interval = setInterval(() => {
+    const interval = setInterval(function() {
         hideNavItems();
         attempts++;
         if (attempts >= 10) clearInterval(interval);
