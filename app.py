@@ -6,35 +6,191 @@ import time
 from datetime import datetime
 import base64
 
-
-# 1. CONFIGURAR FAVICON
+# === 1. CONFIGURAR FAVICON & PAGE CONFIG ===
 st.set_page_config(
-    page_title="ValueHunter",
+    page_title="ValueHunter - Análise de Apostas Esportivas",
     page_icon="favicon.svg",  # ou "favicon.png"
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded",
+    menu_items=None
 )
 
 # Função auxiliar para converter arquivo em base64
-def _get_base64(path):
+def _get_base64(path: str) -> str:
     with open(path, "rb") as f:
         return base64.b64encode(f.read()).decode()
 
-# Carrega o base64 do logo
+# Carrega o base64 do logo.png (coloque logo.png na raiz do projeto)
 _LOGO_B64 = _get_base64(os.path.join(os.getcwd(), "logo.png"))
-# Configuração de logging
+
+# === 2. SETUP DE LOGS ===
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger("valueHunter")
-
-# Log de diagnóstico no início
 logger.info(f"Python version: {sys.version}")
 logger.info(f"Current directory: {os.getcwd()}")
 try:
     logger.info(f"Directory contents: {os.listdir('.')}")
 except Exception as e:
     logger.error(f"Erro ao listar diretório: {str(e)}")
+
+# === 3. LOADING SCREEN CSS ===
+loading_css = """
+<style>
+/* Ocultar tudo do Streamlit durante o loading */
+body.loading header,
+body.loading footer,
+body.loading #MainMenu,
+body.loading [data-testid="stSidebar"],
+body.loading [data-testid="stToolbar"],
+body.loading [data-testid="stDecoration"],
+body.loading div.css-1d391kg,
+body.loading div.css-12oz5g7,
+body.loading .stDeployButton {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+}
+
+/* Container de loading */
+.vh-loading-container {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    background-color: #1a1a1a;
+    display: flex; flex-direction: column;
+    justify-content: center; align-items: center;
+    z-index: 10000;
+    transition: opacity 0.6s ease, visibility 0.6s ease;
+}
+
+/* Logo dentro do loading */
+.vh-logo-container {
+    background-color: #fd7014;
+    padding: 15px 30px;
+    border-radius: 10px;
+    display: flex; align-items: center; gap: 15px;
+    margin-bottom: 40px;
+    box-shadow: 0 4px 15px rgba(253,112,20,0.3);
+}
+.vh-logo-container img {
+    width: 40px; height: 40px;
+}
+.vh-logo-text {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #FFFFFF;
+}
+/* Spinner */
+.vh-loader {
+    width: 60px; height: 60px;
+    border: 5px solid rgba(253,112,20,0.2);
+    border-radius: 50%;
+    border-top: 5px solid #fd7014;
+    animation: vh-spin 1s linear infinite;
+    margin-bottom: 30px;
+}
+@keyframes vh-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+/* Texto pulsante */
+.vh-loading-text {
+    color: white; font-size: 18px; font-family: Arial, sans-serif;
+    animation: vh-pulse 1.5s infinite;
+}
+@keyframes vh-pulse {
+    0% { opacity: 0.6; }
+    50% { opacity: 1; }
+    100% { opacity: 0.6; }
+}
+/* Barra de progresso */
+.vh-loading-progress {
+    width: 200px; height: 4px;
+    background-color: rgba(255,255,255,0.1);
+    border-radius: 2px; margin-top: 20px;
+    position: relative; overflow: hidden;
+}
+.vh-progress-bar {
+    position: absolute; left: 0; top: 0;
+    height: 100%; width: 0%;
+    background-color: #fd7014; border-radius: 2px;
+    transition: width 0.5s ease;
+}
+</style>
+"""
+st.markdown(loading_css, unsafe_allow_html=True)
+
+# === 4. LOADING SCREEN HTML + JS ===
+loading_screen = f"""
+<div class="vh-loading-container" id="vh-loading-screen">
+  <div class="vh-logo-container">
+    <img src="data:image/png;base64,{_LOGO_B64}" />
+    <span class="vh-logo-text">VALUEHUNTER</span>
+  </div>
+  <div class="vh-loader"></div>
+  <div class="vh-loading-text" id="vh-loading-text">Inicializando aplicação...</div>
+  <div class="vh-loading-progress">
+    <div class="vh-progress-bar" id="vh-progress-bar"></div>
+  </div>
+</div>
+
+<script>
+// Ativa modo 'loading' no body
+document.body.classList.add('loading');
+
+const texts = [
+  "Inicializando aplicação...",
+  "Carregando interface...",
+  "Conectando aos serviços...",
+  "Preparando análise de apostas...",
+  "Quase pronto..."
+];
+let val=0, idx=0;
+const bar = document.getElementById('vh-progress-bar');
+const txt = document.getElementById('vh-loading-text');
+
+function update() {
+  if(val<30) val+=Math.random()*5+3;
+  else if(val<70) val+=Math.random()*3+1;
+  else if(val<90) val+=Math.random()*1+0.3;
+  bar.style.width = Math.min(val,95) + '%';
+  if(Math.floor(val/20)>idx && idx<texts.length-1){
+    idx++; txt.textContent = texts[idx];
+  }
+  if(val<95) setTimeout(update,300+Math.random()*500);
+}
+update();
+
+function checkReady(){
+  if(document.querySelector('.stApp') && document.querySelector('.main .block-container')){
+    val=100; bar.style.width='100%'; txt.textContent="Carregamento concluído!";
+    setTimeout(()=>{
+      const lg = document.getElementById('vh-loading-screen');
+      lg.style.opacity='0'; lg.style.visibility='hidden';
+      document.body.classList.remove('loading');
+      setTimeout(()=> lg.remove(),700);
+    },1000);
+    return true;
+  }
+  return false;
+}
+const iv = setInterval(()=>{
+  if(checkReady()) clearInterval(iv);
+},200);
+setTimeout(()=>{
+  clearInterval(iv);
+  const lg = document.getElementById('vh-loading-screen');
+  if(lg){ lg.style.opacity='0'; lg.style.visibility='hidden'; document.body.classList.remove('loading');
+    setTimeout(()=>lg.remove(),700);
+  }
+},12000);
+</script>
+"""
+# Renderiza o loading screen
+st.components.v1.html(loading_screen, height=0)
 
 # Importar módulos de utilidade - colocado antes da configuração do Streamlit
 from utils.core import (
