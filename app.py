@@ -512,17 +512,19 @@ from pages.packages import show_packages_page
 # Adicionar script JavaScript para ocultar a navegação dinamicamente
 # Substitua o script JavaScript que está ocultando os itens de navegação por este:
 
+# Substitua o script JavaScript com os comentários corrigidos:
+
 js_ocultacao = """
 <script>
-    // Função para remover elementos do menu de navegação
+    /* Função para remover elementos do menu de navegação */
     function hideNavItems() {
-        // Encontrar e ocultar elementos de navegação
+        /* Encontrar e ocultar elementos de navegação */
         const navItems = document.querySelectorAll('[data-testid="stSidebarNavItems"]');
         navItems.forEach(item => {
             item.style.display = 'none';
         });
         
-        // Procurar por outros seletores possíveis
+        /* Procurar por outros seletores possíveis */
         const otherClasses = [
             'st-emotion-cache-16idsys', 
             'st-emotion-cache-1cypcdb',
@@ -538,19 +540,19 @@ js_ocultacao = """
             });
         });
         
-        // Ocultar outros elementos
+        /* Ocultar outros elementos */
         document.querySelectorAll('header[data-testid="stHeader"], footer, #MainMenu').forEach(el => {
             if (el) el.style.display = 'none';
         });
     }
     
-    // Executar imediatamente
+    /* Executar imediatamente */
     hideNavItems();
     
-    // Executar novamente após o carregamento completo da página
+    /* Executar novamente após o carregamento completo da página */
     window.addEventListener('load', hideNavItems);
     
-    // Executar a cada 500ms nos primeiros 5 segundos para garantir
+    /* Executar a cada 500ms nos primeiros 5 segundos para garantir */
     let attempts = 0;
     const interval = setInterval(() => {
         hideNavItems();
