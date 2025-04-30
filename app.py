@@ -2,7 +2,6 @@ import os
 import sys
 import logging
 import streamlit as st
-from utils.core import show_valuehunter_logo
 import time
 from datetime import datetime
 
@@ -32,6 +31,15 @@ try:
     logger.info(f"Directory contents: {os.listdir('.')}")
 except Exception as e:
     logger.error(f"Erro ao listar diretório: {e}")
+
+# Importar módulos de utilidade - colocado antes da configuração do Streamlit
+from utils.core import (
+    DATA_DIR, init_session_state, show_valuehunter_logo, 
+    configure_sidebar_visibility, apply_global_css, init_stripe,
+    check_payment_success, handle_stripe_errors, apply_custom_styles,
+    remove_loading_screen, apply_responsive_styles, hide_sidebar_completely
+)
+from utils.data import UserManager
 
 # -----------------------------------------------------
 # 3. EXIBIR LOGO
@@ -89,15 +97,6 @@ loading_css = (
     "</script>"
 )
 st.components.v1.html(loading_css, height=0)
-
-# Importar módulos de utilidade - colocado antes da configuração do Streamlit
-from utils.core import (
-    DATA_DIR, init_session_state, show_valuehunter_logo, 
-    configure_sidebar_visibility, apply_global_css, init_stripe,
-    check_payment_success, handle_stripe_errors, apply_custom_styles,
-    remove_loading_screen, apply_responsive_styles, hide_sidebar_completely
-)
-from utils.data import UserManager
 
 # Criar diretório de dados se não existir
 os.makedirs(DATA_DIR, exist_ok=True)
