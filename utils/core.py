@@ -236,16 +236,33 @@ def show_valuehunter_logo(container=None, size="medium"):
         logo_size = "40px"
         text_size = "1.8rem"
     
-    # Caminho para o logo
-    logo_path = os.path.join(os.getcwd(), "3F3F45.png")
+    # Caminho para o logo - procurar em vários locais
+    logo_paths = [
+        os.path.join(os.getcwd(), "3F3F45.png"),
+        os.path.join(os.getcwd(), "3f3f45.png"),  # Versão em minúsculas
+        os.path.join(os.getcwd(), "logo.png"),
+        os.path.join(os.getcwd(), "static", "3F3F45.png"),
+        "/opt/render/project/src/3F3F45.png",  # Caminho específico do Render
+        "/app/3F3F45.png"  # Outro caminho possível
+    ]
     
-    # Adicione debug para verificar se o arquivo existe
-    print(f"Procurando logo em: {logo_path}")
-    print(f"O arquivo existe? {os.path.exists(logo_path)}")
+    # Debug - listar todos os caminhos sendo verificados
+    print("Procurando logo nos seguintes caminhos:")
+    for path in logo_paths:
+        exists = os.path.exists(path)
+        print(f"  - {path}: {'ENCONTRADO' if exists else 'NÃO ENCONTRADO'}")
+    
+    # Encontrar o primeiro logo disponível
+    logo_path = None
+    for path in logo_paths:
+        if os.path.exists(path):
+            logo_path = path
+            print(f"Usando logo encontrado em: {logo_path}")
+            break
     
     try:
-        # Verificar se o arquivo existe
-        if os.path.exists(logo_path):
+        # Verificar se encontrou algum arquivo
+        if logo_path and os.path.exists(logo_path):
             # Ler o arquivo
             with open(logo_path, "rb") as f:
                 logo_data = f.read()
@@ -263,7 +280,7 @@ def show_valuehunter_logo(container=None, size="medium"):
                 f"<span style='font-size: {text_size}; font-weight: bold; color: white;'>"
                 f"VALUEHUNTER</span></div>"
             )
-            print("Logo carregado com sucesso!")
+            print("Logo HTML gerado com sucesso!")
         else:
             # Logo HTML com letra V como fallback
             logo_html = (
@@ -278,8 +295,8 @@ def show_valuehunter_logo(container=None, size="medium"):
             )
             
             # Log o problema
-            print(f"Logo não encontrado: {logo_path}")
-            logger.warning(f"Logo não encontrado: {logo_path}")
+            print(f"Logo não encontrado em nenhum dos caminhos")
+            logger.warning(f"Logo não encontrado em nenhum dos caminhos")
     except Exception as e:
         # Em caso de erro, mostrar texto simples
         logo_html = (
@@ -302,18 +319,32 @@ def insert_favicon():
     """
     Insere o favicon SVG diretamente no HTML
     """
-    # Caminho para o favicon
-    favicon_path = os.path.join(os.getcwd(), "favicon_svg.svg")
+    # Possíveis caminhos para o favicon
+    favicon_paths = [
+        os.path.join(os.getcwd(), "favicon_svg.svg"),
+        os.path.join(os.getcwd(), "favicon.svg"),
+        os.path.join(os.getcwd(), "static", "favicon_svg.svg"),
+        "/opt/render/project/src/favicon_svg.svg",  # Caminho específico do Render
+        "/app/favicon_svg.svg"  # Outro caminho possível
+    ]
     
-    # Adicionar debug para verificar se o arquivo existe
-    print(f"Procurando favicon em: {favicon_path}")
-    print(f"O arquivo existe? {os.path.exists(favicon_path)}")
-    if os.path.exists(favicon_path):
-        print(f"Tamanho do arquivo: {os.path.getsize(favicon_path)} bytes")
+    # Debug - listar todos os caminhos sendo verificados
+    print("Procurando favicon nos seguintes caminhos:")
+    for path in favicon_paths:
+        exists = os.path.exists(path)
+        print(f"  - {path}: {'ENCONTRADO' if exists else 'NÃO ENCONTRADO'}")
+    
+    # Encontrar o primeiro favicon disponível
+    favicon_path = None
+    for path in favicon_paths:
+        if os.path.exists(path):
+            favicon_path = path
+            print(f"Usando favicon encontrado em: {favicon_path}")
+            break
     
     try:
-        # Verificar se o arquivo existe
-        if os.path.exists(favicon_path):
+        # Verificar se encontrou algum arquivo
+        if favicon_path and os.path.exists(favicon_path):
             # Ler o arquivo como binário
             with open(favicon_path, "rb") as f:
                 favicon_data = f.read()
@@ -321,19 +352,26 @@ def insert_favicon():
             # Converter para base64
             favicon_b64 = base64.b64encode(favicon_data).decode()
             
-            # Inserir como tag link
+            # Inserir como tag link com tipo MIME correto para SVG
             favicon_html = (
                 "<link rel='icon' type='image/svg+xml' "
                 f"href='data:image/svg+xml;base64,{favicon_b64}'>"
             )
             
-            # Exibir
+            # Exibir com mais altura para garantir que seja renderizado
             st.markdown(favicon_html, unsafe_allow_html=True)
-            print(f"Favicon inserido com sucesso!")
+            print(f"Favicon inserido com sucesso: {favicon_path}")
             logger.info(f"Favicon inserido com sucesso: {favicon_path}")
+            
+            # Inserir também como ícone alternativo para garantir compatibilidade
+            alt_favicon_html = (
+                "<link rel='shortcut icon' "
+                f"href='data:image/svg+xml;base64,{favicon_b64}'>"
+            )
+            st.markdown(alt_favicon_html, unsafe_allow_html=True)
         else:
-            print(f"Favicon não encontrado: {favicon_path}")
-            logger.warning(f"Favicon não encontrado: {favicon_path}")
+            print(f"Favicon não encontrado em nenhum dos caminhos verificados")
+            logger.warning(f"Favicon não encontrado em nenhum dos caminhos verificados")
     except Exception as e:
         print(f"Erro ao inserir favicon: {str(e)}")
         logger.error(f"Erro ao inserir favicon: {str(e)}")
