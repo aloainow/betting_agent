@@ -232,12 +232,15 @@ def show_valuehunter_logo(container=None, size="medium"):
     if size == "small":
         width = "180px"
         font_size = "16px"
+        lens_size = "10px"
     elif size == "large":
         width = "320px"
         font_size = "24px"
+        lens_size = "14px"
     else:  # medium é o padrão
         width = "240px"
         font_size = "20px"
+        lens_size = "12px"
     
     # Criar um único elemento HTML com binóculos à esquerda
     target.markdown(
@@ -261,21 +264,21 @@ def show_valuehunter_logo(container=None, size="medium"):
                 display: flex;
                 align-items: center;">
                 <div style="
-                    width: 12px;
-                    height: 12px;
+                    width: {lens_size};
+                    height: {lens_size};
                     background-color: white;
                     border-radius: 50%;
                     margin-right: 2px;">
                 </div>
                 <div style="
-                    width: 12px;
-                    height: 12px;
+                    width: {lens_size};
+                    height: {lens_size};
                     background-color: white;
                     border-radius: 50%;">
                 </div>
             </div>
             
-            <!-- Texto VALUEHUNTER (junto) -->
+            <!-- Texto VALUEHUNTER -->
             <span>VALUEHUNTER</span>
         </div>
         """,
