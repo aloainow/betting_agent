@@ -12,7 +12,7 @@ from datetime import datetime
 # -----------------------------------------------------
 st.set_page_config(
     page_title="ValueHunter",
-    page_icon="favicon.png",   # ajuste se for .svg ou .ico
+    page_icon="favicon_svg.svg",   # Corrigido para usar o arquivo .svg
     layout="wide"
 )
 
