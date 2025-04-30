@@ -109,7 +109,6 @@ from utils.data import UserManager
 # -----------------------------------------------------
 # 3. EXIBIR LOGO
 # -----------------------------------------------------
-show_valuehunter_logo()
 
 # Aplicar CSS para ocultar elementos de navegação - sem strings triplas
 css = (
