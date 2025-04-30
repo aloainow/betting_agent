@@ -259,9 +259,9 @@ def show_valuehunter_logo(container=None, size="medium"):
     
     <style>
     /* Script para remover logos duplicados */
-    #unique-valuehunter-logo ~ #unique-valuehunter-logo {
+    #unique-valuehunter-logo ~ #unique-valuehunter-logo {{
         display: none !important;
-    }
+    }}
     </style>
     """
     
