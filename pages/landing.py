@@ -9,6 +9,8 @@ logger = logging.getLogger("valueHunter.landing")
 def show_landing_page():
     """Display landing page with about content and login/register buttons"""
     try:
+        # Aplicar tema escuro
+        apply_dark_theme()
         # Aplicar estilos personalizados
         apply_custom_styles()
         # Esconder a barra lateral do Streamlit apenas na página inicial
