@@ -224,7 +224,7 @@ import os, base64, streamlit as st
 # Função corrigida para mostrar a logodef (container=None, size="medium"):
 def show_valuehunter_logo(container=None, size="medium"):
     """
-    Exibe o logo do ValueHunter com binóculos à esquerda.
+    Exibe o logo do ValueHunter com binóculos à esquerda usando SVG.
     """
     target = container if container else st
     
@@ -232,17 +232,17 @@ def show_valuehunter_logo(container=None, size="medium"):
     if size == "small":
         width = "180px"
         font_size = "16px"
-        lens_size = "10px"
+        svg_size = "16"
     elif size == "large":
         width = "320px"
         font_size = "24px"
-        lens_size = "14px"
+        svg_size = "24"
     else:  # medium é o padrão
         width = "240px"
         font_size = "20px"
-        lens_size = "12px"
+        svg_size = "20"
     
-    # Criar um único elemento HTML com binóculos à esquerda
+    # Criar um único elemento HTML com binóculos SVG à esquerda
     target.markdown(
         f"""
         <div style="
@@ -258,25 +258,13 @@ def show_valuehunter_logo(container=None, size="medium"):
             font-weight: bold;
             font-size: {font_size};">
             
-            <!-- Ícone de binóculos em branco -->
-            <div style="
-                margin-right: 10px;
-                display: flex;
-                align-items: center;">
-                <div style="
-                    width: {lens_size};
-                    height: {lens_size};
-                    background-color: white;
-                    border-radius: 50%;
-                    margin-right: 2px;">
-                </div>
-                <div style="
-                    width: {lens_size};
-                    height: {lens_size};
-                    background-color: white;
-                    border-radius: 50%;">
-                </div>
-            </div>
+            <!-- SVG Binóculos - Versão simples com dois círculos -->
+            <svg width="{svg_size}" height="{svg_size}" viewBox="0 0 24 24" style="margin-right: 10px;">
+                <!-- Lente esquerda -->
+                <circle cx="8" cy="12" r="5" fill="white"/>
+                <!-- Lente direita -->
+                <circle cx="18" cy="12" r="5" fill="white"/>
+            </svg>
             
             <!-- Texto VALUEHUNTER -->
             <span>VALUEHUNTER</span>
@@ -284,7 +272,8 @@ def show_valuehunter_logo(container=None, size="medium"):
         """,
         unsafe_allow_html=True
     )
-    # Coluna 4 permanece vazia para espaçamento
+    
+# Coluna 4 permanece vazia para espaçamento
 def insert_favicon():
     """
     Insere o favicon SVG diretamente no HTML
