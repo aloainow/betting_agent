@@ -224,7 +224,7 @@ import os, base64, streamlit as st
 # Função corrigida para mostrar a logodef (container=None, size="medium"):
 def show_valuehunter_logo(container=None, size="medium"):
     """
-    Exibe o logo do ValueHunter com binóculos à esquerda usando SVG.
+    Exibe o logo do ValueHunter com dois círculos brancos representando binóculos.
     """
     target = container if container else st
     
@@ -232,17 +232,14 @@ def show_valuehunter_logo(container=None, size="medium"):
     if size == "small":
         width = "180px"
         font_size = "16px"
-        svg_size = "16"
     elif size == "large":
         width = "320px"
         font_size = "24px"
-        svg_size = "24"
     else:  # medium é o padrão
         width = "240px"
         font_size = "20px"
-        svg_size = "20"
     
-    # Criar um único elemento HTML com binóculos SVG à esquerda
+    # Usar dois caracteres Unicode de círculo branco (⚪)
     target.markdown(
         f"""
         <div style="
@@ -258,21 +255,15 @@ def show_valuehunter_logo(container=None, size="medium"):
             font-weight: bold;
             font-size: {font_size};">
             
-            <!-- SVG Binóculos - Versão simples com dois círculos -->
-            <svg width="{svg_size}" height="{svg_size}" viewBox="0 0 24 24" style="margin-right: 10px;">
-                <!-- Lente esquerda -->
-                <circle cx="8" cy="12" r="5" fill="white"/>
-                <!-- Lente direita -->
-                <circle cx="18" cy="12" r="5" fill="white"/>
-            </svg>
+            <!-- Dois círculos brancos usando caracteres Unicode -->
+            <span style="margin-right: 10px; letter-spacing: -0.2em;">⚪⚪</span>
             
             <!-- Texto VALUEHUNTER -->
             <span>VALUEHUNTER</span>
         </div>
         """,
         unsafe_allow_html=True
-    )
-    
+    )    
 # Coluna 4 permanece vazia para espaçamento
 def insert_favicon():
     """
