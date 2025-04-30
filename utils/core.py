@@ -224,7 +224,7 @@ import os, base64, streamlit as st
 # Função corrigida para mostrar a logodef (container=None, size="medium"):
 def show_valuehunter_logo(container=None, size="medium"):
     """
-    Exibe o logo do ValueHunter com binóculos detalhado à esquerda.
+    Exibe o logo do ValueHunter com binóculos à esquerda.
     """
     target = container if container else st
     
@@ -232,17 +232,14 @@ def show_valuehunter_logo(container=None, size="medium"):
     if size == "small":
         width = "180px"
         font_size = "16px"
-        bino_size = "10px"
     elif size == "large":
         width = "320px"
         font_size = "24px"
-        bino_size = "16px"
     else:  # medium é o padrão
         width = "240px"
         font_size = "20px"
-        bino_size = "14px"
     
-    # Criar um único elemento HTML com binóculos detalhado à esquerda
+    # Criar um único elemento HTML com binóculos à esquerda
     target.markdown(
         f"""
         <div style="
@@ -258,41 +255,23 @@ def show_valuehunter_logo(container=None, size="medium"):
             font-weight: bold;
             font-size: {font_size};">
             
-            <!-- Ícone de binóculos mais detalhado -->
+            <!-- Ícone de binóculos em branco -->
             <div style="
-                margin-right: 12px;
-                position: relative;
-                height: {bino_size};
-                width: calc({bino_size} * 2.2);">
-                
-                <!-- Lentes do binóculo -->
+                margin-right: 10px;
+                display: flex;
+                align-items: center;">
                 <div style="
-                    width: {bino_size};
-                    height: {bino_size};
+                    width: 12px;
+                    height: 12px;
                     background-color: white;
                     border-radius: 50%;
-                    position: absolute;
-                    left: 0;
-                    top: 0;">
+                    margin-right: 2px;">
                 </div>
                 <div style="
-                    width: {bino_size};
-                    height: {bino_size};
+                    width: 12px;
+                    height: 12px;
                     background-color: white;
-                    border-radius: 50%;
-                    position: absolute;
-                    right: 0;
-                    top: 0;">
-                </div>
-                
-                <!-- Ponte do binóculo -->
-                <div style="
-                    width: calc({bino_size} * 0.6);
-                    height: calc({bino_size} * 0.2);
-                    background-color: white;
-                    position: absolute;
-                    left: calc({bino_size} * 0.7);
-                    top: calc({bino_size} * 0.4);">
+                    border-radius: 50%;">
                 </div>
             </div>
             
@@ -301,30 +280,7 @@ def show_valuehunter_logo(container=None, size="medium"):
         </div>
         """,
         unsafe_allow_html=True
-    )    
-    # Coluna 3: HUNTER
-    with cols[2]:
-        target.markdown(
-            f"""
-            <div style="
-                background-color: #fd7014;
-                color: white;
-                border-radius: 0 5px 5px 0;
-                padding: 10px;
-                text-align: center;
-                font-family: Arial, sans-serif;
-                font-weight: bold;
-                font-size: {font_size};
-                height: 100%;
-                display: flex;
-                align-items: center;
-                justify-content: center;">
-                HUNTER
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-    
+    )
     # Coluna 4 permanece vazia para espaçamento
 def insert_favicon():
     """
