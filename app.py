@@ -73,13 +73,34 @@ for path, exists in file_check_results.items():
         print(f"Usando favicon encontrado em: {favicon_path}")
 
 # === 1. CONFIGURAR FAVICON & PAGE CONFIG ===
+# Definir o conteúdo SVG do favicon inline
+favicon_svg = """<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <rect width="100" height="100" rx="20" fill="#fd7014"/>
+  <path d="M35 25C25.5 25 20 35 20 45C20 55 25.5 65 35 65C44.5 65 50 55 50 45C50 35 44.5 25 35 25Z" fill="white"/>
+  <path d="M65 25C74.5 25 80 35 80 45C80 55 74.5 65 65 65C55.5 65 50 55 50 45C50 35 55.5 25 65 25Z" fill="white"/>
+  <path d="M50 40V50M43 45L57 45M35 35C31.7 35 30 39 30 45C30 51 31.7 55 35 55C38.3 55 40 51 40 45C40 39 38.3 35 35 35ZM65 35C61.7 35 60 39 60 45C60 51 61.7 55 65 55C68.3 55 70 51 70 45C70 39 68.3 35 65 35Z" stroke="#3F3F45" stroke-width="3"/>
+</svg>"""
+
+# Converter SVG para base64
+import base64
+favicon_b64 = base64.b64encode(favicon_svg.encode('utf-8')).decode()
+
+# Configurar a página
 st.set_page_config(
     page_title="ValueHunter - Análise de Apostas Esportivas",
-    page_icon="📊",  # Usando emoji como favicon temporário
+    page_icon="📊",  # Mantém o emoji como fallback para navegadores que não suportam SVG
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items=None
 )
+
+# Inserir o favicon SVG logo após a configuração da página
+favicon_html = f"""
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,{favicon_b64}">
+<link rel="shortcut icon" type="image/svg+xml" href="data:image/svg+xml;base64,{favicon_b64}">
+"""
+st.markdown(favicon_html, unsafe_allow_html=True)
+print("Favicon SVG inserido diretamente no HTML!")
 
 # Tentar inserir o favicon SVG
 try:
