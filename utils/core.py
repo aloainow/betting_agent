@@ -224,90 +224,54 @@ import os, base64, streamlit as st
 # Função corrigida para mostrar a logodef (container=None, size="medium"):
 def show_valuehunter_logo(container=None, size="medium"):
     """
-    Exibe o logo do ValueHunter alinhado à esquerda com ícone de binóculos.
+    Exibe o logo do ValueHunter alinhado à esquerda com layout muito simplificado.
     """
     target = container if container else st
     
-    # Configurar tamanhos baseados no parâmetro
+    # Configurações de tamanho
     if size == "small":
-        width = "180px"
-        height = "50px"
-        font_size = "18px"
-        padding = "8px 12px"
+        font_size = 18
+        value_text = "V"
+        hunter_text = "HUNTER"
     elif size == "large":
-        width = "320px"
-        height = "80px"
-        font_size = "24px"
-        padding = "12px 16px"
+        font_size = 24
+        value_text = "VALUE"
+        hunter_text = "HUNTER"
     else:  # medium é o padrão
-        width = "240px"
-        height = "60px"
-        font_size = "22px"
-        padding = "10px 14px"
+        font_size = 22
+        value_text = "VALUE"
+        hunter_text = "HUNTER"
     
-    # Criar um layout com 3 colunas, com a primeira contendo o logo
-    col1, col2, col3 = target.columns([1, 2, 1])
+    # Criar um layout com colunas, primeira coluna para o logo
+    cols = target.columns([1, 3])
     
-    with col1:
-        # Logo com binóculos em HTML simples
-        logo_html = f"""
-        <div style="
-            background-color: #fd7014; 
-            border-radius: 5px; 
-            padding: {padding}; 
-            margin-bottom: 1rem;
-            width: {width}; 
-            height: {height}; 
-            display: flex; 
-            align-items: center; 
-            justify-content: space-between;
-            box-sizing: border-box;">
+    with cols[0]:
+        # Contêiner com cor de fundo laranja
+        with target.container():
+            # Aplicar estilo ao contêiner
+            target.markdown("""
+            <style>
+            div[data-testid="stContainer"] {
+                background-color: #fd7014;
+                border-radius: 5px;
+                padding: 10px;
+                margin-bottom: 10px;
+            }
+            </style>
+            """, unsafe_allow_html=True)
             
-            <!-- Texto VALUE -->
-            <span style="
-                color: white; 
-                font-family: Arial, sans-serif; 
-                font-weight: bold; 
-                font-size: {font_size}; 
-                margin-right: 5px;">
-                VALUE
-            </span>
+            # Criar layout para o texto e ícone de binóculos
+            col1, col2, col3 = target.columns([1, 1, 1])
             
-            <!-- Ícone de binóculos simplificado -->
-            <div style="
-                display: flex; 
-                align-items: center; 
-                margin: 0 3px;">
-                <div style="
-                    width: 10px; 
-                    height: 10px; 
-                    background-color: white; 
-                    border-radius: 50%; 
-                    margin-right: 2px;">
-                </div>
-                <div style="
-                    width: 10px; 
-                    height: 10px; 
-                    background-color: white; 
-                    border-radius: 50%;">
-                </div>
-            </div>
+            with col1:
+                target.markdown(f"<p style='color: white; font-weight: bold; font-size: {font_size}px; text-align: center; margin: 0;'>{value_text}</p>", unsafe_allow_html=True)
             
-            <!-- Texto HUNTER -->
-            <span style="
-                color: white; 
-                font-family: Arial, sans-serif; 
-                font-weight: bold; 
-                font-size: {font_size}; 
-                margin-left: 5px;">
-                HUNTER
-            </span>
-        </div>
-        """
-        
-        # Exibir HTML
-        target.markdown(logo_html, unsafe_allow_html=True)
-
+            with col2:
+                # Representação simples dos binóculos
+                target.markdown("👁️👁️", unsafe_allow_html=True)
+            
+            with col3:
+                target.markdown(f"<p style='color: white; font-weight: bold; font-size: {font_size}px; text-align: center; margin: 0;'>{hunter_text}</p>", unsafe_allow_html=True)
 def insert_favicon():
     """
     Insere o favicon SVG diretamente no HTML
