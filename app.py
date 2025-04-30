@@ -14,7 +14,58 @@ st.set_page_config(
     page_icon="favicon_svg.svg",   # Corrigido para usar o arquivo .svg
     layout="wide"
 )
+# Favicon SVG (binóculo laranja)
+favicon_svg = """
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <rect width="100" height="100" rx="20" fill="#fd7014"/>
+  <g fill="white" transform="translate(20, 30) scale(1.5)">
+    <ellipse cx="12" cy="20" rx="7" ry="8"/>
+    <ellipse cx="28" cy="20" rx="7" ry="8"/>
+    <path d="M12 15C10 15 9 17 9 20C9 23 10 25 12 25C14 25 15 23 15 20C15 17 14 15 12 15ZM28 15C26 15 25 17 25 20C25 23 26 25 28 25C30 25 31 23 31 20C31 17 30 15 28 15Z" stroke="#fd7014" stroke-width="1.5"/>
+    <path d="M20 17V23M17 20H23" stroke="#fd7014" stroke-width="1.5"/>
+  </g>
+</svg>
+"""
 
+# Converter SVG para base64
+import base64
+favicon_b64 = base64.b64encode(favicon_svg.encode('utf-8')).decode()
+
+# Inserir múltiplas versões do favicon para garantir compatibilidade em diferentes navegadores
+favicon_html = f"""
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,{favicon_b64}">
+<link rel="shortcut icon" type="image/svg+xml" href="data:image/svg+xml;base64,{favicon_b64}">
+<link rel="apple-touch-icon" href="data:image/svg+xml;base64,{favicon_b64}">
+"""
+st.markdown(favicon_html, unsafe_allow_html=True)
+print(">>> Favicon SVG injetado diretamente no HTML")
+
+# Adicione este script para garantir que o favicon seja aplicado mesmo no Streamlit
+js_force_favicon = """
+<script>
+// Força a aplicação do favicon em intervalos para garantir que seja exibido
+function updateFavicon() {
+  // Criar um novo link de favicon
+  const link = document.querySelector("link[rel*='icon']") || document.createElement('link');
+  link.type = 'image/svg+xml';
+  link.rel = 'shortcut icon';
+  link.href = 'data:image/svg+xml;base64,""" + favicon_b64 + """';
+  document.getElementsByTagName('head')[0].appendChild(link);
+}
+
+// Executar imediatamente
+updateFavicon();
+
+// Executar novamente após o carregamento da página
+window.addEventListener('load', updateFavicon);
+
+// Executar a cada segundo por 5 segundos para garantir
+for (let i = 1; i <= 5; i++) {
+  setTimeout(updateFavicon, i * 1000);
+}
+</script>
+"""
+st.components.v1.html(js_force_favicon, height=0)
 # -----------------------------------------------------
 # 2. CONFIGURAÇÃO DE LOGGING
 # -----------------------------------------------------
