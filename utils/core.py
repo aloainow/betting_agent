@@ -263,67 +263,47 @@ def show_valuehunter_logo(container=None, size="medium"):
         </div>
         """,
         unsafe_allow_html=True
-    )# Coluna 4 permanece vazia para espaçamento
+    )
+    
+# Coluna 4 permanece vazia para espaçamento
 def insert_favicon():
     """
     Insere o favicon SVG diretamente no HTML
     """
-    # Possíveis caminhos para o favicon
-    favicon_paths = [
-        os.path.join(os.getcwd(), "favicon_svg.svg"),
-        os.path.join(os.getcwd(), "favicon.svg"),
-        os.path.join(os.getcwd(), "static", "favicon_svg.svg"),
-        "/opt/render/project/src/favicon_svg.svg",  # Caminho específico do Render
-        "/app/favicon_svg.svg"  # Outro caminho possível
-    ]
+    # Código SVG inline para o favicon (binóculos)
+    favicon_svg = """
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+      <rect width="64" height="64" fill="none"/>
+      <circle cx="20" cy="32" r="14" fill="#fd7014" stroke="#ffffff" stroke-width="2"/>
+      <circle cx="44" cy="32" r="14" fill="#fd7014" stroke="#ffffff" stroke-width="2"/>
+      <rect x="20" y="28" width="24" height="8" fill="#fd7014" stroke="#ffffff" stroke-width="1"/>
+      <circle cx="20" cy="32" r="7" fill="#1e1e1e" stroke="#ffffff" stroke-width="1"/>
+      <circle cx="44" cy="32" r="7" fill="#1e1e1e" stroke="#ffffff" stroke-width="1"/>
+    </svg>
+    """
     
-    # Debug - listar todos os caminhos sendo verificados
-    print("Procurando favicon nos seguintes caminhos:")
-    for path in favicon_paths:
-        exists = os.path.exists(path)
-        print(f"  - {path}: {'ENCONTRADO' if exists else 'NÃO ENCONTRADO'}")
+    # Converter para base64
+    import base64
+    favicon_b64 = base64.b64encode(favicon_svg.encode()).decode()
     
-    # Encontrar o primeiro favicon disponível
-    favicon_path = None
-    for path in favicon_paths:
-        if os.path.exists(path):
-            favicon_path = path
-            print(f"Usando favicon encontrado em: {favicon_path}")
-            break
+    # Inserir como tag link com tipo MIME correto para SVG
+    favicon_html = (
+        "<link rel='icon' type='image/svg+xml' "
+        f"href='data:image/svg+xml;base64,{favicon_b64}'>"
+    )
     
-    try:
-        # Verificar se encontrou algum arquivo
-        if favicon_path and os.path.exists(favicon_path):
-            # Ler o arquivo como binário
-            with open(favicon_path, "rb") as f:
-                favicon_data = f.read()
-            
-            # Converter para base64
-            favicon_b64 = base64.b64encode(favicon_data).decode()
-            
-            # Inserir como tag link com tipo MIME correto para SVG
-            favicon_html = (
-                "<link rel='icon' type='image/svg+xml' "
-                f"href='data:image/svg+xml;base64,{favicon_b64}'>"
-            )
-            
-            # Exibir com mais altura para garantir que seja renderizado
-            st.markdown(favicon_html, unsafe_allow_html=True)
-            print(f"Favicon inserido com sucesso: {favicon_path}")
-            logger.info(f"Favicon inserido com sucesso: {favicon_path}")
-            
-            # Inserir também como ícone alternativo para garantir compatibilidade
-            alt_favicon_html = (
-                "<link rel='shortcut icon' "
-                f"href='data:image/svg+xml;base64,{favicon_b64}'>"
-            )
-            st.markdown(alt_favicon_html, unsafe_allow_html=True)
-        else:
-            print(f"Favicon não encontrado em nenhum dos caminhos verificados")
-            logger.warning(f"Favicon não encontrado em nenhum dos caminhos verificados")
-    except Exception as e:
-        print(f"Erro ao inserir favicon: {str(e)}")
-        logger.error(f"Erro ao inserir favicon: {str(e)}")
+    # Inserir também como ícone alternativo para garantir compatibilidade
+    st.markdown(favicon_html, unsafe_allow_html=True)
+    
+    # Adicionar também uma versão para Apple
+    apple_touch_icon = (
+        "<link rel='apple-touch-icon' "
+        f"href='data:image/svg+xml;base64,{favicon_b64}'>"
+    )
+    st.markdown(apple_touch_icon, unsafe_allow_html=True)
+    
+    # Log de sucesso
+    logger.info("Favicon SVG personalizado inserido com sucesso")
 
 # Funções de navegação
 def go_to_login():
@@ -1151,7 +1131,7 @@ def hide_sidebar_completely():
 def apply_dark_theme():
     """
     Aplica um tema escuro consistente em todas as versões (desktop e mobile)
-    para garantir que textos brancos sejam legíveis.
+    para garantir que textos brancos sejam legíveis e adiciona o favicon personalizado.
     """
     st.markdown("""
     <style>
@@ -1229,5 +1209,100 @@ def apply_dark_theme():
             background-color: #2d2d2d !important;
             color: white !important;
         }
+        
+        /* Melhorar cores dos alerts mantendo a compatibilidade */
+        [data-testid="stAlert"][kind="error"] {
+            border-left-color: #ff5252 !important;
+        }
+        [data-testid="stAlert"][kind="warning"] {
+            border-left-color: #ffa726 !important;
+        }
+        [data-testid="stAlert"][kind="info"] {
+            border-left-color: #4fc3f7 !important;
+        }
+        [data-testid="stAlert"][kind="success"] {
+            border-left-color: #66bb6a !important;
+        }
+        
+        /* Melhorar a visibilidade de expanders */
+        [data-testid="stExpander"] {
+            background-color: #2d2d2d !important;
+            border-color: #3d3d3d !important;
+        }
+        
+        /* Corrigir cores do código/texto preformatado */
+        code, pre {
+            background-color: #1a1a1a !important;
+            color: #e0e0e0 !important;
+            border-color: #3d3d3d !important;
+        }
+        
+        /* Corrigir cores das métricas */
+        [data-testid="stMetric"] {
+            background-color: #2d2d2d !important;
+            color: white !important;
+            border-color: #3d3d3d !important;
+        }
+        
+        /* Corrigir cores dos painéis de abas */
+        .stTabs [data-baseweb="tab-list"] {
+            background-color: #1e1e1e !important;
+        }
+        
+        .stTabs [data-baseweb="tab"] {
+            color: white !important;
+        }
+        
+        .stTabs [aria-selected="true"] {
+            background-color: #fd7014 !important;
+        }
     </style>
     """, unsafe_allow_html=True)
+    
+    # Inserir o favicon personalizado
+    # Código SVG inline para o favicon (binóculos)
+    favicon_svg = """
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+      <rect width="64" height="64" fill="none"/>
+      <circle cx="20" cy="32" r="14" fill="#fd7014" stroke="#ffffff" stroke-width="2"/>
+      <circle cx="44" cy="32" r="14" fill="#fd7014" stroke="#ffffff" stroke-width="2"/>
+      <rect x="20" y="28" width="24" height="8" fill="#fd7014" stroke="#ffffff" stroke-width="1"/>
+      <circle cx="20" cy="32" r="7" fill="#1e1e1e" stroke="#ffffff" stroke-width="1"/>
+      <circle cx="44" cy="32" r="7" fill="#1e1e1e" stroke="#ffffff" stroke-width="1"/>
+    </svg>
+    """
+    
+    # Converter para base64
+    import base64
+    favicon_b64 = base64.b64encode(favicon_svg.encode()).decode()
+    
+    # Inserir como tag link com tipo MIME correto para SVG
+    favicon_html = (
+        "<link rel='icon' type='image/svg+xml' "
+        f"href='data:image/svg+xml;base64,{favicon_b64}'>"
+    )
+    
+    # Inserir também como ícone alternativo para garantir compatibilidade
+    st.markdown(favicon_html, unsafe_allow_html=True)
+    
+    # Adicionar também uma versão para Apple
+    apple_touch_icon = (
+        "<link rel='apple-touch-icon' "
+        f"href='data:image/svg+xml;base64,{favicon_b64}'>"
+    )
+    st.markdown(apple_touch_icon, unsafe_allow_html=True)
+    
+    # Adicionar meta tags para tema de cores em browsers mobile
+    meta_tags = """
+    <meta name="theme-color" content="#121212">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    """
+    st.markdown(meta_tags, unsafe_allow_html=True)
+    
+    # Log de sucesso (se logger estiver disponível)
+    try:
+        import logging
+        logger = logging.getLogger("valueHunter.core")
+        logger.info("Tema escuro e favicon personalizados aplicados com sucesso")
+    except:
+        pass  # Ignorar se o logger não estiver configurado
