@@ -1420,19 +1420,28 @@ INSTRUÇÕES ESPECIAIS: VOCÊ DEVE CALCULAR PROBABILIDADES REAIS PARA TODOS OS M
 # Add this method to the UserManager class in utils/data.py
 def verify_login(self, email, password):
     """
-    Verify user login credentials
+    Verifica as credenciais de login do usuário
     
     Args:
-        email (str): User email
-        password (str): User password
+        email (str): Email do usuário
+        password (str): Senha do usuário
         
     Returns:
-        bool: True if credentials are valid, False otherwise
+        bool: True se as credenciais forem válidas, False caso contrário
     """
+    # Verificar se o email existe
     if email not in self.users:
         return False
-        
-    user = self.users[email]
+    
+    # Verificar a senha
+    user_data = self.users[email]
+    stored_password = user_data.get('password', '')
+    
+    # Hash da senha fornecida
     hashed_password = self._hash_password(password)
     
-    return user.get('password') == hashed_password
+    # Comparar as senhas
+    if stored_password == hashed_password:
+        return True
+    
+    return False
