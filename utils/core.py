@@ -222,6 +222,7 @@ def _get_base64(path: str) -> str:
 import os, base64, streamlit as st
 
 # Função corrigida para mostrar a logodef show_valuehunter_logo(container=None, size="medium"):
+def show_valuehunter_logo(container=None, size="medium"):
     """
     Exibe o logo do ValueHunter (PNG) com proteção contra duplicação.
     """
