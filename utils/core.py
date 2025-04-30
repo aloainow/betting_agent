@@ -224,68 +224,84 @@ import os, base64, streamlit as st
 # Função corrigida para mostrar a logodef (container=None, size="medium"):
 def show_valuehunter_logo(container=None, size="medium"):
     """
-    Exibe o logo do ValueHunter usando apenas um nível de colunas.
+    Exibe o logo do ValueHunter com binóculos detalhado à esquerda.
     """
     target = container if container else st
     
-    # Criar layout com quatro colunas para todo o conteúdo
-    # Coluna 1: Logo VALUE
-    # Coluna 2: Ícone de binóculos
-    # Coluna 3: HUNTER
-    # Coluna 4: Espaço vazio (ou pode ser usado para outros elementos)
-    cols = target.columns([1, 0.5, 1, 3])
-    
     # Configurar tamanhos baseados no parâmetro
     if size == "small":
+        width = "180px"
         font_size = "16px"
+        bino_size = "10px"
     elif size == "large":
+        width = "320px"
         font_size = "24px"
+        bino_size = "16px"
     else:  # medium é o padrão
+        width = "240px"
         font_size = "20px"
+        bino_size = "14px"
     
-    # Coluna 1: VALUE
-    with cols[0]:
-        target.markdown(
-            f"""
+    # Criar um único elemento HTML com binóculos detalhado à esquerda
+    target.markdown(
+        f"""
+        <div style="
+            display: flex;
+            align-items: center;
+            background-color: #fd7014;
+            color: white;
+            border-radius: 5px;
+            padding: 10px;
+            margin-bottom: 1rem;
+            width: {width};
+            font-family: Arial, sans-serif;
+            font-weight: bold;
+            font-size: {font_size};">
+            
+            <!-- Ícone de binóculos mais detalhado -->
             <div style="
-                background-color: #fd7014;
-                color: white;
-                border-radius: 5px 0 0 5px;
-                padding: 10px;
-                text-align: center;
-                font-family: Arial, sans-serif;
-                font-weight: bold;
-                font-size: {font_size};
-                height: 100%;
-                display: flex;
-                align-items: center;
-                justify-content: center;">
-                VALUE
+                margin-right: 12px;
+                position: relative;
+                height: {bino_size};
+                width: calc({bino_size} * 2.2);">
+                
+                <!-- Lentes do binóculo -->
+                <div style="
+                    width: {bino_size};
+                    height: {bino_size};
+                    background-color: white;
+                    border-radius: 50%;
+                    position: absolute;
+                    left: 0;
+                    top: 0;">
+                </div>
+                <div style="
+                    width: {bino_size};
+                    height: {bino_size};
+                    background-color: white;
+                    border-radius: 50%;
+                    position: absolute;
+                    right: 0;
+                    top: 0;">
+                </div>
+                
+                <!-- Ponte do binóculo -->
+                <div style="
+                    width: calc({bino_size} * 0.6);
+                    height: calc({bino_size} * 0.2);
+                    background-color: white;
+                    position: absolute;
+                    left: calc({bino_size} * 0.7);
+                    top: calc({bino_size} * 0.4);">
+                </div>
             </div>
-            """,
-            unsafe_allow_html=True
-        )
-    
-    # Coluna 2: Ícone de binóculos
-    with cols[1]:
-        target.markdown(
-            f"""
-            <div style="
-                background-color: #fd7014;
-                color: white;
-                padding: 10px 0;
-                text-align: center;
-                font-size: {font_size};
-                height: 100%;
-                display: flex;
-                align-items: center;
-                justify-content: center;">
-                👁️👁️
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-    
+            
+            <!-- Texto VALUEHUNTER (junto) -->
+            <span>VALUEHUNTER</span>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )    
     # Coluna 3: HUNTER
     with cols[2]:
         target.markdown(
