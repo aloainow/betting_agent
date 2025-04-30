@@ -11,6 +11,8 @@ logger = logging.getLogger("valueHunter.packages")
 def show_packages_page():
     """Display credit purchase page with improved session handling"""
     try:
+        # Aplicar tema escuro
+        apply_dark_theme()
         # Aplicar estilos personalizados
         apply_custom_styles()
         # Esconder a barra lateral na página de pacotes
