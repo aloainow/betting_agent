@@ -219,12 +219,6 @@ def _get_base64(path: str) -> str:
     with open(path, "rb") as f:
         return base64.b64encode(f.read()).decode()
 
-# Modificar a função  em utils/core.py:
-
-# Substitua a função show_valuehunter_logo em utils/core.py por esta versão simplificada:
-
-# Atualize a função show_valuehunter_logo em utils/core.py
-
 def show_valuehunter_logo(container=None, size="medium"):
     """
     Exibe o logo do ValueHunter (PNG) + texto em qualquer container Streamlit.
@@ -242,8 +236,12 @@ def show_valuehunter_logo(container=None, size="medium"):
         logo_size = "40px"
         text_size = "1.8rem"
     
-    # Caminho para o logo - especificamente procurando pelo nome 3F3F45.png
+    # Caminho para o logo
     logo_path = os.path.join(os.getcwd(), "3F3F45.png")
+    
+    # Adicione debug para verificar se o arquivo existe
+    print(f"Procurando logo em: {logo_path}")
+    print(f"O arquivo existe? {os.path.exists(logo_path)}")
     
     try:
         # Verificar se o arquivo existe
@@ -265,6 +263,7 @@ def show_valuehunter_logo(container=None, size="medium"):
                 f"<span style='font-size: {text_size}; font-weight: bold; color: white;'>"
                 f"VALUEHUNTER</span></div>"
             )
+            print("Logo carregado com sucesso!")
         else:
             # Logo HTML com letra V como fallback
             logo_html = (
@@ -279,6 +278,7 @@ def show_valuehunter_logo(container=None, size="medium"):
             )
             
             # Log o problema
+            print(f"Logo não encontrado: {logo_path}")
             logger.warning(f"Logo não encontrado: {logo_path}")
     except Exception as e:
         # Em caso de erro, mostrar texto simples
@@ -290,6 +290,7 @@ def show_valuehunter_logo(container=None, size="medium"):
         )
         
         # Log o erro
+        print(f"Erro ao mostrar logo: {str(e)}")
         logger.error(f"Erro ao mostrar logo: {str(e)}")
     
     # Exibir HTML
@@ -303,6 +304,12 @@ def insert_favicon():
     """
     # Caminho para o favicon
     favicon_path = os.path.join(os.getcwd(), "favicon_svg.svg")
+    
+    # Adicionar debug para verificar se o arquivo existe
+    print(f"Procurando favicon em: {favicon_path}")
+    print(f"O arquivo existe? {os.path.exists(favicon_path)}")
+    if os.path.exists(favicon_path):
+        print(f"Tamanho do arquivo: {os.path.getsize(favicon_path)} bytes")
     
     try:
         # Verificar se o arquivo existe
@@ -322,10 +329,13 @@ def insert_favicon():
             
             # Exibir
             st.markdown(favicon_html, unsafe_allow_html=True)
+            print(f"Favicon inserido com sucesso!")
             logger.info(f"Favicon inserido com sucesso: {favicon_path}")
         else:
+            print(f"Favicon não encontrado: {favicon_path}")
             logger.warning(f"Favicon não encontrado: {favicon_path}")
     except Exception as e:
+        print(f"Erro ao inserir favicon: {str(e)}")
         logger.error(f"Erro ao inserir favicon: {str(e)}")
 
 # Funções de navegação
