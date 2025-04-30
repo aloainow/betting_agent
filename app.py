@@ -5,6 +5,9 @@ import streamlit as st
 import time
 from datetime import datetime
 import base64
+from core import show_valuehunter_logo
+
+show_valuehunter_logo()
 
 # === NOVO: Verificação de caminhos do Render ===
 RENDER_PROJECT_DIR = "/opt/render/project/src"
