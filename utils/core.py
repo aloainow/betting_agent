@@ -225,6 +225,7 @@ import os, base64, streamlit as st
 def show_valuehunter_logo(container=None, size="medium"):
     """
     Exibe o logo do ValueHunter (PNG) com proteção contra duplicação.
+    Versão aprimorada com melhor adaptação da imagem.
     """
     import base64
     import os
@@ -235,21 +236,18 @@ def show_valuehunter_logo(container=None, size="medium"):
     if size == "small":
         width = "180px"
         height = "50px"
-        padding = "6px 12px"
-        # Aumentar o tamanho relativo da logo dentro do container
-        logo_scale = "90%"
+        padding = "5px 10px"
+        logo_scale = "100%"  # Usar máximo do espaço disponível
     elif size == "large":
-        width = "300px"
+        width = "320px"
         height = "80px"
-        padding = "8px 12px"
-        # Aumentar o tamanho relativo da logo dentro do container
-        logo_scale = "95%"
+        padding = "6px 10px"
+        logo_scale = "100%"  # Usar máximo do espaço disponível
     else:  # medium é o padrão
         width = "240px"
         height = "60px"
-        padding = "6px 10px"
-        # Aumentar o tamanho relativo da logo dentro do container
-        logo_scale = "95%"
+        padding = "5px 8px"
+        logo_scale = "100%"  # Usar máximo do espaço disponível
     
     # Caminho do logo
     logo_path = os.path.join(os.getcwd(), "3F3F45.png")
@@ -263,18 +261,39 @@ def show_valuehunter_logo(container=None, size="medium"):
         logo_b64 = base64.b64encode(logo_data).decode()
         
         # HTML para o logo com formato retangular e ID único que previne duplicação
-        # Modificado para melhor aproveitamento do espaço e centralização da imagem
+        # Modificado para maximizar o tamanho da imagem no contêiner
         logo_html = f"""
-        <div id="unique-valuehunter-logo" style="background-color: #fd7014; padding: {padding}; 
-             border-radius: 5px; display: flex; align-items: center; justify-content: center;
-             margin-bottom: 1rem; width: {width}; height: {height};">
-            <img src="data:image/png;base64,{logo_b64}" style="max-height: {logo_scale}; max-width: {logo_scale}; object-fit: contain;">
+        <div id="unique-valuehunter-logo" style="background-color: #fd7014; 
+             padding: {padding}; 
+             border-radius: 5px; 
+             display: flex; 
+             align-items: center; 
+             justify-content: center;
+             margin-bottom: 1rem; 
+             width: {width}; 
+             height: {height};">
+            <img src="data:image/png;base64,{logo_b64}" 
+                 style="height: calc(100% - 10px); 
+                        max-width: calc(100% - 10px);
+                        object-fit: contain;
+                        display: block;">
         </div>
         
         <style>
         /* Script para remover logos duplicados */
         #unique-valuehunter-logo ~ #unique-valuehunter-logo {{
             display: none !important;
+        }}
+        
+        /* Garantir que o contêiner não seja distorcido */
+        #unique-valuehunter-logo {{
+            box-sizing: border-box;
+        }}
+        
+        /* Melhorar a renderização da imagem */
+        #unique-valuehunter-logo img {{
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: crisp-edges;
         }}
         </style>
         """
@@ -287,10 +306,19 @@ def show_valuehunter_logo(container=None, size="medium"):
         print(f"Erro ao carregar logo: {str(e)}")
         
         logo_html = f"""
-        <div id="unique-valuehunter-logo" style="background-color: #fd7014; padding: {padding}; 
-             border-radius: 5px; display: flex; align-items: center; justify-content: center;
-             margin-bottom: 1rem; width: {width}; height: {height};">
-            <span style="font-weight: bold; color: white; letter-spacing: 1px; font-size: 1.5rem;">
+        <div id="unique-valuehunter-logo" style="background-color: #fd7014; 
+             padding: {padding}; 
+             border-radius: 5px; 
+             display: flex; 
+             align-items: center; 
+             justify-content: center;
+             margin-bottom: 1rem; 
+             width: {width}; 
+             height: {height};">
+            <span style="font-weight: bold; 
+                         color: white; 
+                         letter-spacing: 1px; 
+                         font-size: 1.8rem;">
                 VALUEHUNTER
             </span>
         </div>
