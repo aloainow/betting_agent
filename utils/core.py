@@ -222,19 +222,15 @@ def _get_base64(path: str) -> str:
 import os, base64, streamlit as st
 
 # Função corrigida para mostrar a logo
-def show_valuehunter_logo(container=None, size="medium", force=False):
+def show_valuehunter_logo(container=None, size="medium", page_id=None):
     """
-    Exibe o logo do ValueHunter com controle de duplicação.
-    Parâmetro force=True ignora a verificação de duplicação.
+    Exibe o logo do ValueHunter com ID único por página para evitar duplicação.
     """
-    # Verificar se o logo já foi exibido nesta página
-    page_key = f"logo_shown_{st.session_state.get('page', 'unknown')}"
-    
-    if page_key in st.session_state and st.session_state[page_key] and not force:
-        print(f"Logo já exibido na página {st.session_state.get('page', 'unknown')}. Ignorando.")
-        return
-    
     target = container if container else st
+    
+    # Gerar um ID único para esta instância do logo
+    page_id = page_id or st.session_state.get('page', 'unknown')
+    logo_id = f"vh_logo_{page_id}_{id(container)}"
     
     # Configurações de tamanho
     if size == "small":
@@ -247,35 +243,37 @@ def show_valuehunter_logo(container=None, size="medium", force=False):
         logo_size = "40px"
         text_size = "1.8rem"
     
-    # SVG do binóculo (similar ao logo da imagem compartilhada)
+    # SVG do binóculo com o estilo atual que você mostrou
     binocular_svg = """
-    <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-      <g fill="white">
-        <ellipse cx="12" cy="20" rx="7" ry="8"/>
-        <ellipse cx="28" cy="20" rx="7" ry="8"/>
-        <path d="M12 15C10 15 9 17 9 20C9 23 10 25 12 25C14 25 15 23 15 20C15 17 14 15 12 15ZM28 15C26 15 25 17 25 20C25 23 26 25 28 25C30 25 31 23 31 20C31 17 30 15 28 15Z" stroke="#fd7014" stroke-width="1.5"/>
-        <path d="M20 17V23M17 20H23" stroke="#fd7014" stroke-width="1.5"/>
-      </g>
+    <svg width="40" height="20" viewBox="0 0 40 20" xmlns="http://www.w3.org/2000/svg">
+        <g fill="white">
+            <circle cx="10" cy="10" r="7"/>
+            <circle cx="30" cy="10" r="7"/>
+        </g>
     </svg>
     """
     
     # HTML para a barra laranja com o binóculo + texto
     logo_html = f"""
-    <div style="background-color: #fd7014; padding: 10px 20px; border-radius: 5px; 
+    <div id="{logo_id}" style="background-color: #fd7014; padding: 10px 20px; border-radius: 5px; 
          display: flex; align-items: center; gap: 10px; margin-bottom: 1rem; width: fit-content;">
-      <div style="width: {logo_size}; height: {logo_size};">{binocular_svg}</div>
+      <div style="width: {logo_size}; height: {logo_size}; display: flex; align-items: center;">{binocular_svg}</div>
       <span style="font-size: {text_size}; font-weight: bold; color: white; letter-spacing: 1px;">
         VALUEHUNTER
       </span>
     </div>
+    
+    <style>
+    /* Script para remover logos duplicados */
+    #vh_logo_{page_id}_None ~ #vh_logo_{page_id}_None,
+    #vh_logo_landing_None ~ #vh_logo_landing_None {{
+        display: none !important;
+    }}
+    </style>
     """
     
     # Exibir HTML
     target.markdown(logo_html, unsafe_allow_html=True)
-    
-    # Marcar o logo como exibido para esta página
-    st.session_state[page_key] = True
-    print(f"Logo exibido na página {st.session_state.get('page', 'unknown')}")
 
 
 # Adicione esta função para inserir o favicon no app.py logo após a linha st.set_page_config()
@@ -344,8 +342,14 @@ def insert_favicon():
 # Funções de navegação
 def go_to_login():
     """Navigate to login page"""
+    # Apenas atualiza a página sem limpar as variáveis relacionadas ao logo
     st.session_state.page = "login"
     st.session_state.show_register = False
+    
+    # Resetar flags específicas de formulários
+    if "login_form_rendered" in st.session_state:
+        st.session_state.login_form_rendered = False
+        
     st.experimental_rerun()
 
 def go_to_register():
