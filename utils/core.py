@@ -221,14 +221,26 @@ def _get_base64(path: str) -> str:
 
 import os, base64, streamlit as st
 
+# Função corrigida para mostrar a logo
 def show_valuehunter_logo():
-    logo_path = os.path.join(os.getcwd(), "3F3F45.png")   # ajuste o caminho se necessário
-    with open(logo_path, "rb") as f:
-        b64 = base64.b64encode(f.read()).decode()
-    st.markdown(
-        f"<div style='text-align:center; margin-bottom:20px;'><img src='data:image/png;base64,{b64}' width='200'></div>",
-        unsafe_allow_html=True
-    )
+    """Display the ValueHunter logo"""
+    logo_path = os.path.join(os.getcwd(), "3F3F45.png")
+    try:
+        with open(logo_path, "rb") as f:
+            binary_data = f.read()
+            base64_data = base64.b64encode(binary_data).decode()
+        st.markdown(
+            f"<div style='text-align:center; margin-bottom:20px;'><img src='data:image/png;base64,{base64_data}' width='200'></div>",
+            unsafe_allow_html=True
+        )
+    except Exception as e:
+        logger.error(f"Erro ao carregar logo: {str(e)}")
+        # Fallback para logo texto
+        st.markdown("""
+        <div style="background-color: #fd7014; padding: 10px; border-radius: 5px; display: inline-block; margin-bottom: 1rem;">
+            <h1 style="color: white; margin: 0; font-family: 'Arial', sans-serif;"><span style="color: #333;">V</span>ValueHunter</h1>
+        </div>
+        """, unsafe_allow_html=True)
 
 
 # Adicione esta função para inserir o favicon no app.py logo após a linha st.set_page_config()
@@ -763,7 +775,7 @@ def handle_success_page():
                     max-width: 500px;
                     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
                 }}
-                .logo {
+                .logo {{
                     background-color: #fd7014;
                     padding: 10px 20px;
                     border-radius: 8px;
@@ -771,12 +783,12 @@ def handle_success_page():
                     align-items: center;
                     gap: 12px;
                     margin-bottom: 20px;
-                }
-                .logo-text {
+                }}
+                .logo-text {{
                     font-size: 1.7rem;
                     font-weight: bold;
                     color: white;
-                }
+                }}
                 h1 {{
                     font-size: 1.8rem;
                     margin: 15px 0;
@@ -1023,15 +1035,6 @@ def apply_navigation_hiding(hide_sidebar_completely=False):
 def remove_loading_screen():
     """Versão mínima da função - não faz nada"""
     pass
-
-def show_valuehunter_logo():
-    """Display the ValueHunter logo"""
-    # Logo com o "V" em cor diferente e formatação correta
-    st.markdown("""
-    <div style="background-color: #fd7014; padding: 10px; border-radius: 5px; display: inline-block; margin-bottom: 1rem;">
-        <h1 style="color: white; margin: 0; font-family: 'Arial', sans-serif;"><span style="color: #333;">V</span>ValueHunter</h1>
-    </div>
-    """, unsafe_allow_html=True)
 
 def apply_custom_styles():
     """Aplica estilos CSS personalizados para layout e espaçamento consistentes"""
