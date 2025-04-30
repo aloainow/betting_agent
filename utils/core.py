@@ -228,26 +228,44 @@ def show_valuehunter_logo(container=None, size="medium"):
     """
     target = container if container else st
     
-    # Unique ID to prevent duplication
-    logo_id = "unique-valuehunter-logo-" + size
+    # Configurações de tamanho
+    if size == "small":
+        logo_size = "30px"
+        text_size = "1.2rem"
+    elif size == "large":
+        logo_size = "60px"
+        text_size = "2.5rem"
+    else:  # medium é o padrão
+        logo_size = "40px"
+        text_size = "1.8rem"
     
-    # HTML for the logo with the unique ID
+    # HTML para o logo com ID único que previne duplicação
     logo_html = f"""
-    <div id="{logo_id}" style="background-color: #fd7014; padding: 10px 20px; 
+    <div id="unique-valuehunter-logo" style="background-color: #fd7014; padding: 10px 20px; 
          border-radius: 5px; display: flex; align-items: center; gap: 10px; 
-         margin-bottom: 1rem; width: fit-content;">
-      <!-- Logo content here -->
+         margin-bottom: 1rem; width: fit-content; max-width: 100%;">
+      <div style="width: {logo_size}; height: {logo_size}; display: flex; align-items: center; justify-content: center;">
+        <svg width="100%" height="100%" viewBox="0 0 40 20" xmlns="http://www.w3.org/2000/svg">
+          <g fill="white">
+            <circle cx="10" cy="10" r="7"/>
+            <circle cx="30" cy="10" r="7"/>
+          </g>
+        </svg>
+      </div>
+      <span style="font-size: {text_size}; font-weight: bold; color: white; letter-spacing: 1px;">
+        VALUEHUNTER
+      </span>
     </div>
     
     <style>
-    /* Script to remove duplicate logos */
-    #{logo_id} ~ #{logo_id} {{
+    /* Script para remover logos duplicados */
+    #unique-valuehunter-logo ~ #unique-valuehunter-logo {
         display: none !important;
-    }}
+    }
     </style>
     """
     
-    # Display HTML
+    # Exibir HTML
     target.markdown(logo_html, unsafe_allow_html=True)
 
 
