@@ -222,38 +222,60 @@ def _get_base64(path: str) -> str:
 import os, base64, streamlit as st
 
 # Função corrigida para mostrar a logo
-def show_valuehunter_logo():
-    """Display the ValueHunter logo"""
-    logo_path = os.path.join(os.getcwd(), "3F3F45.png")
-    try:
-        with open(logo_path, "rb") as f:
-            binary_data = f.read()
-            base64_data = base64.b64encode(binary_data).decode()
-        
-        # Exibir logo em formato retangular com largura controlada
-        st.markdown(
-            f"""
-            <div style='text-align:center; margin-bottom:20px;'>
-                <img src='data:image/png;base64,{base64_data}' style='max-width:300px; height:auto;'>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-    except Exception as e:
-        logger.error(f"Erro ao carregar logo: {str(e)}")
-        # Fallback para logo texto com estilo retangular
-        st.markdown("""
-        <div style="background-color: #fd7014; padding: 8px 20px; border-radius: 4px; display: inline-block; margin-bottom: 1rem; width: 300px; text-align: center;">
-            <div style="display: flex; align-items: center; justify-content: center;">
-                <svg style="width:24px; height:24px; margin-right: 10px;" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M35 25C25.5 25 20 35 20 45C20 55 25.5 65 35 65C44.5 65 50 55 50 45C50 35 44.5 25 35 25Z" fill="white"/>
-                    <path d="M65 25C74.5 25 80 35 80 45C80 55 74.5 65 65 65C55.5 65 50 55 50 45C50 35 55.5 25 65 25Z" fill="white"/>
-                    <path d="M50 40V50M43 45L57 45M35 35C31.7 35 30 39 30 45C30 51 31.7 55 35 55C38.3 55 40 51 40 45C40 39 38.3 35 35 35ZM65 35C61.7 35 60 39 60 45C60 51 61.7 55 65 55C68.3 55 70 51 70 45C70 39 68.3 35 65 35Z" stroke="#3F3F45" stroke-width="3"/>
-                </svg>
-                <span style="color: white; font-size: 18px; font-weight: bold; letter-spacing: 1px;">VALUEHUNTER</span>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+def show_valuehunter_logo(container=None, size="medium", force=False):
+    """
+    Exibe o logo do ValueHunter com controle de duplicação.
+    Parâmetro force=True ignora a verificação de duplicação.
+    """
+    # Verificar se o logo já foi exibido nesta página
+    page_key = f"logo_shown_{st.session_state.get('page', 'unknown')}"
+    
+    if page_key in st.session_state and st.session_state[page_key] and not force:
+        print(f"Logo já exibido na página {st.session_state.get('page', 'unknown')}. Ignorando.")
+        return
+    
+    target = container if container else st
+    
+    # Configurações de tamanho
+    if size == "small":
+        logo_size = "30px"
+        text_size = "1.2rem"
+    elif size == "large":
+        logo_size = "60px"
+        text_size = "2.5rem"
+    else:  # medium é o padrão
+        logo_size = "40px"
+        text_size = "1.8rem"
+    
+    # SVG do binóculo (similar ao logo da imagem compartilhada)
+    binocular_svg = """
+    <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+      <g fill="white">
+        <ellipse cx="12" cy="20" rx="7" ry="8"/>
+        <ellipse cx="28" cy="20" rx="7" ry="8"/>
+        <path d="M12 15C10 15 9 17 9 20C9 23 10 25 12 25C14 25 15 23 15 20C15 17 14 15 12 15ZM28 15C26 15 25 17 25 20C25 23 26 25 28 25C30 25 31 23 31 20C31 17 30 15 28 15Z" stroke="#fd7014" stroke-width="1.5"/>
+        <path d="M20 17V23M17 20H23" stroke="#fd7014" stroke-width="1.5"/>
+      </g>
+    </svg>
+    """
+    
+    # HTML para a barra laranja com o binóculo + texto
+    logo_html = f"""
+    <div style="background-color: #fd7014; padding: 10px 20px; border-radius: 5px; 
+         display: flex; align-items: center; gap: 10px; margin-bottom: 1rem; width: fit-content;">
+      <div style="width: {logo_size}; height: {logo_size};">{binocular_svg}</div>
+      <span style="font-size: {text_size}; font-weight: bold; color: white; letter-spacing: 1px;">
+        VALUEHUNTER
+      </span>
+    </div>
+    """
+    
+    # Exibir HTML
+    target.markdown(logo_html, unsafe_allow_html=True)
+    
+    # Marcar o logo como exibido para esta página
+    st.session_state[page_key] = True
+    print(f"Logo exibido na página {st.session_state.get('page', 'unknown')}")
 
 
 # Adicione esta função para inserir o favicon no app.py logo após a linha st.set_page_config()
