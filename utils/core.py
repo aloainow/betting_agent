@@ -224,50 +224,54 @@ import os, base64, streamlit as st
 # Função corrigida para mostrar a logodef (container=None, size="medium"):
 def show_valuehunter_logo(container=None, size="medium"):
     """
-    Exibe o logo do ValueHunter de forma compatível com Streamlit.
-    Versão simplificada que evita erros de renderização.
+    Exibe o logo do ValueHunter usando um componente nativo do Streamlit.
     """
     target = container if container else st
     
     # Configurar tamanhos baseados no parâmetro
     if size == "small":
-        width = "180px"
-        height = "50px"
-        font_size = "18px"
+        height = 50
+        padding = 10
+        font_size = 18
     elif size == "large":
-        width = "320px"
-        height = "80px"
-        font_size = "24px"
+        height = 80
+        padding = 16
+        font_size = 24
     else:  # medium é o padrão
-        width = "240px"
-        height = "60px"
-        font_size = "22px"
+        height = 60
+        padding = 12
+        font_size = 22
     
-    # HTML simples com o texto
-    logo_html = f"""
-    <div style="background-color: #fd7014; 
-         border-radius: 5px; 
-         padding: 10px; 
-         margin-bottom: 1rem;
-         width: {width}; 
-         height: {height}; 
-         display: flex; 
-         align-items: center; 
-         justify-content: center;">
-         
-        <span style="color: white; 
-              font-family: Arial, sans-serif; 
-              font-weight: bold; 
-              font-size: {font_size}; 
-              letter-spacing: 1px;">
-            VALUEHUNTER
-        </span>
-    </div>
-    """
+    # Criar um contêiner com CSS personalizado
+    col1, col2, col3 = target.columns([1, 1, 1])
     
-    # Exibir HTML
-    target.markdown(logo_html, unsafe_allow_html=True)
-    
+    with col2:
+        # Contêiner com fundo laranja
+        target.markdown(
+            f"""
+            <div style="
+                background-color: #fd7014; 
+                color: white; 
+                text-align: center;
+                padding: {padding}px; 
+                border-radius: 5px;
+                margin-bottom: 1rem;
+                font-family: Arial, sans-serif;
+                font-weight: bold;
+                font-size: {font_size}px;
+                letter-spacing: 1px;
+                line-height: 1;
+                vertical-align: middle;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                height: {height - 2*padding}px;
+            ">
+                VALUEHUNTER
+            </div>
+            """, 
+            unsafe_allow_html=True
+        )    
 def insert_favicon():
     """
     Insere o favicon SVG diretamente no HTML
