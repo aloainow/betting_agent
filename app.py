@@ -6,6 +6,17 @@ import time
 from datetime import datetime
 import base64
 
+# === NOVO: Verificação de caminhos do Render ===
+RENDER_PROJECT_DIR = "/opt/render/project/src"
+if "RENDER" in os.environ and os.path.exists(RENDER_PROJECT_DIR):
+    # Logo e favicon estão na raiz do projeto no Render
+    logo_path_render = os.path.join(RENDER_PROJECT_DIR, "3F3F45.png")
+    favicon_path_render = os.path.join(RENDER_PROJECT_DIR, "favicon_svg.svg")
+    
+    print(f"Caminhos no Render:")
+    print(f"Logo: {logo_path_render} (existe: {os.path.exists(logo_path_render)})")
+    print(f"Favicon: {favicon_path_render} (existe: {os.path.exists(favicon_path_render)})")
+
 # Verificação avançada de arquivos em múltiplos diretórios
 def check_files_in_directories():
     """Verifica se os arquivos existem em diferentes diretórios possíveis"""
@@ -79,6 +90,17 @@ try:
         favicon_html = f"<link rel='icon' type='image/svg+xml' href='data:image/svg+xml;base64,{favicon_b64}'>"
         st.markdown(favicon_html, unsafe_allow_html=True)
         print("Favicon inserido com sucesso")
+    else:
+        # NOVO: Tente usar o caminho específico do Render
+        if "RENDER" in os.environ and os.path.exists(favicon_path_render):
+            with open(favicon_path_render, "rb") as f:
+                favicon_data = f.read()
+            favicon_b64 = base64.b64encode(favicon_data).decode()
+            favicon_html = f"<link rel='icon' type='image/svg+xml' href='data:image/svg+xml;base64,{favicon_b64}'>"
+            st.markdown(favicon_html, unsafe_allow_html=True)
+            print("Favicon inserido com sucesso via caminho Render")
+        else:
+            print("Nenhum caminho para o favicon encontrado")
 except Exception as e:
     print(f"Erro ao inserir favicon: {str(e)}")
 
@@ -97,7 +119,12 @@ if logo_path and os.path.exists(logo_path):
     _LOGO_B64 = _get_base64(logo_path)
     print(f"Logo carregado com sucesso: {logo_path}")
 else:
-    print(f"Arquivo de logo não encontrado ou caminho inválido")
+    # NOVO: Tente usar o caminho específico do Render
+    if "RENDER" in os.environ and os.path.exists(logo_path_render):
+        _LOGO_B64 = _get_base64(logo_path_render)
+        print(f"Logo carregado com sucesso via caminho Render: {logo_path_render}")
+    else:
+        print(f"Arquivo de logo não encontrado ou caminho inválido")
 
 # === 2. SETUP DE LOGS ===
 logging.basicConfig(
@@ -246,6 +273,27 @@ def enable_debug_mode():
 def main():
     """Função principal que controla o fluxo do aplicativo"""
     try:
+        # NOVO: Diagnóstico de arquivos
+        print("\n===== DIAGNÓSTICO DE ARQUIVOS =====")
+        print(f"Diretório atual: {os.getcwd()}")
+        try:
+            print(f"Arquivos no diretório atual: {os.listdir(os.getcwd())}")
+        except Exception as e:
+            print(f"Erro ao listar diretório: {str(e)}")
+
+        print(f"3F3F45.png existe? {os.path.exists(os.path.join(os.getcwd(), '3F3F45.png'))}")
+        print(f"favicon_svg.svg existe? {os.path.exists(os.path.join(os.getcwd(), 'favicon_svg.svg'))}")
+
+        # Verificar caso-sensitivo
+        print("\nVerificação de maiúsculas/minúsculas:")
+        try:
+            for arquivo in os.listdir(os.getcwd()):
+                if arquivo.lower() in ['3f3f45.png', 'favicon_svg.svg']:
+                    print(f"Encontrado: {arquivo} (nome exato no disco)")
+        except Exception as e:
+            print(f"Erro na verificação caso-sensitiva: {str(e)}")
+        print("===================================\n")
+        
         # Verificar se precisamos fechar a janela atual
         if 'close_window' in st.query_params and st.query_params.close_window == 'true':
             st.components.v1.html("""
