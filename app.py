@@ -32,39 +32,53 @@ import base64
 favicon_b64 = base64.b64encode(favicon_svg.encode('utf-8')).decode()
 
 # Inserir múltiplas versões do favicon para garantir compatibilidade em diferentes navegadores
+# Favicon baseado no logo ValueHunter
+favicon_svg = """
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <rect width="100" height="100" rx="10" fill="#fd7014"/>
+  <g fill="white" transform="translate(20, 40)">
+    <circle cx="15" cy="10" r="12"/>
+    <circle cx="45" cy="10" r="12"/>
+  </g>
+</svg>
+"""
+
+# Converter SVG para base64
+import base64
+favicon_b64 = base64.b64encode(favicon_svg.encode('utf-8')).decode()
+
+# Inserir múltiplos favicons para garantir compatibilidade
 favicon_html = f"""
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,{favicon_b64}">
-<link rel="shortcut icon" type="image/svg+xml" href="data:image/svg+xml;base64,{favicon_b64}">
+<link rel="shortcut icon" href="data:image/svg+xml;base64,{favicon_b64}">
 <link rel="apple-touch-icon" href="data:image/svg+xml;base64,{favicon_b64}">
 """
 st.markdown(favicon_html, unsafe_allow_html=True)
-print(">>> Favicon SVG injetado diretamente no HTML")
 
-# Adicione este script para garantir que o favicon seja aplicado mesmo no Streamlit
-js_force_favicon = """
+# Adicionar JavaScript para forçar a atualização do favicon
+js_force_favicon = f"""
 <script>
-// Força a aplicação do favicon em intervalos para garantir que seja exibido
-function updateFavicon() {
-  // Criar um novo link de favicon
-  const link = document.querySelector("link[rel*='icon']") || document.createElement('link');
+// Função para aplicar o favicon
+function updateFavicon() {{
+  var link = document.querySelector("link[rel*='icon']") || document.createElement('link');
   link.type = 'image/svg+xml';
   link.rel = 'shortcut icon';
-  link.href = 'data:image/svg+xml;base64,""" + favicon_b64 + """';
+  link.href = 'data:image/svg+xml;base64,{favicon_b64}';
   document.getElementsByTagName('head')[0].appendChild(link);
-}
+}}
 
-// Executar imediatamente
+// Aplicar imediatamente
 updateFavicon();
 
-// Executar novamente após o carregamento da página
+// Aplicar novamente após o carregamento completo
 window.addEventListener('load', updateFavicon);
 
-// Executar a cada segundo por 5 segundos para garantir
-for (let i = 1; i <= 5; i++) {
-  setTimeout(updateFavicon, i * 1000);
-}
+// Aplicar várias vezes para garantir
+setTimeout(updateFavicon, 500);
+setTimeout(updateFavicon, 1500);
 </script>
 """
+
 st.components.v1.html(js_force_favicon, height=0)
 # -----------------------------------------------------
 # 2. CONFIGURAÇÃO DE LOGGING
