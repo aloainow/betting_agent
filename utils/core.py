@@ -310,7 +310,7 @@ def show_valuehunter_logo(container=None, size="medium"):
         )
     
     # Coluna 4 permanece vazia para espaçamento
-    def insert_favicon():
+def insert_favicon():
     """
     Insere o favicon SVG diretamente no HTML
     """
