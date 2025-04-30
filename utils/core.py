@@ -221,60 +221,79 @@ def _get_base64(path: str) -> str:
 
 import os, base64, streamlit as st
 
-# Função corrigida para mostrar a logo
-def show_valuehunter_logo(container=None, size="medium"):
+# Função corrigida para mostrar a logodef show_valuehunter_logo(container=None, size="medium"):
     """
-    Exibe o logo do ValueHunter com proteção contra duplicação.
+    Exibe o logo do ValueHunter (PNG) com proteção contra duplicação.
     """
+    import base64
+    import os
+    
     target = container if container else st
     
-    # Inserir um script para garantir que apenas um logo seja exibido
-    target.markdown("""
-    <script>
-    // Script para garantir que apenas um logo seja exibido
-    document.addEventListener('DOMContentLoaded', function() {
-        let logos = document.querySelectorAll('[id^="unique-valuehunter-logo"]');
-        if (logos.length > 1) {
-            for (let i = 1; i < logos.length; i++) {
-                logos[i].style.display = 'none';
-            }
-        }
-    });
-    </script>
-    """, unsafe_allow_html=True)
-    
-    # Estilos de tamanho...
+    # Configurar tamanhos baseados no parâmetro
     if size == "small":
-        logo_size = "30px"
-        text_size = "1.2rem"
+        width = "120px"
+        padding = "8px 15px"
     elif size == "large":
-        logo_size = "60px"
-        text_size = "2.5rem"
+        width = "240px"
+        padding = "12px 25px"
     else:  # medium é o padrão
-        logo_size = "40px"
-        text_size = "1.8rem"
+        width = "180px"
+        padding = "10px 20px"
     
-    # HTML para o logo
-    logo_html = f"""
-    <div id="unique-valuehunter-logo-{size}" style="background-color: #fd7014; padding: 10px 20px; 
-         border-radius: 5px; display: flex; align-items: center; gap: 10px; 
-         margin-bottom: 1rem; width: fit-content;">
-      <div style="width: {logo_size}; height: {logo_size}; display: flex; align-items: center; justify-content: center;">
-        <svg width="100%" height="100%" viewBox="0 0 40 20" xmlns="http://www.w3.org/2000/svg">
-          <g fill="white">
-            <circle cx="10" cy="10" r="7"/>
-            <circle cx="30" cy="10" r="7"/>
-          </g>
-        </svg>
-      </div>
-      <span style="font-size: {text_size}; font-weight: bold; color: white; letter-spacing: 1px;">
-        VALUEHUNTER
-      </span>
-    </div>
-    """
+    # Caminho do logo
+    logo_path = os.path.join(os.getcwd(), "3F3F45.png")
     
-    # Exibir HTML
-    target.markdown(logo_html, unsafe_allow_html=True)
+    try:
+        # Ler a imagem como binário
+        with open(logo_path, "rb") as f:
+            logo_data = f.read()
+        
+        # Converter para base64
+        logo_b64 = base64.b64encode(logo_data).decode()
+        
+        # HTML para o logo com ID único que previne duplicação
+        logo_html = f"""
+        <div id="unique-valuehunter-logo" style="background-color: #fd7014; padding: {padding}; 
+             border-radius: 5px; display: flex; align-items: center; 
+             margin-bottom: 1rem; width: fit-content;">
+            <img src="data:image/png;base64,{logo_b64}" style="width: {width};">
+        </div>
+        
+        <style>
+        /* Script para remover logos duplicados */
+        #unique-valuehunter-logo ~ #unique-valuehunter-logo {{
+            display: none !important;
+        }}
+        </style>
+        """
+        
+        # Exibir HTML
+        target.markdown(logo_html, unsafe_allow_html=True)
+        
+    except Exception as e:
+        # Fallback: exibir texto do logo
+        print(f"Erro ao carregar logo: {str(e)}")
+        
+        logo_html = f"""
+        <div id="unique-valuehunter-logo" style="background-color: #fd7014; padding: {padding}; 
+             border-radius: 5px; display: flex; align-items: center; 
+             margin-bottom: 1rem; width: fit-content;">
+            <span style="font-weight: bold; color: white; letter-spacing: 1px; font-size: 1.5rem;">
+                VALUEHUNTER
+            </span>
+        </div>
+        
+        <style>
+        /* Script para remover logos duplicados */
+        #unique-valuehunter-logo ~ #unique-valuehunter-logo {{
+            display: none !important;
+        }}
+        </style>
+        """
+        
+        # Exibir HTML
+        target.markdown(logo_html, unsafe_allow_html=True)
 
 
 # Adicione esta função para inserir o favicon no app.py logo após a linha st.set_page_config()
