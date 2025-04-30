@@ -224,7 +224,7 @@ import os, base64, streamlit as st
 # Função corrigida para mostrar a logodef (container=None, size="medium"):
 def show_valuehunter_logo(container=None, size="medium"):
     """
-    Exibe o logo do ValueHunter com dois círculos brancos representando binóculos.
+    Exibe o logo do ValueHunter com símbolo simples.
     """
     target = container if container else st
     
@@ -239,12 +239,10 @@ def show_valuehunter_logo(container=None, size="medium"):
         width = "240px"
         font_size = "20px"
     
-    # Usar dois caracteres Unicode de círculo branco (⚪)
+    # Criar um elemento simples com apenas texto formatado
     target.markdown(
         f"""
         <div style="
-            display: flex;
-            align-items: center;
             background-color: #fd7014;
             color: white;
             border-radius: 5px;
@@ -253,17 +251,13 @@ def show_valuehunter_logo(container=None, size="medium"):
             width: {width};
             font-family: Arial, sans-serif;
             font-weight: bold;
-            font-size: {font_size};">
-            
-            <!-- Dois círculos brancos usando caracteres Unicode -->
-            <span style="margin-right: 10px; letter-spacing: -0.2em;">⚪⚪</span>
-            
-            <!-- Texto VALUEHUNTER -->
-            <span>VALUEHUNTER</span>
+            font-size: {font_size};
+            text-align: center;">
+            • VALUEHUNTER
         </div>
         """,
         unsafe_allow_html=True
-    )    
+    )
 # Coluna 4 permanece vazia para espaçamento
 def insert_favicon():
     """
