@@ -222,15 +222,11 @@ def _get_base64(path: str) -> str:
 import os, base64, streamlit as st
 
 # Função corrigida para mostrar a logo
-def show_valuehunter_logo(container=None, size="medium", page_id=None):
+def show_valuehunter_logo(container=None, size="medium"):
     """
-    Exibe o logo do ValueHunter com ID único por página para evitar duplicação.
+    Exibe o logo do ValueHunter com proteção contra duplicação.
     """
     target = container if container else st
-    
-    # Gerar um ID único para esta instância do logo
-    page_id = page_id or st.session_state.get('page', 'unknown')
-    logo_id = f"vh_logo_{page_id}_{id(container)}"
     
     # Configurações de tamanho
     if size == "small":
@@ -243,21 +239,19 @@ def show_valuehunter_logo(container=None, size="medium", page_id=None):
         logo_size = "40px"
         text_size = "1.8rem"
     
-    # SVG do binóculo com o estilo atual que você mostrou
-    binocular_svg = """
-    <svg width="40" height="20" viewBox="0 0 40 20" xmlns="http://www.w3.org/2000/svg">
-        <g fill="white">
+    # HTML para o logo com ID único que previne duplicação
+    logo_html = f"""
+    <div id="unique-valuehunter-logo" style="background-color: #fd7014; padding: 10px 20px; 
+         border-radius: 5px; display: flex; align-items: center; gap: 10px; 
+         margin-bottom: 1rem; width: fit-content;">
+      <div style="width: {logo_size}; display: flex; align-items: center;">
+        <svg width="40" height="20" viewBox="0 0 40 20" xmlns="http://www.w3.org/2000/svg">
+          <g fill="white">
             <circle cx="10" cy="10" r="7"/>
             <circle cx="30" cy="10" r="7"/>
-        </g>
-    </svg>
-    """
-    
-    # HTML para a barra laranja com o binóculo + texto
-    logo_html = f"""
-    <div id="{logo_id}" style="background-color: #fd7014; padding: 10px 20px; border-radius: 5px; 
-         display: flex; align-items: center; gap: 10px; margin-bottom: 1rem; width: fit-content;">
-      <div style="width: {logo_size}; height: {logo_size}; display: flex; align-items: center;">{binocular_svg}</div>
+          </g>
+        </svg>
+      </div>
       <span style="font-size: {text_size}; font-weight: bold; color: white; letter-spacing: 1px;">
         VALUEHUNTER
       </span>
@@ -265,10 +259,9 @@ def show_valuehunter_logo(container=None, size="medium", page_id=None):
     
     <style>
     /* Script para remover logos duplicados */
-    #vh_logo_{page_id}_None ~ #vh_logo_{page_id}_None,
-    #vh_logo_landing_None ~ #vh_logo_landing_None {{
+    #unique-valuehunter-logo ~ #unique-valuehunter-logo {
         display: none !important;
-    }}
+    }
     </style>
     """
     
