@@ -236,17 +236,20 @@ def show_valuehunter_logo(container=None, size="medium"):
         width = "180px"
         height = "50px"
         padding = "6px 12px"
-        logo_scale = "80%"
+        # Aumentar o tamanho relativo da logo dentro do container
+        logo_scale = "90%"
     elif size == "large":
         width = "300px"
         height = "80px"
         padding = "8px 12px"
-        logo_scale = "90%"
+        # Aumentar o tamanho relativo da logo dentro do container
+        logo_scale = "95%"
     else:  # medium é o padrão
         width = "240px"
         height = "60px"
         padding = "6px 10px"
-        logo_scale = "85%"
+        # Aumentar o tamanho relativo da logo dentro do container
+        logo_scale = "95%"
     
     # Caminho do logo
     logo_path = os.path.join(os.getcwd(), "3F3F45.png")
@@ -260,11 +263,12 @@ def show_valuehunter_logo(container=None, size="medium"):
         logo_b64 = base64.b64encode(logo_data).decode()
         
         # HTML para o logo com formato retangular e ID único que previne duplicação
+        # Modificado para melhor aproveitamento do espaço e centralização da imagem
         logo_html = f"""
         <div id="unique-valuehunter-logo" style="background-color: #fd7014; padding: {padding}; 
              border-radius: 5px; display: flex; align-items: center; justify-content: center;
              margin-bottom: 1rem; width: {width}; height: {height};">
-            <img src="data:image/png;base64,{logo_b64}" style="height: {logo_scale}; max-width: 95%; object-fit: contain;">
+            <img src="data:image/png;base64,{logo_b64}" style="max-height: {logo_scale}; max-width: {logo_scale}; object-fit: contain;">
         </div>
         
         <style>
@@ -301,7 +305,6 @@ def show_valuehunter_logo(container=None, size="medium"):
         
         # Exibir HTML
         target.markdown(logo_html, unsafe_allow_html=True)
-
 # Adicione esta função para inserir o favicon no app.py logo após a linha st.set_page_config()
 
 def insert_favicon():
