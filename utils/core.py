@@ -228,7 +228,22 @@ def show_valuehunter_logo(container=None, size="medium"):
     """
     target = container if container else st
     
-    # Configurações de tamanho
+    # Inserir um script para garantir que apenas um logo seja exibido
+    target.markdown("""
+    <script>
+    // Script para garantir que apenas um logo seja exibido
+    document.addEventListener('DOMContentLoaded', function() {
+        let logos = document.querySelectorAll('[id^="unique-valuehunter-logo"]');
+        if (logos.length > 1) {
+            for (let i = 1; i < logos.length; i++) {
+                logos[i].style.display = 'none';
+            }
+        }
+    });
+    </script>
+    """, unsafe_allow_html=True)
+    
+    # Estilos de tamanho...
     if size == "small":
         logo_size = "30px"
         text_size = "1.2rem"
@@ -239,11 +254,11 @@ def show_valuehunter_logo(container=None, size="medium"):
         logo_size = "40px"
         text_size = "1.8rem"
     
-    # HTML para o logo com ID único que previne duplicação
+    # HTML para o logo
     logo_html = f"""
-    <div id="unique-valuehunter-logo" style="background-color: #fd7014; padding: 10px 20px; 
+    <div id="unique-valuehunter-logo-{size}" style="background-color: #fd7014; padding: 10px 20px; 
          border-radius: 5px; display: flex; align-items: center; gap: 10px; 
-         margin-bottom: 1rem; width: fit-content; max-width: 100%;">
+         margin-bottom: 1rem; width: fit-content;">
       <div style="width: {logo_size}; height: {logo_size}; display: flex; align-items: center; justify-content: center;">
         <svg width="100%" height="100%" viewBox="0 0 40 20" xmlns="http://www.w3.org/2000/svg">
           <g fill="white">
@@ -256,13 +271,6 @@ def show_valuehunter_logo(container=None, size="medium"):
         VALUEHUNTER
       </span>
     </div>
-    
-    <style>
-    /* Script para remover logos duplicados */
-    #unique-valuehunter-logo ~ #unique-valuehunter-logo {
-        display: none !important;
-    }
-    </style>
     """
     
     # Exibir HTML
