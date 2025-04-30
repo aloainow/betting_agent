@@ -224,55 +224,93 @@ import os, base64, streamlit as st
 # Função corrigida para mostrar a logodef (container=None, size="medium"):
 def show_valuehunter_logo(container=None, size="medium"):
     """
-    Exibe o logo do ValueHunter alinhado à esquerda com layout muito simplificado.
+    Exibe o logo do ValueHunter usando apenas um nível de colunas.
     """
     target = container if container else st
     
-    # Configurações de tamanho
+    # Criar layout com quatro colunas para todo o conteúdo
+    # Coluna 1: Logo VALUE
+    # Coluna 2: Ícone de binóculos
+    # Coluna 3: HUNTER
+    # Coluna 4: Espaço vazio (ou pode ser usado para outros elementos)
+    cols = target.columns([1, 0.5, 1, 3])
+    
+    # Configurar tamanhos baseados no parâmetro
     if size == "small":
-        font_size = 18
-        value_text = "V"
-        hunter_text = "HUNTER"
+        font_size = "16px"
     elif size == "large":
-        font_size = 24
-        value_text = "VALUE"
-        hunter_text = "HUNTER"
+        font_size = "24px"
     else:  # medium é o padrão
-        font_size = 22
-        value_text = "VALUE"
-        hunter_text = "HUNTER"
+        font_size = "20px"
     
-    # Criar um layout com colunas, primeira coluna para o logo
-    cols = target.columns([1, 3])
-    
+    # Coluna 1: VALUE
     with cols[0]:
-        # Contêiner com cor de fundo laranja
-        with target.container():
-            # Aplicar estilo ao contêiner
-            target.markdown("""
-            <style>
-            div[data-testid="stContainer"] {
+        target.markdown(
+            f"""
+            <div style="
                 background-color: #fd7014;
-                border-radius: 5px;
+                color: white;
+                border-radius: 5px 0 0 5px;
                 padding: 10px;
-                margin-bottom: 10px;
-            }
-            </style>
-            """, unsafe_allow_html=True)
-            
-            # Criar layout para o texto e ícone de binóculos
-            col1, col2, col3 = target.columns([1, 1, 1])
-            
-            with col1:
-                target.markdown(f"<p style='color: white; font-weight: bold; font-size: {font_size}px; text-align: center; margin: 0;'>{value_text}</p>", unsafe_allow_html=True)
-            
-            with col2:
-                # Representação simples dos binóculos
-                target.markdown("👁️👁️", unsafe_allow_html=True)
-            
-            with col3:
-                target.markdown(f"<p style='color: white; font-weight: bold; font-size: {font_size}px; text-align: center; margin: 0;'>{hunter_text}</p>", unsafe_allow_html=True)
-def insert_favicon():
+                text-align: center;
+                font-family: Arial, sans-serif;
+                font-weight: bold;
+                font-size: {font_size};
+                height: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: center;">
+                VALUE
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+    
+    # Coluna 2: Ícone de binóculos
+    with cols[1]:
+        target.markdown(
+            f"""
+            <div style="
+                background-color: #fd7014;
+                color: white;
+                padding: 10px 0;
+                text-align: center;
+                font-size: {font_size};
+                height: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: center;">
+                👁️👁️
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+    
+    # Coluna 3: HUNTER
+    with cols[2]:
+        target.markdown(
+            f"""
+            <div style="
+                background-color: #fd7014;
+                color: white;
+                border-radius: 0 5px 5px 0;
+                padding: 10px;
+                text-align: center;
+                font-family: Arial, sans-serif;
+                font-weight: bold;
+                font-size: {font_size};
+                height: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: center;">
+                HUNTER
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+    
+    # Coluna 4 permanece vazia para espaçamento
+    def insert_favicon():
     """
     Insere o favicon SVG diretamente no HTML
     """
