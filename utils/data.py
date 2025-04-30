@@ -1417,3 +1417,22 @@ INSTRUÇÕES ESPECIAIS: VOCÊ DEVE CALCULAR PROBABILIDADES REAIS PARA TODOS OS M
     except Exception as e:
         logger.error(f"Erro ao formatar prompt: {str(e)}")
         return None
+# Add this method to the UserManager class in utils/data.py
+def verify_login(self, email, password):
+    """
+    Verify user login credentials
+    
+    Args:
+        email (str): User email
+        password (str): User password
+        
+    Returns:
+        bool: True if credentials are valid, False otherwise
+    """
+    if email not in self.users:
+        return False
+        
+    user = self.users[email]
+    hashed_password = self._hash_password(password)
+    
+    return user.get('password') == hashed_password
