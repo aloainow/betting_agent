@@ -1,167 +1,42 @@
 import os
-import logging
 import sys
+import logging
 import streamlit as st
+from utils.core import show_valuehunter_logo
 import time
 from datetime import datetime
-import base64
-from utils.core import show_valuehunter_logo
 
-show_valuehunter_logo()
-
-# === NOVO: Verificação de caminhos do Render ===
-RENDER_PROJECT_DIR = "/opt/render/project/src"
-if "RENDER" in os.environ and os.path.exists(RENDER_PROJECT_DIR):
-    # Logo e favicon estão na raiz do projeto no Render
-    logo_path_render = os.path.join(RENDER_PROJECT_DIR, "3F3F45.png")
-    favicon_path_render = os.path.join(RENDER_PROJECT_DIR, "favicon_svg.svg")
-    
-    print(f"Caminhos no Render:")
-    print(f"Logo: {logo_path_render} (existe: {os.path.exists(logo_path_render)})")
-    print(f"Favicon: {favicon_path_render} (existe: {os.path.exists(favicon_path_render)})")
-
-# Verificação avançada de arquivos em múltiplos diretórios
-def check_files_in_directories():
-    """Verifica se os arquivos existem em diferentes diretórios possíveis"""
-    # Diretórios a verificar
-    directories = [
-        os.getcwd(),                               # Diretório atual
-        os.path.join(os.getcwd(), "static"),       # Pasta static
-        "/opt/render/project/src",                 # Raiz do Render
-        "/app",                                    # Outra pasta comum
-        os.path.dirname(os.path.abspath(__file__)) # Diretório do script
-    ]
-    
-    # Arquivos a procurar
-    files = ["3F3F45.png", "favicon_svg.svg", "logo.png"]
-    
-    results = {}
-    
-    # Verificar cada diretório
-    for directory in directories:
-        if os.path.exists(directory):
-            print(f"Verificando diretório: {directory}")
-            try:
-                dir_files = os.listdir(directory)
-                print(f"Arquivos em {directory}: {dir_files}")
-                
-                # Verificar cada arquivo
-                for file in files:
-                    file_path = os.path.join(directory, file)
-                    exists = os.path.exists(file_path)
-                    results[f"{directory}/{file}"] = exists
-                    
-                    if exists:
-                        print(f"ENCONTRADO: {file} em {directory}")
-            except Exception as e:
-                print(f"Erro ao listar {directory}: {str(e)}")
-        else:
-            print(f"Diretório não existe: {directory}")
-    
-    return results
-
-# Chamar a função no início do aplicativo
-file_check_results = check_files_in_directories()
-
-# Descobrir caminhos corretos para o logo e favicon
-logo_path = None
-favicon_path = None
-
-for path, exists in file_check_results.items():
-    if exists and ("3F3F45.png" in path or "logo.png" in path):
-        logo_path = path
-        print(f"Usando logo encontrado em: {logo_path}")
-    if exists and "favicon_svg.svg" in path:
-        favicon_path = path
-        print(f"Usando favicon encontrado em: {favicon_path}")
-
-# === 1. CONFIGURAR FAVICON & PAGE CONFIG ===
-# Definir o conteúdo SVG do favicon inline
-favicon_svg = """<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-  <rect width="100" height="100" rx="20" fill="#fd7014"/>
-  <path d="M35 25C25.5 25 20 35 20 45C20 55 25.5 65 35 65C44.5 65 50 55 50 45C50 35 44.5 25 35 25Z" fill="white"/>
-  <path d="M65 25C74.5 25 80 35 80 45C80 55 74.5 65 65 65C55.5 65 50 55 50 45C50 35 55.5 25 65 25Z" fill="white"/>
-  <path d="M50 40V50M43 45L57 45M35 35C31.7 35 30 39 30 45C30 51 31.7 55 35 55C38.3 55 40 51 40 45C40 39 38.3 35 35 35ZM65 35C61.7 35 60 39 60 45C60 51 61.7 55 65 55C68.3 55 70 51 70 45C70 39 68.3 35 65 35Z" stroke="#3F3F45" stroke-width="3"/>
-</svg>"""
-
-# Converter SVG para base64
-import base64
-favicon_b64 = base64.b64encode(favicon_svg.encode('utf-8')).decode()
-
-# Configurar a página
+# -----------------------------------------------------
+# 1. CONFIGURAR FAVICON E TÍTULO DA PÁGINA
+# Deve ser a primeira chamada Streamlit do script
+# -----------------------------------------------------
 st.set_page_config(
-    page_title="ValueHunter - Análise de Apostas Esportivas",
-    page_icon="📊",  # Mantém o emoji como fallback para navegadores que não suportam SVG
-    layout="wide",
-    initial_sidebar_state="expanded",
-    menu_items=None
+    page_title="ValueHunter",
+    page_icon="favicon.png",   # ajuste se for .svg ou .ico
+    layout="wide"
 )
 
-# Inserir o favicon SVG logo após a configuração da página
-favicon_html = f"""
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,{favicon_b64}">
-<link rel="shortcut icon" type="image/svg+xml" href="data:image/svg+xml;base64,{favicon_b64}">
-"""
-st.markdown(favicon_html, unsafe_allow_html=True)
-print("Favicon SVG inserido diretamente no HTML!")
-
-# Tentar inserir o favicon SVG
-try:
-    if favicon_path and os.path.exists(favicon_path):
-        with open(favicon_path, "rb") as f:
-            favicon_data = f.read()
-        favicon_b64 = base64.b64encode(favicon_data).decode()
-        favicon_html = f"<link rel='icon' type='image/svg+xml' href='data:image/svg+xml;base64,{favicon_b64}'>"
-        st.markdown(favicon_html, unsafe_allow_html=True)
-        print("Favicon inserido com sucesso")
-    else:
-        # NOVO: Tente usar o caminho específico do Render
-        if "RENDER" in os.environ and os.path.exists(favicon_path_render):
-            with open(favicon_path_render, "rb") as f:
-                favicon_data = f.read()
-            favicon_b64 = base64.b64encode(favicon_data).decode()
-            favicon_html = f"<link rel='icon' type='image/svg+xml' href='data:image/svg+xml;base64,{favicon_b64}'>"
-            st.markdown(favicon_html, unsafe_allow_html=True)
-            print("Favicon inserido com sucesso via caminho Render")
-        else:
-            print("Nenhum caminho para o favicon encontrado")
-except Exception as e:
-    print(f"Erro ao inserir favicon: {str(e)}")
-
-# Função auxiliar para converter arquivo em base64
-def _get_base64(path):
-    try:
-        with open(path, "rb") as f:
-            return base64.b64encode(f.read()).decode()
-    except Exception as e:
-        print(f"Erro ao carregar {path}: {str(e)}")
-        return ""
-
-# Carregar logo
-_LOGO_B64 = ""
-if logo_path and os.path.exists(logo_path):
-    _LOGO_B64 = _get_base64(logo_path)
-    print(f"Logo carregado com sucesso: {logo_path}")
-else:
-    # NOVO: Tente usar o caminho específico do Render
-    if "RENDER" in os.environ and os.path.exists(logo_path_render):
-        _LOGO_B64 = _get_base64(logo_path_render)
-        print(f"Logo carregado com sucesso via caminho Render: {logo_path_render}")
-    else:
-        print(f"Arquivo de logo não encontrado ou caminho inválido")
-
-# === 2. SETUP DE LOGS ===
+# -----------------------------------------------------
+# 2. CONFIGURAÇÃO DE LOGGING
+# -----------------------------------------------------
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger("valueHunter")
+
+# Log de diagnóstico
 logger.info(f"Python version: {sys.version}")
 logger.info(f"Current directory: {os.getcwd()}")
 try:
     logger.info(f"Directory contents: {os.listdir('.')}")
 except Exception as e:
-    logger.error(f"Erro ao listar diretório: {str(e)}")
+    logger.error(f"Erro ao listar diretório: {e}")
+
+# -----------------------------------------------------
+# 3. EXIBIR LOGO
+# -----------------------------------------------------
+show_valuehunter_logo()
 
 # Aplicar CSS para ocultar elementos de navegação - sem strings triplas
 css = (
