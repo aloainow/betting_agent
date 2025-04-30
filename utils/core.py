@@ -224,7 +224,7 @@ import os, base64, streamlit as st
 # Função corrigida para mostrar a logodef (container=None, size="medium"):
 def show_valuehunter_logo(container=None, size="medium"):
     """
-    Exibe o logo do ValueHunter com símbolo simples.
+    Exibe o logo do ValueHunter com dois pontos brancos à esquerda.
     """
     target = container if container else st
     
@@ -239,7 +239,7 @@ def show_valuehunter_logo(container=None, size="medium"):
         width = "240px"
         font_size = "20px"
     
-    # Criar um elemento simples com apenas texto formatado
+    # Criar um elemento simples com pontos brancos e texto
     target.markdown(
         f"""
         <div style="
@@ -252,13 +252,18 @@ def show_valuehunter_logo(container=None, size="medium"):
             font-family: Arial, sans-serif;
             font-weight: bold;
             font-size: {font_size};
-            text-align: center;">
-            • VALUEHUNTER
+            display: flex;
+            align-items: center;">
+            <span style="
+                color: white;
+                margin-right: 8px;
+                display: inline-block;
+                letter-spacing: 3px;">●●</span>
+            <span>VALUEHUNTER</span>
         </div>
         """,
         unsafe_allow_html=True
-    )
-# Coluna 4 permanece vazia para espaçamento
+    )# Coluna 4 permanece vazia para espaçamento
 def insert_favicon():
     """
     Insere o favicon SVG diretamente no HTML
