@@ -1148,3 +1148,86 @@ def hide_sidebar_completely():
     )
     
     st.markdown(css, unsafe_allow_html=True)
+def apply_dark_theme():
+    """
+    Aplica um tema escuro consistente em todas as versões (desktop e mobile)
+    para garantir que textos brancos sejam legíveis.
+    """
+    st.markdown("""
+    <style>
+        /* Fundo escuro para todo o app */
+        .main, .stApp, body, [data-testid="stAppViewContainer"] {
+            background-color: #121212 !important;
+            color: white !important;
+        }
+        
+        /* Garantir que o fundo da sidebar também seja escuro */
+        [data-testid="stSidebar"] {
+            background-color: #1e1e1e !important;
+            border-right: 1px solid #333 !important;
+        }
+        
+        /* Corrigir cores dos widgets */
+        .stTextInput input, .stTextArea textarea, .stNumberInput input, 
+        .stSelectbox > div, .stMultiselect > div {
+            background-color: #2d2d2d !important;
+            color: white !important;
+            border-color: #4d4d4d !important;
+        }
+        
+        /* Garantir que os textos dos widgets sejam visíveis */
+        .stSelectbox > div > div, .stMultiselect > div > div {
+            color: white !important;
+        }
+        
+        /* Corrigir cores dos botões (manter o laranja do ValueHunter) */
+        .stButton button {
+            background-color: #fd7014 !important;
+            color: white !important;
+        }
+        
+        /* Cores para headers */
+        h1, h2, h3 {
+            color: #fd7014 !important;
+        }
+        
+        /* Garantir que links sejam visíveis */
+        a {
+            color: #fd7014 !important;
+        }
+        
+        /* Fixar problema específico para mobile */
+        @media (max-width: 767px) {
+            .main, body, [data-testid="stAppViewContainer"] {
+                background-color: #121212 !important;
+            }
+            
+            /* Corrigir elementos de mobile que têm background branco específico */
+            .element-container, .stMarkdown, div[data-baseweb="select"], div[data-baseweb="input"] {
+                background-color: #121212 !important;
+            }
+            
+            /* Garantir que os textos em mobile sejam visíveis */
+            p, div, span {
+                color: white !important;
+            }
+            
+            /* Ajustar selectbox para mobile */
+            div[role="listbox"] {
+                background-color: #2d2d2d !important;
+            }
+            
+            /* Garantir que dropdowns sejam legíveis */
+            div[role="menuitem"] {
+                background-color: #2d2d2d !important;
+                color: white !important;
+            }
+        }
+        
+        /* Corrigir cores das mensagens de erro, alerta e sucesso */
+        [data-testid="stAlert"] {
+            background-color: #2d2d2d !important;
+            color: white !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
