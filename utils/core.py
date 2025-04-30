@@ -219,44 +219,17 @@ def _get_base64(path: str) -> str:
     with open(path, "rb") as f:
         return base64.b64encode(f.read()).decode()
 
-def show_valuehunter_logo(container=None, size="medium"):
-    """
-    Exibe o logo do ValueHunter com abordagem simplificada.
-    """
-    target = container if container else st
-    
-    # Configurações de tamanho
-    if size == "small":
-        logo_size = "30px"
-        text_size = "1.2rem"
-    elif size == "large":
-        logo_size = "60px"
-        text_size = "2.5rem"
-    else:  # medium é o padrão
-        logo_size = "40px"
-        text_size = "1.8rem"
-    
-    # Incorporar o SVG diretamente no HTML - sem depender de arquivo
-    logo_svg = """<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-  <rect width="100" height="100" rx="20" fill="#fd7014"/>
-  <path d="M35 25C25.5 25 20 35 20 45C20 55 25.5 65 35 65C44.5 65 50 55 50 45C50 35 44.5 25 35 25Z" fill="white"/>
-  <path d="M65 25C74.5 25 80 35 80 45C80 55 74.5 65 65 65C55.5 65 50 55 50 45C50 35 55.5 25 65 25Z" fill="white"/>
-  <path d="M50 40V50M43 45L57 45M35 35C31.7 35 30 39 30 45C30 51 31.7 55 35 55C38.3 55 40 51 40 45C40 39 38.3 35 35 35ZM65 35C61.7 35 60 39 60 45C60 51 61.7 55 65 55C68.3 55 70 51 70 45C70 39 68.3 35 65 35Z" stroke="#3F3F45" stroke-width="3"/>
-</svg>"""
-    
-    # Logo HTML com o SVG inline
-    logo_html = (
-        f"<div style='background-color: #fd7014; padding: 10px 20px; "
-        f"border-radius: 5px; display: flex; align-items: center; "
-        f"gap: 10px; margin-bottom: 1rem;'>"
-        f"<div style='width: {logo_size}; height: {logo_size};'>{logo_svg}</div>"
-        f"<span style='font-size: {text_size}; font-weight: bold; color: white;'>"
-        f"VALUEHUNTER</span></div>"
+import os, base64, streamlit as st
+
+def show_valuehunter_logo():
+    logo_path = os.path.join(os.getcwd(), "3F3F45.png")   # ajuste o caminho se necessário
+    with open(logo_path, "rb") as f:
+        b64 = base64.b64encode(f.read()).decode()
+    st.markdown(
+        f"<div style='text-align:center; margin-bottom:20px;'><img src='data:image/png;base64,{b64}' width='200'></div>",
+        unsafe_allow_html=True
     )
-    
-    # Exibir HTML
-    target.markdown(logo_html, unsafe_allow_html=True)
-    print("Logo renderizado com SVG inline!")
+
 
 # Adicione esta função para inserir o favicon no app.py logo após a linha st.set_page_config()
 
