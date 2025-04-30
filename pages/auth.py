@@ -9,74 +9,70 @@ from utils.email_verification import send_verification_email, generate_verificat
 # Configuração de logging
 logger = logging.getLogger("valueHunter.auth")
 
-# Adicionar à páginas/auth.py
-
 # Modificação na função show_login() em pages/auth.py
 
 def show_login():
-    """Display login form"""
-    try:
-        # Aplicar estilos personalizados
-        apply_custom_styles()
-        # Aplicar estilos responsivos
-        apply_responsive_styles()
-        # Esconder a barra lateral do Streamlit na página de login
-        st.markdown("""
-        <style>
-        [data-testid="stSidebar"] {
-            display: none !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
+    """Exibe a tela de login com proteção contra múltiplos recarregamentos"""
+    
+    # Garantir que o componente seja renderizado apenas uma vez
+    if "login_form_rendered" not in st.session_state:
+        st.session_state.login_form_rendered = False
+    
+    if not st.session_state.login_form_rendered:
+        # Marca como renderizado para evitar duplicação
+        st.session_state.login_form_rendered = True
         
-        # Header com a logo
+        # Exibir o logo do ValueHunter
         show_valuehunter_logo()
         
-        # Botão para voltar à página inicial
-        if st.button("← Voltar para a página inicial"):
-            go_to_landing()
+        # Título e descrição da página
+        st.title("Login")
+        st.markdown("Entre com suas credenciais para acessar o sistema.")
         
-        # Login form
-        with st.form("login_form"):
-            email = st.text_input("Email")
-            password = st.text_input("Password", type="password")
-            submitted = st.form_submit_button("Login")
-            
-            if submitted:
-                if not email or not password:
-                    st.error("Por favor, preencha todos os campos.")
-                    return
-                    
-                try:
-                    if st.session_state.user_manager.authenticate(email, password):
-                        st.session_state.authenticated = True
-                        st.session_state.email = email
-                        st.success("Login realizado com sucesso!")
-                        st.session_state.page = "main"  # Ir para a página principal
-                        time.sleep(1)
-                        st.experimental_rerun()
-                    else:
-                        st.error("Credenciais inválidas.")
-                except Exception as e:
-                    logger.error(f"Erro durante autenticação: {str(e)}")
-                    st.error("Erro ao processar login. Por favor, tente novamente.")
-        
-        # Link para recuperação de senha - usando botão Streamlit em vez de JavaScript
+        # Criar duas colunas para centralizar o formulário
         col1, col2, col3 = st.columns([1, 2, 1])
+        
         with col2:
-            if st.button("Esqueci minha senha", use_container_width=True, key="forgot_pwd_btn"):
+            # Formulário de login
+            email = st.text_input("Email", key="login_email")
+            password = st.text_input("Senha", type="password", key="login_password")
+            
+            # Botões de ação
+            col_btn1, col_btn2 = st.columns(2)
+            
+            with col_btn1:
+                if st.button("Entrar", key="login_btn"):
+                    if not email or not password:
+                        st.error("Por favor, preencha todos os campos.")
+                    else:
+                        # Verificar credenciais
+                        if st.session_state.user_manager.verify_login(email, password):
+                            # Login bem-sucedido
+                            st.session_state.authenticated = True
+                            st.session_state.email = email
+                            
+                            # Limpar variáveis de formulário
+                            st.session_state.login_form_rendered = False
+                            
+                            # Redirecionar para dashboard
+                            st.session_state.page = "main"
+                            st.experimental_rerun()
+                        else:
+                            st.error("Email ou senha incorretos.")
+            
+            with col_btn2:
+                if st.button("Registrar", key="register_from_login"):
+                    st.session_state.show_register = True
+                    st.session_state.login_form_rendered = False
+                    st.session_state.page = "register"
+                    st.experimental_rerun()
+            
+            # Links para recuperação de senha
+            st.markdown("---")
+            if st.button("Esqueceu sua senha?", key="forgot_password"):
+                st.session_state.login_form_rendered = False
                 st.session_state.page = "password_recovery"
                 st.experimental_rerun()
-        
-        # Registration link
-        st.markdown("---")
-        st.markdown("<div style='text-align: center;'>Não tem uma conta?</div>", unsafe_allow_html=True)
-        if st.button("Registre-se aqui", use_container_width=True):
-            go_to_register()
-    except Exception as e:
-        logger.error(f"Erro ao exibir página de login: {str(e)}")
-        st.error("Erro ao carregar a página de login. Por favor, tente novamente.")
-        st.error(f"Detalhes: {str(e)}")  # Adicionar detalhes do erro para diagnóstico
 
 
 def show_password_recovery():
