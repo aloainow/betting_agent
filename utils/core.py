@@ -236,14 +236,17 @@ def show_valuehunter_logo(container=None, size="medium"):
         width = "180px"
         height = "50px"
         padding = "6px 12px"
+        logo_scale = "80%"
     elif size == "large":
         width = "300px"
         height = "80px"
-        padding = "10px 18px"
+        padding = "8px 12px"
+        logo_scale = "90%"
     else:  # medium é o padrão
         width = "240px"
         height = "60px"
-        padding = "8px 15px"
+        padding = "6px 10px"
+        logo_scale = "85%"
     
     # Caminho do logo
     logo_path = os.path.join(os.getcwd(), "3F3F45.png")
@@ -259,9 +262,9 @@ def show_valuehunter_logo(container=None, size="medium"):
         # HTML para o logo com formato retangular e ID único que previne duplicação
         logo_html = f"""
         <div id="unique-valuehunter-logo" style="background-color: #fd7014; padding: {padding}; 
-             border-radius: 5px; display: flex; align-items: center; 
+             border-radius: 5px; display: flex; align-items: center; justify-content: center;
              margin-bottom: 1rem; width: {width}; height: {height};">
-            <img src="data:image/png;base64,{logo_b64}" style="height: 100%; max-width: 100%; object-fit: contain;">
+            <img src="data:image/png;base64,{logo_b64}" style="height: {logo_scale}; max-width: 95%; object-fit: contain;">
         </div>
         
         <style>
@@ -281,7 +284,7 @@ def show_valuehunter_logo(container=None, size="medium"):
         
         logo_html = f"""
         <div id="unique-valuehunter-logo" style="background-color: #fd7014; padding: {padding}; 
-             border-radius: 5px; display: flex; align-items: center; 
+             border-radius: 5px; display: flex; align-items: center; justify-content: center;
              margin-bottom: 1rem; width: {width}; height: {height};">
             <span style="font-weight: bold; color: white; letter-spacing: 1px; font-size: 1.5rem;">
                 VALUEHUNTER
