@@ -229,16 +229,29 @@ def show_valuehunter_logo():
         with open(logo_path, "rb") as f:
             binary_data = f.read()
             base64_data = base64.b64encode(binary_data).decode()
+        
+        # Exibir logo em formato retangular com largura controlada
         st.markdown(
-            f"<div style='text-align:center; margin-bottom:20px;'><img src='data:image/png;base64,{base64_data}' width='200'></div>",
+            f"""
+            <div style='text-align:center; margin-bottom:20px;'>
+                <img src='data:image/png;base64,{base64_data}' style='max-width:300px; height:auto;'>
+            </div>
+            """,
             unsafe_allow_html=True
         )
     except Exception as e:
         logger.error(f"Erro ao carregar logo: {str(e)}")
-        # Fallback para logo texto
+        # Fallback para logo texto com estilo retangular
         st.markdown("""
-        <div style="background-color: #fd7014; padding: 10px; border-radius: 5px; display: inline-block; margin-bottom: 1rem;">
-            <h1 style="color: white; margin: 0; font-family: 'Arial', sans-serif;"><span style="color: #333;">V</span>ValueHunter</h1>
+        <div style="background-color: #fd7014; padding: 8px 20px; border-radius: 4px; display: inline-block; margin-bottom: 1rem; width: 300px; text-align: center;">
+            <div style="display: flex; align-items: center; justify-content: center;">
+                <svg style="width:24px; height:24px; margin-right: 10px;" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M35 25C25.5 25 20 35 20 45C20 55 25.5 65 35 65C44.5 65 50 55 50 45C50 35 44.5 25 35 25Z" fill="white"/>
+                    <path d="M65 25C74.5 25 80 35 80 45C80 55 74.5 65 65 65C55.5 65 50 55 50 45C50 35 55.5 25 65 25Z" fill="white"/>
+                    <path d="M50 40V50M43 45L57 45M35 35C31.7 35 30 39 30 45C30 51 31.7 55 35 55C38.3 55 40 51 40 45C40 39 38.3 35 35 35ZM65 35C61.7 35 60 39 60 45C60 51 61.7 55 65 55C68.3 55 70 51 70 45C70 39 68.3 35 65 35Z" stroke="#3F3F45" stroke-width="3"/>
+                </svg>
+                <span style="color: white; font-size: 18px; font-weight: bold; letter-spacing: 1px;">VALUEHUNTER</span>
+            </div>
         </div>
         """, unsafe_allow_html=True)
 
