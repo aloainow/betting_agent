@@ -1195,6 +1195,8 @@ def show_main_dashboard():
     try:
         # Aplicar correção para animação da sidebar
         fix_sidebar_animation()
+        # Aplicar tema escuro
+        apply_dark_theme()
         # Verificações de autenticação
         if not hasattr(st.session_state, 'authenticated') or not st.session_state.authenticated:
             st.error("Sessão não autenticada. Por favor, faça login novamente.")
