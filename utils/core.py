@@ -221,33 +221,29 @@ def _get_base64(path: str) -> str:
 
 import os, base64, streamlit as st
 
-# Função corrigida para mostrar a logodef show_valuehunter_logo(container=None, size="medium"):
+# Função corrigida para mostrar a logodef (container=None, size="medium"):
 def show_valuehunter_logo(container=None, size="medium"):
     """
-    Exibe o logo do ValueHunter com SVG como fallback para garantir
-    qualidade em qualquer tamanho.
+    Exibe o logo do ValueHunter (PNG) - solução drástica que maximiza o tamanho.
     """
     import base64
     import os
     
     target = container if container else st
     
-    # Configurar tamanhos baseados no parâmetro
+    # Configurar tamanhos baseados no parâmetro - reduzir padding ao mínimo
     if size == "small":
         width = "180px"
         height = "50px"
-        padding = "4px 8px"
-        font_size = "1.4rem"
+        padding = "2px"  # Padding mínimo
     elif size == "large":
         width = "320px"
         height = "80px"
-        padding = "6px 10px"
-        font_size = "2.2rem"
+        padding = "3px"  # Padding mínimo
     else:  # medium é o padrão
         width = "240px"
         height = "60px"
-        padding = "5px 8px"
-        font_size = "1.8rem"
+        padding = "2px"  # Padding mínimo
     
     # Caminho do logo
     logo_path = os.path.join(os.getcwd(), "3F3F45.png")
@@ -260,44 +256,10 @@ def show_valuehunter_logo(container=None, size="medium"):
         # Converter para base64
         logo_b64 = base64.b64encode(logo_data).decode()
         
-        # HTML com container único e logo maximizada
+        # HTML com imagem em tamanho máximo - abordagem drástica
         logo_html = f"""
-        <div id="unique-valuehunter-logo" style="background-color: #fd7014; 
-             padding: {padding}; 
-             border-radius: 5px; 
-             display: flex; 
-             align-items: center; 
-             justify-content: center;
-             margin-bottom: 1rem; 
-             width: {width}; 
-             height: {height};
-             box-sizing: border-box;
-             overflow: hidden;">
-            <img src="data:image/png;base64,{logo_b64}" 
-                 style="height: 90%; 
-                        width: auto;
-                        max-width: 95%;
-                        object-fit: contain;">
-        </div>
-        
-        <style>
-        /* Script para remover logos duplicados */
-        #unique-valuehunter-logo ~ #unique-valuehunter-logo {{
-            display: none !important;
-        }}
-        </style>
-        """
-        
-        # Exibir HTML
-        target.markdown(logo_html, unsafe_allow_html=True)
-        
-    except Exception as e:
-        # Fallback: exibir SVG customizado do ValueHunter
-        print(f"Usando SVG fallback para logo: {str(e)}")
-        
-        # SVG logo customizado
-        svg_logo = f"""
-        <div id="unique-valuehunter-logo" style="background-color: #fd7014; 
+        <div id="unique-valuehunter-logo" style="
+             background-color: #fd7014; 
              padding: {padding}; 
              border-radius: 5px; 
              display: flex; 
@@ -307,22 +269,14 @@ def show_valuehunter_logo(container=None, size="medium"):
              width: {width}; 
              height: {height};
              box-sizing: border-box;">
-             
-            <svg viewBox="0 0 240 60" width="90%" height="90%" xmlns="http://www.w3.org/2000/svg">
-                <!-- Texto "VALUE" -->
-                <text x="10" y="38" fill="white" font-family="Arial, sans-serif" font-weight="bold" font-size="24">VALUE</text>
-                
-                <!-- Ícone de binóculo estilizado -->
-                <g transform="translate(100, 30)">
-                    <circle cx="-8" cy="0" r="10" fill="white"/>
-                    <circle cx="8" cy="0" r="10" fill="white"/>
-                    <path d="M-8 -6C-11 -6 -13 -3 -13 0C-13 3 -11 6 -8 6C-5 6 -3 3 -3 0C-3 -3 -5 -6 -8 -6ZM8 -6C5 -6 3 -3 3 0C3 3 5 6 8 6C11 6 13 3 13 0C13 -3 11 -6 8 -6Z" fill="#fd7014"/>
-                    <path d="M0 -5V5M-4 0H4" stroke="#fd7014" stroke-width="2"/>
-                </g>
-                
-                <!-- Texto "HUNTER" -->
-                <text x="130" y="38" fill="white" font-family="Arial, sans-serif" font-weight="bold" font-size="24">HUNTER</text>
-            </svg>
+            
+            <img src="data:image/png;base64,{logo_b64}" 
+                 style="
+                    width: calc(100% - 4px);
+                    height: calc(100% - 4px);
+                    object-fit: contain;
+                    display: block;
+                 ">
         </div>
         
         <style>
@@ -330,12 +284,47 @@ def show_valuehunter_logo(container=None, size="medium"):
         #unique-valuehunter-logo ~ #unique-valuehunter-logo {{
             display: none !important;
         }}
+        
+        /* Força a imagem a ser renderizada corretamente */
+        #unique-valuehunter-logo img {{
+            image-rendering: auto;
+            image-rendering: crisp-edges;
+            image-rendering: pixelated;
+        }}
         </style>
         """
         
-        # Exibir HTML com SVG
-        target.markdown(svg_logo, unsafe_allow_html=True)
-# Adicione esta função para inserir o favicon no app.py logo após a linha st.set_page_config()
+        # Exibir HTML
+        target.markdown(logo_html, unsafe_allow_html=True)
+        
+    except Exception as e:
+        # Fallback: exibir texto do logo
+        print(f"Erro ao carregar logo: {str(e)}")
+        
+        logo_html = f"""
+        <div id="unique-valuehunter-logo" style="
+             background-color: #fd7014; 
+             padding: {padding}; 
+             border-radius: 5px; 
+             display: flex; 
+             align-items: center; 
+             justify-content: center;
+             margin-bottom: 1rem; 
+             width: {width}; 
+             height: {height};">
+            <span style="
+                font-weight: bold; 
+                color: white; 
+                letter-spacing: 1px; 
+                font-size: 2rem;
+                text-transform: uppercase;">
+                VALUEHUNTER
+            </span>
+        </div>
+        """
+        
+        # Exibir HTML
+        target.markdown(logo_html, unsafe_allow_html=True)# Adicione esta função para inserir o favicon no app.py logo após a linha st.set_page_config()
 
 def insert_favicon():
     """
