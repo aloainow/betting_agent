@@ -1193,6 +1193,8 @@ def check_analysis_limits(selected_markets):
 def show_main_dashboard():
     """Show the main dashboard com navegação mobile nativa do Streamlit"""
     try:
+        # Aplicar correção para animação da sidebar
+        fix_sidebar_animation()
         # Verificações de autenticação
         if not hasattr(st.session_state, 'authenticated') or not st.session_state.authenticated:
             st.error("Sessão não autenticada. Por favor, faça login novamente.")
@@ -3234,3 +3236,36 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implied_
         original_probabilities, 
         None  # expected_goals (opcional)
     )
+def fix_sidebar_animation():
+    """
+    Corrige o problema de animação da sidebar durante o carregamento,
+    eliminando o efeito de "movimento" indesejado.
+    """
+    st.markdown("""
+    <style>
+        /* Desabilitar completamente as animações da sidebar */
+        [data-testid="stSidebar"] {
+            transition: none !important;
+            animation: none !important;
+            transform: none !important;
+        }
+        
+        /* Garantir que a sidebar tenha uma largura fixa e não se redimensione */
+        [data-testid="stSidebar"][aria-expanded="true"] {
+            width: 300px !important;
+            margin-left: 0px !important;
+        }
+        
+        /* Quando colapsada, garantir que fique completamente fora da tela */
+        [data-testid="stSidebar"][aria-expanded="false"] {
+            width: 300px !important;
+            margin-left: -300px !important;
+        }
+        
+        /* Desabilitar animações do botão de toggle também */
+        [data-testid="collapsedControl"] {
+            transition: none !important;
+            animation: none !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
