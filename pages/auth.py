@@ -13,7 +13,9 @@ logger = logging.getLogger("valueHunter.auth")
 
 def show_login():
     """Exibe a tela de login prevenindo duplicação e garantindo redirecionamento correto"""
-    
+
+    # Aplicar tema escuro
+    apply_dark_theme()
     # Exibir o logo do ValueHunter (apenas uma vez)
     show_valuehunter_logo()
     
