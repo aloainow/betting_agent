@@ -12,67 +12,62 @@ logger = logging.getLogger("valueHunter.auth")
 # Modificação na função show_login() em pages/auth.py
 
 def show_login():
-    """Exibe a tela de login com proteção contra múltiplos recarregamentos"""
+    """Exibe a tela de login prevenindo duplicação e garantindo redirecionamento correto"""
     
-    # Garantir que o componente seja renderizado apenas uma vez
-    if "login_form_rendered" not in st.session_state:
-        st.session_state.login_form_rendered = False
+    # Exibir o logo do ValueHunter (apenas uma vez)
+    show_valuehunter_logo()
     
-    if not st.session_state.login_form_rendered:
-        # Marca como renderizado para evitar duplicação
-        st.session_state.login_form_rendered = True
+    # Título e descrição da página
+    st.title("Login")
+    st.markdown("Entre com suas credenciais para acessar o sistema.")
+    
+    # Criar duas colunas para centralizar o formulário
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col2:
+        # Formulário de login
+        email = st.text_input("Email", key="login_email")
+        password = st.text_input("Senha", type="password", key="login_password")
         
-        # Exibir o logo do ValueHunter
-        show_valuehunter_logo()
+        # Botões de ação
+        col_btn1, col_btn2 = st.columns(2)
         
-        # Título e descrição da página
-        st.title("Login")
-        st.markdown("Entre com suas credenciais para acessar o sistema.")
-        
-        # Criar duas colunas para centralizar o formulário
-        col1, col2, col3 = st.columns([1, 2, 1])
-        
-        with col2:
-            # Formulário de login
-            email = st.text_input("Email", key="login_email")
-            password = st.text_input("Senha", type="password", key="login_password")
-            
-            # Botões de ação
-            col_btn1, col_btn2 = st.columns(2)
-            
-            with col_btn1:
-                if st.button("Entrar", key="login_btn"):
-                    if not email or not password:
-                        st.error("Por favor, preencha todos os campos.")
-                    else:
-                        # Verificar credenciais
+        with col_btn1:
+            if st.button("Entrar", key="login_btn"):
+                if not email or not password:
+                    st.error("Por favor, preencha todos os campos.")
+                else:
+                    # Verificar credenciais com manejo de erro
+                    try:
                         if st.session_state.user_manager.verify_login(email, password):
                             # Login bem-sucedido
                             st.session_state.authenticated = True
                             st.session_state.email = email
                             
-                            # Limpar variáveis de formulário
-                            st.session_state.login_form_rendered = False
+                            # Log para debug
+                            print(f"Login bem-sucedido para {email}, redirecionando para dashboard")
                             
                             # Redirecionar para dashboard
                             st.session_state.page = "main"
+                            
+                            # Usar experimental_rerun de forma mais segura
                             st.experimental_rerun()
                         else:
                             st.error("Email ou senha incorretos.")
-            
-            with col_btn2:
-                if st.button("Registrar", key="register_from_login"):
-                    st.session_state.show_register = True
-                    st.session_state.login_form_rendered = False
-                    st.session_state.page = "register"
-                    st.experimental_rerun()
-            
-            # Links para recuperação de senha
-            st.markdown("---")
-            if st.button("Esqueceu sua senha?", key="forgot_password"):
-                st.session_state.login_form_rendered = False
-                st.session_state.page = "password_recovery"
+                    except Exception as e:
+                        st.error(f"Erro ao fazer login: {str(e)}")
+                        print(f"Erro no login: {str(e)}")
+        
+        with col_btn2:
+            if st.button("Registrar", key="register_from_login"):
+                st.session_state.page = "register"
                 st.experimental_rerun()
+        
+        # Links para recuperação de senha
+        st.markdown("---")
+        if st.button("Esqueceu sua senha?", key="forgot_password"):
+            st.session_state.page = "password_recovery"
+            st.experimental_rerun()
 
 
 def show_password_recovery():
