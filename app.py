@@ -4,6 +4,8 @@ import logging
 import streamlit as st
 import time
 from datetime import datetime
+from utils.core import apply_dark_theme
+
 
 # -----------------------------------------------------
 # 1. CONFIGURAR FAVICON E TÍTULO DA PÁGINA
@@ -235,6 +237,8 @@ def enable_debug_mode():
 def main():
     """Função principal que controla o fluxo do aplicativo"""
     try:
+        # Aplicar tema escuro consistente
+        apply_dark_theme()
         # NOVO: Diagnóstico de arquivos
         print("\n===== DIAGNÓSTICO DE ARQUIVOS =====")
         print(f"Diretório atual: {os.getcwd()}")
