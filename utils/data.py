@@ -66,7 +66,34 @@ class UserManager:
             "standard": UserTier("standard", 30, float('inf')),  # 30 credits, multiple markets
             "pro": UserTier("pro", 60, float('inf'))       # 60 credits, multiple markets
         }        
-    
+
+    def verify_login(self, email, password):
+        """
+        Verifica as credenciais de login do usuário
+        
+        Args:
+            email (str): Email do usuário
+            password (str): Senha do usuário
+            
+        Returns:
+            bool: True se as credenciais forem válidas, False caso contrário
+        """
+        # Verificar se o email existe
+        if email not in self.users:
+            return False
+        
+        # Verificar a senha
+        user_data = self.users[email]
+        stored_password = user_data.get('password', '')
+        
+        # Hash da senha fornecida
+        hashed_password = self._hash_password(password)
+        
+        # Comparar as senhas
+        if stored_password == hashed_password:
+            return True
+        
+        return False
     def _load_users(self) -> Dict:
         """Load users from JSON file with better error handling"""
         try:
@@ -1417,31 +1444,3 @@ INSTRUÇÕES ESPECIAIS: VOCÊ DEVE CALCULAR PROBABILIDADES REAIS PARA TODOS OS M
     except Exception as e:
         logger.error(f"Erro ao formatar prompt: {str(e)}")
         return None
-# Add this method to the UserManager class in utils/data.py
-def verify_login(self, email, password):
-    """
-    Verifica as credenciais de login do usuário
-    
-    Args:
-        email (str): Email do usuário
-        password (str): Senha do usuário
-        
-    Returns:
-        bool: True se as credenciais forem válidas, False caso contrário
-    """
-    # Verificar se o email existe
-    if email not in self.users:
-        return False
-    
-    # Verificar a senha
-    user_data = self.users[email]
-    stored_password = user_data.get('password', '')
-    
-    # Hash da senha fornecida
-    hashed_password = self._hash_password(password)
-    
-    # Comparar as senhas
-    if stored_password == hashed_password:
-        return True
-    
-    return False
