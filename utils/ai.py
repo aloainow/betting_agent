@@ -941,65 +941,13 @@ def check_data_quality(stats_dict):
     
     return False
 
-def validate_opportunity(market_type, real_prob, implied_prob, data_quality):
-    """
-    Valida se uma oportunidade identificada é realmente viável
-    
-    Args:
-        market_type (str): Tipo de mercado ('money_line', 'btts', etc.)
-        real_prob (float): Probabilidade real calculada
-        implied_prob (float): Probabilidade implícita da odd
-        data_quality (float): Qualidade dos dados (0-1)
-        
-    Returns:
-        bool: True se for uma oportunidade válida, False caso contrário
-    """
-    logger = logging.getLogger("valueHunter.ai")
-    
-    # Thresholds específicos por mercado
-    market_thresholds = {
-        'money_line': 22.0,
-        'double_chance': 18.0,
-        'btts': 15.0,
-        'over_under': 15.0,
-        'corners': 25.0,  # Mais alto para mercados voláteis
-        'cards': 25.0     # Mais alto para mercados voláteis
-    }
-    
-    # Obter threshold específico do mercado ou usar o default
-    threshold = market_thresholds.get(market_type, 20.0)  # Usar 20.0 como default
-    
-    # Verificar se a diferença é realmente significativa
-    value_diff = real_prob - implied_prob
-    
-    # Ajustar com base na qualidade dos dados
-    adjusted_threshold = threshold * (2 - data_quality)  # Aumentar threshold quando dados são piores
-    
-    # Adicionar lógica para verificar se a probabilidade real está em um intervalo razoável
-    if market_type == 'money_line':
-        if real_prob < 15 or real_prob > 85:
-            logger.info(f"Rejeitando oportunidade em {market_type} com probabilidade extrema: {real_prob}%")
-            return False
-    elif market_type in ['btts', 'over_under', 'corners', 'cards']:
-        if real_prob < 10 or real_prob > 90:
-            logger.info(f"Rejeitando oportunidade em {market_type} com probabilidade extrema: {real_prob}%")
-            return False
-    
-    # Verificar se passa no threshold específico do mercado
-    passed = value_diff > adjusted_threshold
-    
-    if not passed:
-        logger.info(f"Oportunidade rejeitada em {market_type}: diferença de {value_diff:.1f}% não supera threshold ajustado de {adjusted_threshold:.1f}%")
-    
-    return passed
-    
 def format_analysis_response(analysis_text, home_team, away_team, selected_markets=None, original_probabilities=None, odds_data=None, implied_probabilities=None):
     """
     Formato atualizado que usa dados pré-calculados de probabilidades implícitas e
     separa as oportunidades das justificativas detalhadas.
     """
     # Definir o limiar de valor como uma constante para fácil ajuste
-    VALUE_THRESHOLD = 20.0 # Aumentado de 5.0 para 10.0 para ser muito mais conservador
+    VALUE_THRESHOLD = 10.0 # Aumentado de 5.0 para 10.0 para ser muito mais conservador
     
     try:
         # Verificar se temos informações suficientes
@@ -1105,160 +1053,236 @@ def format_analysis_response(analysis_text, home_team, away_team, selected_marke
             
             probs_section += f"- **{home_team}**: Real {home_real:.1f}% vs Implícita {home_implicit:.1f}%{' (Valor)' if home_value else ''}\n"
             
-            # Para o mercado Money Line (Home Win)
             if home_value:
-                # Adicionar validação
-                quality_factor = original_probabilities.get("analysis_data", {}).get("data_quality", 100) / 100
-                if validate_opportunity("money_line", home_real, home_implicit, quality_factor):
-                    # Criar texto de oportunidade
-                    opportunity = f"- **{home_team}**: Real {home_real:.1f}% vs Implícita {home_implicit:.1f}% (Valor de {home_real-home_implicit:.1f}%)"
-                    opportunity = format_opportunity_with_justification(
-                        opportunity, home_team, away_team, original_probabilities, implied_probabilities
-                    )
-                    opportunities.append(opportunity)
+                # Criar texto de oportunidade
+                opportunity = f"- **{home_team}**: Real {home_real:.1f}% vs Implícita {home_implicit:.1f}% (Valor de {home_real-home_implicit:.1f}%)"
+                # Formatar com justificativa condensada usando a nova função
+                opportunity = format_opportunity_with_justification(
+                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
+                )
+                opportunities.append(opportunity)
             
-            # Para o mercado Money Line (Draw)
+            # Empate
+            draw_real = moneyline.get("draw", 0)
+            draw_implicit = implied_probabilities.get("draw", 0)
+            draw_value = draw_real > draw_implicit + VALUE_THRESHOLD
+            
+            probs_section += f"- **Empate**: Real {draw_real:.1f}% vs Implícita {draw_implicit:.1f}%{' (Valor)' if draw_value else ''}\n"
+            
             if draw_value:
-                # Adicionar validação
-                quality_factor = original_probabilities.get("analysis_data", {}).get("data_quality", 100) / 100
-                if validate_opportunity("money_line", draw_real, draw_implicit, quality_factor):
-                    opportunity = f"- **Empate**: Real {draw_real:.1f}% vs Implícita {draw_implicit:.1f}% (Valor de {draw_real-draw_implicit:.1f}%)"
-                    opportunity = format_opportunity_with_justification(
-                        opportunity, home_team, away_team, original_probabilities, implied_probabilities
-                    )
-                    opportunities.append(opportunity)
+                # Criar texto de oportunidade
+                opportunity = f"- **Empate**: Real {draw_real:.1f}% vs Implícita {draw_implicit:.1f}% (Valor de {draw_real-draw_implicit:.1f}%)"
+                # Formatar com justificativa condensada
+                opportunity = format_opportunity_with_justification(
+                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
+                )
+                opportunities.append(opportunity)
             
-            # Para o mercado Money Line (Away Win)
+            # Fora
+            away_real = moneyline.get("away_win", 0)
+            away_implicit = implied_probabilities.get("away", 0)
+            away_value = away_real > away_implicit + VALUE_THRESHOLD
+            
+            probs_section += f"- **{away_team}**: Real {away_real:.1f}% vs Implícita {away_implicit:.1f}%{' (Valor)' if away_value else ''}\n"
+            
             if away_value:
-                # Adicionar validação
-                quality_factor = original_probabilities.get("analysis_data", {}).get("data_quality", 100) / 100
-                if validate_opportunity("money_line", away_real, away_implicit, quality_factor):
-                    opportunity = f"- **{away_team}**: Real {away_real:.1f}% vs Implícita {away_implicit:.1f}% (Valor de {away_real-away_implicit:.1f}%)"
-                    opportunity = format_opportunity_with_justification(
-                        opportunity, home_team, away_team, original_probabilities, implied_probabilities
-                    )
-                    opportunities.append(opportunity)
+                # Criar texto de oportunidade
+                opportunity = f"- **{away_team}**: Real {away_real:.1f}% vs Implícita {away_implicit:.1f}% (Valor de {away_real-away_implicit:.1f}%)"
+                # Formatar com justificativa condensada
+                opportunity = format_opportunity_with_justification(
+                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
+                )
+                opportunities.append(opportunity)
+        
+        # Double Chance
+        if selected_markets.get("chance_dupla") and "double_chance" in original_probabilities:
+            probs_section += "## Chance Dupla (Double Chance):\n"
             
-            # Para o mercado Double Chance (Home or Draw)
+            dc = original_probabilities["double_chance"]
+            
+            # 1X
+            hd_real = dc.get("home_or_draw", 0)
+            hd_implicit = implied_probabilities.get("home_draw", 0)
+            hd_value = hd_real > hd_implicit + VALUE_THRESHOLD
+            
+            probs_section += f"- **{home_team} ou Empate**: Real {hd_real:.1f}% vs Implícita {hd_implicit:.1f}%{' (Valor)' if hd_value else ''}\n"
+            
             if hd_value:
-                # Adicionar validação
-                quality_factor = original_probabilities.get("analysis_data", {}).get("data_quality", 100) / 100
-                if validate_opportunity("double_chance", hd_real, hd_implicit, quality_factor):
-                    opportunity = f"- **{home_team} ou Empate**: Real {hd_real:.1f}% vs Implícita {hd_implicit:.1f}% (Valor de {hd_real-hd_implicit:.1f}%)"
-                    opportunity = format_opportunity_with_justification(
-                        opportunity, home_team, away_team, original_probabilities, implied_probabilities
-                    )
-                    opportunities.append(opportunity)
+                opportunity = f"- **{home_team} ou Empate**: Real {hd_real:.1f}% vs Implícita {hd_implicit:.1f}% (Valor de {hd_real-hd_implicit:.1f}%)"
+                opportunity = format_opportunity_with_justification(
+                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
+                )
+                opportunities.append(opportunity)
             
-            # Para o mercado Double Chance (Home or Away)
+            # 12
+            ha_real = dc.get("home_or_away", 0)
+            ha_implicit = implied_probabilities.get("home_away", 0)
+            ha_value = ha_real > ha_implicit + VALUE_THRESHOLD
+            
+            probs_section += f"- **{home_team} ou {away_team}**: Real {ha_real:.1f}% vs Implícita {ha_implicit:.1f}%{' (Valor)' if ha_value else ''}\n"
+            
             if ha_value:
-                # Adicionar validação
-                quality_factor = original_probabilities.get("analysis_data", {}).get("data_quality", 100) / 100
-                if validate_opportunity("double_chance", ha_real, ha_implicit, quality_factor):
-                    opportunity = f"- **{home_team} ou {away_team}**: Real {ha_real:.1f}% vs Implícita {ha_implicit:.1f}% (Valor de {ha_real-ha_implicit:.1f}%)"
-                    opportunity = format_opportunity_with_justification(
-                        opportunity, home_team, away_team, original_probabilities, implied_probabilities
-                    )
-                    opportunities.append(opportunity)
+                opportunity = f"- **{home_team} ou {away_team}**: Real {ha_real:.1f}% vs Implícita {ha_implicit:.1f}% (Valor de {ha_real-ha_implicit:.1f}%)"
+                opportunity = format_opportunity_with_justification(
+                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
+                )
+                opportunities.append(opportunity)
             
-            # Para o mercado Double Chance (Draw or Away)
+            # X2
+            da_real = dc.get("away_or_draw", 0)
+            da_implicit = implied_probabilities.get("draw_away", 0)
+            da_value = da_real > da_implicit + VALUE_THRESHOLD
+            
+            probs_section += f"- **Empate ou {away_team}**: Real {da_real:.1f}% vs Implícita {da_implicit:.1f}%{' (Valor)' if da_value else ''}\n"
+            
             if da_value:
-                # Adicionar validação
-                quality_factor = original_probabilities.get("analysis_data", {}).get("data_quality", 100) / 100
-                if validate_opportunity("double_chance", da_real, da_implicit, quality_factor):
-                    opportunity = f"- **Empate ou {away_team}**: Real {da_real:.1f}% vs Implícita {da_implicit:.1f}% (Valor de {da_real-da_implicit:.1f}%)"
-                    opportunity = format_opportunity_with_justification(
-                        opportunity, home_team, away_team, original_probabilities, implied_probabilities
-                    )
-                    opportunities.append(opportunity)
+                opportunity = f"- **Empate ou {away_team}**: Real {da_real:.1f}% vs Implícita {da_implicit:.1f}% (Valor de {da_real-da_implicit:.1f}%)"
+                opportunity = format_opportunity_with_justification(
+                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
+                )
+                opportunities.append(opportunity)
+        
+        # BTTS
+        if selected_markets.get("ambos_marcam") and "btts" in original_probabilities:
+            probs_section += "## Ambos Marcam (BTTS):\n"
             
-            # Para o mercado BTTS (Sim)
+            btts = original_probabilities["btts"]
+            
+            # Sim
+            yes_real = btts.get("yes", 0)
+            yes_implicit = implied_probabilities.get("btts_yes", 0)
+            yes_value = yes_real > yes_implicit + VALUE_THRESHOLD
+            
+            probs_section += f"- **Sim**: Real {yes_real:.1f}% vs Implícita {yes_implicit:.1f}%{' (Valor)' if yes_value else ''}\n"
+            
             if yes_value:
-                # Adicionar validação
-                quality_factor = original_probabilities.get("analysis_data", {}).get("data_quality", 100) / 100
-                if validate_opportunity("btts", yes_real, yes_implicit, quality_factor):
-                    opportunity = f"- **Ambos Marcam - Sim**: Real {yes_real:.1f}% vs Implícita {yes_implicit:.1f}% (Valor de {yes_real-yes_implicit:.1f}%)"
-                    opportunity = format_opportunity_with_justification(
-                        opportunity, home_team, away_team, original_probabilities, implied_probabilities
-                    )
-                    opportunities.append(opportunity)
+                opportunity = f"- **Ambos Marcam - Sim**: Real {yes_real:.1f}% vs Implícita {yes_implicit:.1f}% (Valor de {yes_real-yes_implicit:.1f}%)"
+                opportunity = format_opportunity_with_justification(
+                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
+                )
+                opportunities.append(opportunity)
             
-            # Para o mercado BTTS (Não)
+            # Não
+            no_real = btts.get("no", 0)
+            no_implicit = implied_probabilities.get("btts_no", 0)
+            no_value = no_real > no_implicit + VALUE_THRESHOLD
+            
+            probs_section += f"- **Não**: Real {no_real:.1f}% vs Implícita {no_implicit:.1f}%{' (Valor)' if no_value else ''}\n"
+            
             if no_value:
-                # Adicionar validação
-                quality_factor = original_probabilities.get("analysis_data", {}).get("data_quality", 100) / 100
-                if validate_opportunity("btts", no_real, no_implicit, quality_factor):
-                    opportunity = f"- **Ambos Marcam - Não**: Real {no_real:.1f}% vs Implícita {no_implicit:.1f}% (Valor de {no_real-no_implicit:.1f}%)"
-                    opportunity = format_opportunity_with_justification(
-                        opportunity, home_team, away_team, original_probabilities, implied_probabilities
-                    )
-                    opportunities.append(opportunity)
+                opportunity = f"- **Ambos Marcam - Não**: Real {no_real:.1f}% vs Implícita {no_implicit:.1f}% (Valor de {no_real-no_implicit:.1f}%)"
+                opportunity = format_opportunity_with_justification(
+                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
+                )
+                opportunities.append(opportunity)
+        
+        # Over/Under
+        if selected_markets.get("over_under") and "over_under" in original_probabilities:
+            probs_section += "## Over/Under 2.5 Gols:\n"
             
-            # Para o mercado Over/Under (Over)
+            ou = original_probabilities["over_under"]
+            
+            # Over 2.5
+            over_real = ou.get("over_2_5", 0)
+            over_implicit = implied_probabilities.get("over_2_5", 0)
+            over_value = over_real > over_implicit + VALUE_THRESHOLD
+            
+            probs_section += f"- **Over 2.5**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}%{' (Valor)' if over_value else ''}\n"
+            
             if over_value:
-                # Adicionar validação
-                quality_factor = original_probabilities.get("analysis_data", {}).get("data_quality", 100) / 100
-                if validate_opportunity("over_under", over_real, over_implicit, quality_factor):
-                    opportunity = f"- **Over 2.5 Gols**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}% (Valor de {over_real-over_implicit:.1f}%)"
-                    opportunity = format_opportunity_with_justification(
-                        opportunity, home_team, away_team, original_probabilities, implied_probabilities
-                    )
-                    opportunities.append(opportunity)
+                opportunity = f"- **Over 2.5 Gols**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}% (Valor de {over_real-over_implicit:.1f}%)"
+                opportunity = format_opportunity_with_justification(
+                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
+                )
+                opportunities.append(opportunity)
             
-            # Para o mercado Over/Under (Under)
+            # Under 2.5
+            under_real = ou.get("under_2_5", 0)
+            under_implicit = implied_probabilities.get("under_2_5", 0)
+            under_value = under_real > under_implicit + VALUE_THRESHOLD
+            
+            probs_section += f"- **Under 2.5**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}%{' (Valor)' if under_value else ''}\n"
+            
             if under_value:
-                # Adicionar validação
-                quality_factor = original_probabilities.get("analysis_data", {}).get("data_quality", 100) / 100
-                if validate_opportunity("over_under", under_real, under_implicit, quality_factor):
-                    opportunity = f"- **Under 2.5 Gols**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real-under_implicit:.1f}%)"
-                    opportunity = format_opportunity_with_justification(
-                        opportunity, home_team, away_team, original_probabilities, implied_probabilities
-                    )
-                    opportunities.append(opportunity)
+                opportunity = f"- **Under 2.5 Gols**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real-under_implicit:.1f}%)"
+                opportunity = format_opportunity_with_justification(
+                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
+                )
+                opportunities.append(opportunity)
+        
+        # Escanteios
+        if selected_markets.get("escanteios") and "corners" in original_probabilities:
+            probs_section += "## Escanteios (Over/Under 9.5):\n"
             
-            # Para o mercado de Escanteios (Over)
+            corners = original_probabilities["corners"]
+            
+            # Over 9.5
+            over_real = corners.get("over_9_5", 0)
+            over_implicit = implied_probabilities.get("over_9_5_corners", 0)
+            over_value = over_real > over_implicit + VALUE_THRESHOLD
+            
+            probs_section += f"- **Over 9.5**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}%{' (Valor)' if over_value else ''}\n"
+            
             if over_value:
-                # Adicionar validação
-                quality_factor = original_probabilities.get("analysis_data", {}).get("data_quality", 100) / 100
-                if validate_opportunity("corners", over_real, over_implicit, quality_factor):
-                    opportunity = f"- **Over 9.5 Escanteios**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}% (Valor de {over_real-over_implicit:.1f}%)"
-                    opportunity = format_opportunity_with_justification(
-                        opportunity, home_team, away_team, original_probabilities, implied_probabilities
-                    )
-                    opportunities.append(opportunity)
+                opportunity = f"- **Over 9.5 Escanteios**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}% (Valor de {over_real-over_implicit:.1f}%)"
+                opportunity = format_opportunity_with_justification(
+                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
+                )
+                opportunities.append(opportunity)
             
-            # Para o mercado de Escanteios (Under)
+            # Under 9.5
+            under_real = corners.get("under_9_5", 0)
+            under_implicit = implied_probabilities.get("under_9_5_corners", 0)
+            under_value = under_real > under_implicit + VALUE_THRESHOLD
+            
+            probs_section += f"- **Under 9.5**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}%{' (Valor)' if under_value else ''}\n"
+            
             if under_value:
-                # Adicionar validação
-                quality_factor = original_probabilities.get("analysis_data", {}).get("data_quality", 100) / 100
-                if validate_opportunity("corners", under_real, under_implicit, quality_factor):
-                    opportunity = f"- **Under 9.5 Escanteios**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real-under_implicit:.1f}%)"
-                    opportunity = format_opportunity_with_justification(
-                        opportunity, home_team, away_team, original_probabilities, implied_probabilities
-                    )
-                    opportunities.append(opportunity)
+                opportunity = f"- **Under 9.5 Escanteios**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real-under_implicit:.1f}%)"
+                opportunity = format_opportunity_with_justification(
+                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
+                )
+                opportunities.append(opportunity)
+        
+        # Cartões
+        if selected_markets.get("cartoes") and "cards" in original_probabilities:
+            probs_section += "## Cartões (Over/Under 3.5):\n"
             
-            # Para o mercado de Cartões (Over)
+            cards = original_probabilities["cards"]
+            
+            # Over 3.5
+            # CORREÇÃO: Usar a chave correta para o limiar 3.5 (assumindo que exista, ex: 'over_3_5')
+            # O código original usava 'over_4_5', o que estava inconsistente.
+            # Se a chave 'over_3_5' não existir, a lógica de cálculo ou a fonte de dados precisa ser revisada.
+            over_real = cards.get("over_3_5", 0) # Corrigido de "over_4_5"
+            over_implicit = implied_probabilities.get("over_3_5_cards", 0)
+            over_value = over_real > over_implicit + VALUE_THRESHOLD
+            
+            probs_section += f"- **Over 3.5**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}%{' (Valor)' if over_value else ''}\n"
+            
             if over_value:
-                # Adicionar validação
-                quality_factor = original_probabilities.get("analysis_data", {}).get("data_quality", 100) / 100
-                if validate_opportunity("cards", over_real, over_implicit, quality_factor):
-                    opportunity = f"- **Over 3.5 Cartões**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}% (Valor de {over_real-over_implicit:.1f}%)"
-                    opportunity = format_opportunity_with_justification(
-                        opportunity, home_team, away_team, original_probabilities, implied_probabilities
-                    )
-                    opportunities.append(opportunity)
+                opportunity = f"- **Over 3.5 Cartões**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}% (Valor de {over_real-over_implicit:.1f}%)"
+                opportunity = format_opportunity_with_justification(
+                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
+                )
+                opportunities.append(opportunity)
             
-            # Para o mercado de Cartões (Under)
+            # Under 3.5
+            # CORREÇÃO: Usar a chave correta para o limiar 3.5 (assumindo que exista, ex: 'under_3_5')
+            # O código original usava 'under_4_5', o que estava inconsistente.
+            # Se a chave 'under_3_5' não existir, a lógica de cálculo ou a fonte de dados precisa ser revisada.
+            under_real = cards.get("under_3_5", 0) # Corrigido de "under_4_5"
+            under_implicit = implied_probabilities.get("under_3_5_cards", 0)
+            under_value = under_real > under_implicit + VALUE_THRESHOLD
+            
+            probs_section += f"- **Under 3.5**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}%{' (Valor)' if under_value else ''}\n"
+            
             if under_value:
-                # Adicionar validação
-                quality_factor = original_probabilities.get("analysis_data", {}).get("data_quality", 100) / 100
-                if validate_opportunity("cards", under_real, under_implicit, quality_factor):
-                    opportunity = f"- **Under 3.5 Cartões**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real-under_implicit:.1f}%)"
-                    opportunity = format_opportunity_with_justification(
-                        opportunity, home_team, away_team, original_probabilities, implied_probabilities
-                    )
-                    opportunities.append(opportunity)
+                opportunity = f"- **Under 3.5 Cartões**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real-under_implicit:.1f}%)"
+                opportunity = format_opportunity_with_justification(
+                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
+                )
+                opportunities.append(opportunity)
         
         new_analysis.append(probs_section)
         
@@ -1745,7 +1769,7 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
         else:
             home_advantage_modifier = 1.0
         
-        ## 10. CALCULAR PROBABILIDADES POR MERCADO
+        # 10. CALCULAR PROBABILIDADES POR MERCADO
         
         # 10.1. Moneyline (1X2) - agora usando o fator de qualidade dos dados
         home_win_prob, draw_prob, away_win_prob = calculate_1x2_probabilities(
@@ -1754,14 +1778,6 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
             home_advantage_modifier, 
             data_quality_factor=data_quality  # Novo parâmetro
         )
-        
-        # Normalizar para garantir que as probabilidades 1X2 somem exatamente 100%
-        total = home_win_prob + draw_prob + away_win_prob 
-        if abs(total - 100) > 0.1:  # Se a diferença for maior que 0.1%
-            logger.info(f"Normalizando distribuição 1X2 que somava {total}%")
-            home_win_prob = (home_win_prob / total) * 100
-            draw_prob = (draw_prob / total) * 100
-            away_win_prob = (away_win_prob / total) * 100
         
         # 10.2. Expected goals e mercados relacionados
         home_expected_goals, away_expected_goals = calculate_advanced_expected_goals(
@@ -1774,21 +1790,12 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
         over_under_probabilities = {}
         for threshold in [0.5, 1.5, 2.5, 3.5, 4.5]:
             over_prob = calculate_over_probability(home_expected_goals, away_expected_goals, threshold)
-            # Ajustar pela qualidade dos dados
+                        # Ajustar pela qualidade dos dados
             # Se dados são de baixa qualidade, ajustar mais perto de 50-50
             market_avg = 0.53 if threshold <= 2.5 else 0.47  # Odds típicas de mercado
-            
-            # CORREÇÃO: Reduzir o peso dos dados calculados, aumentar peso do mercado
-            weight_factor = 0.5  # Reduzido de 0.7 para dar mais peso ao mercado
-            adjusted_over = over_prob * (data_quality * weight_factor) + market_avg * (1 - (data_quality * weight_factor))
+            # Aumentar o peso do market_avg para reduzir a confiança nas previsões
+            adjusted_over = over_prob * (data_quality * 0.7) + market_avg * (1 - (data_quality * 0.7))
             adjusted_under = 1 - adjusted_over
-            
-            # CORREÇÃO: Aplicar moderação para probabilidades extremas
-            if adjusted_over > 0.75 or adjusted_over < 0.25:
-                moderation_factor = 0.8  # Moderação de 20%
-                adjusted_over = 0.5 + (adjusted_over - 0.5) * moderation_factor
-                adjusted_under = 1 - adjusted_over
-                logger.info(f"Moderando probabilidade extrema de Over/Under {threshold}: {adjusted_over*100:.1f}%")
             
             over_under_probabilities[f"over_{threshold}"] = adjusted_over * 100
             over_under_probabilities[f"under_{threshold}"] = adjusted_under * 100
@@ -1798,94 +1805,34 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
             home_expected_goals, away_expected_goals, league_factors[1]
         )
         
-        # CORREÇÃO: Normalizar para garantir soma 100%
-        btts_total = btts_yes_prob + btts_no_prob
-        if abs(btts_total - 1) > 0.001:  # Verificar se a soma está perto de 1 (100%)
-            logger.info(f"Normalizando BTTS que somava {btts_total*100:.1f}%")
-            btts_yes_prob = btts_yes_prob / btts_total
-            btts_no_prob = btts_no_prob / btts_total
-        
         # Ajustar pela qualidade dos dados
         market_btts_yes = 0.58  # Odds típicas de mercado
-        
-        # CORREÇÃO: Reduzir o peso dos dados calculados
-        weight_factor = 0.5  # Reduzido de 0.7 para dar mais peso ao mercado
-        adjusted_btts_yes = btts_yes_prob * (data_quality * weight_factor) + market_btts_yes * (1 - (data_quality * weight_factor))
+        # Aumentar o peso do market_avg para reduzir a confiança nas previsões
+        adjusted_btts_yes = btts_yes_prob * (data_quality * 0.7) + market_btts_yes * (1 - (data_quality * 0.7))
         adjusted_btts_no = 1 - adjusted_btts_yes
-        
-        # CORREÇÃO: Aplicar moderação para probabilidades extremas
-        if adjusted_btts_yes > 0.75 or adjusted_btts_yes < 0.25:
-            moderation_factor = 0.8  # Moderação de 20%
-            adjusted_btts_yes = 0.5 + (adjusted_btts_yes - 0.5) * moderation_factor
-            adjusted_btts_no = 1 - adjusted_btts_yes
-            logger.info(f"Moderando probabilidade extrema de BTTS: {adjusted_btts_yes*100:.1f}%")
-        
-        # Converter para percentual
-        adjusted_btts_yes *= 100
-        adjusted_btts_no *= 100
         
         # 10.5. Escanteios
         over_corners_prob, under_corners_prob, expected_corners = calculate_corners_probability(
             home_team, away_team, 9.5, league_factors[3]
         )
         
-        # CORREÇÃO: Normalizar resultados de escanteios
-        corners_total = over_corners_prob + under_corners_prob
-        if abs(corners_total - 1) > 0.001:
-            logger.info(f"Normalizando Escanteios que somava {corners_total*100:.1f}%")
-            over_corners_prob = over_corners_prob / corners_total
-            under_corners_prob = under_corners_prob / corners_total
-        
         # Ajustar pela qualidade dos dados
         market_corners_over = 0.53  # Odds típicas de mercado
-        
-        # CORREÇÃO: Reduzir o peso dos dados calculados e aplicar maior moderação (mercado volátil)
-        weight_factor = 0.4  # Mercado volátil, dar ainda mais peso ao mercado (reduzido de 0.7)
-        adjusted_corners_over = over_corners_prob * (data_quality * weight_factor) + market_corners_over * (1 - (data_quality * weight_factor))
+        # Aumentar o peso do market_avg para reduzir a confiança nas previsões
+        adjusted_corners_over = over_corners_prob * (data_quality * 0.7) + market_corners_over * (1 - (data_quality * 0.7))
         adjusted_corners_under = 1 - adjusted_corners_over
-        # CORREÇÃO: Aplicar moderação mais forte para probabilidades extremas em escanteios
-        if adjusted_corners_over > 0.7 or adjusted_corners_over < 0.3:
-            moderation_factor = 0.7  # Moderação mais forte de 30%
-            adjusted_corners_over = 0.5 + (adjusted_corners_over - 0.5) * moderation_factor
-            logger.info(f"Moderando fortemente probabilidade extrema de Escanteios: {adjusted_corners_over*100:.1f}%")
-        
-        adjusted_corners_under = 1 - adjusted_corners_over
-        
-        # Converter para percentual
-        adjusted_corners_over *= 100
-        adjusted_corners_under *= 100
         
         # 10.6. Cartões
         over_cards_prob, under_cards_prob, expected_cards = calculate_cards_probability(
-            home_team, away_team, 3.5, league_factors[2],
+            home_team, away_team, 4.5, league_factors[2],
             abs(home_total_score - away_total_score)
         )
         
-        # CORREÇÃO: Normalizar resultados de cartões
-        cards_total = over_cards_prob + under_cards_prob
-        if abs(cards_total - 1) > 0.001:
-            logger.info(f"Normalizando Cartões que somava {cards_total*100:.1f}%")
-            over_cards_prob = over_cards_prob / cards_total
-            under_cards_prob = under_cards_prob / cards_total
-        
         # Ajustar pela qualidade dos dados
         market_cards_over = 0.52  # Odds típicas de mercado
-        
-        # CORREÇÃO: Reduzir o peso dos dados calculados e aplicar maior moderação (mercado volátil)
-        weight_factor = 0.4  # Mercado volátil, dar ainda mais peso ao mercado
-        adjusted_cards_over = over_cards_prob * (data_quality * weight_factor) + market_cards_over * (1 - (data_quality * weight_factor))
-        
-        # CORREÇÃO: Aplicar moderação mais forte para probabilidades extremas em cartões
-        if adjusted_cards_over > 0.7 or adjusted_cards_over < 0.3:
-            moderation_factor = 0.7  # Moderação mais forte de 30%
-            adjusted_cards_over = 0.5 + (adjusted_cards_over - 0.5) * moderation_factor
-            logger.info(f"Moderando fortemente probabilidade extrema de Cartões: {adjusted_cards_over*100:.1f}%")
-        
+        # Aumentar o peso do market_avg para reduzir a confiança nas previsões
+        adjusted_cards_over = over_cards_prob * (data_quality * 0.7) + market_cards_over * (1 - (data_quality * 0.7))
         adjusted_cards_under = 1 - adjusted_cards_over
-        
-        # Converter para percentual
-        adjusted_cards_over *= 100
-        adjusted_cards_under *= 100
         
         # 11. Retornar resultados completos
         return {
@@ -2016,78 +1963,44 @@ def calculate_league_factors(league_id, league_data=None):
     # Mapeamento de fatores específicos por liga
     # Usando os mesmos league_ids que estão em utils/footystats_api.py
     league_factors = {
-    # Liga IDs estão no arquivo footystats_api.py
-    # [gols, btts, cartões, escanteios]
-    
-        # Brasileirão - mais conservador para gols e btts
-        14231: [0.95, 0.9, 1.05, 0.95],  
+        # Liga IDs estão no arquivo footystats_api.py
+        # Brasileirão
+        14231: [1.0, 0.95, 1.15, 1.05],  
         
-        # Premier League - ajustado para ser mais balanceado
-        12325: [1.0, 1.0, 0.95, 1.05],  
+        # Premier League 
+        12325: [1.1, 1.1, 1.0, 1.15],  
         
-        # La Liga - reduzido fator de cartões
-        12316: [1.05, 1.0, 1.1, 0.9],  
+        # La Liga
+        12316: [1.1, 1.05, 1.2, 0.95],  
         
-        # Bundesliga - conhecida por muitos gols, mas ainda reduzido fatores
-        12529: [1.1, 1.05, 0.85, 1.0],   
+        # Bundesliga 
+        12529: [1.2, 1.15, 0.9, 1.1],   
         
-        # Serie A (Italy) - mais conservador em geral
-        12530: [0.85, 0.8, 1.05, 0.85],  
+        # Serie A (Italy)
+        12530: [0.9, 0.85, 1.15, 0.9],  
         
-        # Ligue 1 - ajustado para ser mais conservador
-        12337: [0.95, 0.9, 1.0, 0.95],  
+        # Ligue 1
+        12337: [1.0, 0.95, 1.05, 1.0],  
         
-        # Primeira Liga (Portugal) - reduzido fator de cartões
-        12931: [1.0, 0.95, 1.15, 1.0], 
+        # Primeira Liga
+        12931: [1.05, 1.0, 1.25, 1.05], 
         
-        # Eredivisie - conhecida por muitos gols, mas reduzido
-        12322: [1.1, 1.05, 0.9, 1.0],  
+        # Eredivisie
+        12322: [1.15, 1.1, 0.95, 1.05],  
         
-        # Liga MX - mais conservador
-        12136: [1.05, 1.0, 1.0, 0.95],   
+        # Liga MX
+        12136: [1.1, 1.05, 1.05, 1.0],   
         
-        # Champions League - reduzido para ser mais conservador
-        12321: [1.0, 0.95, 1.05, 1.05],
+        # Champions League
+        12321: [1.05, 1.0, 1.1, 1.1],
         
         # Outras ligas importantes
-        
-        # Primera División (Argentina) - mais conservador
-        14125: [1.0, 0.95, 1.1, 0.95],
-        
-        # Serie B (Brazil) - mais conservador para escanteios e gols
-        14305: [0.95, 0.9, 1.1, 0.95],
-        
-        # Segunda División (Espanha) - mais conservador
-        12467: [0.95, 0.9, 1.1, 0.85],
-        
-        # 2. Bundesliga - reduzido fator de gols
-        12528: [1.05, 1.0, 0.85, 1.0],
-        
-        # Serie B (Italy) - ainda mais conservador
-        12621: [0.85, 0.8, 1.0, 0.85],
-        
-        # Ligue 2 (França) - mais conservador para gols e btts
-        12338: [0.9, 0.85, 0.95, 0.9],
-        
-        # Ligas adicionais
-        
-        # MLS (EUA)
-        12321: [1.0, 0.95, 0.9, 1.0],
-        
-        # Championship (Inglaterra)
-        12486: [1.05, 1.0, 1.05, 1.0],
-        
-        # J-League (Japão)
-        12147: [1.0, 0.95, 0.9, 0.95],
-        
-        # A-League (Austrália)
-        12167: [1.05, 1.0, 0.9, 0.95],
-        
-        # Superliga (Dinamarca)
-        12158: [1.0, 0.95, 0.9, 0.95],
-        
-        # Super League (Suíça)
-        12194: [1.05, 1.0, 0.95, 1.0],
+        14125: [1.05, 1.0, 1.2, 1.0],   # Primera División (Argentina)
+        14305: [1.0, 0.95, 1.15, 1.05], # Serie B (Brazil)
+        12467: [1.0, 0.95, 1.15, 0.9],  # Segunda División
+        12528: [1.15, 1.1, 0.9, 1.05],  # 2. Bundesliga
+        12621: [0.9, 0.85, 1.1, 0.9],   # Serie B (Italy)
+        12338: [0.95, 0.9, 1.0, 0.95],  # Ligue 2
     }
     
     # Verificar se a liga está no dicionário
@@ -2590,15 +2503,12 @@ def calculate_over_probability(home_xg, away_xg, threshold):
 
 
 def calculate_corners_probability(home_team, away_team, threshold=9.5, league_corner_factor=1.0):
-    """Calculates probabilities for corners markets with improved moderation and validation"""
+    """Calculates probabilities for corners markets"""
     # Extract corners statistics
     home_corners_for = home_team.get('corners_for', 0) / max(1, home_team.get('matches_played', 1))
     home_corners_against = home_team.get('corners_against', 0) / max(1, home_team.get('matches_played', 1))
     away_corners_for = away_team.get('corners_for', 0) / max(1, away_team.get('matches_played', 1))
     away_corners_against = away_team.get('corners_against', 0) / max(1, away_team.get('matches_played', 1))
-    
-    # Logger para mensagens informativas
-    logger = logging.getLogger("valueHunter.ai")
     
     # When both teams have zero or very low corners data,
     # the probability should be closer to market average
@@ -2607,7 +2517,6 @@ def calculate_corners_probability(home_team, away_team, threshold=9.5, league_co
         over_prob = 0.53
         under_prob = 0.47
         expected_corners = 9.5  # League average
-        logger.info("Dados de escanteios insuficientes, usando probabilidades de mercado")
         return over_prob, under_prob, expected_corners
     
     # Expected corners for each team
@@ -2616,14 +2525,6 @@ def calculate_corners_probability(home_team, away_team, threshold=9.5, league_co
     
     # Total expected corners
     total_expected = (home_expected + away_expected) * league_corner_factor
-    
-    # CORREÇÃO: Limitar valores extremos de esperados
-    if total_expected > 14:
-        logger.info(f"Moderando valor extremo de escanteios esperados: {total_expected:.1f} -> 14.0")
-        total_expected = 14.0  # Limite superior mais realista
-    elif total_expected < 6:
-        logger.info(f"Moderando valor extremo de escanteios esperados: {total_expected:.1f} -> 6.0")
-        total_expected = 6.0   # Limite inferior mais realista
     
     # Calculation using normal approximation
     std_dev = math.sqrt(total_expected)
@@ -2638,26 +2539,12 @@ def calculate_corners_probability(home_team, away_team, threshold=9.5, league_co
     # Probability under
     p_under = normal_cdf(z)
     
-    # CORREÇÃO: Limitar a valores mais realistas (mais conservador)
-    p_under = min(0.80, max(0.20, p_under))  # Limites mais conservadores
+    # Limit to reasonable values
+    p_under = min(0.85, max(0.15, p_under))
     p_over = 1 - p_under
     
-    # CORREÇÃO: Aplicar moderação para probabilidades extremas
-    if p_over > 0.70 or p_over < 0.30:
-        moderation_factor = 0.7  # Moderação forte de 30% para mercado volátil
-        p_over_original = p_over
-        p_over = 0.5 + (p_over - 0.5) * moderation_factor
-        p_under = 1 - p_over
-        logger.info(f"Moderando probabilidade extrema de escanteios: {p_over_original*100:.1f}% -> {p_over*100:.1f}%")
-    
-    # CORREÇÃO: Normalizar para garantir soma 1.0
-    total = p_over + p_under
-    if abs(total - 1.0) > 0.001:
-        logger.info(f"Normalizando probabilidades de escanteios que somavam {total*100:.1f}%")
-        p_over = p_over / total
-        p_under = p_under / total
-    
     return p_over, p_under, total_expected
+
 
 def calculate_cards_probability(home_team, away_team, threshold=4.5, league_card_factor=1.0, team_diff=0.0):
     """Calculates probabilities for cards markets"""
@@ -3178,8 +3065,6 @@ class AdvancedPredictionSystem:
         home_win_prob = (adjusted_home_win / total) * 100
         draw_prob = (adjusted_draw / total) * 100
         away_win_prob = (adjusted_away_win / total) * 100
-
-        
         
         # 6.2. Over/Under 2.5
         # Usar inclinação calibrada do mercado 'goals'
