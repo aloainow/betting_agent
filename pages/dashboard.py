@@ -584,7 +584,7 @@ def load_league_teams_direct(selected_league):
         st.error(f"Erro ao carregar times: {str(e)}")
         return []
 
-def show_league_update_button(selected_league):
+def _league_update_button(selected_league):
     """
     Mostra o botão de atualização para a liga selecionada.
     Evita problemas de indentação e de sintaxe.
@@ -1037,8 +1037,8 @@ def get_league_teams(selected_league, force_refresh=False):
         traceback.print_exc()
         return []
 
-# Modify the show_usage_stats() function to use consistent naming
-def show_usage_stats():
+# Modify the _usage_stats() function to use consistent naming
+def _usage_stats():
     """Display usage statistics with forced refresh"""
     try:
         # Verificar se temos query params que indicam uma ação recente
@@ -1164,11 +1164,11 @@ def check_analysis_limits(selected_markets):
                 # Paid tiers - offer to buy more credits
                 st.warning(f"⚠️ Você tem apenas {remaining_credits} créditos restantes. Esta análise requer {num_markets} créditos.")
                 
-                # Show days until downgrade if applicable
+                #  days until downgrade if applicable
                 if stats.get('days_until_downgrade'):
                     st.warning(f"⚠️ Atenção: Você será rebaixado para o pacote Free em {stats['days_until_downgrade']} dias se não comprar mais créditos.")
                 
-                # Show purchase options
+                #  purchase options
                 st.info("Compre mais créditos para continuar.")
                 
                 col1, col2 = st.columns(2)
@@ -1196,8 +1196,7 @@ def show_main_dashboard():
         # Aplicar correção para animação da sidebar
         fix_sidebar_animation()
         # Aplicar tema escuro
-        apply_dark_theme()
-        
+        apply_dark_theme()       
         # Add this CSS to fix the text color issues in mobile view
         st.markdown("""
         <style>
@@ -1271,8 +1270,7 @@ def show_main_dashboard():
             }
         }
         </style>
-        """, unsafe_allow_html=True)
-        
+        """, unsafe_allow_html=True)        
         # Verificações de autenticação
         if not hasattr(st.session_state, 'authenticated') or not st.session_state.authenticated:
             st.error("Sessão não autenticada. Por favor, faça login novamente.")
