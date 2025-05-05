@@ -1514,3 +1514,180 @@ const ZeroSpaceComponent = () => {
 };
 
 export default ZeroSpaceComponent;
+def remove_all_top_space():
+    """
+    Solução definitiva para eliminar QUALQUER espaço em branco no topo das páginas Streamlit.
+    Esta função combina CSS e JavaScript para garantir que não haja espaço em branco.
+    
+    Use esta função no início de cada página ou no arquivo app.py principal.
+    """
+    import streamlit as st
+    import streamlit.components.v1 as components
+    
+    # 1. Primeiro, aplicar CSS agressivo para remover espaços
+    st.markdown("""
+    <style>
+    /* Reset absoluto de todos os espaçamentos */
+    .main .block-container {
+        padding-top: 0 !important;
+        margin-top: 0 !important;
+        gap: 0 !important;
+    }
+    
+    /* Ocultar cabeçalho completamente */
+    header[data-testid="stHeader"] {
+        display: none !important;
+        height: 0 !important;
+        min-height: 0 !important;
+        max-height: 0 !important;
+        visibility: hidden !important;
+        position: absolute !important;
+        z-index: -9999 !important;
+        opacity: 0 !important;
+        width: 0 !important;
+    }
+    
+    /* Remover todos os elementos decorativos e espaços extras */
+    [data-testid="stDecoration"],
+    [data-testid="stToolbar"],
+    [data-testid="stStatusWidget"],
+    [data-testid="stSidebarNavItems"],
+    div[data-testid~="injected"] {
+        display: none !important;
+        height: 0 !important;
+        width: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        visibility: hidden !important;
+        position: absolute !important;
+        z-index: -9999 !important;
+    }
+    
+    /* Forçar primeiro elemento a começar no topo absoluto */
+    .main .block-container > div:first-child,
+    .element-container:first-child,
+    .stMarkdown:first-child,
+    section.main > div:first-child {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+    }
+    
+    /* Zerar margens e paddings de todos primeiros filhos */
+    *:first-child {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+    }
+    
+    /* Reset para layout de gaps e grids */
+    div[data-layout] {
+        gap: 0 !important;
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # 2. Adicionar script JavaScript que remove dinamicamente espaços em branco
+    js_code = """
+    <script>
+        // Função para remover espaços em branco no topo
+        function removeTopSpaces() {
+            // Remover cabeçalho do Streamlit
+            const header = document.querySelector('header[data-testid="stHeader"]');
+            if (header) {
+                header.style.display = 'none';
+                header.style.height = '0';
+                header.style.minHeight = '0';
+                header.style.margin = '0';
+                header.style.padding = '0';
+            }
+            
+            // Remover margem do primeiro elemento
+            const firstElement = document.querySelector('.main .block-container > div:first-child');
+            if (firstElement) {
+                firstElement.style.marginTop = '0';
+                firstElement.style.paddingTop = '0';
+            }
+            
+            // Remover espaços de elementos decorativos
+            const decorations = document.querySelectorAll(
+                '[data-testid="stDecoration"], ' +
+                '[data-testid="stToolbar"], ' +
+                '[data-testid="stStatusWidget"]'
+            );
+            
+            decorations.forEach(el => {
+                el.style.display = 'none';
+                el.style.height = '0';
+                el.style.margin = '0';
+                el.style.padding = '0';
+            });
+            
+            // Remover gap do container principal
+            const blockContainer = document.querySelector('.main .block-container');
+            if (blockContainer) {
+                blockContainer.style.paddingTop = '0';
+                blockContainer.style.marginTop = '0';
+                blockContainer.style.gap = '0';
+            }
+        }
+        
+        // Executar imediatamente
+        removeTopSpaces();
+        
+        // Executar quando o DOM estiver totalmente carregado
+        document.addEventListener('DOMContentLoaded', removeTopSpaces);
+        
+        // Executar periodicamente para garantir
+        setInterval(removeTopSpaces, 100);
+        
+        // Executar após carregamento completo da página
+        window.addEventListener('load', removeTopSpaces);
+        
+        // Executar também quando o tamanho da janela muda
+        window.addEventListener('resize', removeTopSpaces);
+    </script>
+    """
+    
+    # Renderizar o JavaScript com altura zero para não adicionar espaço
+    components.html(js_code, height=0)
+
+# Adicione esta função simples ao utils/core.py
+def remove_top_whitespace():
+    """
+    Função simplificada para remover todo o espaço em branco no topo das páginas Streamlit.
+    Use esta função no início de cada página para garantir uma visualização sem espaço superior.
+    """
+    import streamlit as st
+    
+    # Aplicar CSS para remover espaços
+    st.markdown("""
+    <style>
+    /* 1. Remover padding e margin do container principal */
+    .main .block-container {
+        padding-top: 0 !important;
+        margin-top: 0 !important;
+    }
+    
+    /* 2. Ocultar o cabeçalho completamente */
+    header[data-testid="stHeader"] {
+        display: none !important;
+        height: 0 !important;
+    }
+    
+    /* 3. Forçar qualquer primeiro elemento a não ter margin ou padding */
+    .main .block-container > div:first-child,
+    .element-container:first-child,
+    .stMarkdown:first-child {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+    }
+    
+    /* 4. Remover decorações, toolbar e widgets de status */
+    [data-testid="stDecoration"],
+    [data-testid="stToolbar"],
+    [data-testid="stStatusWidget"] {
+        display: none !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
