@@ -5,7 +5,7 @@ import json
 import os
 import time
 import streamlit as st
-from utils.core import show_valuehunter_logo, go_to_login, update_purchase_button, DATA_DIR, apply_custom_styles, apply_dark_theme, remove_all_top_space
+from utils.core import show_valuehunter_logo, go_to_login, update_purchase_button, DATA_DIR, apply_custom_styles, apply_dark_theme 
 from utils.data import parse_team_stats, get_odds_data, format_prompt
 from utils.ai import analyze_with_gpt, format_enhanced_prompt, format_highly_optimized_prompt
 from utils.ai import analyze_with_gpt, format_enhanced_prompt, format_highly_optimized_prompt, calculate_advanced_probabilities
@@ -1278,8 +1278,7 @@ def show_main_dashboard():
         apply_dark_theme()
         # Aplicar correção para cores de dropdown no mobile
         fix_mobile_dropdown_colors()
-        # Remover espaço em branco no topo (nova função)
-        remove_all_top_space()
+        
         
         # First CSS block - Fix for text color
         st.markdown("""
