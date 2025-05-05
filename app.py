@@ -179,6 +179,67 @@ from pages.landing import show_landing_page
 from pages.auth import show_login, show_register, show_verification, show_password_recovery, show_password_reset_code, show_password_reset
 from pages.packages import show_packages_page
 
+# Função para remover todos os espaçamentos
+def remove_all_spacing():
+    """Remove completamente todos os espaços em branco no início da página em toda a aplicação"""
+    st.markdown("""
+    <style>
+    /* Reset completo de todos os espaçamentos iniciais */
+    .main .block-container {
+        padding-top: 0 !important;
+        margin-top: 0 !important;
+    }
+    
+    /* Remover completamente o header do Streamlit */
+    header[data-testid="stHeader"] {
+        display: none !important;
+        height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        position: absolute !important;
+        top: -9999px !important;
+    }
+    
+    /* Remover espaçamento de todos os elementos no topo */
+    .stApp > header + div > div:first-child,
+    .main > div:first-child,
+    .main .block-container > div:first-child,
+    .stApp [data-testid="stAppViewBlockContainer"] > div:first-child,
+    [data-testid="collapsedControl"],
+    [data-testid="stHeader"],
+    [data-testid="stToolbar"],
+    [data-testid="stDecoration"],
+    section.main > div:first-child {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+        min-height: 0 !important;
+    }
+    
+    /* Definir margens zero para o primeiro elemento de diferentes tipos no início da página */
+    .stMarkdown:first-child, 
+    .stText:first-child,
+    .stTitle:first-child,
+    .element-container:first-child {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+    }
+    
+    /* Remover decorações no topo */
+    .stApp::before,
+    .stApp::after {
+        display: none !important;
+    }
+    
+    /* Resetar layout e gaps */
+    .stApp [data-testid="stAppViewContainer"],
+    .stApp [data-testid="stAppViewContainer"] > section {
+        gap: 0 !important;
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 # Função para modo de debug
 def enable_debug_mode():
     """Ativa o modo de debug para ajudar na resolução de problemas"""
@@ -239,6 +300,9 @@ def main():
     try:
         # Aplicar tema escuro consistente
         apply_dark_theme()
+        # Remover todos os espaçamentos do topo da página
+        remove_all_spacing()
+        
         # NOVO: Diagnóstico de arquivos
         print("\n===== DIAGNÓSTICO DE ARQUIVOS =====")
         print(f"Diretório atual: {os.getcwd()}")
