@@ -1275,7 +1275,9 @@ def show_main_dashboard():
         # Aplicar correção para animação da sidebar
         fix_sidebar_animation()
         # Aplicar tema escuro
-        apply_dark_theme()       
+        apply_dark_theme()
+        # Aplicar correção para cores de dropdown no mobile
+        fix_mobile_dropdown_colors()
         
         # First CSS block - Fix for text color
         st.markdown("""
