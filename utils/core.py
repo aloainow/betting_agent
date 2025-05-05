@@ -223,12 +223,12 @@ import os, base64, streamlit as st
 
 # Função corrigida para mostrar a logodef (container=None, size="medium"):
 def show_valuehunter_logo():
-    """Display ValueHunter logo com layout otimizado para espaço reduzido"""
+    """Display ValueHunter logo with improved layout"""
     st.markdown("""
-    <div class="logo-container" style="margin:0; padding:0; line-height:1;">
-        <div style="display:flex; align-items:center; height:auto; line-height:1;">
-            <span style="color:#fd7014; font-size:1.6rem; font-weight:bold; margin:0; padding:0; line-height:1;">VALUE</span>
-            <span style="color:white; font-size:1.6rem; font-weight:bold; margin:0; padding:0; line-height:1;">HUNTER</span>
+    <div class="logo-container">
+        <div style="display: flex; align-items: center;">
+            <span style="color: #fd7014; font-size: 1.8rem; font-weight: bold; margin-right: 4px;">VALUE</span>
+            <span style="color: white; font-size: 1.8rem; font-weight: bold;">HUNTER</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -1084,87 +1084,6 @@ def apply_custom_styles():
     /* Remover botão nativo de colapso do Streamlit */
     [data-testid="collapsedControl"] {
         display: none !important;
-    }
-    
-    /* ---------- NOVOS ESTILOS PARA CORRIGIR ESPAÇAMENTO DO LOGO ---------- */
-    
-    /* Estilo específico para o logo e área do cabeçalho */
-    .logo-container {
-        display: flex;
-        align-items: center;
-        margin-bottom: 0.3rem !important; /* Reduzido ainda mais */
-        padding-bottom: 0 !important;
-        padding-top: 0 !important;
-        height: auto !important;
-        min-height: 0 !important;
-        line-height: 1 !important;
-    }
-    
-    /* Ajustar alturas e margens para o container principal */
-    [data-testid="stVerticalBlock"] {
-        gap: 0.5rem !important;
-    }
-    
-    /* Reduzir espaçamento entre elementos */
-    .element-container {
-        margin-bottom: 0.5rem !important;
-    }
-    
-    /* Espaçamento menor para botões e widgets */
-    .stButton, .stSelectbox, .stTextInput {
-        margin-bottom: 0.3rem !important;
-        padding-bottom: 0 !important;
-    }
-    
-    /* Tornar alertas mais compactos */
-    .stAlert {
-        padding: 0.5rem !important;
-        margin-top: 0.3rem !important;
-        margin-bottom: 0.3rem !important;
-    }
-    
-    /* Tornar o título principal mais compacto também */
-    .stTitle {
-        margin-top: 0.3rem !important;
-        margin-bottom: 0.3rem !important;
-        padding-top: 0 !important;
-        padding-bottom: 0 !important;
-        line-height: 1.2 !important;
-    }
-    
-    /* Remover espaçamento extra em divs */
-    div.row-widget {
-        margin-bottom: 0.3rem !important;
-        padding-bottom: 0 !important;
-    }
-    
-    /* Ajustes específicos para mobile */
-    @media (max-width: 768px) {
-        /* IMPORTANTE: Tornar o cabeçalho extremamente compacto em mobile */
-        h1 {
-            font-size: 1.5rem !important;
-            margin-top: 0.3rem !important;
-            margin-bottom: 0.3rem !important;
-            line-height: 1.2 !important;
-        }
-        
-        /* Reduzir ainda mais o espaçamento entre widgets */
-        .element-container {
-            margin-bottom: 0.3rem !important;
-        }
-        
-        /* Alertas ainda mais compactos */
-        .stAlert {
-            padding: 0.3rem !important; 
-            font-size: 0.85rem !important;
-        }
-        
-        /* Mensagem de mobile mais compacta */
-        .mobile-info-banner {
-            font-size: 0.75rem !important;
-            padding: 0.2rem !important;
-            margin-bottom: 0.2rem !important;
-        }
     }
     </style>
     """, unsafe_allow_html=True)
