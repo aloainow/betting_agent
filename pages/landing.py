@@ -1,7 +1,7 @@
 # pages/landing.py - Página Inicial
 import streamlit as st
 import logging
-from utils.core import show_valuehunter_logo, go_to_login, go_to_register, apply_custom_styles, apply_dark_theme, remove_all_top_space
+from utils.core import show_valuehunter_logo, go_to_login, go_to_register, apply_custom_styles, apply_dark_theme
 
 # Configuração de logging
 logger = logging.getLogger("valueHunter.landing")
@@ -13,8 +13,6 @@ def show_landing_page():
         apply_dark_theme()
         # Aplicar estilos personalizados
         apply_custom_styles()
-        # Remover espaço em branco no topo (nova função)
-        remove_all_top_space()
         # Esconder a barra lateral do Streamlit apenas na página inicial
         st.markdown("""
         <style>
