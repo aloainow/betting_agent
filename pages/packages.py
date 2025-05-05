@@ -2,7 +2,7 @@
 import streamlit as st
 import logging
 from utils.core import (
-    show_valuehunter_logo, update_purchase_button, check_payment_success, apply_custom_styles, apply_dark_theme
+    show_valuehunter_logo, update_purchase_button, check_payment_success, apply_custom_styles, apply_dark_theme, remove_all_top_space
 )
 # Configuração de logging
 logger = logging.getLogger("valueHunter.packages")
@@ -14,6 +14,9 @@ def show_packages_page():
         apply_dark_theme()
         # Aplicar estilos personalizados
         apply_custom_styles()
+        # Remover espaço em branco no topo (nova função)
+        remove_all_top_space()
+
         # Esconder a barra lateral na página de pacotes
         st.markdown("""
         <style>
