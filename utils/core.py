@@ -1097,6 +1097,7 @@ def hide_sidebar_completely():
     )
     
     st.markdown(css, unsafe_allow_html=True)
+
 def apply_dark_theme():
     """
     Aplica um tema escuro consistente em todas as versões (desktop e mobile)
@@ -1129,6 +1130,40 @@ def apply_dark_theme():
             color: white !important;
         }
         
+        /* CORREÇÃO PARA DROPDOWNS NO MOBILE */
+        /* Seletor mais específico para o dropdown */
+        [data-baseweb="select"],
+        [data-baseweb="select"] div,
+        [data-baseweb="select"] span,
+        [data-baseweb="popover"],
+        [data-baseweb="menu"],
+        [role="listbox"],
+        [role="option"] {
+            background-color: #2d2d2d !important;
+            color: white !important;
+        }
+        
+        /* Opções quando dropdown está aberto */
+        [data-baseweb="menu"] [role="option"],
+        [role="listbox"] [role="option"],
+        [data-testid="stSelectbox"] ul,
+        [data-testid="stSelectbox"] li {
+            background-color: #2d2d2d !important;
+            color: white !important;
+        }
+        
+        /* Quando o mouse passa por cima da opção */
+        [role="option"]:hover {
+            background-color: #3d3d3d !important;
+        }
+        
+        /* Opção selecionada */
+        [aria-selected="true"],
+        [role="option"][aria-selected="true"] {
+            background-color: #fd7014 !important;
+            color: white !important;
+        }
+        
         /* Corrigir cores dos botões (manter o laranja do ValueHunter) */
         .stButton button {
             background-color: #fd7014 !important;
@@ -1145,7 +1180,7 @@ def apply_dark_theme():
             color: #fd7014 !important;
         }
         
-        /* Fixar problema específico para mobile */
+        /* Fixar problema específico para mobile - EXPANDIDO */
         @media (max-width: 767px) {
             .main, body, [data-testid="stAppViewContainer"] {
                 background-color: #121212 !important;
@@ -1161,14 +1196,34 @@ def apply_dark_theme():
                 color: white !important;
             }
             
-            /* Ajustar selectbox para mobile */
-            div[role="listbox"] {
+            /* Ajustar selectbox e dropdown para mobile - MELHORADO */
+            div[role="listbox"],
+            div[data-baseweb="popover"],
+            div[data-baseweb="menu"],
+            div[data-baseweb="select"] ul,
+            div[data-baseweb="select"] li,
+            [role="option"] {
                 background-color: #2d2d2d !important;
+                color: white !important;
             }
             
-            /* Garantir que dropdowns sejam legíveis */
-            div[role="menuitem"] {
+            /* Garantir que rótulos de selectbox sejam visíveis */
+            label span {
+                color: white !important;
+            }
+            
+            /* Cor de fundo do dropdown quando aberto no mobile */
+            [data-baseweb="popover"],
+            [data-baseweb="popover"] [role="listbox"] {
                 background-color: #2d2d2d !important;
+                border: 1px solid #4d4d4d !important;
+            }
+            
+            /* Ajustar cores dos checkboxes em mobile */
+            [data-testid="stCheckbox"] {
+                background-color: transparent !important;
+            }
+            [data-testid="stCheckbox"] p {
                 color: white !important;
             }
         }
