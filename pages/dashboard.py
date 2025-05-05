@@ -1190,6 +1190,84 @@ def check_analysis_limits(selected_markets):
         st.error("Erro ao verificar limites de análise. Por favor, tente novamente.")
         return False
 
+
+def show_usage_stats():
+    """Display usage statistics with forced refresh"""
+    try:
+        # Verificar se temos query params que indicam uma ação recente
+        force_refresh = False
+        if 'payment_processed' in st.query_params or 'force_refresh' in st.query_params:
+            force_refresh = True
+            # Limpar parâmetros após uso
+            if 'force_refresh' in st.query_params:
+                del st.query_params['force_refresh']
+        
+        # IMPORTANTE: Verificar se precisamos atualizar os dados
+        if not hasattr(st.session_state, 'user_stats_cache') or force_refresh:
+            # Primeira vez carregando ou após um refresh forçado
+            stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
+            # Armazenar em um cache temporário na sessão
+            st.session_state.user_stats_cache = stats
+            logger.info(f"Estatísticas recarregadas para {st.session_state.email}")
+        else:
+            # Usar cache se disponível
+            stats = st.session_state.user_stats_cache        
+        
+        # Obter nome do usuário - com fallback seguro
+        user_name = "Usuário"
+        
+        try:
+            # Tentar obter o nome do usuário diretamente da estrutura de dados
+            if hasattr(st.session_state.user_manager, "users") and st.session_state.email in st.session_state.user_manager.users:
+                user_data = st.session_state.user_manager.users[st.session_state.email]
+                if "name" in user_data:
+                    user_name = user_data["name"]
+            # Ou dos stats, se disponível
+            elif "name" in stats:
+                user_name = stats["name"]
+        except Exception:
+            pass  # Manter o fallback em caso de erro
+        
+        # Saudação com nome do usuário
+        st.sidebar.markdown(f"### Olá, {user_name}!")
+        
+        st.sidebar.markdown("### Estatísticas de Uso")
+        
+        # Fix: Use consistent naming for credits
+        # First, check which key exists in the stats dictionary
+        if 'credits_remaining' in stats:
+            credits_key = 'credits_remaining'
+        elif 'credits_reing' in stats:
+            credits_key = 'credits_reing'
+        else:
+            # If neither exists, provide a fallback
+            credits_key = None
+            logger.warning("Neither 'credits_remaining' nor 'credits_reing' found in stats")
+        
+        # Display remaining credits
+        if credits_key:
+            st.sidebar.markdown(f"**Créditos Restantes:** {stats[credits_key]}")
+        else:
+            st.sidebar.markdown("**Créditos Restantes:** Indisponível")
+        
+        # Add progress bar for credits
+        if stats.get('credits_total', 0) > 0:
+            progress = stats.get('credits_used', 0) / stats['credits_total']
+            st.sidebar.progress(min(progress, 1.0))
+        
+        # Free tier renewal info (if applicable)
+        if stats.get('tier') == 'free' and stats.get('next_free_credits_time'):
+            st.sidebar.info(f"⏱️ Renovação em: {stats['next_free_credits_time']}")
+        elif stats.get('tier') == 'free' and stats.get('free_credits_reset'):
+            st.sidebar.success("✅ Créditos renovados!")
+        
+        # Warning for paid tiers about to be downgraded
+        if stats.get('days_until_downgrade'):
+            st.sidebar.warning(f"⚠️ Sem créditos há {7-stats['days_until_downgrade']} dias. Você será rebaixado para o pacote Free em {stats['days_until_downgrade']} dias se não comprar mais créditos.")
+            
+    except Exception as e:
+        logger.error(f"Erro ao exibir estatísticas de uso: {str(e)}")
+        st.sidebar.error("Erro ao carregar estatísticas")
 def show_main_dashboard():
     """Show the main dashboard com navegação mobile nativa do Streamlit"""
     try:
