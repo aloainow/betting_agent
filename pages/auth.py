@@ -2,7 +2,7 @@
 import streamlit as st
 import time
 import logging
-from utils.core import show_valuehunter_logo, go_to_landing, go_to_login, go_to_register, apply_responsive_styles, apply_custom_styles, apply_dark_theme, remove_all_top_space
+from utils.core import show_valuehunter_logo, go_to_landing, go_to_login, go_to_register, apply_responsive_styles, apply_custom_styles, apply_dark_theme
 from utils.email_verification import send_verification_email, generate_verification_code
 
 # Configuração de logging
@@ -15,8 +15,7 @@ def show_login():
 
     # Aplicar tema escuro
     apply_dark_theme()
-    # Remover espaço em branco no topo (nova função)
-    remove_all_top_space()
+    
     # Exibir o logo do ValueHunter (apenas uma vez)
     show_valuehunter_logo()
     
