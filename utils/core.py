@@ -1111,6 +1111,41 @@ def apply_dark_theme():
             color: white !important;
         }
         
+        /* CORREÇÃO DE ESPAÇAMENTO - Remover espaço no topo da página */
+        .main .block-container {
+            padding-top: 0 !important;
+            margin-top: 0 !important;
+            gap: 0 !important;
+        }
+        
+        /* Remover espaço entre elementos no topo */
+        .main .element-container:first-child {
+            margin-top: 0 !important;
+            padding-top: 0 !important;
+        }
+        
+        /* Forçar o header a ficar sem altura */
+        header[data-testid="stHeader"] {
+            height: 0 !important;
+            min-height: 0 !important;
+            visibility: hidden !important;
+            position: absolute !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+        
+        /* Remover margem do título principal */
+        h1:first-child, h2:first-child, h3:first-child {
+            margin-top: 0 !important;
+            padding-top: 0 !important;
+        }
+        
+        /* Garantir que o app não tenha padding extra */
+        .stApp {
+            margin-top: 0 !important;
+            padding-top: 0 !important;
+        }
+        
         /* Garantir que o fundo da sidebar também seja escuro */
         [data-testid="stSidebar"] {
             background-color: #1e1e1e !important;
