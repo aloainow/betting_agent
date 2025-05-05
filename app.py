@@ -380,6 +380,7 @@ def main():
     try:
         # Aplicar tema escuro consistente
         apply_dark_theme()
+        st.markdown('<style>.main .block-container { padding-top: 0 !important; margin-top: 0 !important; } header[data-testid="stHeader"] { display: none !important; height: 0 !important; }</style>', unsafe_allow_html=True)
         # Remover todos os espaçamentos do topo da página
         remove_all_spacing()
         # Chamar a versão mais robusta
