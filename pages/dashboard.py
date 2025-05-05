@@ -3419,3 +3419,47 @@ def fix_sidebar_animation():
         }
     </style>
     """, unsafe_allow_html=True)
+def fix_mobile_dropdown_colors():
+    """
+    Aplica estilos específicos para corrigir a cor dos dropdowns em dispositivos móveis.
+    """
+    st.markdown("""
+    <style>
+    /* Correção para dropdowns no mobile */
+    [data-baseweb="select"],
+    [data-baseweb="select"] div,
+    [data-baseweb="select"] span,
+    [data-baseweb="popover"],
+    [data-baseweb="menu"],
+    [role="listbox"],
+    [role="option"] {
+        background-color: #2d2d2d !important;
+        color: white !important;
+    }
+    
+    /* Melhor seleção para dispositivos móveis */
+    @media (max-width: 767px) {
+        div[role="listbox"],
+        div[data-baseweb="popover"],
+        div[data-baseweb="menu"],
+        div[data-baseweb="select"] ul,
+        div[data-baseweb="select"] li,
+        [role="option"] {
+            background-color: #2d2d2d !important;
+            color: white !important;
+        }
+        
+        /* Garantir que rótulos de selectbox sejam visíveis */
+        label span {
+            color: white !important;
+        }
+        
+        /* Cor de fundo do dropdown quando aberto no mobile */
+        [data-baseweb="popover"],
+        [data-baseweb="popover"] [role="listbox"] {
+            background-color: #2d2d2d !important;
+            border: 1px solid #4d4d4d !important;
+        }
+    }
+    </style>
+    """, unsafe_allow_html=True)
