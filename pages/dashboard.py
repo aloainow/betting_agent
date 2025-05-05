@@ -1268,6 +1268,7 @@ def show_usage_stats():
     except Exception as e:
         logger.error(f"Erro ao exibir estatísticas de uso: {str(e)}")
         st.sidebar.error("Erro ao carregar estatísticas")
+
 def show_main_dashboard():
     """Show the main dashboard com navegação mobile nativa do Streamlit"""
     try:
@@ -1275,7 +1276,8 @@ def show_main_dashboard():
         fix_sidebar_animation()
         # Aplicar tema escuro
         apply_dark_theme()       
-        # Add this CSS to fix the text color issues in mobile view
+        
+        # First CSS block - Fix for text color
         st.markdown("""
         <style>
         /* Global text color fix for all elements */
@@ -1316,68 +1318,31 @@ def show_main_dashboard():
         }
         </style>
         """, unsafe_allow_html=True)
+        
+        # Second CSS block - More targeted spacing fix
         st.markdown("""
         <style>
-        /* Reduce excessive top spacing */
-        .main .block-container {
-            padding-top: 1rem !important;
-            margin-top: 0 !important;
-        }
-        
-        /* Make the title section more compact */
-        .stApp header {
-            margin-bottom: 0 !important;
-        }
-        
-        /* Reduce spacing around the logo and title areas */
-        #valuehunter {
-            margin-bottom: 0.5rem !important;
-        }
-        
-        h1 {
-            margin-top: 0.5rem !important;
-            margin-bottom: 0.5rem !important;
-            font-size: 1.8rem !important;
-        }
-        
-        /* Make info boxes more compact */
-        .stAlert {
-            padding: 0.5rem !important;
-            margin-bottom: 0.5rem !important;
-        }
-        
-        /* Reduce space between elements */
-        .element-container {
-            margin-bottom: 0.5rem !important;
-        }
-        
-        /* More compact mobile layout */
+        /* Mild spacing adjustments only for mobile */
         @media (max-width: 767px) {
-            .main .block-container {
-                padding-top: 0.5rem !important;
+            /* Make info boxes more compact */
+            .stAlert {
+                padding: 8px !important;
+                margin-bottom: 8px !important;
             }
             
+            /* Slightly reduce title size */
             h1 {
-                font-size: 1.5rem !important;
-            }
-            
-            .stInfo {
-                padding: 0.3rem !important;
-                margin-bottom: 0.3rem !important;
+                font-size: 1.7rem !important;
             }
             
             /* Make dropdowns and checkboxes more compact */
             .stSelectbox, .stCheckbox {
-                margin-bottom: 0.3rem !important;
-            }
-            
-            /* Reduce space around columns */
-            .row-widget.stHorizontal {
-                gap: 0.5rem !important;
+                margin-bottom: 8px !important;
             }
         }
         </style>
         """, unsafe_allow_html=True)
+        
         # Verificações de autenticação
         if not hasattr(st.session_state, 'authenticated') or not st.session_state.authenticated:
             st.error("Sessão não autenticada. Por favor, faça login novamente.")
