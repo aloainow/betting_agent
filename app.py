@@ -4,8 +4,79 @@ import logging
 import streamlit as st
 import time
 from datetime import datetime
-from utils.core import apply_dark_theme
 
+# Aplicar CSS super agressivo para remoção de espaçamento no topo (deve vir antes de qualquer conteúdo)
+st.markdown("""
+<style>
+/* SOLUÇÃO DEFINITIVA PARA ESPAÇO EM BRANCO - aplicada globalmente */
+/* Reset de todos os espaçamentos em todos os elementos */
+body, html, .stApp, .main, .main .block-container {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+    gap: 0 !important;
+}
+
+/* Remover completamente o cabeçalho do Streamlit */
+header[data-testid="stHeader"] {
+    display: none !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    max-height: 0 !important;
+    visibility: hidden !important;
+    position: absolute !important;
+    z-index: -9999 !important;
+    opacity: 0 !important;
+    width: 0 !important;
+}
+
+/* Remover todos os elementos decorativos e espaços extras */
+[data-testid="stDecoration"],
+[data-testid="stToolbar"],
+[data-testid="stStatusWidget"],
+[data-testid="stSidebarNavItems"],
+div[data-testid~="injected"] {
+    display: none !important;
+    height: 0 !important;
+    width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    visibility: hidden !important;
+    position: absolute !important;
+    z-index: -9999 !important;
+}
+
+/* Corrigir a altura do contêiner principal */
+.main .block-container {
+    max-width: 100% !important;
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+}
+
+/* Forçar primeiro elemento a começar no topo absoluto */
+.main .block-container > div:first-child,
+.element-container:first-child,
+.stMarkdown:first-child,
+section.main > div:first-child {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+
+/* Zerar margens e paddings de todos primeiros filhos */
+*:first-child {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+
+/* Reset para layout de gaps e grids */
+div[data-layout] {
+    gap: 0 !important;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+from utils.core import apply_dark_theme
 
 # -----------------------------------------------------
 # 1. CONFIGURAR FAVICON E TÍTULO DA PÁGINA
