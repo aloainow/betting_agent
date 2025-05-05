@@ -4,8 +4,19 @@ import logging
 import streamlit as st
 import time
 from datetime import datetime
+from utils.core import apply_dark_theme
 
-# Aplicar CSS super agressivo para remoção de espaçamento no topo (deve vir antes de qualquer conteúdo)
+# -----------------------------------------------------
+# 1. CONFIGURAR FAVICON E TÍTULO DA PÁGINA
+# Deve ser a primeira chamada Streamlit do script
+# -----------------------------------------------------
+st.set_page_config(
+    page_title="ValueHunter",
+    page_icon="favicon_svg.svg",   # Corrigido para usar o arquivo .svg
+    layout="wide"
+)
+
+# AGORA injetamos o CSS para remover espaçamento DEPOIS da configuração da página
 st.markdown("""
 <style>
 /* SOLUÇÃO DEFINITIVA PARA ESPAÇO EM BRANCO - aplicada globalmente */
@@ -76,17 +87,6 @@ div[data-layout] {
 </style>
 """, unsafe_allow_html=True)
 
-from utils.core import apply_dark_theme
-
-# -----------------------------------------------------
-# 1. CONFIGURAR FAVICON E TÍTULO DA PÁGINA
-# Deve ser a primeira chamada Streamlit do script
-# -----------------------------------------------------
-st.set_page_config(
-    page_title="ValueHunter",
-    page_icon="favicon_svg.svg",   # Corrigido para usar o arquivo .svg
-    layout="wide"
-)
 # Favicon SVG (binóculo laranja)
 favicon_svg = """
 <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
