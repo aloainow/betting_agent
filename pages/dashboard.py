@@ -1200,77 +1200,44 @@ def show_main_dashboard():
         # Add this CSS to fix the text color issues in mobile view
         st.markdown("""
         <style>
-        /* Fix for checkbox labels showing white text on white background in mobile */
-        .stCheckbox label p {
-            color: #f8f8f2 !important; /* Light color for visibility */
-        }
-        
-        /* Make sure the checkbox itself has proper contrast */
-        .stCheckbox input[type="checkbox"] {
-            border: 1px solid #fd7014 !important;
-            background-color: #222222 !important;
-        }
-        
-        /* Ensure the checked state is visible */
-        .stCheckbox input[type="checkbox"]:checked {
-            background-color: #fd7014 !important;
-        }
-        
-        /* Fix team selection dropdowns */
-        div.stSelectbox label, div.stSelectbox div[data-baseweb="select"] span {
+        /* Global text color fix for all elements */
+        .stCheckbox label p,
+        .stSelectbox label,
+        .stSelectbox span,
+        [data-baseweb="select"] span,
+        [role="option"],
+        .streamlit-expanderHeader,
+        div.row-widget p,
+        div.row-widget span {
             color: #f8f8f2 !important;
         }
         
-        div.stSelectbox div[data-baseweb="select"] {
-            background-color: #222222 !important;
-            border: 1px solid #3a3a3a !important;
+        /* Backgrounds for better contrast */
+        .stCheckbox,
+        .stSelectbox [data-baseweb="select"],
+        [data-baseweb="menu"],
+        [role="listbox"] {
+            background-color: #27272a !important;
+            border: 1px solid #3F3F45 !important;
         }
         
-        /* Style for dropdown options */
-        div[role="listbox"] {
-            background-color: #222222 !important;
-        }
-        
-        div[role="listbox"] div[role="option"] {
-            color: #f8f8f2 !important;
-        }
-        
-        div[role="listbox"] div[role="option"]:hover {
-            background-color: #3a3a3a !important;
-        }
-        
-        /* Make the label text more visible on mobile */
+        /* Mobile specific enhancements */
         @media (max-width: 767px) {
-            /* Checkbox styling for mobile */
-            .stCheckbox label {
+            .stCheckbox label p,
+            .stSelectbox label {
                 font-weight: bold !important;
-                text-shadow: 1px 1px 1px rgba(0,0,0,0.5) !important;
+                padding: 3px !important;
             }
             
-            .stCheckbox {
-                background-color: rgba(0,0,0,0.2) !important;
-                padding: 8px !important;
-                border-radius: 4px !important;
-                margin-bottom: 10px !important;
-            }
-            
-            /* Dropdown styling for mobile */
-            div.stSelectbox label {
-                font-weight: bold !important;
-                text-shadow: 1px 1px 1px rgba(0,0,0,0.5) !important;
-                background-color: rgba(0,0,0,0.2) !important;
+            .stCheckbox,
+            .stSelectbox [data-baseweb="select"] {
+                border-left: 2px solid #fd7014 !important;
                 padding: 5px !important;
-                border-radius: 4px !important;
-                margin-bottom: 5px !important;
-            }
-            
-            /* Ensure text in dropdown is visible */
-            div.stSelectbox div[data-baseweb="select"] {
-                border: 1px solid #fd7014 !important;
+                margin: 5px 0 !important;
             }
         }
         </style>
-        """, unsafe_allow_html=True)        
+        """, unsafe_allow_html=True)       
         # Verificações de autenticação
         if not hasattr(st.session_state, 'authenticated') or not st.session_state.authenticated:
             st.error("Sessão não autenticada. Por favor, faça login novamente.")
