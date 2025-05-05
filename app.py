@@ -9,7 +9,7 @@ from utils.core import (
     configure_sidebar_visibility, apply_global_css, init_stripe,
     check_payment_success, handle_stripe_errors, apply_custom_styles,
     remove_loading_screen, apply_responsive_styles, hide_sidebar_completely,
-    remove_all_top_space  # Nova função importada
+    remove_top_whitespace  # Alterado de remove_all_top_space para remove_top_whitespace
 )
 
 # -----------------------------------------------------
@@ -259,8 +259,8 @@ from pages.packages import show_packages_page
 # Função para remover todos os espaçamentos
 def remove_all_spacing():
     """Remove completamente todos os espaços em branco no início da página em toda a aplicação"""
-    # Chamar a versão mais robusta
-    remove_all_top_space()
+    # Chamar a versão segura que não causa erros
+    remove_top_whitespace()
     
     st.markdown("""
     <style>
@@ -277,7 +277,6 @@ def remove_all_spacing():
         margin: 0 !important;
         padding: 0 !important;
         position: absolute !important;
-        top: -9999px !important;
     }
     
     /* Remover espaçamento de todos os elementos no topo */
@@ -380,11 +379,12 @@ def main():
     try:
         # Aplicar tema escuro consistente
         apply_dark_theme()
+                
+        # Aplicar estilo CSS direto para remover espaço no topo
         st.markdown('<style>.main .block-container { padding-top: 0 !important; margin-top: 0 !important; } header[data-testid="stHeader"] { display: none !important; height: 0 !important; }</style>', unsafe_allow_html=True)
+        
         # Remover todos os espaçamentos do topo da página
         remove_all_spacing()
-        # Chamar a versão mais robusta
-        remove_all_top_space()
         
         # NOVO: Diagnóstico de arquivos
         print("\n===== DIAGNÓSTICO DE ARQUIVOS =====")
