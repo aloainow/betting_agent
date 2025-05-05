@@ -3502,3 +3502,73 @@ def fix_mobile_dropdown_colors():
     }
     </style>
     """, unsafe_allow_html=True)
+def remove_top_whitespace():
+    """
+    Remove completamente qualquer espaço em branco no topo da página
+    usando abordagem mais agressiva com !important em todos os seletores.
+    """
+    st.markdown("""
+    <style>
+    /* Abordagem agressiva para remover QUALQUER espaço no topo */
+    
+    /* 1. Remover padding/margin do container principal */
+    .main .block-container {
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+        margin-top: 0 !important;
+        margin-bottom: 0 !important;
+    }
+    
+    /* 2. Forçar todos os elementos no topo a não terem margem */
+    .main > div:first-child,
+    .main .block-container > div:first-child,
+    .element-container:first-child,
+    .stMarkdown:first-child,
+    section.main > div:first-child {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+    }
+    
+    /* 3. Ocultar cabeçalho completamente */
+    header[data-testid="stHeader"],
+    header.css-18ni7ap.e8zbici2,
+    .css-18ni7ap.e8zbici2,
+    [data-testid="stToolbar"],
+    div[data-testid="stDecoration"],
+    div[data-testid="stStatusWidget"] {
+        display: none !important;
+        height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        visibility: hidden !important;
+        position: absolute !important;
+        z-index: -1000 !important;
+    }
+    
+    /* 4. Forçar elementos a começarem imediatamente */
+    .stApp {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+    }
+    
+    /* 5. Ocultar decorações no topo */
+    .stApp::before,
+    .stApp > div:first-child,
+    .stApp > div:first-child > div:first-child {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+        min-height: 0 !important;
+    }
+    
+    /* 6. Reset de layout para eliminação de gaps */
+    section.main,
+    .stApp [data-testid="stAppViewContainer"] > section,
+    .stApp [data-testid="stAppViewContainer"],
+    .stApp [data-testid="stAppViewContainer"] > div,
+    .stApp [data-testid="stAppViewContainer"] > div > div {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+        gap: 0 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
