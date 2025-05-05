@@ -1315,7 +1315,69 @@ def show_main_dashboard():
             }
         }
         </style>
-        """, unsafe_allow_html=True)       
+        """, unsafe_allow_html=True)
+        st.markdown("""
+        <style>
+        /* Reduce excessive top spacing */
+        .main .block-container {
+            padding-top: 1rem !important;
+            margin-top: 0 !important;
+        }
+        
+        /* Make the title section more compact */
+        .stApp header {
+            margin-bottom: 0 !important;
+        }
+        
+        /* Reduce spacing around the logo and title areas */
+        #valuehunter {
+            margin-bottom: 0.5rem !important;
+        }
+        
+        h1 {
+            margin-top: 0.5rem !important;
+            margin-bottom: 0.5rem !important;
+            font-size: 1.8rem !important;
+        }
+        
+        /* Make info boxes more compact */
+        .stAlert {
+            padding: 0.5rem !important;
+            margin-bottom: 0.5rem !important;
+        }
+        
+        /* Reduce space between elements */
+        .element-container {
+            margin-bottom: 0.5rem !important;
+        }
+        
+        /* More compact mobile layout */
+        @media (max-width: 767px) {
+            .main .block-container {
+                padding-top: 0.5rem !important;
+            }
+            
+            h1 {
+                font-size: 1.5rem !important;
+            }
+            
+            .stInfo {
+                padding: 0.3rem !important;
+                margin-bottom: 0.3rem !important;
+            }
+            
+            /* Make dropdowns and checkboxes more compact */
+            .stSelectbox, .stCheckbox {
+                margin-bottom: 0.3rem !important;
+            }
+            
+            /* Reduce space around columns */
+            .row-widget.stHorizontal {
+                gap: 0.5rem !important;
+            }
+        }
+        </style>
+        """, unsafe_allow_html=True)
         # Verificações de autenticação
         if not hasattr(st.session_state, 'authenticated') or not st.session_state.authenticated:
             st.error("Sessão não autenticada. Por favor, faça login novamente.")
