@@ -1344,6 +1344,45 @@ def show_main_dashboard():
         }
         </style>
         """, unsafe_allow_html=True)
+        # Third CSS block - Fix for top white space
+        st.markdown("""
+        <style>
+        /* Remover completamente o espaço extra no topo da página */
+        .main .block-container {
+            padding-top: 0 !important;
+            margin-top: 0 !important;
+            gap: 0 !important;
+        }
+        
+        /* Remover espaço entre elementos no topo */
+        .main .element-container:first-child {
+            margin-top: 0 !important;
+            padding-top: 0 !important;
+        }
+        
+        /* Forçar o header a ficar sem altura e totalmente escondido */
+        header[data-testid="stHeader"] {
+            height: 0 !important;
+            min-height: 0 !important;
+            visibility: hidden !important;
+            position: absolute !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+        
+        /* Remover margem do título principal */
+        h1:first-child {
+            margin-top: 0 !important;
+            padding-top: 0 !important;
+        }
+        
+        /* Garantir que não haja espaços extras no início do app */
+        .stApp {
+            margin-top: 0 !important;
+            padding-top: 0 !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
         
         # Verificações de autenticação
         if not hasattr(st.session_state, 'authenticated') or not st.session_state.authenticated:
