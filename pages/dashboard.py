@@ -1352,12 +1352,8 @@ def show_main_dashboard():
 
         # IMPORTANTE: Adicionar antes de qualquer outro elemento
         # Mensagem de instrução no topo da página
-        st.markdown("""
-        <div class="mobile-info-banner" style="background-color:rgba(73,97,119,0.2); border-left:3px solid #4d96ff; 
-        border-radius:3px; padding:0.2rem 0.4rem; margin:0.2rem 0; font-size:0.75rem;">
-        📱 <b>Menu:</b> Toque no botão ≡ no canto superior esquerdo
-        </div>
-        """, unsafe_allow_html=True)
+        st.info("📱 **Versão Mobile**: Para acessar o menu, toque no botão ≡ no CANTO SUPERIOR ESQUERDO da tela.", icon="ℹ️")
+
         # Sidebar normal do Streamlit
         with st.sidebar:
             st.title("ValueHunter")
