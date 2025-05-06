@@ -286,7 +286,7 @@ def format_all_analysis_sections(analysis_text):
 def get_league_selection(key_suffix=""):
     """
     Função melhorada para obter a lista de ligas e mostrar o seletor,
-    eliminando duplicações com diferentes formatações.
+    eliminando duplicações com diferentes formatações e garantindo que Serie B (Brazil) esteja incluída.
     
     Args:
         key_suffix (str): Sufixo para tornar a chave única
@@ -307,7 +307,19 @@ def get_league_selection(key_suffix=""):
         
         if not all_leagues:
             st.error("Nenhuma liga disponível na lista pré-definida.")
-            return None
+            # Mesmo sem ligas da API, vamos adicionar a Serie B
+            all_leagues = ["Serie B (Brazil)"]
+        else:
+            # Verificar se a Serie B (Brazil) já está na lista
+            serie_b_exists = False
+            for league in all_leagues:
+                if "serie b" in league.lower() and "brazil" in league.lower():
+                    serie_b_exists = True
+                    break
+            
+            # Se não estiver, adicionar manualmente
+            if not serie_b_exists:
+                all_leagues.append("Serie B (Brazil)")
         
         # Simplificar nomes e eliminar duplicatas baseadas no mesmo conteúdo 
         canonical_leagues = {}  # Mapeamento de nomes simplificados para nomes originais
@@ -331,6 +343,13 @@ def get_league_selection(key_suffix=""):
                     canonical_leagues[simple_name] = league
             else:
                 canonical_leagues[simple_name] = league
+        
+        # Garantir que "Serie B (Brazil)" é preservada após a simplificação
+        if "serie b" in canonical_leagues:
+            canonical_leagues["serie b"] = "Serie B (Brazil)"
+        else:
+            # Adicionar se de alguma forma foi removida na simplificação
+            canonical_leagues["serie b"] = "Serie B (Brazil)"
         
         # Obter lista final de ligas sem duplicatas
         unique_leagues = list(canonical_leagues.values())
