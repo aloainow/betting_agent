@@ -2546,56 +2546,80 @@ def calculate_corners_probability(home_team, away_team, threshold=9.5, league_co
     return p_over, p_under, total_expected
 
 
-def calculate_cards_probability(home_team, away_team, threshold=5.5, league_card_factor=1.0, team_diff=0.0):
-    """Calculates probabilities for cards markets"""
-    # Extract cards statistics
-    home_cards = home_team.get('cards_per_game', 0)
-    away_cards = away_team.get('cards_per_game', 0)
+def calculate_cards_probability(home_team, away_team, threshold, league_card_factor=1.0, team_diff=0.0):
+    """
+    Calculates probabilities for cards markets with improved accuracy
     
-    # Special focus on home/away specific stats when available
-    home_cards_home = home_team.get('home_cards_per_game', home_cards)
-    away_cards_away = away_team.get('away_cards_per_game', away_cards)
+    Args:
+        home_team (dict): Home team statistics
+        away_team (dict): Away team statistics
+        threshold (float): Card threshold for over/under market (2.5, 3.5, 4.5, 5.5, 6.5, etc.)
+        league_card_factor (float): League-specific adjustment factor
+        team_diff (float): Team strength difference factor
+        
+    Returns:
+        tuple: (over_probability, under_probability, expected_cards)
+    """
+    import math
+    import logging
+    logger = logging.getLogger("valueHunter.ai")
     
-    # Use more specific home/away data when available
-    home_cards_to_use = home_cards_home if home_cards_home > 0 else home_cards
-    away_cards_to_use = away_cards_away if away_cards_away > 0 else away_cards
+    # Extract cards statistics - prioritize the most specific data
+    # Use raw card totals divided by games whenever possible
     
-    # When both teams have zero or very low cards data,
-    # probability should be closer to market average
-    if (home_cards_to_use + away_cards_to_use) < 0.5:
-        # Use more balanced probability (slightly favoring over)
-        over_prob = 0.52
-        under_prob = 0.48
-        expected_cards = 4.5  # League average
-        return over_prob, under_prob, expected_cards
+    # Home team cards calculation - prioritize home-specific data
+    if home_team.get('home_played', 0) > 0 and home_team.get('cardsTotal_home', 0) > 0:
+        home_cards = home_team['cardsTotal_home'] / home_team['home_played']
+        logger.info(f"Using raw home cards data: {home_cards:.2f} cards per home game")
+    elif home_team.get('home_cards_per_game', 0) > 0:
+        home_cards = home_team['home_cards_per_game']
+        logger.info(f"Using home_cards_per_game: {home_cards:.2f}")
+    else:
+        home_cards = home_team.get('cards_per_game', 0)
+        logger.info(f"Using overall cards average: {home_cards:.2f}")
     
-    # Intensity factor based on team proximity
-    intensity_factor = 1 + 0.3 * (1 - min(1, team_diff * 2))
+    # Away team cards calculation - prioritize away-specific data
+    if away_team.get('away_played', 0) > 0 and away_team.get('cardsTotal_away', 0) > 0:
+        away_cards = away_team['cardsTotal_away'] / away_team['away_played']
+        logger.info(f"Using raw away cards data: {away_cards:.2f} cards per away game")
+    elif away_team.get('away_cards_per_game', 0) > 0:
+        away_cards = away_team['away_cards_per_game']
+        logger.info(f"Using away_cards_per_game: {away_cards:.2f}")
+    else:
+        away_cards = away_team.get('cards_per_game', 0)
+        logger.info(f"Using overall cards average: {away_cards:.2f}")
     
-    # Expected cards adjusted for intensity and league factor
-    expected_cards = (home_cards_to_use + away_cards_to_use) * intensity_factor * league_card_factor
+    # Calculate intensity factor based on team proximity
+    # Teams closer in ability tend to have more cards
+    intensity_factor = 1.0 + (0.2 * (1.0 - min(1.0, team_diff * 2.0)))
+    logger.info(f"Intensity factor calculated: {intensity_factor:.2f}")
     
-    # Using normal approximation
-    std_dev = math.sqrt(expected_cards * 0.7)  # Estimated deviation
+    # Calculate expected cards with all factors
+    expected_cards = (home_cards + away_cards) * intensity_factor * league_card_factor
+    logger.info(f"Raw expected cards: {home_cards:.2f} + {away_cards:.2f} = {home_cards + away_cards:.2f}")
+    logger.info(f"Adjusted expected cards: {expected_cards:.2f} (threshold: {threshold})")
     
-    # Z-score for threshold
-    z = (threshold - expected_cards) / std_dev if std_dev > 0 else 0
+    # Use normal approximation for cards distribution
+    # Standard deviation typically scales with sqrt of expected value for count data
+    std_dev = math.sqrt(expected_cards * 0.75)  # 0.75 factor from historical analysis
     
-    # Normal CDF approximation
+    # Z-score for threshold (how many standard deviations from the mean)
+    z_score = (threshold - expected_cards) / std_dev if std_dev > 0 else 0
+    logger.info(f"Z-score for threshold {threshold}: {z_score:.2f}")
+    
+    # Normal CDF calculation for probability
     def normal_cdf(x):
-        return 0.5 * (1 + math.erf(x / math.sqrt(2)))
+        """Standard normal cumulative distribution function"""
+        return 0.5 * (1.0 + math.erf(x / math.sqrt(2.0)))
     
-    # Under probability
-    p_under = normal_cdf(z)
+    # Under probability = P(cards <= threshold)
+    p_under = normal_cdf(z_score)
+    p_over = 1.0 - p_under
     
-    # Limit to reasonable values
-    p_under = min(0.85, max(0.15, p_under))
-    p_over = 1 - p_under
+    # Log both probabilities for validation
+    logger.info(f"Calculated probabilities - Over {threshold}: {p_over*100:.1f}%, Under {threshold}: {p_under*100:.1f}%")
     
-    # Debug info
-    print(f"Expected cards: {expected_cards:.2f}, Threshold: {threshold}, Z-score: {z:.2f}")
-    print(f"Under {threshold} probability: {p_under*100:.2f}%, Over probability: {p_over*100:.2f}%")
-    
+    # Return probabilities as decimals (0-1)
     return p_over, p_under, expected_cards
 
 
