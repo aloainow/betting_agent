@@ -2546,43 +2546,55 @@ def calculate_corners_probability(home_team, away_team, threshold=9.5, league_co
     return p_over, p_under, total_expected
 
 
-def calculate_cards_probability(home_team, away_team, threshold=4.5, league_card_factor=1.0, team_diff=0.0):
+def calculate_cards_probability(home_team, away_team, threshold=5.5, league_card_factor=1.0, team_diff=0.0):
     """Calculates probabilities for cards markets"""
     # Extract cards statistics
     home_cards = home_team.get('cards_per_game', 0)
     away_cards = away_team.get('cards_per_game', 0)
     
+    # Special focus on home/away specific stats when available
+    home_cards_home = home_team.get('home_cards_per_game', home_cards)
+    away_cards_away = away_team.get('away_cards_per_game', away_cards)
+    
+    # Use more specific home/away data when available
+    home_cards_to_use = home_cards_home if home_cards_home > 0 else home_cards
+    away_cards_to_use = away_cards_away if away_cards_away > 0 else away_cards
+    
     # When both teams have zero or very low cards data,
     # probability should be closer to market average
-    if (home_cards + away_cards) < 0.5:
+    if (home_cards_to_use + away_cards_to_use) < 0.5:
         # Use more balanced probability (slightly favoring over)
         over_prob = 0.52
         under_prob = 0.48
         expected_cards = 4.5  # League average
         return over_prob, under_prob, expected_cards
     
-    # Fator de intensidade baseado na proximidade das equipes
+    # Intensity factor based on team proximity
     intensity_factor = 1 + 0.3 * (1 - min(1, team_diff * 2))
     
-    # Cartões esperados ajustados por intensidade e fator da liga
-    expected_cards = (home_cards + away_cards) * intensity_factor * league_card_factor
+    # Expected cards adjusted for intensity and league factor
+    expected_cards = (home_cards_to_use + away_cards_to_use) * intensity_factor * league_card_factor
     
-    # Usando aproximação normal
-    std_dev = math.sqrt(expected_cards * 0.7)  # Desvio estimado
+    # Using normal approximation
+    std_dev = math.sqrt(expected_cards * 0.7)  # Estimated deviation
     
-    # Z-score para threshold
+    # Z-score for threshold
     z = (threshold - expected_cards) / std_dev if std_dev > 0 else 0
     
-    # Aproximação da função de distribuição normal cumulativa
+    # Normal CDF approximation
     def normal_cdf(x):
         return 0.5 * (1 + math.erf(x / math.sqrt(2)))
     
-    # Probabilidade under
+    # Under probability
     p_under = normal_cdf(z)
     
-    # Limitar a valores razoáveis
+    # Limit to reasonable values
     p_under = min(0.85, max(0.15, p_under))
     p_over = 1 - p_under
+    
+    # Debug info
+    print(f"Expected cards: {expected_cards:.2f}, Threshold: {threshold}, Z-score: {z:.2f}")
+    print(f"Under {threshold} probability: {p_under*100:.2f}%, Over probability: {p_over*100:.2f}%")
     
     return p_over, p_under, expected_cards
 
