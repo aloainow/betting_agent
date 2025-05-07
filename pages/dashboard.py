@@ -1890,7 +1890,11 @@ def show_main_dashboard():
                                 
                                 # Adicionar análise de mercados disponíveis
                                 markets_section = "# Análise de Mercados Disponíveis:\n"
-                            
+
+                                # Probabilidades calculadas
+                                probs_section = "# Probabilidades Calculadas (REAL vs IMPLÍCITA):\n"
+                                opportunities = []
+        
                                 # Moneyline
                                 if selected_markets.get("money_line"):
                                     markets_section += "- **Money Line (1X2):**\n"
@@ -2019,103 +2023,7 @@ def show_main_dashboard():
                                             under_odd = float(under_match.group(1))
                                             markets_section += f"  - Under {line} Escanteios: @{under_odd}\n"
                                             implied_probabilities[f"corners_under_{str(line).replace('.', '_')}"] = 100.0 / under_odd
-                                # Cartões
-                                if selected_markets.get("cartoes") and "cards" in original_probabilities:
-                                    probs_section += "## Cartões:\n"
-                                    
-                                    # Extrair linha do texto de odds
-                                    line_match = re.search(r"Over\s+(\d+\.?\d*)\s+Cartões", odds_data)
-                                    if line_match:
-                                        line = float(line_match.group(1))
-                                        line_str = str(line).replace('.', '_')
-                                        
-                                        # Acessar diretamente os valores calculados pelo calculate_cards_probability()
-                                        if "cards" in original_probabilities:
-                                            # Extrair a probabilidade calculada
-                                            cards_result = original_probabilities["cards"]
-                                            
-                                            # Garantir que estamos usando os valores corretos
-                                            if isinstance(cards_result, tuple) and len(cards_result) >= 2:
-                                                # O retorno do calculate_cards_probability é (over_prob, under_prob, expected)
-                                                over_real = cards_result[0] * 100  # Converter para porcentagem
-                                                under_real = cards_result[1] * 100
-                                            elif isinstance(cards_result, dict):
-                                                # Se já está em formato de dict com as probabilidades
-                                                key_over = f"over_{line_str}"
-                                                key_under = f"under_{line_str}"
-                                                
-                                                # Tentar usar a chave específica para a linha atual
-                                                if key_over in cards_result and key_under in cards_result:
-                                                    over_real = cards_result[key_over] * 100
-                                                    under_real = cards_result[key_under] * 100
-                                                else:
-                                                    # Usar chaves genéricas
-                                                    over_real = cards_result.get("over", 0) * 100
-                                                    under_real = cards_result.get("under", 0) * 100
-                                                    
-                                                # Verificar se os valores fazem sentido para o número esperado de cartões
-                                                if "expected_cards" in cards_result:
-                                                    expected_cards = cards_result["expected_cards"]
-                                                    # Se esperamos muitos cartões (ex: 19) e limiar é baixo (ex: 4.5)
-                                                    # Over deveria ser quase 100% e Under quase 0%
-                                                    if expected_cards > line + 5:
-                                                        # Forçar valores mais corretos quando há uma discrepância óbvia
-                                                        if over_real < 80:
-                                                            over_real = 95.0
-                                                            under_real = 5.0
-                                                    # Se esperamos poucos cartões (ex: 3) e limiar é alto (ex: 5.5)
-                                                    # Under deveria ser quase 100% e Over quase 0%
-                                                    elif expected_cards + 5 < line:
-                                                        if under_real < 80:
-                                                            over_real = 5.0
-                                                            under_real = 95.0
-                                            else:
-                                                # Usar os valores calculados nos logs ou valores seguros
-                                                log_match = re.search(r"Calculated probabilities - Over [^:]+: (\d+\.\d+)%, Under [^:]+: (\d+\.\d+)%", log_text)
-                                                if log_match:
-                                                    over_real = float(log_match.group(1))
-                                                    under_real = float(log_match.group(2))
-                                                else:
-                                                    # Verificar valor esperado de cartões
-                                                    if "expected_cards" in cards_result:
-                                                        expected_cards = cards_result["expected_cards"]
-                                                        if expected_cards > line:
-                                                            over_real = 90.0  # Valor alto para Over
-                                                            under_real = 10.0
-                                                        else:
-                                                            over_real = 10.0
-                                                            under_real = 90.0  # Valor alto para Under
-                                                    else:
-                                                        # Sem dados suficientes, usar valores conservadores
-                                                        over_real = 50.0
-                                                        under_real = 50.0
-                                        
-                                        # Obter probabilidades implícitas das odds
-                                        over_implicit = implied_probabilities.get(f"cards_over_{line_str}", 0)
-                                        under_implicit = implied_probabilities.get(f"cards_under_{line_str}", 0)
-                                        
-                                        # Verificar valor
-                                        over_value = over_real > over_implicit + 2
-                                        under_value = under_real > under_implicit + 2
-                                        
-                                        # Adicionar ao output
-                                        probs_section += f"- **Over {line} Cartões**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}%{' (Valor)' if over_value else ''}\n"
-                                        
-                                        if over_value:
-                                            over_cards_justification = generate_justification(
-                                                "cards", f"over_{line_str}", f"Over {line} Cartões", over_real, over_implicit,
-                                                original_probabilities, home_team, away_team
-                                            )
-                                            opportunities.append(f"- **Over {line} Cartões**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}% (Valor de {over_real-over_implicit:.1f}%)\n  *Justificativa: {over_cards_justification}*")
-                                        
-                                        probs_section += f"- **Under {line} Cartões**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}%{' (Valor)' if under_value else ''}\n"
-                                        
-                                        if under_value:
-                                            under_cards_justification = generate_justification(
-                                                "cards", f"under_{line_str}", f"Under {line} Cartões", under_real, under_implicit,
-                                                original_probabilities, home_team, away_team
-                                            )
-                                            opportunities.append(f"- **Under {line} Cartões**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real-under_implicit:.1f}%)\n  *Justificativa: {under_cards_justification}*")
+                                
                                 
                                 # Money Line
                                 if selected_markets.get("money_line") and "moneyline" in original_probabilities:
@@ -2357,20 +2265,87 @@ def show_main_dashboard():
                                         line = float(line_match.group(1))
                                         line_str = str(line).replace('.', '_')
                                         
-                                        # Ajustar as probabilidades reais com base na linha
-                                        if line == 3.5:  # Linha padrão
-                                            over_real = original_probabilities["cards"].get("over_3_5", 0)
-                                        else:
-                                            # Ajustes para outras linhas
-                                            base_over = original_probabilities["cards"].get("over_3_5", 50)
-                                            if line < 3.5:
-                                                over_real = min(95, base_over + ((3.5 - line) * 15))  # +15% por cada ponto abaixo de 3.5
+                                        # Extrair o expected_cards e usar os valores originais calculados
+                                        if "cards" in original_probabilities:
+                                            cards_data = original_probabilities["cards"]
+                                            
+                                            # Se cards_data for uma tupla (over_prob, under_prob, expected_cards)
+                                            if isinstance(cards_data, tuple) and len(cards_data) >= 3:
+                                                # Usar os valores originais da função calculate_cards_probability
+                                                over_real = cards_data[0] * 100
+                                                under_real = cards_data[1] * 100
+                                                expected_cards = cards_data[2]
+                                                
+                                                # Se o expected_cards for muito diferente do threshold, garantir valores extremos
+                                                if expected_cards > line + 8:  # Muitos cartões
+                                                    over_real = 95.0
+                                                    under_real = 5.0
+                                                elif expected_cards < line - 5:  # Poucos cartões
+                                                    over_real = 5.0
+                                                    under_real = 95.0
+                                                    
+                                            # Se cards_data for um dicionário
+                                            elif isinstance(cards_data, dict):
+                                                if "expected_cards" in cards_data:
+                                                    expected_cards = cards_data["expected_cards"]
+                                                    
+                                                    # Calcular probabilidades com base na distribuição normal
+                                                    import math
+                                                    std_dev = math.sqrt(expected_cards * 0.75)
+                                                    z_score = (line - expected_cards) / std_dev if std_dev > 0 else -5
+                                                    
+                                                    # Normal CDF para under probability
+                                                    def normal_cdf(x):
+                                                        return 0.5 * (1.0 + math.erf(x / math.sqrt(2.0)))
+                                                        
+                                                    under_real = normal_cdf(z_score) * 100
+                                                    over_real = 100.0 - under_real
+                                                
+                                                # Se tiver valores específicos para essa linha
+                                                elif f"over_{line_str}" in cards_data and f"under_{line_str}" in cards_data:
+                                                    over_real = cards_data[f"over_{line_str}"] * 100
+                                                    under_real = cards_data[f"under_{line_str}"] * 100
+                                                
+                                                # Valores gerais se não houver específicos
+                                                elif "over" in cards_data and "under" in cards_data:
+                                                    over_real = cards_data["over"] * 100
+                                                    under_real = cards_data["under"] * 100
+                                                
+                                                else:
+                                                    # Valores padrão se não houver nenhum específico
+                                                    over_real = 50.0
+                                                    under_real = 50.0
                                             else:
-                                                over_real = max(5, base_over - ((line - 3.5) * 15))   # -15% por cada ponto acima de 3.5
+                                                # Valores padrão se cards_data não for nem tupla nem dict
+                                                over_real = 50.0
+                                                under_real = 50.0
+                                                
+                                            # Verificação final para garantir que os valores são coerentes
+                                            # Se temos logs indicando que o valor esperado é muito alto (>19)
+                                            if "expected_cards" in cards_data and isinstance(cards_data["expected_cards"], (int, float)):
+                                                expected_cards = cards_data["expected_cards"]
+                                                # Para um threshold bem menor que o valor esperado, Over deve ser muito alto
+                                                if expected_cards > line + 6:
+                                                    over_real = max(over_real, 90.0)
+                                                    under_real = min(under_real, 10.0)
+                                                # Para um threshold bem maior que o valor esperado, Under deve ser muito alto
+                                                elif expected_cards + 6 < line:
+                                                    over_real = min(over_real, 10.0)
+                                                    under_real = max(under_real, 90.0)
+                                        else:
+                                            # Se não houver dados de cards, usar valores neutros
+                                            over_real = 50.0
+                                            under_real = 50.0
                                         
+                                        # Obter probabilidades implícitas das odds
                                         over_implicit = implied_probabilities.get(f"cards_over_{line_str}", 0)
-                                        over_value = over_real > over_implicit + 2
+                                        under_implicit = implied_probabilities.get(f"cards_under_{line_str}", 0)
                                         
+                                        # Verificar valor
+                                        over_value = over_real > over_implicit + 2
+                                        under_value = under_real > under_implicit + 2
+                                        
+                                        # Adicionar ao output
                                         probs_section += f"- **Over {line} Cartões**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}%{' (Valor)' if over_value else ''}\n"
                                         
                                         if over_value:
@@ -2381,11 +2356,6 @@ def show_main_dashboard():
                                             )
                                             opportunities.append(f"- **Over {line} Cartões**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}% (Valor de {over_real-over_implicit:.1f}%)\n  *Justificativa: {over_cards_justification}*")
                                         
-                                        # Under
-                                        under_real = 100.0 - over_real
-                                        under_implicit = implied_probabilities.get(f"cards_under_{line_str}", 0)
-                                        under_value = under_real > under_implicit + 2
-                                        
                                         probs_section += f"- **Under {line} Cartões**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}%{' (Valor)' if under_value else ''}\n"
                                         
                                         if under_value:
@@ -2395,8 +2365,6 @@ def show_main_dashboard():
                                                 original_probabilities, home_team, away_team
                                             )
                                             opportunities.append(f"- **Under {line} Cartões**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real-under_implicit:.1f}%)\n  *Justificativa: {under_cards_justification}*")
-                                
-                                new_analysis.append(probs_section)
                                 
                                 # Oportunidades identificadas
                                 if opportunities:
