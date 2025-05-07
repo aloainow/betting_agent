@@ -2254,16 +2254,29 @@ def show_main_dashboard():
                                                 original_probabilities, home_team, away_team
                                             )
                                             opportunities.append(f"- **Under {line} Escanteios**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real-under_implicit:.1f}%)\n  *Justificativa: {under_corners_justification}*")
-                                
                                 # Cartões
                                 if selected_markets.get("cartoes") and "cards" in original_probabilities:
                                     probs_section += "## Cartões:\n"
                                     
-                                    # Extrair linha do texto de odds
+                                    # Extrair linha e odds do texto
                                     line_match = re.search(r"Over\s+(\d+\.?\d*)\s+Cartões", odds_data)
+                                    over_match = re.search(r"Over\s+\d+\.?\d*\s+Cartões:.*?@(\d+\.?\d*)", odds_data)
+                                    under_match = re.search(r"Under\s+\d+\.?\d*\s+Cartões:.*?@(\d+\.?\d*)", odds_data)
+                                    
                                     if line_match:
                                         line = float(line_match.group(1))
                                         line_str = str(line).replace('.', '_')
+                                        
+                                        # Extrair e calcular probabilidades implícitas a partir das odds
+                                        if over_match:
+                                            over_odd = float(over_match.group(1))
+                                            # Calcular probabilidade implícita (1/odd * 100)
+                                            implied_probabilities[f"cards_over_{line_str}"] = 100.0 / over_odd
+                                        
+                                        if under_match:
+                                            under_odd = float(under_match.group(1))
+                                            # Calcular probabilidade implícita (1/odd * 100)
+                                            implied_probabilities[f"cards_under_{line_str}"] = 100.0 / under_odd
                                         
                                         # Extrair o expected_cards e usar os valores originais calculados
                                         if "cards" in original_probabilities:
@@ -2340,6 +2353,9 @@ def show_main_dashboard():
                                         # Obter probabilidades implícitas das odds
                                         over_implicit = implied_probabilities.get(f"cards_over_{line_str}", 0)
                                         under_implicit = implied_probabilities.get(f"cards_under_{line_str}", 0)
+                                        
+                                        # Debug: imprimir valores para verificação
+                                        print(f"DEBUG - Cartões: over_real={over_real}, over_implicit={over_implicit}, under_real={under_real}, under_implicit={under_implicit}")
                                         
                                         # Verificar valor
                                         over_value = over_real > over_implicit + 2
