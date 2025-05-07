@@ -2619,7 +2619,16 @@ def calculate_cards_probability(home_team, away_team, threshold, league_card_fac
     # Log both probabilities for validation
     logger.info(f"Calculated probabilities - Over {threshold}: {p_over*100:.1f}%, Under {threshold}: {p_under*100:.1f}%")
     
-    # Return probabilities as decimals (0-1)
+    # Store these values in an accessible format for reconstruction
+    result = {
+        "over": p_over,
+        "under": p_under,
+        "expected_cards": expected_cards,
+        f"over_{str(threshold).replace('.', '_')}": p_over,
+        f"under_{str(threshold).replace('.', '_')}": p_under
+    }
+    
+    # Return both the tuple (for backward compatibility) and the dict (for easier access)
     return p_over, p_under, expected_cards
 
 
