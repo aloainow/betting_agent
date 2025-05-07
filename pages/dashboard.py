@@ -286,7 +286,7 @@ def format_all_analysis_sections(analysis_text):
 def get_league_selection(key_suffix=""):
     """
     Função melhorada para obter a lista de ligas e mostrar o seletor,
-    eliminando duplicações com diferentes formatações e garantindo que Serie B (Brazil) esteja incluída.
+    eliminando duplicações com diferentes formatações e garantindo que Serie B (Brazil) e Serie B (Italy) estejam incluídas.
     
     Args:
         key_suffix (str): Sufixo para tornar a chave única
@@ -307,19 +307,24 @@ def get_league_selection(key_suffix=""):
         
         if not all_leagues:
             st.error("Nenhuma liga disponível na lista pré-definida.")
-            # Mesmo sem ligas da API, vamos adicionar a Serie B
-            all_leagues = ["Serie B (Brazil)"]
+            # Mesmo sem ligas da API, vamos adicionar as Series B
+            all_leagues = ["Serie B (Brazil)", "Serie B (Italy)"]
         else:
             # Verificar se a Serie B (Brazil) já está na lista
-            serie_b_exists = False
+            serie_b_brazil_exists = False
+            serie_b_italy_exists = False
+            
             for league in all_leagues:
                 if "serie b" in league.lower() and "brazil" in league.lower():
-                    serie_b_exists = True
-                    break
+                    serie_b_brazil_exists = True
+                if "serie b" in league.lower() and "italy" in league.lower():
+                    serie_b_italy_exists = True
             
-            # Se não estiver, adicionar manualmente
-            if not serie_b_exists:
+            # Adicionar as ligas faltantes
+            if not serie_b_brazil_exists:
                 all_leagues.append("Serie B (Brazil)")
+            if not serie_b_italy_exists:
+                all_leagues.append("Serie B (Italy)")
         
         # Simplificar nomes e eliminar duplicatas baseadas no mesmo conteúdo 
         canonical_leagues = {}  # Mapeamento de nomes simplificados para nomes originais
@@ -344,12 +349,21 @@ def get_league_selection(key_suffix=""):
             else:
                 canonical_leagues[simple_name] = league
         
-        # Garantir que "Serie B (Brazil)" é preservada após a simplificação
+        # Garantir que Serie B (Brazil) e Serie B (Italy) são preservadas após a simplificação
         if "serie b" in canonical_leagues:
-            canonical_leagues["serie b"] = "Serie B (Brazil)"
+            # Verificar qual Serie B está mapeada para "serie b"
+            current_serie_b = canonical_leagues["serie b"]
+            
+            # Remover a entrada existente para "serie b"
+            del canonical_leagues["serie b"]
+            
+            # Adicionar entradas específicas para cada Serie B
+            canonical_leagues["serie b brazil"] = "Serie B (Brazil)"
+            canonical_leagues["serie b italy"] = "Serie B (Italy)"
         else:
-            # Adicionar se de alguma forma foi removida na simplificação
-            canonical_leagues["serie b"] = "Serie B (Brazil)"
+            # Se não existe um mapeamento para "serie b", simplesmente adicionar ambas
+            canonical_leagues["serie b brazil"] = "Serie B (Brazil)"
+            canonical_leagues["serie b italy"] = "Serie B (Italy)"
         
         # Obter lista final de ligas sem duplicatas
         unique_leagues = list(canonical_leagues.values())
