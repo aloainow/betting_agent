@@ -2505,11 +2505,11 @@ def show_main_dashboard():
                                 return "\n".join(new_analysis)
                                 
                             except Exception as e:
-                    logger.error(f"Erro durante a análise: {str(e)}")
-                    logger.error(traceback.format_exc())
-                    status.error(f"Erro durante a análise: {str(e)}")
-                    if st.session_state.debug_mode:
-                        st.code(traceback.format_exc())
+                                logger.error(f"Erro durante a análise: {str(e)}")
+                                logger.error(traceback.format_exc())
+                                status.error(f"Erro durante a análise: {str(e)}")
+                                if st.session_state.debug_mode:
+                                    st.code(traceback.format_exc())
                         
         except Exception as button_error:
             logger.error(f"Erro no botão de análise: {str(button_error)}")
