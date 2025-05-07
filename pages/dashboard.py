@@ -1841,8 +1841,7 @@ def show_main_dashboard():
                             return
                         
                         # Etapa 5: Mostrar resultado
-                    
-                       if analysis:
+                        if analysis:
                             # Limpar status
                             status.empty()
                             
