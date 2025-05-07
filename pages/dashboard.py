@@ -2007,6 +2007,7 @@ def show_main_dashboard():
                                             implied_probabilities[f"corners_under_{str(line).replace('.', '_')}"] = 100.0 / under_odd
                                 # Cartões
                                 if selected_markets.get("cartoes") and "cards" in original_probabilities:
+                                    
                                     probs_section += "## Cartões:\n"
                                     
                                     # Extrair linha do texto de odds
