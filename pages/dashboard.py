@@ -1841,7 +1841,8 @@ def show_main_dashboard():
                             return
                         
                         # Etapa 5: Mostrar resultado
-                        if analysis:
+                    
+                       if analysis:
                             # Limpar status
                             status.empty()
                             
@@ -1853,11 +1854,35 @@ def show_main_dashboard():
                                     if "</div>" in analysis:
                                         analysis = analysis.replace("</div>", "")
                             
-                            # IMPORTANTE: Aplicar formatação avançada para garantir filtragem por mercados selecionados
+                            # IMPORTANTE: Aplicar formatação avançada
                             from utils.ai import format_analysis_response
-                            
-                            # Adiciona módulo re para expressões regulares caso não esteja importado
                             import re
+                            
+                            try:
+                                # Tentar usar a versão reconstruída se a função existir
+                                reconstructed_analysis = reconstruct_analysis(
+                                    analysis, 
+                                    home_team, 
+                                    away_team, 
+                                    selected_markets, 
+                                    original_probabilities, 
+                                    implied_probabilities, 
+                                    odds_data
+                                )
+                                
+                                # Exibir a análise reconstruída se funcionou
+                                if reconstructed_analysis:
+                                    st.markdown("## Análise Detalhada")
+                                    st.markdown(reconstructed_analysis)
+                                else:
+                                    # Se falhou, mostrar a versão original processada
+                                    st.markdown("## Análise")
+                                    st.markdown(analysis)
+                            except Exception as e:
+                                # Se ocorrer qualquer erro na reconstrução, usar a versão original
+                                logger.error(f"Erro ao reconstruir análise: {str(e)}")
+                                st.markdown("## Resultado da Análise")
+                                st.markdown(analysis)
                             
                             def generate_justification(market_type, option, option_name, real_prob, implied_prob, probabilities, home_team, away_team):
                                 """Gera justificativa para uma oportunidade identificada."""
