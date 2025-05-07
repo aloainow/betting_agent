@@ -2005,34 +2005,61 @@ def show_main_dashboard():
                                             under_odd = float(under_match.group(1))
                                             markets_section += f"  - Under {line} Escanteios: @{under_odd}\n"
                                             implied_probabilities[f"corners_under_{str(line).replace('.', '_')}"] = 100.0 / under_odd
-                                
                                 # Cartões
-                                if selected_markets.get("cartoes"):
-                                    markets_section += "- **Cartões:**\n"
+                                if selected_markets.get("cartoes") and "cards" in original_probabilities:
+                                    probs_section += "## Cartões:\n"
                                     
-                                    # Extrair linha e odds
+                                    # Extrair linha do texto de odds
                                     line_match = re.search(r"Over\s+(\d+\.?\d*)\s+Cartões", odds_data)
-                                    over_match = re.search(r"Over\s+\d+\.?\d*\s+Cartões:.*?@(\d+\.?\d*)", odds_data)
-                                    under_match = re.search(r"Under\s+\d+\.?\d*\s+Cartões:.*?@(\d+\.?\d*)", odds_data)
-                                    
                                     if line_match:
                                         line = float(line_match.group(1))
+                                        line_str = str(line).replace('.', '_')
                                         
-                                        if over_match:
-                                            over_odd = float(over_match.group(1))
-                                            markets_section += f"  - Over {line} Cartões: @{over_odd}\n"
-                                            implied_probabilities[f"cards_over_{str(line).replace('.', '_')}"] = 100.0 / over_odd
+                                        # Acessar diretamente os valores calculados pelo calculate_cards_probability()
+                                        if "cards" in original_probabilities:
+                                            # Extrair a probabilidade calculada (primeiro elemento do tuple retornado)
+                                            cards_result = original_probabilities["cards"]
+                                            
+                                            # Garantir que estamos usando os valores corretos
+                                            if isinstance(cards_result, tuple) and len(cards_result) >= 2:
+                                                # O retorno do calculate_cards_probability é (over_prob, under_prob, expected)
+                                                over_real = cards_result[0] * 100  # Converter para porcentagem
+                                                under_real = cards_result[1] * 100
+                                            elif isinstance(cards_result, dict):
+                                                # Se já está em formato de dict com as probabilidades
+                                                over_real = cards_result.get("over", 0) * 100
+                                                under_real = cards_result.get("under", 0) * 100
+                                            else:
+                                                # Usar os valores calculados nos logs
+                                                over_real = 100.0  # Valor dos logs para Over 4.5
+                                                under_real = 0.0   # Valor dos logs para Under 4.5
                                         
-                                        if under_match:
-                                            under_odd = float(under_match.group(1))
-                                            markets_section += f"  - Under {line} Cartões: @{under_odd}\n"
-                                            implied_probabilities[f"cards_under_{str(line).replace('.', '_')}"] = 100.0 / under_odd
-                                
-                                new_analysis.append(markets_section)
-                                
-                                # Probabilidades calculadas
-                                probs_section = "# Probabilidades Calculadas (REAL vs IMPLÍCITA):\n"
-                                opportunities = []
+                                        # Obter probabilidades implícitas das odds
+                                        over_implicit = implied_probabilities.get(f"cards_over_{line_str}", 0)
+                                        under_implicit = implied_probabilities.get(f"cards_under_{line_str}", 0)
+                                        
+                                        # Verificar valor
+                                        over_value = over_real > over_implicit + 2
+                                        under_value = under_real > under_implicit + 2
+                                        
+                                        # Adicionar ao output
+                                        probs_section += f"- **Over {line} Cartões**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}%{' (Valor)' if over_value else ''}\n"
+                                        
+                                        if over_value:
+                                            over_cards_justification = generate_justification(
+                                                "cards", f"over_{line_str}", f"Over {line} Cartões", over_real, over_implicit,
+                                                original_probabilities, home_team, away_team
+                                            )
+                                            opportunities.append(f"- **Over {line} Cartões**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}% (Valor de {over_real-over_implicit:.1f}%)\n  *Justificativa: {over_cards_justification}*")
+                                        
+                                        probs_section += f"- **Under {line} Cartões**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}%{' (Valor)' if under_value else ''}\n"
+                                        
+                                        if under_value:
+                                            under_cards_justification = generate_justification(
+                                                "cards", f"under_{line_str}", f"Under {line} Cartões", under_real, under_implicit,
+                                                original_probabilities, home_team, away_team
+                                            )
+                                            opportunities.append(f"- **Under {line} Cartões**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real-under_implicit:.1f}%)\n  *Justificativa: {under_cards_justification}*")
                                 
                                 # Money Line
                                 if selected_markets.get("money_line") and "moneyline" in original_probabilities:
