@@ -3298,8 +3298,6 @@ def update_opportunities_format(opportunities_section):
 # Modificação para a função reconstruct_analysis
 # Na parte onde as oportunidades são adicionadas à análise final:
 
-"""
-# Oportunidades identificadas
 if opportunities:
     # Remover justificativas das oportunidades
     clean_opportunities = []
@@ -3311,6 +3309,7 @@ if opportunities:
     new_analysis.append("# Oportunidades Identificadas:\n" + "\n".join(clean_opportunities))
 else:
     new_analysis.append("# Oportunidades Identificadas:\nInfelizmente não detectamos valor em nenhuma dos seus inputs.")
+
 
 def apply_responsive_sidebar_css():
     """
