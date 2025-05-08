@@ -2393,39 +2393,16 @@ def show_main_dashboard():
                                 # CRÍTICO: Adicionar a seção de probabilidades ao resultado
                                 new_analysis.append(probs_section)
                                 
-                                # Oportunidades identificadas
-                                if opportunities:
-                                    opportunities_text = "# Oportunidades Identificadas:\n" + "\n".join(opportunities)
-                                    # Aplicar formatação para controlar a largura
-                                    formatted_opportunities = update_opportunities_format(opportunities_text)
-                                    new_analysis.append(formatted_opportunities)
-                                else:
-                                    new_analysis.append("# Oportunidades Identificadas:\nInfelizmente não detectamos valor em nenhuma dos seus inputs.")
-                                
-                                # Nível de confiança
-                                confidence_section = "# Nível de Confiança Geral: Médio\n"
-                                
-                                # Extrair dados da consistência
-                                if "analysis_data" in original_probabilities:
-                                    analysis_data = original_probabilities["analysis_data"]
-                                    
-                                    # Obter consistência dos times
-                                    home_consistency = analysis_data.get("home_consistency", 0)
-                                    away_consistency = analysis_data.get("away_consistency", 0)
-                                    
-                                    # Ajustar para valores percentuais se necessário
-                                    if home_consistency <= 1.0:
-                                        home_consistency = home_consistency * 100
-                                    if away_consistency <= 1.0:
-                                        away_consistency = away_consistency * 100
-                                    
-                                    # Adicionar apenas informações de consistência
-                                    confidence_section += f"- **Consistência**: {home_team}: {home_consistency:.1f}%, {away_team}: {away_consistency:.1f}%\n"
-                                    confidence_section += "- Valores mais altos de consistência indicam maior confiança na previsão."
-                                else:
-                                    confidence_section += "- Dados insuficientes para determinar a consistência das equipes."
-                                
-                                new_analysis.append(confidence_section)
+                                # Oportunidades identificadas# Oportunidades identificadas - usando nossa nova função
+                                opportunities_section = generate_all_opportunities(
+                                    selected_markets, 
+                                    original_probabilities, 
+                                    implied_probabilities, 
+                                    home_team, 
+                                    away_team, 
+                                    odds_data
+                                )
+                                new_analysis.append(opportunities_section)
                                 
                                 # Avaliar cada oportunidade
                                 for opportunity in opportunities:
@@ -3574,3 +3551,208 @@ def remove_top_whitespace():
     }
     </style>
     """, unsafe_allow_html=True)
+def generate_all_opportunities(selected_markets, original_probabilities, implied_probabilities, 
+                              home_team, away_team, odds_data):
+    """
+    Gera todas as oportunidades para todos os mercados selecionados,
+    independente da lógica original.
+    """
+    import re
+    
+    opportunities_text = "# Oportunidades Identificadas:\n"
+    at_least_one_market_displayed = False
+    
+    # 1. Money Line (se selecionado)
+    if selected_markets.get("money_line") and "moneyline" in original_probabilities:
+        at_least_one_market_displayed = True
+        opportunities_text += "## Money Line (1X2):\n"
+        
+        # Casa
+        home_real = original_probabilities["moneyline"].get("home_win", 0)
+        home_implicit = implied_probabilities.get("home", 0)
+        valor_text = ""
+        if home_real > home_implicit + 2:
+            valor_text = f" (Valor de {home_real-home_implicit:.1f}%)"
+        opportunities_text += f"- **{home_team}**: Real {home_real:.1f}% vs Implícita {home_implicit:.1f}%{valor_text}\n"
+        
+        # Empate
+        draw_real = original_probabilities["moneyline"].get("draw", 0)
+        draw_implicit = implied_probabilities.get("draw", 0)
+        valor_text = ""
+        if draw_real > draw_implicit + 2:
+            valor_text = f" (Valor de {draw_real-draw_implicit:.1f}%)"
+        opportunities_text += f"- **Empate**: Real {draw_real:.1f}% vs Implícita {draw_implicit:.1f}%{valor_text}\n"
+        
+        # Fora
+        away_real = original_probabilities["moneyline"].get("away_win", 0)
+        away_implicit = implied_probabilities.get("away", 0)
+        valor_text = ""
+        if away_real > away_implicit + 2:
+            valor_text = f" (Valor de {away_real-away_implicit:.1f}%)"
+        opportunities_text += f"- **{away_team}**: Real {away_real:.1f}% vs Implícita {away_implicit:.1f}%{valor_text}\n"
+    
+    # 2. Chance Dupla (se selecionado)
+    if selected_markets.get("chance_dupla") and "double_chance" in original_probabilities:
+        at_least_one_market_displayed = True
+        opportunities_text += "\n## Chance Dupla:\n"
+        
+        # 1X
+        hd_real = original_probabilities["double_chance"].get("home_or_draw", 0)
+        hd_implicit = implied_probabilities.get("home_draw", 0)
+        valor_text = ""
+        if hd_real > hd_implicit + 2:
+            valor_text = f" (Valor de {hd_real-hd_implicit:.1f}%)"
+        opportunities_text += f"- **{home_team} ou Empate**: Real {hd_real:.1f}% vs Implícita {hd_implicit:.1f}%{valor_text}\n"
+        
+        # 12
+        ha_real = original_probabilities["double_chance"].get("home_or_away", 0)
+        ha_implicit = implied_probabilities.get("home_away", 0)
+        valor_text = ""
+        if ha_real > ha_implicit + 2:
+            valor_text = f" (Valor de {ha_real-ha_implicit:.1f}%)"
+        opportunities_text += f"- **{home_team} ou {away_team}**: Real {ha_real:.1f}% vs Implícita {ha_implicit:.1f}%{valor_text}\n"
+        
+        # X2
+        da_real = original_probabilities["double_chance"].get("away_or_draw", 0)
+        da_implicit = implied_probabilities.get("draw_away", 0)
+        valor_text = ""
+        if da_real > da_implicit + 2:
+            valor_text = f" (Valor de {da_real-da_implicit:.1f}%)"
+        opportunities_text += f"- **Empate ou {away_team}**: Real {da_real:.1f}% vs Implícita {da_implicit:.1f}%{valor_text}\n"
+    
+    # 3. Ambos Marcam (se selecionado)
+    if selected_markets.get("ambos_marcam") and "btts" in original_probabilities:
+        at_least_one_market_displayed = True
+        opportunities_text += "\n## Ambos Marcam (BTTS):\n"
+        
+        # Sim
+        yes_real = original_probabilities["btts"].get("yes", 0)
+        yes_implicit = implied_probabilities.get("btts_yes", 0)
+        valor_text = ""
+        if yes_real > yes_implicit + 2:
+            valor_text = f" (Valor de {yes_real-yes_implicit:.1f}%)"
+        opportunities_text += f"- **Sim**: Real {yes_real:.1f}% vs Implícita {yes_implicit:.1f}%{valor_text}\n"
+        
+        # Não
+        no_real = original_probabilities["btts"].get("no", 0)
+        no_implicit = implied_probabilities.get("btts_no", 0)
+        valor_text = ""
+        if no_real > no_implicit + 2:
+            valor_text = f" (Valor de {no_real-no_implicit:.1f}%)"
+        opportunities_text += f"- **Não**: Real {no_real:.1f}% vs Implícita {no_implicit:.1f}%{valor_text}\n"
+    
+    # 4. Over/Under (se selecionado)
+    if selected_markets.get("over_under") and "over_under" in original_probabilities:
+        at_least_one_market_displayed = True
+        opportunities_text += "\n## Over/Under Gols:\n"
+        
+        # Extrair linha do texto de odds
+        line_match = re.search(r"Over\s+(\d+\.?\d*)\s+Gols", odds_data)
+        if line_match:
+            line = float(line_match.group(1))
+            line_str = str(line).replace('.', '_')
+            
+            # Over
+            over_real = original_probabilities["over_under"].get(f"over_{line_str}", 0)
+            if over_real == 0:  # Fallback para over_2_5 se específico não existir
+                over_real = original_probabilities["over_under"].get("over_2_5", 0)
+            over_implicit = implied_probabilities.get(f"over_{line_str}", 0)
+            valor_text = ""
+            if over_real > over_implicit + 2:
+                valor_text = f" (Valor de {over_real-over_implicit:.1f}%)"
+            opportunities_text += f"- **Over {line} Gols**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}%{valor_text}\n"
+            
+            # Under
+            under_real = original_probabilities["over_under"].get(f"under_{line_str}", 0)
+            if under_real == 0:  # Fallback ou cálculo
+                under_real = 100.0 - over_real
+            under_implicit = implied_probabilities.get(f"under_{line_str}", 0)
+            valor_text = ""
+            if under_real > under_implicit + 2:
+                valor_text = f" (Valor de {under_real-under_implicit:.1f}%)"
+            opportunities_text += f"- **Under {line} Gols**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}%{valor_text}\n"
+    
+    # 5. Escanteios (se selecionado)
+    if selected_markets.get("escanteios") and "corners" in original_probabilities:
+        at_least_one_market_displayed = True
+        opportunities_text += "\n## Escanteios:\n"
+        
+        # Extrair linha do texto de odds
+        line_match = re.search(r"Over\s+(\d+\.?\d*)\s+Escanteios", odds_data)
+        if line_match:
+            line = float(line_match.group(1))
+            line_str = str(line).replace('.', '_')
+            
+            # Calcular over e under para escanteios
+            if f"over_{line_str}" in original_probabilities["corners"]:
+                over_real = original_probabilities["corners"][f"over_{line_str}"] * 100
+            else:
+                # Use o padrão para over_9_5 e ajuste
+                base_over = original_probabilities["corners"].get("over_9_5", 50)
+                if line < 9.5:
+                    over_real = min(95, base_over + ((9.5 - line) * 10))
+                else:
+                    over_real = max(5, base_over - ((line - 9.5) * 10))
+            
+            over_implicit = implied_probabilities.get(f"corners_over_{line_str}", 0)
+            valor_text = ""
+            if over_real > over_implicit + 2:
+                valor_text = f" (Valor de {over_real-over_implicit:.1f}%)"
+            opportunities_text += f"- **Over {line} Escanteios**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}%{valor_text}\n"
+            
+            # Under
+            under_real = 100.0 - over_real
+            under_implicit = implied_probabilities.get(f"corners_under_{line_str}", 0)
+            valor_text = ""
+            if under_real > under_implicit + 2:
+                valor_text = f" (Valor de {under_real-under_implicit:.1f}%)"
+            opportunities_text += f"- **Under {line} Escanteios**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}%{valor_text}\n"
+    
+    # 6. Cartões (se selecionado)
+    if selected_markets.get("cartoes") and "cards" in original_probabilities:
+        at_least_one_market_displayed = True
+        opportunities_text += "\n## Cartões:\n"
+        
+        # Extrair linha do texto de odds
+        line_match = re.search(r"Over\s+(\d+\.?\d*)\s+Cartões", odds_data)
+        if line_match:
+            line = float(line_match.group(1))
+            line_str = str(line).replace('.', '_')
+            
+            # Calcular over e under para cartões (similar a escanteios)
+            if isinstance(original_probabilities["cards"], dict):
+                if f"over_{line_str}" in original_probabilities["cards"]:
+                    over_real = original_probabilities["cards"][f"over_{line_str}"] * 100
+                else:
+                    # Aproximação baseada em expected_cards
+                    expected_cards = original_probabilities["cards"].get("expected_cards", 3.5)
+                    if expected_cards > line + 1.5:
+                        over_real = 75
+                    elif expected_cards > line:
+                        over_real = 60
+                    elif expected_cards + 1.5 < line:
+                        over_real = 25
+                    else:
+                        over_real = 40
+            else:
+                # Valor padrão se não tivermos dados específicos
+                over_real = 50
+            
+            over_implicit = implied_probabilities.get(f"cards_over_{line_str}", 0)
+            valor_text = ""
+            if over_real > over_implicit + 2:
+                valor_text = f" (Valor de {over_real-over_implicit:.1f}%)"
+            opportunities_text += f"- **Over {line} Cartões**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}%{valor_text}\n"
+            
+            # Under
+            under_real = 100.0 - over_real
+            under_implicit = implied_probabilities.get(f"cards_under_{line_str}", 0)
+            valor_text = ""
+            if under_real > under_implicit + 2:
+                valor_text = f" (Valor de {under_real-under_implicit:.1f}%)"
+            opportunities_text += f"- **Under {line} Cartões**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}%{valor_text}\n"
+    
+    if not at_least_one_market_displayed:
+        opportunities_text = "# Oportunidades Identificadas:\nInfelizmente não detectamos valor em nenhuma dos seus inputs."
+    
+    return opportunities_text
