@@ -2785,15 +2785,15 @@ def transform_api_data(stats_data, home_team, away_team, selected_markets):
 def evaluate_opportunity(real_prob, margin):
     """Avalia a qualidade da oportunidade com base na probabilidade e margem"""
     if real_prob >= 70 and margin >= 7:
-        return "EXCELENTE", "Alta probabilidade e grande margem"
+        return "EXCELENTE", "green", "Alta probabilidade e grande margem"
     elif real_prob >= 60 and margin >= 5:
-        return "MUITO BOA", "Boa probabilidade e margem significativa" 
+        return "MUITO BOA", "lightgreen", "Boa probabilidade e margem significativa" 
     elif real_prob >= 50 and margin >= 3:
-        return "BOA", "Probabilidade e margem razoáveis"
+        return "BOA", "yellow", "Probabilidade e margem razoáveis"
     elif real_prob >= 60 or margin >= 5:
-        return "RAZOÁVEL", "Ou boa probabilidade ou boa margem"
+        return "RAZOÁVEL", "orange", "Ou boa probabilidade ou boa margem"
     else:
-        return "BAIXA", "Probabilidade e margem insuficientes"
+        return "BAIXA", "red", "Probabilidade e margem insuficientes"
 
 # Função para adicionar a avaliação ao final da análise
 def add_opportunity_evaluation(analysis_text):
@@ -3632,11 +3632,15 @@ def generate_all_opportunities(selected_markets, original_probabilities, implied
     """
     Gera todas as oportunidades para todos os mercados selecionados,
     independente da lógica original.
+    
+    Returns:
+        tuple: (texto_oportunidades, lista_oportunidades_valor)
     """
     import re
     
     opportunities_text = "# Oportunidades Identificadas:\n"
     at_least_one_market_displayed = False
+    value_opportunities = []  # Lista para armazenar oportunidades com valor
     
     # 1. Money Line (se selecionado)
     if selected_markets.get("money_line") and "moneyline" in original_probabilities:
@@ -3647,24 +3651,51 @@ def generate_all_opportunities(selected_markets, original_probabilities, implied
         home_real = original_probabilities["moneyline"].get("home_win", 0)
         home_implicit = implied_probabilities.get("home", 0)
         valor_text = ""
-        if home_real > home_implicit + 2:
-            valor_text = f" (Valor de {home_real-home_implicit:.1f}%)"
+        home_edge = home_real - home_implicit
+        if home_edge > 2:
+            valor_text = f" (Valor de {home_edge:.1f}%)"
+            # Adicionar à lista de oportunidades com valor
+            value_opportunities.append({
+                "name": f"{home_team}",
+                "market": "Money Line",
+                "real_prob": home_real,
+                "implied_prob": home_implicit,
+                "edge": home_edge
+            })
         opportunities_text += f"- **{home_team}**: Real {home_real:.1f}% vs Implícita {home_implicit:.1f}%{valor_text}\n"
         
         # Empate
         draw_real = original_probabilities["moneyline"].get("draw", 0)
         draw_implicit = implied_probabilities.get("draw", 0)
         valor_text = ""
-        if draw_real > draw_implicit + 2:
-            valor_text = f" (Valor de {draw_real-draw_implicit:.1f}%)"
+        draw_edge = draw_real - draw_implicit
+        if draw_edge > 2:
+            valor_text = f" (Valor de {draw_edge:.1f}%)"
+            # Adicionar à lista de oportunidades com valor
+            value_opportunities.append({
+                "name": "Empate",
+                "market": "Money Line",
+                "real_prob": draw_real,
+                "implied_prob": draw_implicit,
+                "edge": draw_edge
+            })
         opportunities_text += f"- **Empate**: Real {draw_real:.1f}% vs Implícita {draw_implicit:.1f}%{valor_text}\n"
         
         # Fora
         away_real = original_probabilities["moneyline"].get("away_win", 0)
         away_implicit = implied_probabilities.get("away", 0)
         valor_text = ""
-        if away_real > away_implicit + 2:
-            valor_text = f" (Valor de {away_real-away_implicit:.1f}%)"
+        away_edge = away_real - away_implicit
+        if away_edge > 2:
+            valor_text = f" (Valor de {away_edge:.1f}%)"
+            # Adicionar à lista de oportunidades com valor
+            value_opportunities.append({
+                "name": f"{away_team}",
+                "market": "Money Line",
+                "real_prob": away_real,
+                "implied_prob": away_implicit,
+                "edge": away_edge
+            })
         opportunities_text += f"- **{away_team}**: Real {away_real:.1f}% vs Implícita {away_implicit:.1f}%{valor_text}\n"
     
     # 2. Chance Dupla (se selecionado)
@@ -3676,24 +3707,51 @@ def generate_all_opportunities(selected_markets, original_probabilities, implied
         hd_real = original_probabilities["double_chance"].get("home_or_draw", 0)
         hd_implicit = implied_probabilities.get("home_draw", 0)
         valor_text = ""
-        if hd_real > hd_implicit + 2:
-            valor_text = f" (Valor de {hd_real-hd_implicit:.1f}%)"
+        hd_edge = hd_real - hd_implicit
+        if hd_edge > 2:
+            valor_text = f" (Valor de {hd_edge:.1f}%)"
+            # Adicionar à lista de oportunidades com valor
+            value_opportunities.append({
+                "name": f"{home_team} ou Empate",
+                "market": "Chance Dupla",
+                "real_prob": hd_real,
+                "implied_prob": hd_implicit,
+                "edge": hd_edge
+            })
         opportunities_text += f"- **{home_team} ou Empate**: Real {hd_real:.1f}% vs Implícita {hd_implicit:.1f}%{valor_text}\n"
         
         # 12
         ha_real = original_probabilities["double_chance"].get("home_or_away", 0)
         ha_implicit = implied_probabilities.get("home_away", 0)
         valor_text = ""
-        if ha_real > ha_implicit + 2:
-            valor_text = f" (Valor de {ha_real-ha_implicit:.1f}%)"
+        ha_edge = ha_real - ha_implicit
+        if ha_edge > 2:
+            valor_text = f" (Valor de {ha_edge:.1f}%)"
+            # Adicionar à lista de oportunidades com valor
+            value_opportunities.append({
+                "name": f"{home_team} ou {away_team}",
+                "market": "Chance Dupla",
+                "real_prob": ha_real,
+                "implied_prob": ha_implicit,
+                "edge": ha_edge
+            })
         opportunities_text += f"- **{home_team} ou {away_team}**: Real {ha_real:.1f}% vs Implícita {ha_implicit:.1f}%{valor_text}\n"
         
         # X2
         da_real = original_probabilities["double_chance"].get("away_or_draw", 0)
         da_implicit = implied_probabilities.get("draw_away", 0)
         valor_text = ""
-        if da_real > da_implicit + 2:
-            valor_text = f" (Valor de {da_real-da_implicit:.1f}%)"
+        da_edge = da_real - da_implicit
+        if da_edge > 2:
+            valor_text = f" (Valor de {da_edge:.1f}%)"
+            # Adicionar à lista de oportunidades com valor
+            value_opportunities.append({
+                "name": f"Empate ou {away_team}",
+                "market": "Chance Dupla",
+                "real_prob": da_real,
+                "implied_prob": da_implicit,
+                "edge": da_edge
+            })
         opportunities_text += f"- **Empate ou {away_team}**: Real {da_real:.1f}% vs Implícita {da_implicit:.1f}%{valor_text}\n"
     
     # 3. Ambos Marcam (se selecionado)
@@ -3705,16 +3763,34 @@ def generate_all_opportunities(selected_markets, original_probabilities, implied
         yes_real = original_probabilities["btts"].get("yes", 0)
         yes_implicit = implied_probabilities.get("btts_yes", 0)
         valor_text = ""
-        if yes_real > yes_implicit + 2:
-            valor_text = f" (Valor de {yes_real-yes_implicit:.1f}%)"
+        yes_edge = yes_real - yes_implicit
+        if yes_edge > 2:
+            valor_text = f" (Valor de {yes_edge:.1f}%)"
+            # Adicionar à lista de oportunidades com valor
+            value_opportunities.append({
+                "name": "Ambos Marcam - Sim",
+                "market": "BTTS",
+                "real_prob": yes_real,
+                "implied_prob": yes_implicit,
+                "edge": yes_edge
+            })
         opportunities_text += f"- **Sim**: Real {yes_real:.1f}% vs Implícita {yes_implicit:.1f}%{valor_text}\n"
         
         # Não
         no_real = original_probabilities["btts"].get("no", 0)
         no_implicit = implied_probabilities.get("btts_no", 0)
         valor_text = ""
-        if no_real > no_implicit + 2:
-            valor_text = f" (Valor de {no_real-no_implicit:.1f}%)"
+        no_edge = no_real - no_implicit
+        if no_edge > 2:
+            valor_text = f" (Valor de {no_edge:.1f}%)"
+            # Adicionar à lista de oportunidades com valor
+            value_opportunities.append({
+                "name": "Ambos Marcam - Não",
+                "market": "BTTS",
+                "real_prob": no_real,
+                "implied_prob": no_implicit,
+                "edge": no_edge
+            })
         opportunities_text += f"- **Não**: Real {no_real:.1f}% vs Implícita {no_implicit:.1f}%{valor_text}\n"
     
     # 4. Over/Under (se selecionado)
@@ -3734,8 +3810,17 @@ def generate_all_opportunities(selected_markets, original_probabilities, implied
                 over_real = original_probabilities["over_under"].get("over_2_5", 0)
             over_implicit = implied_probabilities.get(f"over_{line_str}", 0)
             valor_text = ""
-            if over_real > over_implicit + 2:
-                valor_text = f" (Valor de {over_real-over_implicit:.1f}%)"
+            over_edge = over_real - over_implicit
+            if over_edge > 2:
+                valor_text = f" (Valor de {over_edge:.1f}%)"
+                # Adicionar à lista de oportunidades com valor
+                value_opportunities.append({
+                    "name": f"Over {line} Gols",
+                    "market": "Over/Under",
+                    "real_prob": over_real,
+                    "implied_prob": over_implicit,
+                    "edge": over_edge
+                })
             opportunities_text += f"- **Over {line} Gols**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}%{valor_text}\n"
             
             # Under
@@ -3744,8 +3829,17 @@ def generate_all_opportunities(selected_markets, original_probabilities, implied
                 under_real = 100.0 - over_real
             under_implicit = implied_probabilities.get(f"under_{line_str}", 0)
             valor_text = ""
-            if under_real > under_implicit + 2:
-                valor_text = f" (Valor de {under_real-under_implicit:.1f}%)"
+            under_edge = under_real - under_implicit
+            if under_edge > 2:
+                valor_text = f" (Valor de {under_edge:.1f}%)"
+                # Adicionar à lista de oportunidades com valor
+                value_opportunities.append({
+                    "name": f"Under {line} Gols",
+                    "market": "Over/Under",
+                    "real_prob": under_real,
+                    "implied_prob": under_implicit,
+                    "edge": under_edge
+                })
             opportunities_text += f"- **Under {line} Gols**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}%{valor_text}\n"
     
     # 5. Escanteios (se selecionado)
@@ -3765,6 +3859,8 @@ def generate_all_opportunities(selected_markets, original_probabilities, implied
             else:
                 # Use o padrão para over_9_5 e ajuste
                 base_over = original_probabilities["corners"].get("over_9_5", 50)
+                if isinstance(base_over, float) and base_over <= 1.0:
+                    base_over = base_over * 100
                 if line < 9.5:
                     over_real = min(95, base_over + ((9.5 - line) * 10))
                 else:
@@ -3772,16 +3868,34 @@ def generate_all_opportunities(selected_markets, original_probabilities, implied
             
             over_implicit = implied_probabilities.get(f"corners_over_{line_str}", 0)
             valor_text = ""
-            if over_real > over_implicit + 2:
-                valor_text = f" (Valor de {over_real-over_implicit:.1f}%)"
+            over_edge = over_real - over_implicit
+            if over_edge > 2:
+                valor_text = f" (Valor de {over_edge:.1f}%)"
+                # Adicionar à lista de oportunidades com valor
+                value_opportunities.append({
+                    "name": f"Over {line} Escanteios",
+                    "market": "Escanteios",
+                    "real_prob": over_real,
+                    "implied_prob": over_implicit,
+                    "edge": over_edge
+                })
             opportunities_text += f"- **Over {line} Escanteios**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}%{valor_text}\n"
             
             # Under
             under_real = 100.0 - over_real
             under_implicit = implied_probabilities.get(f"corners_under_{line_str}", 0)
             valor_text = ""
-            if under_real > under_implicit + 2:
-                valor_text = f" (Valor de {under_real-under_implicit:.1f}%)"
+            under_edge = under_real - under_implicit
+            if under_edge > 2:
+                valor_text = f" (Valor de {under_edge:.1f}%)"
+                # Adicionar à lista de oportunidades com valor
+                value_opportunities.append({
+                    "name": f"Under {line} Escanteios",
+                    "market": "Escanteios",
+                    "real_prob": under_real,
+                    "implied_prob": under_implicit,
+                    "edge": under_edge
+                })
             opportunities_text += f"- **Under {line} Escanteios**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}%{valor_text}\n"
     
     # 6. Cartões (se selecionado)
@@ -3816,19 +3930,38 @@ def generate_all_opportunities(selected_markets, original_probabilities, implied
             
             over_implicit = implied_probabilities.get(f"cards_over_{line_str}", 0)
             valor_text = ""
-            if over_real > over_implicit + 2:
-                valor_text = f" (Valor de {over_real-over_implicit:.1f}%)"
+            over_edge = over_real - over_implicit
+            if over_edge > 2:
+                valor_text = f" (Valor de {over_edge:.1f}%)"
+                # Adicionar à lista de oportunidades com valor
+                value_opportunities.append({
+                    "name": f"Over {line} Cartões",
+                    "market": "Cartões",
+                    "real_prob": over_real,
+                    "implied_prob": over_implicit,
+                    "edge": over_edge
+                })
             opportunities_text += f"- **Over {line} Cartões**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}%{valor_text}\n"
             
             # Under
             under_real = 100.0 - over_real
             under_implicit = implied_probabilities.get(f"cards_under_{line_str}", 0)
             valor_text = ""
-            if under_real > under_implicit + 2:
-                valor_text = f" (Valor de {under_real-under_implicit:.1f}%)"
+            under_edge = under_real - under_implicit
+            if under_edge > 2:
+                valor_text = f" (Valor de {under_edge:.1f}%)"
+                # Adicionar à lista de oportunidades com valor
+                value_opportunities.append({
+                    "name": f"Under {line} Cartões",
+                    "market": "Cartões",
+                    "real_prob": under_real,
+                    "implied_prob": under_implicit,
+                    "edge": under_edge
+                })
             opportunities_text += f"- **Under {line} Cartões**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}%{valor_text}\n"
     
     if not at_least_one_market_displayed:
         opportunities_text = "# Oportunidades Identificadas:\nInfelizmente não detectamos valor em nenhuma dos seus inputs."
     
-    return opportunities_text
+    # Retornar tanto o texto quanto a lista de oportunidades com valor
+    return opportunities_text, value_opportunities
