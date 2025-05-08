@@ -2511,6 +2511,20 @@ def show_main_dashboard():
                                 if st.session_state.debug_mode:
                                     st.code(traceback.format_exc())
                         
+                        # Mostrar análise formatada
+                        formatted_analysis = reconstruct_analysis(
+                            analysis, 
+                            home_team, 
+                            away_team, 
+                            selected_markets, 
+                            original_probabilities, 
+                            implied_probabilities, 
+                            odds_data
+                        )
+                        
+                        # Exibir a análise formatada
+                        st.markdown(formatted_analysis)
+                        
                 except Exception as analysis_error:
                     status.error(f"Erro durante análise: {str(analysis_error)}")
                     logger.error(f"Erro durante análise: {str(analysis_error)}")
@@ -2525,7 +2539,7 @@ def show_main_dashboard():
                 st.code(traceback.format_exc())
                 
     except Exception as e:
-        st.error(f"Erro ao carregar o dashboard: {str(e)}")     
+        st.error(f"Erro ao carregar o dashboard: {str(e)}")    
 # Função auxiliar para extração de dados avançada
 def extract_direct_team_stats(source, target, team_type):
     """
