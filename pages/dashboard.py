@@ -2394,7 +2394,8 @@ def show_main_dashboard():
                                 new_analysis.append(probs_section)
                                 
                                 # Oportunidades identificadas# Oportunidades identificadas - usando nossa nova função
-                                opportunities_section = generate_all_opportunities(
+                                # Oportunidades identificadas com nossa nova função
+                                opportunities_section, value_opportunities = generate_all_opportunities(
                                     selected_markets, 
                                     original_probabilities, 
                                     implied_probabilities, 
@@ -2403,6 +2404,81 @@ def show_main_dashboard():
                                     odds_data
                                 )
                                 new_analysis.append(opportunities_section)
+                                
+                                # Nível de confiança
+                                confidence_section = "# Nível de Confiança Geral: Médio\n"
+                                
+                                # Extrair dados da consistência
+                                if "analysis_data" in original_probabilities:
+                                    analysis_data = original_probabilities["analysis_data"]
+                                    
+                                    # Obter consistência dos times
+                                    home_consistency = analysis_data.get("home_consistency", 0)
+                                    away_consistency = analysis_data.get("away_consistency", 0)
+                                    
+                                    # Ajustar para valores percentuais se necessário
+                                    if home_consistency <= 1.0:
+                                        home_consistency = home_consistency * 100
+                                    if away_consistency <= 1.0:
+                                        away_consistency = away_consistency * 100
+                                    
+                                    # Adicionar apenas informações de consistência
+                                    confidence_section += f"- **Consistência**: {home_team}: {home_consistency:.1f}%, {away_team}: {away_consistency:.1f}%\n"
+                                    confidence_section += "- Valores mais altos de consistência indicam maior confiança na previsão."
+                                else:
+                                    confidence_section += "- Dados insuficientes para determinar a consistência das equipes."
+                                
+                                new_analysis.append(confidence_section)
+                                
+                                # Avaliação de viabilidade - APENAS UMA SEÇÃO PARA TODAS AS OPORTUNIDADES
+                                viability_section = "# AVALIAÇÃO DE VIABILIDADE DE APOSTAS\n"
+                                
+                                # Avaliar cada oportunidade com valor
+                                if value_opportunities:
+                                    for opp in value_opportunities:
+                                        name = opp["name"]
+                                        real_prob = opp["real_prob"]
+                                        edge = opp["edge"]
+                                        
+                                        # Determinar nível de viabilidade
+                                        viability = ""
+                                        assessment = ""
+                                        recommendation = ""
+                                        
+                                        if real_prob > 70 and edge > 7:
+                                            viability = "🔥🔥🔥 EXCELENTE"
+                                            assessment = "Alta probabilidade e grande margem"
+                                            recommendation = "Oportunidade excelente para apostar. Considere uma aposta com valor mais alto."
+                                        elif real_prob > 60 and edge > 5:
+                                            viability = "🔥🔥 MUITO BOA"
+                                            assessment = "Boa probabilidade e margem significativa"
+                                            recommendation = "Boa oportunidade para apostar. Valor recomendado."
+                                        elif real_prob > 50 and edge > 3:
+                                            viability = "🔥 BOA"
+                                            assessment = "Probabilidade e margem razoáveis"
+                                            recommendation = "Considere uma aposta com valor moderado."
+                                        else:
+                                            viability = "⚠️ RAZOÁVEL"
+                                            assessment = "Ou boa probabilidade ou boa margem"
+                                            recommendation = "Apostar com cautela e valor reduzido."
+                                        
+                                        # Adicionar à seção
+                                        viability_section += f"## {name} - {viability}\n"
+                                        viability_section += f"- Probabilidade: {real_prob:.1f}% | Margem: {edge:.1f}%\n"
+                                        viability_section += f"- Avaliação: {assessment}\n"
+                                        viability_section += f"- Recomendação: {recommendation}\n"
+                                else:
+                                    viability_section += "Não foram identificadas oportunidades com valor significativo para avaliação.\n"
+                                
+                                # Legenda
+                                viability_section += "\n# LEGENDA DE VIABILIDADE\n"
+                                viability_section += "- 🔥🔥🔥 EXCELENTE: Alta probabilidade (>70%) e grande margem (>7%)\n"
+                                viability_section += "- 🔥🔥 MUITO BOA: Boa probabilidade (>60%) e margem significativa (>5%)\n"
+                                viability_section += "- 🔥 BOA: Probabilidade e margem razoáveis (>50% e >3%)\n"
+                                viability_section += "- ⚠️ RAZOÁVEL: Ou boa probabilidade ou boa margem\n"
+                                viability_section += "- ❌ BAIXA: Probabilidade e margem insuficientes\n"
+                                
+                                new_analysis.append(viability_section)
                                 
                                 # Avaliar cada oportunidade
                                 for opportunity in opportunities:
@@ -3398,7 +3474,7 @@ def ensure_sidebar_visibility():
     """, unsafe_allow_html=True)
     
 def generate_justification(market_type, bet_type, team_name, real_prob, implied_prob, 
-                     original_probabilities, home_team, away_team):
+                         original_probabilities, home_team, away_team):
     """
     Versão modificada que retorna string vazia, eliminando justificativas
     """
