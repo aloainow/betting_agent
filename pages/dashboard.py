@@ -1152,7 +1152,7 @@ def _usage_stats():
 
 # Update check_analysis_limits function to use consistent naming
 def check_analysis_limits(selected_markets):
-    """Check if user can perform analysis with selected markets"""
+    """Check if user can perform analysis with selected markets and debit credits"""
     try:
         num_markets = sum(1 for v in selected_markets.values() if v)
         stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
@@ -1197,11 +1197,11 @@ def check_analysis_limits(selected_markets):
                 # Paid tiers - offer to buy more credits
                 st.warning(f"⚠️ Você tem apenas {remaining_credits} créditos restantes. Esta análise requer {num_markets} créditos.")
                 
-                #  days until downgrade if applicable
+                # days until downgrade if applicable
                 if stats.get('days_until_downgrade'):
                     st.warning(f"⚠️ Atenção: Você será rebaixado para o pacote Free em {stats['days_until_downgrade']} dias se não comprar mais créditos.")
                 
-                #  purchase options
+                # purchase options
                 st.info("Compre mais créditos para continuar.")
                 
                 col1, col2 = st.columns(2)
@@ -1216,7 +1216,23 @@ def check_analysis_limits(selected_markets):
                         return False
                 
                 return False
-                
+        
+        # PARTE CRÍTICA: Debitar os créditos aqui - essa é a parte que estava faltando ou não funcionando
+        # Chame explicitamente a função para debitar os créditos
+        debited = st.session_state.user_manager.debit_credits(st.session_state.email, num_markets)
+        
+        if not debited:
+            st.error("Erro ao debitar créditos. Por favor, tente novamente.")
+            logger.error(f"Falha ao debitar {num_markets} créditos para {st.session_state.email}")
+            return False
+            
+        # Log para confirmação de débito
+        logger.info(f"Debitados {num_markets} créditos para {st.session_state.email}")
+        
+        # Atualizar o cache de estatísticas do usuário para refletir a alteração
+        if hasattr(st.session_state, 'user_stats_cache'):
+            st.session_state.user_stats_cache = st.session_state.user_manager.get_usage_stats(st.session_state.email)
+        
         return True
     except Exception as e:
         logger.error(f"Erro ao verificar limites de análise: {str(e)}")
@@ -2416,7 +2432,7 @@ def show_main_dashboard():
                                 
                                 # Nível de confiança
                                 confidence_section = "# Nível de Confiança Geral: Médio\n"
-                        
+
                                 # Extrair dados da forma e consistência
                                 if "analysis_data" in original_probabilities:
                                     analysis_data = original_probabilities["analysis_data"]
@@ -2429,19 +2445,22 @@ def show_main_dashboard():
                                     if away_consistency <= 1.0:
                                         away_consistency = away_consistency * 100
                                     
-                                    # Verificar se temos dados de forma bruta
-                                    home_form_raw = ""
-                                    away_form_raw = ""
-                                    if "stats_data" in locals() and isinstance(stats_data, dict):
-                                        home_form_raw = stats_data["home_team"].get("formRun_overall", "")
-                                        away_form_raw = stats_data["away_team"].get("formRun_overall", "")
+                                    # CORREÇÃO: Extrair diretamente os pontos de forma dos times do objeto original_probabilities
+                                    # Verificar todas as possíveis localizações onde os dados de forma podem estar
+                                    home_form_points = original_probabilities.get("analysis_data", {}).get("home_form_points", 0)
+                                    away_form_points = original_probabilities.get("analysis_data", {}).get("away_form_points", 0)
                                     
-                                    # Calcular a forma diretamente a partir dos dados brutos se disponíveis
-                                    home_form_points = 0
-                                    away_form_points = 0
+                                    # Se não encontrou na localização principal, tente localização alternativa
+                                    if home_form_points == 0 and "home_team_form" in original_probabilities:
+                                        home_form_points = original_probabilities["home_team_form"]
+                                    if away_form_points == 0 and "away_team_form" in original_probabilities:
+                                        away_form_points = original_probabilities["away_team_form"]
                                     
-                                    # Código para calcular home_form_points e away_form_points
-                                    # (mantido como estava no código original)
+                                    # Ainda como fallback, use os valores de forma calculados diretamente
+                                    if "home_form_calculated" in locals() and home_form_points == 0:
+                                        home_form_points = home_form_calculated
+                                    if "away_form_calculated" in locals() and away_form_points == 0:
+                                        away_form_points = away_form_calculated
                                     
                                     # Adicionar informações de consistência e forma
                                     confidence_section += f"- **Consistência**: {home_team}: {home_consistency:.1f}%, {away_team}: {away_consistency:.1f}%. Consistência é uma medida que indica quão previsível é o desempenho da equipe.\n"
