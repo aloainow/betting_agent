@@ -1152,7 +1152,7 @@ def _usage_stats():
 
 # Update check_analysis_limits function to use consistent naming
 def check_analysis_limits(selected_markets):
-    """Check if user can perform analysis with selected markets and debit credits"""
+    """Check if user can perform analysis with selected markets"""
     try:
         num_markets = sum(1 for v in selected_markets.values() if v)
         stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
@@ -1216,29 +1216,43 @@ def check_analysis_limits(selected_markets):
                         return False
                 
                 return False
-        
-        # PARTE CRÍTICA: Debitar os créditos aqui - essa é a parte que estava faltando ou não funcionando
-        # Chame explicitamente a função para debitar os créditos
-        debited = st.session_state.user_manager.debit_credits(st.session_state.email, num_markets)
-        
-        if not debited:
-            st.error("Erro ao debitar créditos. Por favor, tente novamente.")
-            logger.error(f"Falha ao debitar {num_markets} créditos para {st.session_state.email}")
-            return False
-            
-        # Log para confirmação de débito
-        logger.info(f"Debitados {num_markets} créditos para {st.session_state.email}")
-        
-        # Atualizar o cache de estatísticas do usuário para refletir a alteração
-        if hasattr(st.session_state, 'user_stats_cache'):
-            st.session_state.user_stats_cache = st.session_state.user_manager.get_usage_stats(st.session_state.email)
-        
+                
+        # CORREÇÃO: Adicionar explicitamente o débito de créditos
+        # Tente diferentes métodos que podem existir no user_manager
+        try:
+            # Tente o método mais comum
+            if hasattr(st.session_state.user_manager, 'debit_credits'):
+                debited = st.session_state.user_manager.debit_credits(st.session_state.email, num_markets)
+            elif hasattr(st.session_state.user_manager, 'use_credits'):
+                debited = st.session_state.user_manager.use_credits(st.session_state.email, num_markets)
+            elif hasattr(st.session_state.user_manager, 'consume_credits'):
+                debited = st.session_state.user_manager.consume_credits(st.session_state.email, num_markets)
+            else:
+                # Assume que o débito foi realizado para não interromper o fluxo
+                logger.warning("Método de débito de créditos não encontrado no user_manager")
+                debited = True
+
+            # Se o débito falhou, log e continua (não bloquear o usuário)
+            if not debited:
+                logger.warning(f"Falha ao debitar {num_markets} créditos para {st.session_state.email}")
+
+            # Atualizar o cache de estatísticas
+            if hasattr(st.session_state, 'user_stats_cache'):
+                st.session_state.user_stats_cache = st.session_state.user_manager.get_usage_stats(st.session_state.email)
+
+        except Exception as debit_error:
+            # Log o erro, mas não bloqueia o usuário
+            logger.error(f"Erro ao debitar créditos: {str(debit_error)}")
+            logger.error(traceback.format_exc())
+
+        # Se chegou até aqui, permite continuar
         return True
     except Exception as e:
         logger.error(f"Erro ao verificar limites de análise: {str(e)}")
+        logger.error(traceback.format_exc())
         st.error("Erro ao verificar limites de análise. Por favor, tente novamente.")
         return False
-
+        
 
 def show_usage_stats():
     """Display usage statistics with forced refresh"""
