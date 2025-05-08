@@ -3441,7 +3441,7 @@ def generate_justification(market_type, bet_type, team_name, real_prob, implied_
     """
     Versão modificada que retorna string vazia, eliminando justificativas
     """
-return ""  # Retorna string vazia em vez de gerar justificativas
+    return ""  # Retorna string vazia em vez de gerar justificativas
     
 def fix_sidebar_animation():
     """
