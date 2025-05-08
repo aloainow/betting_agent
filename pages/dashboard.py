@@ -2056,8 +2056,7 @@ def show_main_dashboard():
                                             "moneyline", "home_win", home_team, home_real, home_implicit,
                                             original_probabilities, home_team, away_team
                                         )
-                                        opportunities.append(f"- **{home_team}**: Real {home_real:.1f}% vs Implícita {home_implicit:.1f}% (Valor de {home_real-home_implicit:.1f}%)\n  *Justificativa: {home_justification}*")
-                                    
+                                        opportunities.append(f"- **{some_variable}**: ... ")                                    
                                     # Empate
                                     draw_real = original_probabilities["moneyline"].get("draw", 0)
                                     draw_implicit = implied_probabilities.get("draw", 0)
@@ -2071,8 +2070,7 @@ def show_main_dashboard():
                                             "moneyline", "draw", "Empate", draw_real, draw_implicit,
                                             original_probabilities, home_team, away_team
                                         )
-                                        opportunities.append(f"- **Empate**: Real {draw_real:.1f}% vs Implícita {draw_implicit:.1f}% (Valor de {draw_real-draw_implicit:.1f}%)\n  *Justificativa: {draw_justification}*")
-                                    
+                                        opportunities.append(f"- **{some_variable}**: ... ")                                    
                                     # Fora
                                     away_real = original_probabilities["moneyline"].get("away_win", 0)
                                     away_implicit = implied_probabilities.get("away", 0)
@@ -2086,8 +2084,7 @@ def show_main_dashboard():
                                             "moneyline", "away_win", away_team, away_real, away_implicit,
                                             original_probabilities, home_team, away_team
                                         )
-                                        opportunities.append(f"- **{away_team}**: Real {away_real:.1f}% vs Implícita {away_implicit:.1f}% (Valor de {away_real-away_implicit:.1f}%)\n  *Justificativa: {away_justification}*")
-                                
+                                        opportunities.append(f"- **{some_variable}**: ... ")                                
                                 # Double Chance
                                 if selected_markets.get("chance_dupla") and "double_chance" in original_probabilities:
                                     probs_section += "## Chance Dupla (Double Chance):\n"
@@ -2105,8 +2102,7 @@ def show_main_dashboard():
                                             "double_chance", "home_or_draw", f"{home_team} ou Empate", hd_real, hd_implicit,
                                             original_probabilities, home_team, away_team
                                         )
-                                        opportunities.append(f"- **{home_team} ou Empate**: Real {hd_real:.1f}% vs Implícita {hd_implicit:.1f}% (Valor de {hd_real-hd_implicit:.1f}%)\n  *Justificativa: {hd_justification}*")
-                                    
+                                        opportunities.append(f"- **{some_variable}**: ... ")                                    
                                     # 12
                                     ha_real = original_probabilities["double_chance"].get("home_or_away", 0)
                                     ha_implicit = implied_probabilities.get("home_away", 0)
@@ -2120,8 +2116,7 @@ def show_main_dashboard():
                                             "double_chance", "home_or_away", f"{home_team} ou {away_team}", ha_real, ha_implicit,
                                             original_probabilities, home_team, away_team
                                         )
-                                        opportunities.append(f"- **{home_team} ou {away_team}**: Real {ha_real:.1f}% vs Implícita {ha_implicit:.1f}% (Valor de {ha_real-ha_implicit:.1f}%)\n  *Justificativa: {ha_justification}*")
-                                    
+                                        opportunities.append(f"- **{some_variable}**: ... ")                                    
                                     # X2
                                     da_real = original_probabilities["double_chance"].get("away_or_draw", 0)
                                     da_implicit = implied_probabilities.get("draw_away", 0)
@@ -2135,8 +2130,7 @@ def show_main_dashboard():
                                             "double_chance", "away_or_draw", f"Empate ou {away_team}", da_real, da_implicit,
                                             original_probabilities, home_team, away_team
                                         )
-                                        opportunities.append(f"- **Empate ou {away_team}**: Real {da_real:.1f}% vs Implícita {da_implicit:.1f}% (Valor de {da_real-da_implicit:.1f}%)\n  *Justificativa: {da_justification}*")
-                                
+                                        opportunities.append(f"- **{some_variable}**: ... ")                                
                                 # BTTS
                                 if selected_markets.get("ambos_marcam") and "btts" in original_probabilities:
                                     probs_section += "## Ambos Marcam (BTTS):\n"
@@ -2154,8 +2148,7 @@ def show_main_dashboard():
                                             "btts", "yes", "Ambos Marcam - Sim", yes_real, yes_implicit,
                                             original_probabilities, home_team, away_team
                                         )
-                                        opportunities.append(f"- **Ambos Marcam - Sim**: Real {yes_real:.1f}% vs Implícita {yes_implicit:.1f}% (Valor de {yes_real-yes_implicit:.1f}%)\n  *Justificativa: {yes_justification}*")
-                                    
+                                        opportunities.append(f"- **{some_variable}**: ... ")                                    
                                     # Não
                                     no_real = original_probabilities["btts"].get("no", 0)
                                     no_implicit = implied_probabilities.get("btts_no", 0)
@@ -2169,8 +2162,7 @@ def show_main_dashboard():
                                             "btts", "no", "Ambos Marcam - Não", no_real, no_implicit,
                                             original_probabilities, home_team, away_team
                                         )
-                                        opportunities.append(f"- **Ambos Marcam - Não**: Real {no_real:.1f}% vs Implícita {no_implicit:.1f}% (Valor de {no_real-no_implicit:.1f}%)\n  *Justificativa: {no_justification}*")
-                                
+                                        opportunities.append(f"- **{some_variable}**: ... ")                                
                                 # Over/Under
                                 if selected_markets.get("over_under") and "over_under" in original_probabilities:
                                     probs_section += "## Over/Under Gols:\n"
@@ -2203,8 +2195,7 @@ def show_main_dashboard():
                                                 "over_under", f"over_{line_str}", f"Over {line} Gols", over_real, over_implicit,
                                                 original_probabilities, home_team, away_team
                                             )
-                                            opportunities.append(f"- **Over {line} Gols**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}% (Valor de {over_real-over_implicit:.1f}%)\n  *Justificativa: {over_justification}*")
-                                        
+                                            opportunities.append(f"- **{some_variable}**: ... ")                                        
                                         # Under
                                         under_real = 100.0 - over_real
                                         under_implicit = implied_probabilities.get(f"under_{line_str}", 0)
@@ -2218,8 +2209,7 @@ def show_main_dashboard():
                                                 "over_under", f"under_{line_str}", f"Under {line} Gols", under_real, under_implicit,
                                                 original_probabilities, home_team, away_team
                                             )
-                                            opportunities.append(f"- **Under {line} Gols**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real-under_implicit:.1f}%)\n  *Justificativa: {under_justification}*")
-                                
+                                            opportunities.append(f"- **{some_variable}**: ... ")                                
                                 # Escanteios
                                 if selected_markets.get("escanteios") and "corners" in original_probabilities:
                                     probs_section += "## Escanteios:\n"
@@ -2252,8 +2242,7 @@ def show_main_dashboard():
                                                 "corners", f"over_{line_str}", f"Over {line} Escanteios", over_real, over_implicit,
                                                 original_probabilities, home_team, away_team
                                             )
-                                            opportunities.append(f"- **Over {line} Escanteios**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}% (Valor de {over_real-over_implicit:.1f}%)\n  *Justificativa: {over_corners_justification}*")
-                                        
+                                            opportunities.append(f"- **{some_variable}**: ... ")                                        
                                         # Under
                                         under_real = 100.0 - over_real
                                         under_implicit = implied_probabilities.get(f"corners_under_{line_str}", 0)
@@ -2267,8 +2256,7 @@ def show_main_dashboard():
                                                 "corners", f"under_{line_str}", f"Under {line} Escanteios", under_real, under_implicit,
                                                 original_probabilities, home_team, away_team
                                             )
-                                            opportunities.append(f"- **Under {line} Escanteios**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real-under_implicit:.1f}%)\n  *Justificativa: {under_corners_justification}*")
-                                
+                                            opportunities.append(f"- **{some_variable}**: ... ")                                
                                 # Cartões - Código corrigido para usar expected_cards
                                 if selected_markets.get("cartoes") and "cards" in original_probabilities:
                                     probs_section += "## Cartões:\n"
@@ -2393,8 +2381,7 @@ def show_main_dashboard():
                                                 "cards", f"over_{line_str}", f"Over {line} Cartões", over_real, over_implicit,
                                                 original_probabilities, home_team, away_team
                                             )
-                                            opportunities.append(f"- **Over {line} Cartões**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}% (Valor de {over_real-over_implicit:.1f}%)\n  *Justificativa: {over_cards_justification}*")
-                                        
+                                            opportunities.append(f"- **{some_variable}**: ... ")                                        
                                         probs_section += f"- **Under {line} Cartões**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}%{' (Valor)' if under_value else ''}\n"
                                         
                                         if under_value:
@@ -2403,8 +2390,7 @@ def show_main_dashboard():
                                                 "cards", f"under_{line_str}", f"Under {line} Cartões", under_real, under_implicit,
                                                 original_probabilities, home_team, away_team
                                             )
-                                            opportunities.append(f"- **Under {line} Cartões**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real-under_implicit:.1f}%)\n  *Justificativa: {under_cards_justification}*")
-                                
+                                            opportunities.append(f"- **{some_variable}**: ... ")                                
                                 # CRÍTICO: Adicionar a seção de probabilidades ao resultado
                                 new_analysis.append(probs_section)
                                 
@@ -3294,21 +3280,6 @@ def update_opportunities_format(opportunities_section):
     
     # Juntar as linhas formatadas
     return '\n'.join(formatted_lines)
-
-# Modificação para a função reconstruct_analysis
-# Na parte onde as oportunidades são adicionadas à análise final:
-
-if opportunities:
-    # Remover justificativas das oportunidades
-    clean_opportunities = []
-    for opportunity in opportunities:
-        # Pegar apenas a primeira linha da oportunidade (sem justificativa)
-        first_line = opportunity.split("\n")[0]
-        clean_opportunities.append(first_line)
-    
-    new_analysis.append("# Oportunidades Identificadas:\n" + "\n".join(clean_opportunities))
-else:
-    new_analysis.append("# Oportunidades Identificadas:\nInfelizmente não detectamos valor em nenhuma dos seus inputs.")
 
 
 def apply_responsive_sidebar_css():
