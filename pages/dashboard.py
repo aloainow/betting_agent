@@ -3435,84 +3435,13 @@ def ensure_sidebar_visibility():
         window.addEventListener('resize', forceSidebarAccessibility);
     </script>
     """, unsafe_allow_html=True)
-def generate_justification(market_type, bet_type, team_name, real_prob, implied_prob, 
+    
+    def generate_justification(market_type, bet_type, team_name, real_prob, implied_prob, 
                          original_probabilities, home_team, away_team):
     """
-    Função adaptadora que conecta a assinatura necessária em dashboard.py
-    com a implementação em utils/justifications.py, com verificações adicionais
-    para evitar valores absurdos nas justificativas.
+    Versão modificada que retorna string vazia, eliminando justificativas
     """
-    from utils.justifications import generate_condensed_justification
-    
-    # Verificação para evitar erros com tipos inesperados
-    if not isinstance(original_probabilities, dict):
-        original_probabilities = {}
-    
-    # Extrair dados de análise
-    analysis_data = original_probabilities.get("analysis_data", {})
-    
-    # Para o caso específico de escanteios, verificar e corrigir valores absurdos
-    if market_type == "corners" and "corners" in original_probabilities:
-        expected_corners = original_probabilities["corners"].get("expected_corners", 0)
-        
-        # Se o valor é absurdo (>20 ou <3), modificá-lo para um valor razoável
-        if expected_corners > 20 or expected_corners < 3:
-            # Usar um valor mais realista baseado na probabilidade
-            original_probabilities["corners"]["expected_corners"] = 10.5 if real_prob > 60 else 8.5
-            
-    # Para o caso de gols, também verificar valores absurdos
-    if market_type in ["over_under", "btts"] and "over_under" in original_probabilities:
-        expected_goals = original_probabilities["over_under"].get("expected_goals", 0)
-        
-        # Se o valor é absurdo, modificá-lo
-        if expected_goals > 7 or expected_goals < 0.5:
-            original_probabilities["over_under"]["expected_goals"] = 2.5
-    
-    # Para o caso de cartões
-    if market_type == "cards" and "cards" in original_probabilities:
-        expected_cards = original_probabilities["cards"].get("expected_cards", 0)
-        
-        # Se o valor é absurdo, modificá-lo
-        if expected_cards > 10 or expected_cards < 1:
-            original_probabilities["cards"]["expected_cards"] = 4.5 if real_prob > 60 else 3.5
-    
-    # Verificar estatísticas das equipes para escanteios e gols
-    # Isso afeta as justificativas que mostram médias por equipe
-    for team_key, team_name_key in [("home_team", home_team), ("away_team", away_team)]:
-        if team_key in original_probabilities:
-            team_data = original_probabilities[team_key]
-            
-            # Verificar média de escanteios
-            if "home_corners_per_game" in team_data and (team_data["home_corners_per_game"] < 0.1 or team_data["home_corners_per_game"] > 15):
-                team_data["home_corners_per_game"] = 5.2
-                
-            if "away_corners_per_game" in team_data and (team_data["away_corners_per_game"] < 0.1 or team_data["away_corners_per_game"] > 15):
-                team_data["away_corners_per_game"] = 4.8
-                
-            # Verificar média de gols
-            if "home_goals_scored" in team_data and "home_played" in team_data:
-                if team_data["home_played"] == 0:
-                    team_data["home_played"] = 1
-                    
-                home_goals_avg = team_data["home_goals_scored"] / team_data["home_played"]
-                if home_goals_avg < 0.1 or home_goals_avg > 5:
-                    team_data["home_goals_scored"] = 1.5 * team_data["home_played"]
-                    
-            if "away_goals_scored" in team_data and "away_played" in team_data:
-                if team_data["away_played"] == 0:
-                    team_data["away_played"] = 1
-                    
-                away_goals_avg = team_data["away_goals_scored"] / team_data["away_played"]
-                if away_goals_avg < 0.1 or away_goals_avg > 5:
-                    team_data["away_goals_scored"] = 1.2 * team_data["away_played"]
-    
-    # Chamar a função do módulo justifications com a assinatura correta e os dados corrigidos
-    return generate_condensed_justification(
-        team_name, home_team, away_team, 
-        real_prob, implied_prob, 
-        analysis_data, 
-        original_probabilities, 
-        None  # expected_goals (opcional)
+    return ""  # Retorna string vazia em vez de gerar justificativas
     )
 def fix_sidebar_animation():
     """
