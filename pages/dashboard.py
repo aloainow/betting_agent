@@ -3436,13 +3436,13 @@ def ensure_sidebar_visibility():
     </script>
     """, unsafe_allow_html=True)
     
-    def generate_justification(market_type, bet_type, team_name, real_prob, implied_prob, 
-                         original_probabilities, home_team, away_team):
+def generate_justification(market_type, bet_type, team_name, real_prob, implied_prob, 
+                     original_probabilities, home_team, away_team):
     """
     Versão modificada que retorna string vazia, eliminando justificativas
     """
-    return ""  # Retorna string vazia em vez de gerar justificativas
-    )
+return ""  # Retorna string vazia em vez de gerar justificativas
+    
 def fix_sidebar_animation():
     """
     Corrige o problema de animação da sidebar durante o carregamento,
