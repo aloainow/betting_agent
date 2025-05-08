@@ -1216,37 +1216,10 @@ def check_analysis_limits(selected_markets):
                         return False
                 
                 return False
-                
-        # CORREÇÃO: Adicionar explicitamente o débito de créditos
-        # Tente diferentes métodos que podem existir no user_manager
-        try:
-            # Tente o método mais comum
-            if hasattr(st.session_state.user_manager, 'debit_credits'):
-                debited = st.session_state.user_manager.debit_credits(st.session_state.email, num_markets)
-            elif hasattr(st.session_state.user_manager, 'use_credits'):
-                debited = st.session_state.user_manager.use_credits(st.session_state.email, num_markets)
-            elif hasattr(st.session_state.user_manager, 'consume_credits'):
-                debited = st.session_state.user_manager.consume_credits(st.session_state.email, num_markets)
-            else:
-                # Assume que o débito foi realizado para não interromper o fluxo
-                logger.warning("Método de débito de créditos não encontrado no user_manager")
-                debited = True
-
-            # Se o débito falhou, log e continua (não bloquear o usuário)
-            if not debited:
-                logger.warning(f"Falha ao debitar {num_markets} créditos para {st.session_state.email}")
-
-            # Atualizar o cache de estatísticas
-            if hasattr(st.session_state, 'user_stats_cache'):
-                st.session_state.user_stats_cache = st.session_state.user_manager.get_usage_stats(st.session_state.email)
-
-        except Exception as debit_error:
-            # Log o erro, mas não bloqueia o usuário
-            logger.error(f"Erro ao debitar créditos: {str(debit_error)}")
-            logger.error(traceback.format_exc())
-
-        # Se chegou até aqui, permite continuar
+        
+        # Se chegou até aqui, permite continuar (sem debitar)
         return True
+        
     except Exception as e:
         logger.error(f"Erro ao verificar limites de análise: {str(e)}")
         logger.error(traceback.format_exc())
@@ -2557,6 +2530,37 @@ def show_main_dashboard():
                         
                         # Exibir a análise formatada
                         st.markdown(formatted_analysis)
+                        # IMPORTANTE: Registrar uso após análise bem-sucedida
+                        try:
+                            num_markets = sum(1 for v in selected_markets.values() if v)
+                            # Registro de uso com dados detalhados
+                            analysis_data = {
+                                "league": selected_league,
+                                "home_team": home_team,
+                                "away_team": away_team,
+                                "markets_used": [k for k, v in selected_markets.items() if v]
+                            }
+                            success = st.session_state.user_manager.record_usage(
+                                st.session_state.email, 
+                                num_markets,
+                                analysis_data
+                            )
+                            
+                            if success:
+                                # Forçar atualização do cache de estatísticas
+                                if hasattr(st.session_state, 'user_stats_cache'):
+                                    del st.session_state.user_stats_cache  # Remover cache para forçar reload
+                                
+                                # Mostrar mensagem de sucesso com créditos restantes
+                                updated_stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
+                                credits_after = updated_stats['credits_remaining']
+                                st.success(f"{num_markets} créditos foram consumidos. Agora você tem {credits_after} créditos.")
+                            else:
+                                st.warning("Não foi possível registrar o uso. Por favor verifique seus créditos.")
+                        except Exception as usage_error:
+                            logger.error(f"Erro ao registrar uso: {str(usage_error)}")
+                            logger.error(traceback.format_exc())
+                            st.warning("Ocorreu um erro ao contabilizar créditos. Entre em contato com o suporte.")
                         
                 except Exception as analysis_error:
                     status.error(f"Erro durante análise: {str(analysis_error)}")
