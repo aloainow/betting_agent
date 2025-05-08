@@ -2404,10 +2404,12 @@ def show_main_dashboard():
                                 
                                 # Nível de confiança
                                 confidence_section = "# Nível de Confiança Geral: Médio\n"
-
-                                # Extrair dados da forma e consistência
+                                
+                                # Extrair dados da consistência
                                 if "analysis_data" in original_probabilities:
                                     analysis_data = original_probabilities["analysis_data"]
+                                    
+                                    # Obter consistência dos times
                                     home_consistency = analysis_data.get("home_consistency", 0)
                                     away_consistency = analysis_data.get("away_consistency", 0)
                                     
@@ -2417,32 +2419,13 @@ def show_main_dashboard():
                                     if away_consistency <= 1.0:
                                         away_consistency = away_consistency * 100
                                     
-                                    # CORREÇÃO: Extrair diretamente os pontos de forma dos times do objeto original_probabilities
-                                    # Verificar todas as possíveis localizações onde os dados de forma podem estar
-                                    home_form_points = original_probabilities.get("analysis_data", {}).get("home_form_points", 0)
-                                    away_form_points = original_probabilities.get("analysis_data", {}).get("away_form_points", 0)
-                                    
-                                    # Se não encontrou na localização principal, tente localização alternativa
-                                    if home_form_points == 0 and "home_team_form" in original_probabilities:
-                                        home_form_points = original_probabilities["home_team_form"]
-                                    if away_form_points == 0 and "away_team_form" in original_probabilities:
-                                        away_form_points = original_probabilities["away_team_form"]
-                                    
-                                    # Ainda como fallback, use os valores de forma calculados diretamente
-                                    if "home_form_calculated" in locals() and home_form_points == 0:
-                                        home_form_points = home_form_calculated
-                                    if "away_form_calculated" in locals() and away_form_points == 0:
-                                        away_form_points = away_form_calculated
-                                    
-                                    # Adicionar informações de consistência e forma
-                                    confidence_section += f"- **Consistência**: {home_team}: {home_consistency:.1f}%, {away_team}: {away_consistency:.1f}%. Consistência é uma medida que indica quão previsível é o desempenho da equipe.\n"
-                                    confidence_section += f"- **Forma Recente**: {home_team}: {home_form_points}/15, {away_team}: {away_form_points}/15. Forma representa a pontuação dos últimos 5 jogos (vitória=3pts, empate=1pt, derrota=0pts).\n"
-                                    confidence_section += "- Valores mais altos em ambas métricas aumentam a confiança na previsão.\n"
+                                    # Adicionar apenas informações de consistência
+                                    confidence_section += f"- **Consistência**: {home_team}: {home_consistency:.1f}%, {away_team}: {away_consistency:.1f}%\n"
+                                    confidence_section += "- Valores mais altos de consistência indicam maior confiança na previsão."
+                                else:
+                                    confidence_section += "- Dados insuficientes para determinar a consistência das equipes."
                                 
                                 new_analysis.append(confidence_section)
-                                
-                                # Avaliação de viabilidade
-                                viability_section = "# AVALIAÇÃO DE VIABILIDADE DE APOSTAS\n"
                                 
                                 # Avaliar cada oportunidade
                                 for opportunity in opportunities:
