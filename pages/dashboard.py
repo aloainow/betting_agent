@@ -3299,21 +3299,18 @@ def update_opportunities_format(opportunities_section):
 # Na parte onde as oportunidades são adicionadas à análise final:
 
 """
-# Em vez de:
+# Oportunidades identificadas
 if opportunities:
-    new_analysis.append("# Oportunidades Identificadas:\n" + "\n".join(opportunities))
+    # Remover justificativas das oportunidades
+    clean_opportunities = []
+    for opportunity in opportunities:
+        # Pegar apenas a primeira linha da oportunidade (sem justificativa)
+        first_line = opportunity.split("\n")[0]
+        clean_opportunities.append(first_line)
+    
+    new_analysis.append("# Oportunidades Identificadas:\n" + "\n".join(clean_opportunities))
 else:
     new_analysis.append("# Oportunidades Identificadas:\nInfelizmente não detectamos valor em nenhuma dos seus inputs.")
-
-# Usar:
-if opportunities:
-    opportunities_text = "# Oportunidades Identificadas:\n" + "\n".join(opportunities)
-    # Aplicar formatação para controlar a largura
-    formatted_opportunities = update_opportunities_format(opportunities_text)
-    new_analysis.append(formatted_opportunities)
-else:
-    new_analysis.append("# Oportunidades Identificadas:\nInfelizmente não detectamos valor em nenhuma dos seus inputs.")
-"""# Definição corrigida da função apply_responsive_sidebar_css() em dashboard.py
 
 def apply_responsive_sidebar_css():
     """
