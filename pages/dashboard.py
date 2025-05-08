@@ -2437,6 +2437,9 @@ def show_main_dashboard():
                                         implicit_prob = float(match.group(3))
                                         edge = float(match.group(4))
                                         
+                                        # Inicializar a seção de viabilidade
+                                        viability_section = "# AVALIAÇÃO DE VIABILIDADE DE APOSTAS\n"
+                                        
                                         # Determinar nível de viabilidade
                                         viability = ""
                                         assessment = ""
@@ -2464,17 +2467,16 @@ def show_main_dashboard():
                                         viability_section += f"- Probabilidade: {real_prob:.1f}% | Margem: {edge:.1f}%\n"
                                         viability_section += f"- Avaliação: {assessment}\n"
                                         viability_section += f"- Recomendação: {recommendation}\n"
-                                
-                                # Legenda
-                                viability_section += "# LEGENDA DE VIABILIDADE\n"
-                                viability_section += "- 🔥🔥🔥 EXCELENTE: Alta probabilidade (>70%) e grande margem (>7%)\n"
-                                viability_section += "- 🔥🔥 MUITO BOA: Boa probabilidade (>60%) e margem significativa (>5%)\n"
-                                viability_section += "- 🔥 BOA: Probabilidade e margem razoáveis (>50% e >3%)\n"
-                                viability_section += "- ⚠️ RAZOÁVEL: Ou boa probabilidade ou boa margem\n"
-                                viability_section += "- ❌ BAIXA: Probabilidade e margem insuficientes\n"
-                                
-                                new_analysis.append(viability_section)
-                                
+                                        
+                                        # Legenda
+                                        viability_section += "# LEGENDA DE VIABILIDADE\n"
+                                        viability_section += "- 🔥🔥🔥 EXCELENTE: Alta probabilidade (>70%) e grande margem (>7%)\n"
+                                        viability_section += "- 🔥🔥 MUITO BOA: Boa probabilidade (>60%) e margem significativa (>5%)\n"
+                                        viability_section += "- 🔥 BOA: Probabilidade e margem razoáveis (>50% e >3%)\n"
+                                        viability_section += "- ⚠️ RAZOÁVEL: Ou boa probabilidade ou boa margem\n"
+                                        viability_section += "- ❌ BAIXA: Probabilidade e margem insuficientes\n"
+                                        
+                                        new_analysis.append(viability_section)
                                 # Juntar tudo
                                 return "\n".join(new_analysis)
                                 
