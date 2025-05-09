@@ -15,92 +15,77 @@ def show_packages_page():
         # Aplicar estilos personalizados
         apply_custom_styles()
 
-        # Esconder a barra lateral e estilizar os cards
+        # Esconder a barra lateral e aplicar estilos simplificados
         st.markdown("""
         <style>
         [data-testid="stSidebar"] {
             display: none !important;
         }
         
-        .card-container {
-            display: flex;
-            flex-direction: column;
+        /* Estilos mais simples com menos aninhamento */
+        .simple-card {
             background-color: #1e1e1e;
             border-radius: 12px;
             border: 1px solid #333;
-            overflow: hidden;
-            height: 350px;  /* Altura fixa para ambos os cards */
-        }
-        
-        .card-top {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 25px 20px 15px 20px;
+            padding: 25px 20px 20px 20px;
             text-align: center;
-        }
-        
-        .card-icon {
-            font-size: 40px;
+            height: 340px;
             margin-bottom: 15px;
         }
         
-        .card-title {
+        .simple-icon {
+            font-size: 38px;
+            margin-bottom: 12px;
+        }
+        
+        .simple-title {
             font-size: 24px;
             font-weight: bold;
             color: white;
-            margin-bottom: 15px;
+            margin-bottom: 10px;
         }
         
-        .card-price {
+        .simple-price {
             font-size: 32px;
             font-weight: bold;
             color: #fd7014;
-            margin-bottom: 15px;
+            margin-bottom: 10px;
         }
         
-        .card-desc {
+        .simple-desc {
             font-size: 16px;
             color: #aaa;
             margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #333;
         }
         
-        .card-divider {
-            height: 1px;
-            background-color: #333;
-            width: 100%;
-            margin: 0 0 15px 0;
-        }
-        
-        .card-features {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            padding: 0 20px 20px 20px;
+        .feature-list {
             text-align: left;
+            padding-top: 5px;
         }
         
         .feature-item {
             display: flex;
             align-items: flex-start;
+            margin-bottom: 8px;
             color: #ddd;
         }
         
-        .feature-check {
+        .check {
             color: #fd7014;
-            margin-right: 10px;
-            font-size: 16px;
+            margin-right: 8px;
         }
         
-        /* Estilo para os botões */
-        div.row-widget.stButton > button {
+        /* Estilo botões */
+        div.element-container div.row-widget.stButton > button {
             background-color: #fd7014;
             color: white;
             border: none;
-            padding: 10px 0;
             border-radius: 6px;
             font-weight: bold;
             width: 100%;
+            padding: 10px 0;
         }
         </style>
         """, unsafe_allow_html=True)
@@ -147,29 +132,20 @@ def show_packages_page():
             stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
             st.info(f"💰 Você atualmente tem **{stats['credits_remaining']} créditos** disponíveis em sua conta.")
         
-        # Layout de pacotes em colunas
+        # Layout em colunas
         col1, col2 = st.columns(2)
         
-        # Pacote Standard com CONTEÚDO CORRIGIDO
+        # HTML MUITO simplificado para o Pacote Standard
         with col1:
             st.markdown("""
-            <div class="card-container">
-                <div class="card-top">
-                    <div class="card-icon">💼</div>
-                    <div class="card-title">30 Créditos</div>
-                    <div class="card-price">R$ 19,99</div>
-                    <div class="card-desc">Pacote Standard</div>
-                </div>
-                <div class="card-divider"></div>
-                <div class="card-features">
-                    <div class="feature-item">
-                        <span class="feature-check">✓</span>
-                        <span>Análise para múltiplos mercados</span>
-                    </div>
-                    <div class="feature-item">
-                        <span class="feature-check">✓</span>
-                        <span>Análises estendidas</span>
-                    </div>
+            <div class="simple-card">
+                <div class="simple-icon">💼</div>
+                <div class="simple-title">30 Créditos</div>
+                <div class="simple-price">R$ 19,99</div>
+                <div class="simple-desc">Pacote Standard</div>
+                <div class="feature-list">
+                    <div class="feature-item"><span class="check">✓</span> Análise para múltiplos mercados</div>
+                    <div class="feature-item"><span class="check">✓</span> Análises estendidas</div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -177,30 +153,18 @@ def show_packages_page():
             if st.button("Comprar 30 Créditos", use_container_width=True, key="buy_30c"):
                 update_purchase_button(30, 19.99)
         
-        # Pacote Pro com CONTEÚDO CORRIGIDO
+        # HTML MUITO simplificado para o Pacote Pro
         with col2:
             st.markdown("""
-            <div class="card-container">
-                <div class="card-top">
-                    <div class="card-icon">🚀</div>
-                    <div class="card-title">60 Créditos</div>
-                    <div class="card-price">R$ 29,99</div>
-                    <div class="card-desc">Pacote Pro</div>
-                </div>
-                <div class="card-divider"></div>
-                <div class="card-features">
-                    <div class="feature-item">
-                        <span class="feature-check">✓</span>
-                        <span>Análise para múltiplos mercados</span>
-                    </div>
-                    <div class="feature-item">
-                        <span class="feature-check">✓</span>
-                        <span>Melhor custo-benefício</span>
-                    </div>
-                    <div class="feature-item">
-                        <span class="feature-check">✓</span>
-                        <span>Análises estendidas</span>
-                    </div>
+            <div class="simple-card">
+                <div class="simple-icon">🚀</div>
+                <div class="simple-title">60 Créditos</div>
+                <div class="simple-price">R$ 29,99</div>
+                <div class="simple-desc">Pacote Pro</div>
+                <div class="feature-list">
+                    <div class="feature-item"><span class="check">✓</span> Análise para múltiplos mercados</div>
+                    <div class="feature-item"><span class="check">✓</span> Melhor custo-benefício</div>
+                    <div class="feature-item"><span class="check">✓</span> Análises estendidas</div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
