@@ -1,4 +1,3 @@
-# pages/packages.py - Página de Pacotes
 import streamlit as st
 import logging
 from utils.core import (
@@ -20,6 +19,88 @@ def show_packages_page():
         <style>
         [data-testid="stSidebar"] {
             display: none !important;
+        }
+        
+        /* Estilos para os cards de pacotes */
+        .package-card {
+            background-color: #1e1e1e;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border: 1px solid #333;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            text-align: center;
+        }
+        
+        .package-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+            border-color: #fd7014;
+        }
+        
+        .package-icon {
+            font-size: 40px;
+            color: #fd7014;
+            margin-bottom: 15px;
+        }
+        
+        .package-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: #ffffff;
+        }
+        
+        .package-price {
+            font-size: 32px;
+            font-weight: 800;
+            color: #fd7014;
+            margin-bottom: 15px;
+        }
+        
+        .package-desc {
+            font-size: 16px;
+            color: #bbbbbb;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #333;
+        }
+        
+        .feature-list {
+            text-align: left;
+            margin-bottom: 20px;
+            flex-grow: 1;
+        }
+        
+        .feature-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            color: #dddddd;
+        }
+        
+        .feature-icon {
+            color: #fd7014;
+            margin-right: 8px;
+        }
+        
+        /* Estilos responsivos */
+        @media (max-width: 768px) {
+            .package-card {
+                padding: 20px;
+            }
+            
+            .package-title {
+                font-size: 20px;
+            }
+            
+            .package-price {
+                font-size: 28px;
+            }
         }
         </style>
         """, unsafe_allow_html=True)
@@ -78,10 +159,22 @@ def show_packages_page():
         
         with col1:
             st.markdown("""
-            <div class="credit-card">
-                <div class="credit-title">30 Créditos</div>
-                <div class="credit-price">R$ 19,99</div>
-                <div class="credit-desc">Pacote Standard</div>
+            <div class="package-card">
+                <div class="package-icon">💼</div>
+                <div class="package-title">30 Créditos</div>
+                <div class="package-price">R$ 19,99</div>
+                <div class="package-desc">Pacote Standard</div>
+                <div class="feature-list">
+                    <div class="feature-item">
+                        <span class="feature-icon">✓</span> Análise para mercados simples
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">✓</span> Renovação automática com créditos
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">✓</span> Suporte básico
+                    </div>
+                </div>
             </div>
             """, unsafe_allow_html=True)
             
@@ -90,10 +183,25 @@ def show_packages_page():
         
         with col2:
             st.markdown("""
-            <div class="credit-card">
-                <div class="credit-title">60 Créditos</div>
-                <div class="credit-price">R$ 29,99</div>
-                <div class="credit-desc">Pacote Pro</div>
+            <div class="package-card">
+                <div class="package-icon">🚀</div>
+                <div class="package-title">60 Créditos</div>
+                <div class="package-price">R$ 29,99</div>
+                <div class="package-desc">Pacote Pro</div>
+                <div class="feature-list">
+                    <div class="feature-item">
+                        <span class="feature-icon">✓</span> Análise para múltiplos mercados
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">✓</span> Melhor custo-benefício
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">✓</span> Análises estendidas
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">✓</span> Suporte prioritário
+                    </div>
+                </div>
             </div>
             """, unsafe_allow_html=True)
             
