@@ -9,7 +9,7 @@ from utils.core import (
     configure_sidebar_visibility, apply_global_css, init_stripe,
     check_payment_success, handle_stripe_errors, apply_custom_styles,
     remove_loading_screen, apply_responsive_styles, hide_sidebar_completely,
-    remove_top_whitespace, apply_dark_theme, nuclear_whitespace_fix
+    remove_top_whitespace, apply_dark_theme   # Alterado de remove_all_top_space para remove_top_whitespace
 )
 
 # -----------------------------------------------------
@@ -18,428 +18,100 @@ from utils.core import (
 # -----------------------------------------------------
 st.set_page_config(
     page_title="ValueHunter",
-    page_icon="favicon_svg.svg",
+    page_icon="favicon_svg.svg",   # Corrigido para usar o arquivo .svg
     layout="wide"
 )
 
-# Chame a solução nuclear imediatamente após set_page_config
-nuclear_whitespace_fix()
-
-# -----------------------------------------------------
-# SOLUÇÃO ULTRA-AGRESSIVA PARA REMOVER ESPAÇO EM BRANCO
-# -----------------------------------------------------
+# AGORA injetamos o CSS para remover espaçamento DEPOIS da configuração da página
 st.markdown("""
 <style>
-/* Solução definitiva - qualquer elemento que possa causar espaço */
-.main .block-container,
-.css-18e3th9,
-.css-1d391kg,
-.st-ae, 
-.st-af, 
-.st-ag, 
-.st-ah, 
-.st-ai, 
-.st-aj, 
-.st-ak, 
-.st-al,
-.css-hxt7ib,
-.e1fqkh3o4,
-.css-1544g2n.e1fqkh3o4,
-.withScreencast,
-.main,
-.main-content,
-.stApp,
-[data-testid="stAppViewContainer"] > section,
-[data-testid="stAppViewContainer"],
-[data-testid="stHeader"],
-section[data-testid*="stBlock"],
-div[data-testid*="stBlock"],
-[data-testid="stVerticalBlock"],
-.element-container:first-child,
-.stMarkdown:first-child,
-.main section:first-child,
-.main .block-container > div:first-child {
-    padding-top: 0 !important;
+/* SOLUÇÃO DEFINITIVA PARA ESPAÇO EM BRANCO - aplicada globalmente */
+/* Reset de todos os espaçamentos em todos os elementos */
+body, html, .stApp, .main, .main .block-container {
     margin-top: 0 !important;
+    padding-top: 0 !important;
     gap: 0 !important;
-    border-top: 0 !important;
-    border-top-width: 0 !important;
 }
 
-/* Esconder cabeçalho e outros elementos que ocupam espaço */
-[data-testid="stHeader"],
-[data-testid="stToolbar"],
-[data-testid="stDecoration"],
-[data-testid="stStatusWidget"],
-div[data-testid="stTopBanner"] {
-    position: absolute !important;
+/* Remover completamente o cabeçalho do Streamlit */
+header[data-testid="stHeader"] {
     display: none !important;
     height: 0 !important;
-    max-height: 0 !important;
     min-height: 0 !important;
-    opacity: 0 !important;
+    max-height: 0 !important;
     visibility: hidden !important;
-    width: 0 !important;
+    position: absolute !important;
     z-index: -9999 !important;
+    opacity: 0 !important;
+    width: 0 !important;
+}
+
+/* Remover todos os elementos decorativos e espaços extras */
+[data-testid="stDecoration"],
+[data-testid="stToolbar"],
+[data-testid="stStatusWidget"],
+[data-testid="stSidebarNavItems"],
+div[data-testid~="injected"] {
+    display: none !important;
+    height: 0 !important;
+    width: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
+    visibility: hidden !important;
+    position: absolute !important;
+    z-index: -9999 !important;
 }
 
-/* Reduzir espaço entre componentes */
-.element-container {
-    margin-bottom: 10px !important;
+/* Corrigir a altura do contêiner principal */
+.main .block-container {
+    max-width: 100% !important;
+    padding-top: 0 !important;
+    margin-top: 0 !important;
 }
 
-/* Ajustar toda a hierarquia de elementos a partir da raiz */
-html, body, #root, .stApp {
+/* Forçar primeiro elemento a começar no topo absoluto */
+.main .block-container > div:first-child,
+.element-container:first-child,
+.stMarkdown:first-child,
+section.main > div:first-child {
     margin-top: 0 !important;
     padding-top: 0 !important;
 }
 
-/* Remover espaço em layouts específicos */
-.row-widget.stSelectbox,
-.row-widget,
-div[data-layout="wide"],
+/* Zerar margens e paddings de todos primeiros filhos */
+*:first-child {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+
+/* Reset para layout de gaps e grids */
 div[data-layout] {
+    gap: 0 !important;
     margin-top: 0 !important;
     padding-top: 0 !important;
-    gap: 0 !important;
-}
-
-/* Remover espaço da .stAlert utilizada para mensagens na tela */
-.stAlert {
-    margin-top: 5px !important;
-    margin-bottom: 5px !important;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# JavaScript ultra-agressivo para remover espaçamento
-js_fix_spacing = """
-<script>
-    // Função para remover qualquer espaço no topo
-    function forceNoTopSpace() {
-        // 1. Esconder completamente o cabeçalho
-        const headers = document.querySelectorAll('[data-testid="stHeader"], header');
-        headers.forEach(el => {
-            el.style.display = 'none';
-            el.style.height = '0';
-            el.style.margin = '0';
-            el.style.padding = '0';
-            el.style.visibility = 'hidden';
-            el.style.position = 'absolute';
-            el.style.zIndex = '-9999';
-        });
-        
-        // 2. Remover espaço do contêiner principal
-        const mainContainers = document.querySelectorAll('.main .block-container, .css-18e3th9, [data-testid="stAppViewContainer"] > section');
-        mainContainers.forEach(el => {
-            el.style.paddingTop = '0';
-            el.style.marginTop = '0';
-            el.style.gap = '0';
-        });
-        
-        // 3. Remover espaço do primeiro elemento em cada seção
-        const firstElements = document.querySelectorAll('.main .block-container > div:first-child, .element-container:first-child, .stMarkdown:first-child');
-        firstElements.forEach(el => {
-            el.style.marginTop = '0';
-            el.style.paddingTop = '0';
-        });
-        
-        // 4. Forçar remoção de qualquer margem ou padding no topo de todos elementos principais
-        const allMainElements = document.querySelectorAll('section.main, .main, .stApp, section[data-testid="stAppViewContainer"]');
-        allMainElements.forEach(el => {
-            el.style.paddingTop = '0';
-            el.style.marginTop = '0';
-        });
-        
-        // 5. Remover qualquer decoração ou barra de ferramentas
-        const decorations = document.querySelectorAll('[data-testid="stDecoration"], [data-testid="stToolbar"], [data-testid="stStatusWidget"]');
-        decorations.forEach(el => {
-            el.style.display = 'none';
-            el.style.height = '0';
-            el.style.margin = '0';
-            el.style.padding = '0';
-        });
-        
-        // 6. Remover espaço do título específico "VALUE HUNTER Seleção de Times"
-        const titles = document.querySelectorAll('h1, h2, h3, .stTitle');
-        titles.forEach(el => {
-            el.style.marginTop = '0';
-            el.style.paddingTop = '0';
-        });
-    }
-    
-    // Executar a função em vários momentos
-    forceNoTopSpace();
-    document.addEventListener('DOMContentLoaded', forceNoTopSpace);
-    window.addEventListener('load', forceNoTopSpace);
-    
-    // Executar periodicamente para garantir que novos elementos também não tenham espaço
-    setInterval(forceNoTopSpace, 200);
-    
-    // Executar depois de carregamentos parciais
-    setTimeout(forceNoTopSpace, 100);
-    setTimeout(forceNoTopSpace, 500);
-    setTimeout(forceNoTopSpace, 1000);
-    setTimeout(forceNoTopSpace, 2000);
-</script>
-"""
-st.components.v1.html(js_fix_spacing, height=0)
-
-# Adicione este código no app.py logo após o JS anterior
-additional_spacing_fix = """
-<style>
-/* Solução extremamente específica para qualquer espaço residual */
-/* Alvo: Cabeçalho especifico e elementos na página de seleção de times */
-
-/* Reduzir espaçamento ao mínimo absoluto */
-.main .block-container,
-section[data-testid="stAppViewContainer"] {
-    padding-top: 0 !important;
-    margin-top: 0 !important;
-    min-height: 0 !important;
-}
-
-/* Ajustes específicos para o título "VALUE HUNTER" */
-h1, h2, h3, h1 *, h2 *, h3 * {
-    margin-top: 0 !important;
-    padding-top: 0 !important;
-    line-height: 1.2 !important;
-}
-
-/* Remover espaço de qualquer alerta ou mensagem (como a mensagem de versão mobile) */
-.stAlert,
-[data-baseweb="notification"],
-div[role="alert"],
-.info-box,
-.css-1aumxhk {
-    margin-top: 0 !important;
-    padding-top: 3px !important;
-    padding-bottom: 3px !important;
-}
-
-/* Ajuste para qualquer elemento de notificação na parte superior */
-[data-testid="stAppViewContainer"] > section > div:first-child {
-    margin-top: 0 !important;
-    padding-top: 0 !important;
-}
-
-/* Compactar espaços entre elementos */
-.element-container {
-    margin-bottom: 5px !important;
-}
-
-/* Fixar elementos específicos da dashboard */
-div:has(> .stTitle),
-div:has(> h1),
-div:has(> h2) {
-    margin-top: 0 !important;
-    padding-top: 0 !important;
-}
-
-/* Remover qualquer margem das primeiras 5 divs */
-.main .block-container > div:nth-child(-n+5) {
-    margin-top: 0 !important;
-    padding-top: 0 !important;
-}
-</style>
-
-<script>
-// Script ultra-específico para a página de seleção de times
-document.addEventListener('DOMContentLoaded', function() {
-    // Função para ajustar espaçamento de forma extremamente agressiva
-    function ultraFix() {
-        // Encontrar qualquer título com "VALUE HUNTER" ou "Seleção de Times"
-        const titleElements = Array.from(document.querySelectorAll('h1, h2, h3, div'));
-        const targetElements = titleElements.filter(el => 
-            el.textContent && (
-                el.textContent.includes('VALUE') || 
-                el.textContent.includes('HUNTER') || 
-                el.textContent.includes('Seleção de Times')
-            )
-        );
-        
-        // Remover todo espaço acima destes elementos específicos
-        targetElements.forEach(el => {
-            // Obter todos os elementos pais
-            let parent = el.parentElement;
-            while (parent && parent.tagName !== 'BODY') {
-                parent.style.marginTop = '0';
-                parent.style.paddingTop = '0';
-                parent = parent.parentElement;
-            }
-            
-            // Ajustar o elemento específico
-            el.style.marginTop = '0';
-            el.style.paddingTop = '0';
-        });
-        
-        // Remover margens de mensagens de info (versão mobile, liga selecionada)
-        const infoMessages = Array.from(document.querySelectorAll('div, p, span')).filter(el => 
-            el.textContent && (
-                el.textContent.includes('Versão Mobile') || 
-                el.textContent.includes('Liga selecionada') ||
-                el.textContent.includes('times carregados')
-            )
-        );
-        
-        infoMessages.forEach(el => {
-            let parent = el;
-            // Subir até 5 níveis para ajustar pais
-            for (let i = 0; i < 5; i++) {
-                if (!parent) break;
-                parent.style.marginTop = '0';
-                parent.style.paddingTop = '0';
-                parent = parent.parentElement;
-            }
-        });
-        
-        // Forçar ajuste direto para a main
-        const mains = document.querySelectorAll('.main, main');
-        mains.forEach(m => {
-            m.style.paddingTop = '0';
-            m.style.marginTop = '0';
-        });
-    }
-    
-    // Executar várias vezes para garantir
-    ultraFix();
-    setTimeout(ultraFix, 100);
-    setTimeout(ultraFix, 500);
-    setTimeout(ultraFix, 1000);
-    
-    // Adicionar listener de mutação para detectar mudanças no DOM
-    const observer = new MutationObserver(ultraFix);
-    observer.observe(document.body, { 
-        childList: true, 
-        subtree: true,
-        attributes: true
-    });
-});
-</script>
-"""
-st.components.v1.html(additional_spacing_fix, height=0)
-
-# Solução final com medidas negativas
-ultra_aggressive_fix = """
-<style>
-/* SOLUÇÃO FINAL: Forçar deslocamento negativo para compensar qualquer espaço residual */
-/* Esta é a técnica mais agressiva possível */
-
-/* Forçar todo conteúdo principal para cima com transform */
-.main .block-container {
-    transform: translateY(-30px) !important;
-    margin-top: -30px !important;
-}
-
-/* Negativo extremo para primeiros elementos */
-.main .block-container > div:first-child,
-.main section:first-child,
-.element-container:first-child,
-.stMarkdown:first-child {
-    margin-top: -30px !important;
-}
-
-/* Garantir que a altura seja limitada no topo */
-[data-testid="stAppViewContainer"] > section {
-    padding-top: 0 !important;
-    margin-top: -20px !important;
-}
-
-/* Ajuste específico para o alerta de informação mobile */
-div:has(> div:contains("Versão Mobile")),
-div:has(> span:contains("Versão Mobile")) {
-    transform: translateY(-15px) !important;
-    margin-bottom: -15px !important;
-}
-
-/* Ajuste específico para o header VALUE HUNTER */
-div:has(> div:contains("VALUE")),
-div:has(> div:contains("HUNTER")),
-div:has(> div:contains("Seleção de Times")) {
-    transform: translateY(-10px) !important;
-    margin-bottom: -10px !important;
-}
-
-/* Redução forçada de altura nos primeiros elementos */
-.main .block-container > div:nth-child(-n+3) {
-    min-height: 0 !important;
-    height: auto !important;
-    max-height: none !important;
-}
-
-/* Remover margem superior absoluta usando forças nucleares */
-body::before {
-    content: "";
-    display: block;
-    height: 0;
-    margin-top: -40px;
-    pointer-events: none;
-}
-</style>
-
-<script>
-// Último recurso: Forçar reposicionamento absoluto dos primeiros elementos
-document.addEventListener('DOMContentLoaded', function() {
-    // Função ultra-agressiva
-    function nuclearFix() {
-        // Empurrar toda a página para cima
-        const appContainer = document.querySelector('[data-testid="stAppViewContainer"]');
-        if (appContainer) {
-            appContainer.style.marginTop = '-30px';
-            appContainer.style.transform = 'translateY(-30px)';
-        }
-        
-        // Ajuste extremamente agressivo para todos os elementos possíveis
-        const allPossibleTopElements = document.querySelectorAll(
-            '.main .block-container > div, ' +
-            '.main section, ' +
-            '.stMarkdown, ' + 
-            '.stTitle, ' +
-            '.element-container, ' +
-            'div[role="alert"]'
-        );
-        
-        // Aplicar margem negativa para os 5 primeiros elementos
-        Array.from(allPossibleTopElements).slice(0, 5).forEach((el, index) => {
-            el.style.marginTop = (-20 - (index * 5)) + 'px';
-        });
-        
-        // Mover a primeira mensagem específica para cima
-        const infoMessages = Array.from(document.querySelectorAll('div')).filter(el => 
-            el.textContent && el.textContent.includes('Versão Mobile')
-        );
-        
-        if (infoMessages.length > 0) {
-            const infoElement = infoMessages[0];
-            let parent = infoElement.parentElement;
-            if (parent) {
-                parent.style.marginTop = '-25px';
-                parent.style.transform = 'translateY(-25px)';
-            }
-        }
-    }
-    
-    // Executar várias vezes
-    nuclearFix();
-    setTimeout(nuclearFix, 100);
-    setTimeout(nuclearFix, 500);
-    setTimeout(nuclearFix, 1000);
-    
-    // Manter observando e ajustando
-    const observer = new MutationObserver(nuclearFix);
-    observer.observe(document.body, { 
-        childList: true, 
-        subtree: true,
-        attributes: true
-    });
-});
-</script>
-"""
-st.components.v1.html(ultra_aggressive_fix, height=0)
-
 # Favicon SVG (binóculo laranja)
+favicon_svg = """
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <rect width="100" height="100" rx="20" fill="#fd7014"/>
+  <g fill="white" transform="translate(20, 30) scale(1.5)">
+    <ellipse cx="12" cy="20" rx="7" ry="8"/>
+    <ellipse cx="28" cy="20" rx="7" ry="8"/>
+    <path d="M12 15C10 15 9 17 9 20C9 23 10 25 12 25C14 25 15 23 15 20C15 17 14 15 12 15ZM28 15C26 15 25 17 25 20C25 23 26 25 28 25C30 25 31 23 31 20C31 17 30 15 28 15Z" stroke="#fd7014" stroke-width="1.5"/>
+    <path d="M20 17V23M17 20H23" stroke="#fd7014" stroke-width="1.5"/>
+  </g>
+</svg>
+"""
+
+# Converter SVG para base64
+import base64
+favicon_b64 = base64.b64encode(favicon_svg.encode('utf-8')).decode()
+
+# Inserir múltiplas versões do favicon para garantir compatibilidade em diferentes navegadores
+# Favicon baseado no logo ValueHunter
 favicon_svg = """
 <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
   <rect width="100" height="100" rx="10" fill="#fd7014"/>
@@ -487,7 +159,6 @@ setTimeout(updateFavicon, 1500);
 """
 
 st.components.v1.html(js_force_favicon, height=0)
-
 # -----------------------------------------------------
 # 2. CONFIGURAÇÃO DE LOGGING
 # -----------------------------------------------------
@@ -505,7 +176,7 @@ try:
 except Exception as e:
     logger.error(f"Erro ao listar diretório: {e}")
 
-# Importar módulos de utilidade
+# Importar módulos de utilidade - colocado antes da configuração do Streamlit
 from utils.core import (
     DATA_DIR, init_session_state, show_valuehunter_logo, 
     configure_sidebar_visibility, apply_global_css, init_stripe,
@@ -515,10 +186,10 @@ from utils.core import (
 from utils.data import UserManager
 
 # -----------------------------------------------------
-# 3. ESTILOS BÁSICOS DA APLICAÇÃO
+# 3. EXIBIR LOGO
 # -----------------------------------------------------
 
-# Aplicar CSS para ocultar elementos de navegação
+# Aplicar CSS para ocultar elementos de navegação - sem strings triplas
 css = (
     "<style>"
     "[data-testid='stSidebarNavItems'] {display: none !important;}"
@@ -585,18 +256,68 @@ from pages.landing import show_landing_page
 from pages.auth import show_login, show_register, show_verification, show_password_recovery, show_password_reset_code, show_password_reset
 from pages.packages import show_packages_page
 
-# -----------------------------------------------------
-# 4. FUNÇÃO DEFINITIVA PARA REMOVER ESPAÇAMENTO
-# -----------------------------------------------------
-
-def remove_all_top_space():
-    """
-    Função unificada para remover espaços no topo.
-    Use no início de cada página para garantir que não haja espaço.
-    """
-    # Esta injeção de CSS será feita apenas uma vez, não precisa repetir
-    # em todas as chamadas da função, pois já aplicamos o CSS principal no início
-    pass
+# Função para remover todos os espaçamentos
+def remove_all_spacing():
+    """Remove completamente todos os espaços em branco no início da página em toda a aplicação"""
+    # Chamar a versão segura que não causa erros
+    remove_top_whitespace()
+    
+    st.markdown("""
+    <style>
+    /* Reset completo de todos os espaçamentos iniciais */
+    .main .block-container {
+        padding-top: 0 !important;
+        margin-top: 0 !important;
+    }
+    
+    /* Remover completamente o header do Streamlit */
+    header[data-testid="stHeader"] {
+        display: none !important;
+        height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        position: absolute !important;
+    }
+    
+    /* Remover espaçamento de todos os elementos no topo */
+    .stApp > header + div > div:first-child,
+    .main > div:first-child,
+    .main .block-container > div:first-child,
+    .stApp [data-testid="stAppViewBlockContainer"] > div:first-child,
+    [data-testid="collapsedControl"],
+    [data-testid="stHeader"],
+    [data-testid="stToolbar"],
+    [data-testid="stDecoration"],
+    section.main > div:first-child {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+        min-height: 0 !important;
+    }
+    
+    /* Definir margens zero para o primeiro elemento de diferentes tipos no início da página */
+    .stMarkdown:first-child, 
+    .stText:first-child,
+    .stTitle:first-child,
+    .element-container:first-child {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+    }
+    
+    /* Remover decorações no topo */
+    .stApp::before,
+    .stApp::after {
+        display: none !important;
+    }
+    
+    /* Resetar layout e gaps */
+    .stApp [data-testid="stAppViewContainer"],
+    .stApp [data-testid="stAppViewContainer"] > section {
+        gap: 0 !important;
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
 # Função para modo de debug
 def enable_debug_mode():
@@ -658,6 +379,12 @@ def main():
     try:
         # Aplicar tema escuro consistente
         apply_dark_theme()
+                
+        # Aplicar estilo CSS direto para remover espaço no topo
+        st.markdown('<style>.main .block-container { padding-top: 0 !important; margin-top: 0 !important; } header[data-testid="stHeader"] { display: none !important; height: 0 !important; }</style>', unsafe_allow_html=True)
+        
+        # Remover todos os espaçamentos do topo da página
+        remove_all_spacing()
         
         # NOVO: Diagnóstico de arquivos
         print("\n===== DIAGNÓSTICO DE ARQUIVOS =====")
@@ -805,3 +532,140 @@ if __name__ == "__main__":
     except Exception as e:
         logger.critical(f"Erro fatal na aplicação: {str(e)}")
         st.error("Ocorreu um erro inesperado. Por favor, recarregue a página e tente novamente.")
+def remove_all_top_space():
+    """
+    Solução definitiva para eliminar QUALQUER espaço em branco no topo das páginas Streamlit.
+    Esta função combina técnicas de CSS e JavaScript para garantir que não haja espaço em branco.
+    
+    Use esta função no início de cada página ou no arquivo app.py principal.
+    """
+    import streamlit as st
+    import streamlit.components.v1 as components
+    
+    # 1. Primeiro, aplicar CSS agressivo para remover espaços
+    st.markdown("""
+    <style>
+    /* Reset absoluto de todos os espaçamentos */
+    .main .block-container {
+        padding-top: 0 !important;
+        margin-top: 0 !important;
+        gap: 0 !important;
+    }
+    
+    /* Ocultar cabeçalho completamente */
+    header[data-testid="stHeader"] {
+        display: none !important;
+        height: 0 !important;
+        min-height: 0 !important;
+        max-height: 0 !important;
+        visibility: hidden !important;
+        position: absolute !important;
+        z-index: -9999 !important;
+        opacity: 0 !important;
+        width: 0 !important;
+    }
+    
+    /* Remover todos os elementos decorativos e espaços extras */
+    [data-testid="stDecoration"],
+    [data-testid="stToolbar"],
+    [data-testid="stStatusWidget"],
+    [data-testid="stSidebarNavItems"],
+    div[data-testid~="injected"] {
+        display: none !important;
+        height: 0 !important;
+        width: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        visibility: hidden !important;
+        position: absolute !important;
+        z-index: -9999 !important;
+    }
+    
+    /* Forçar primeiro elemento a começar no topo absoluto */
+    .main .block-container > div:first-child,
+    .element-container:first-child,
+    .stMarkdown:first-child,
+    section.main > div:first-child {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+    }
+    
+    /* Zerar margens e paddings de todos primeiros filhos */
+    *:first-child {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+    }
+    
+    /* Reset para layout de gaps e grids */
+    div[data-layout] {
+        gap: 0 !important;
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # 2. Adicionar script JavaScript que remove dinamicamente espaços em branco
+    js = """
+    <script>
+        // Função para remover espaços em branco no topo
+        function removeTopSpaces() {
+            // Remover cabeçalho do Streamlit
+            const header = document.querySelector('header[data-testid="stHeader"]');
+            if (header) {
+                header.style.display = 'none';
+                header.style.height = '0';
+                header.style.minHeight = '0';
+                header.style.margin = '0';
+                header.style.padding = '0';
+            }
+            
+            // Remover margem do primeiro elemento
+            const firstElement = document.querySelector('.main .block-container > div:first-child');
+            if (firstElement) {
+                firstElement.style.marginTop = '0';
+                firstElement.style.paddingTop = '0';
+            }
+            
+            // Remover espaços de elementos decorativos
+            const decorations = document.querySelectorAll(
+                '[data-testid="stDecoration"], ' +
+                '[data-testid="stToolbar"], ' +
+                '[data-testid="stStatusWidget"]'
+            );
+            
+            decorations.forEach(el => {
+                el.style.display = 'none';
+                el.style.height = '0';
+                el.style.margin = '0';
+                el.style.padding = '0';
+            });
+            
+            // Remover gap do container principal
+            const blockContainer = document.querySelector('.main .block-container');
+            if (blockContainer) {
+                blockContainer.style.paddingTop = '0';
+                blockContainer.style.marginTop = '0';
+                blockContainer.style.gap = '0';
+            }
+        }
+        
+        // Executar imediatamente
+        removeTopSpaces();
+        
+        // Executar quando o DOM estiver totalmente carregado
+        document.addEventListener('DOMContentLoaded', removeTopSpaces);
+        
+        // Executar periodicamente para garantir
+        setInterval(removeTopSpaces, 100);
+        
+        // Executar após carregamento completo da página
+        window.addEventListener('load', removeTopSpaces);
+        
+        // Executar também quando o tamanho da janela muda
+        window.addEventListener('resize', removeTopSpaces);
+    </script>
+    """
+    
+    components.html(js, height=0)
+    
