@@ -1,3 +1,4 @@
+# pages/packages.py - Página de Pacotes
 import streamlit as st
 import logging
 from utils.core import (
@@ -29,29 +30,21 @@ def show_packages_page():
             margin-bottom: 20px;
             border: 1px solid #333;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-            transition: all 0.3s ease;
             height: 100%;
             display: flex;
             flex-direction: column;
             text-align: center;
         }
         
-        .package-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-            border-color: #fd7014;
-        }
-        
         .package-icon {
             font-size: 40px;
-            color: #fd7014;
-            margin-bottom: 15px;
+            margin-bottom: 20px;
         }
         
         .package-title {
             font-size: 24px;
             font-weight: 700;
-            margin-bottom: 10px;
+            margin-bottom: 15px;
             color: #ffffff;
         }
         
@@ -72,8 +65,9 @@ def show_packages_page():
         
         .feature-list {
             text-align: left;
-            margin-bottom: 20px;
-            flex-grow: 1;
+            padding-top: 5px;
+            margin-top: auto;
+            margin-bottom: 5px;
         }
         
         .feature-item {
@@ -83,24 +77,16 @@ def show_packages_page():
             color: #dddddd;
         }
         
-        .feature-icon {
+        .feature-check {
             color: #fd7014;
             margin-right: 8px;
         }
         
-        /* Estilos responsivos */
-        @media (max-width: 768px) {
-            .package-card {
-                padding: 20px;
-            }
-            
-            .package-title {
-                font-size: 20px;
-            }
-            
-            .package-price {
-                font-size: 28px;
-            }
+        /* Garantir o mesmo espaço para ambos cards */
+        .card-wrapper {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
         }
         </style>
         """, unsafe_allow_html=True)
@@ -109,22 +95,18 @@ def show_packages_page():
         show_valuehunter_logo()
         
         # Botão para voltar - MOVIDO PARA LOGO ABAIXO DO LOGO
-        col_back, col_empty = st.columns([1, 3])  # Reduzindo a largura para 1/4 da tela
+        col_back, col_empty = st.columns([1, 3])
         with col_back:
             if st.button("← Voltar para análises", key="back_to_analysis"):
-                # IMPORTANTE: Forçar refresh dos dados ao voltar para análises
                 try:
-                    # Recarregar a classe UserManager para garantir dados atualizados
                     from utils.data import UserManager
                     st.session_state.user_manager = UserManager()
-                    # Limpar qualquer cache de estatísticas
                     if hasattr(st.session_state, 'user_stats_cache'):
                         del st.session_state.user_stats_cache
                     logger.info(f"Dados recarregados ao voltar para análises: {st.session_state.email}")
                 except Exception as e:
                     logger.error(f"Erro ao recarregar dados ao voltar: {str(e)}")
                     
-                # Mudar a página
                 st.session_state.page = "main"
                 st.experimental_rerun()
         
@@ -154,25 +136,27 @@ def show_packages_page():
             stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
             st.info(f"💰 Você atualmente tem **{stats['credits_remaining']} créditos** disponíveis em sua conta.")
         
-        # Layout da página de compra
+        # Layout com containers de altura fixa
         col1, col2 = st.columns(2)
         
         with col1:
             st.markdown("""
-            <div class="package-card">
-                <div class="package-icon">💼</div>
-                <div class="package-title">30 Créditos</div>
-                <div class="package-price">R$ 19,99</div>
-                <div class="package-desc">Pacote Standard</div>
-                <div class="feature-list">
-                    <div class="feature-item">
-                        <span class="feature-icon">✓</span> Análise para mercados simples
-                    </div>
-                    <div class="feature-item">
-                        <span class="feature-icon">✓</span> Renovação automática com créditos
-                    </div>
-                    <div class="feature-item">
-                        <span class="feature-icon">✓</span> Suporte básico
+            <div class="card-wrapper">
+                <div class="package-card">
+                    <div class="package-icon">💼</div>
+                    <div class="package-title">30 Créditos</div>
+                    <div class="package-price">R$ 19,99</div>
+                    <div class="package-desc">Pacote Standard</div>
+                    <div class="feature-list">
+                        <div class="feature-item">
+                            <span class="feature-check">✓</span> Análise para mercados simples
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-check">✓</span> Renovação automática com créditos
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-check">✓</span> Suporte básico
+                        </div>
                     </div>
                 </div>
             </div>
@@ -183,23 +167,25 @@ def show_packages_page():
         
         with col2:
             st.markdown("""
-            <div class="package-card">
-                <div class="package-icon">🚀</div>
-                <div class="package-title">60 Créditos</div>
-                <div class="package-price">R$ 29,99</div>
-                <div class="package-desc">Pacote Pro</div>
-                <div class="feature-list">
-                    <div class="feature-item">
-                        <span class="feature-icon">✓</span> Análise para múltiplos mercados
-                    </div>
-                    <div class="feature-item">
-                        <span class="feature-icon">✓</span> Melhor custo-benefício
-                    </div>
-                    <div class="feature-item">
-                        <span class="feature-icon">✓</span> Análises estendidas
-                    </div>
-                    <div class="feature-item">
-                        <span class="feature-icon">✓</span> Suporte prioritário
+            <div class="card-wrapper">
+                <div class="package-card">
+                    <div class="package-icon">🚀</div>
+                    <div class="package-title">60 Créditos</div>
+                    <div class="package-price">R$ 29,99</div>
+                    <div class="package-desc">Pacote Pro</div>
+                    <div class="feature-list">
+                        <div class="feature-item">
+                            <span class="feature-check">✓</span> Análise para múltiplos mercados
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-check">✓</span> Melhor custo-benefício
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-check">✓</span> Análises estendidas
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-check">✓</span> Suporte prioritário
+                        </div>
                     </div>
                 </div>
             </div>
@@ -229,7 +215,6 @@ def show_packages_page():
             Use o cartão 4242 4242 4242 4242 com qualquer data futura e CVC para simular um pagamento bem-sucedido.
             """)
         
-        # Botão para voltar foi removido daqui e movido para cima
     except Exception as e:
         logger.error(f"Erro ao exibir página de pacotes: {str(e)}")
         st.error("Erro ao carregar a página de pacotes. Por favor, tente novamente.")
