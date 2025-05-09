@@ -1449,3 +1449,69 @@ def zero_spacing_login_pages():
     }
     </style>
     """, unsafe_allow_html=True)
+def nuclear_whitespace_fix():
+    """Solução nuclear que literalmente força a página inteira para cima"""
+    import streamlit as st
+    
+    st.markdown("""
+    <style>
+    /* SOLUÇÃO NUCLEAR: Forçar toda a página para cima com posicionamento negativo */
+    
+    /* 1. Cortar qualquer overflow */
+    body, html {
+        overflow-x: hidden !important;
+    }
+    
+    /* 2. Mover toda a página para cima com posicionamento negativo extremo */
+    [data-testid="stAppViewContainer"] {
+        position: relative !important;
+        top: -50px !important; /* Valor extremamente negativo */
+        margin-top: -50px !important;
+    }
+    
+    /* 3. Compensar o padding do body/html */
+    body, html {
+        padding-top: 0 !important;
+        margin-top: 0 !important;
+    }
+    
+    /* 4. Remover todos os elementos que possam aparecer no topo */
+    header, [data-testid="stHeader"], .stApp header {
+        display: none !important;
+        height: 0 !important;
+        max-height: 0 !important;
+        min-height: 0 !important;
+        visibility: hidden !important;
+        position: absolute !important;
+        z-index: -9999 !important;
+    }
+    </style>
+    
+    <script>
+    // Script que força toda a página para cima após carregar
+    document.addEventListener('DOMContentLoaded', function() {
+        // Função que empurra tudo para cima
+        function forcePageUp() {
+            // Obter o contêiner principal
+            const appContainer = document.querySelector('[data-testid="stAppViewContainer"]');
+            if (appContainer) {
+                // Forçar para cima com translate e margin negativa
+                appContainer.style.transform = 'translateY(-50px)';
+                appContainer.style.marginTop = '-50px';
+                
+                // Adicionar um contêiner que "puxa" tudo para cima
+                const forceUpDiv = document.createElement('div');
+                forceUpDiv.style.height = '0px';
+                forceUpDiv.style.marginTop = '-50px';
+                forceUpDiv.style.overflow = 'hidden';
+                appContainer.parentNode.insertBefore(forceUpDiv, appContainer);
+            }
+        }
+        
+        // Executar várias vezes para garantir
+        forcePageUp();
+        setTimeout(forcePageUp, 100);
+        setTimeout(forcePageUp, 500);
+    });
+    </script>
+    """, unsafe_allow_html=True)
