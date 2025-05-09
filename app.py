@@ -258,8 +258,7 @@ from pages.packages import show_packages_page
 # Função para remover todos os espaçamentos
 def remove_all_spacing():
     """Remove completamente todos os espaços em branco no início da página em toda a aplicação"""
-    # Chamar a versão segura que não causa erros
-    remove_top_whitespace()
+    
     
     st.markdown("""
     <style>
