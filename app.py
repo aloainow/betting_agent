@@ -23,98 +23,163 @@ st.set_page_config(
 )
 
 # -----------------------------------------------------
-# SOLUÇÃO DEFINITIVA PARA REMOVER ESPAÇO EM BRANCO
+# SOLUÇÃO ULTRA-AGRESSIVA PARA REMOVER ESPAÇO EM BRANCO
 # -----------------------------------------------------
 st.markdown("""
 <style>
-/* SOLUÇÃO DEFINITIVA PARA ESPAÇO EM BRANCO - aplicada globalmente */
-/* Define valores zero para todos os elementos que causam espaçamento */
-html, body, #root, .stApp, section.main {
-    padding-top: 0 !important;
-    margin-top: 0 !important;
-}
-
-/* Container principal - seletor específico para prioridade máxima */
-.main .block-container {
+/* Solução definitiva - qualquer elemento que possa causar espaço */
+.main .block-container,
+.css-18e3th9,
+.css-1d391kg,
+.st-ae, 
+.st-af, 
+.st-ag, 
+.st-ah, 
+.st-ai, 
+.st-aj, 
+.st-ak, 
+.st-al,
+.css-hxt7ib,
+.e1fqkh3o4,
+.css-1544g2n.e1fqkh3o4,
+.withScreencast,
+.main,
+.main-content,
+.stApp,
+[data-testid="stAppViewContainer"] > section,
+[data-testid="stAppViewContainer"],
+[data-testid="stHeader"],
+section[data-testid*="stBlock"],
+div[data-testid*="stBlock"],
+[data-testid="stVerticalBlock"],
+.element-container:first-child,
+.stMarkdown:first-child,
+.main section:first-child,
+.main .block-container > div:first-child {
     padding-top: 0 !important;
     margin-top: 0 !important;
     gap: 0 !important;
+    border-top: 0 !important;
+    border-top-width: 0 !important;
 }
 
-/* Oculta completamente o cabeçalho do Streamlit */
-header[data-testid="stHeader"] {
-    display: none !important;
-    height: 0 !important;
-    visibility: hidden !important;
-    opacity: 0 !important;
-    position: absolute !important;
-    z-index: -9999 !important;
-}
-
-/* Remove espaçamento de qualquer primeiro elemento */
-.main .block-container > div:first-child,
-.stMarkdown:first-child, 
-.stImage:first-child,
-.stTitle:first-child,
-.element-container:first-child,
-section.main > div:first-child {
-    margin-top: 0 !important;
-    padding-top: 0 !important;
-}
-
-/* Remove todos elementos decorativos que adicionam espaço */
-[data-testid="stDecoration"],
+/* Esconder cabeçalho e outros elementos que ocupam espaço */
+[data-testid="stHeader"],
 [data-testid="stToolbar"],
-[data-testid="stStatusWidget"] {
+[data-testid="stDecoration"],
+[data-testid="stStatusWidget"],
+div[data-testid="stTopBanner"] {
+    position: absolute !important;
     display: none !important;
     height: 0 !important;
+    max-height: 0 !important;
+    min-height: 0 !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
     width: 0 !important;
+    z-index: -9999 !important;
     margin: 0 !important;
     padding: 0 !important;
 }
 
-/* Corrige espaçamento em layouts e grids */
-div[data-layout] {
-    gap: 0 !important;
+/* Reduzir espaço entre componentes */
+.element-container {
+    margin-bottom: 10px !important;
+}
+
+/* Ajustar toda a hierarquia de elementos a partir da raiz */
+html, body, #root, .stApp {
     margin-top: 0 !important;
     padding-top: 0 !important;
+}
+
+/* Remover espaço em layouts específicos */
+.row-widget.stSelectbox,
+.row-widget,
+div[data-layout="wide"],
+div[data-layout] {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+    gap: 0 !important;
+}
+
+/* Remover espaço da .stAlert utilizada para mensagens na tela */
+.stAlert {
+    margin-top: 5px !important;
+    margin-bottom: 5px !important;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# Adicionar JavaScript para garantir que não haja espaço em branco
+# JavaScript ultra-agressivo para remover espaçamento
 js_fix_spacing = """
 <script>
-    // Remove espaçamento de forma programática
-    function removeTopSpacing() {
-        // Remove o cabeçalho do Streamlit
-        const header = document.querySelector('header[data-testid="stHeader"]');
-        if (header) {
-            header.style.display = 'none';
-            header.style.height = '0';
-        }
+    // Função para remover qualquer espaço no topo
+    function forceNoTopSpace() {
+        // 1. Esconder completamente o cabeçalho
+        const headers = document.querySelectorAll('[data-testid="stHeader"], header');
+        headers.forEach(el => {
+            el.style.display = 'none';
+            el.style.height = '0';
+            el.style.margin = '0';
+            el.style.padding = '0';
+            el.style.visibility = 'hidden';
+            el.style.position = 'absolute';
+            el.style.zIndex = '-9999';
+        });
         
-        // Remove espaçamento do container principal
-        const mainContainer = document.querySelector('.main .block-container');
-        if (mainContainer) {
-            mainContainer.style.paddingTop = '0';
-            mainContainer.style.marginTop = '0';
-        }
+        // 2. Remover espaço do contêiner principal
+        const mainContainers = document.querySelectorAll('.main .block-container, .css-18e3th9, [data-testid="stAppViewContainer"] > section');
+        mainContainers.forEach(el => {
+            el.style.paddingTop = '0';
+            el.style.marginTop = '0';
+            el.style.gap = '0';
+        });
         
-        // Remove espaçamento do primeiro elemento
-        const firstElement = document.querySelector('.main .block-container > div:first-child');
-        if (firstElement) {
-            firstElement.style.marginTop = '0';
-            firstElement.style.paddingTop = '0';
-        }
+        // 3. Remover espaço do primeiro elemento em cada seção
+        const firstElements = document.querySelectorAll('.main .block-container > div:first-child, .element-container:first-child, .stMarkdown:first-child');
+        firstElements.forEach(el => {
+            el.style.marginTop = '0';
+            el.style.paddingTop = '0';
+        });
+        
+        // 4. Forçar remoção de qualquer margem ou padding no topo de todos elementos principais
+        const allMainElements = document.querySelectorAll('section.main, .main, .stApp, section[data-testid="stAppViewContainer"]');
+        allMainElements.forEach(el => {
+            el.style.paddingTop = '0';
+            el.style.marginTop = '0';
+        });
+        
+        // 5. Remover qualquer decoração ou barra de ferramentas
+        const decorations = document.querySelectorAll('[data-testid="stDecoration"], [data-testid="stToolbar"], [data-testid="stStatusWidget"]');
+        decorations.forEach(el => {
+            el.style.display = 'none';
+            el.style.height = '0';
+            el.style.margin = '0';
+            el.style.padding = '0';
+        });
+        
+        // 6. Remover espaço do título específico "VALUE HUNTER Seleção de Times"
+        const titles = document.querySelectorAll('h1, h2, h3, .stTitle');
+        titles.forEach(el => {
+            el.style.marginTop = '0';
+            el.style.paddingTop = '0';
+        });
     }
     
-    // Executar a função em diferentes momentos para garantir sucesso
-    removeTopSpacing();
-    document.addEventListener('DOMContentLoaded', removeTopSpacing);
-    window.addEventListener('load', removeTopSpacing);
-    setTimeout(removeTopSpacing, 100);
-    setTimeout(removeTopSpacing, 500);
+    // Executar a função em vários momentos
+    forceNoTopSpace();
+    document.addEventListener('DOMContentLoaded', forceNoTopSpace);
+    window.addEventListener('load', forceNoTopSpace);
+    
+    // Executar periodicamente para garantir que novos elementos também não tenham espaço
+    setInterval(forceNoTopSpace, 200);
+    
+    // Executar depois de carregamentos parciais
+    setTimeout(forceNoTopSpace, 100);
+    setTimeout(forceNoTopSpace, 500);
+    setTimeout(forceNoTopSpace, 1000);
+    setTimeout(forceNoTopSpace, 2000);
 </script>
 """
 st.components.v1.html(js_fix_spacing, height=0)
