@@ -13,6 +13,9 @@ logger = logging.getLogger("valueHunter.auth")
 def show_login():
     """Exibe a tela de login prevenindo duplicação e garantindo redirecionamento correto"""
 
+    # Chame a função especializada para login ANTES de qualquer outro conteúdo
+    zero_spacing_login_pages()
+   
     # Aplicar tema escuro
     apply_dark_theme()
     
