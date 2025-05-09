@@ -4,6 +4,7 @@ import time
 import logging
 from utils.core import show_valuehunter_logo, go_to_landing, go_to_login, go_to_register, apply_responsive_styles, apply_custom_styles, apply_dark_theme
 from utils.email_verification import send_verification_email, generate_verification_code
+from app import zero_spacing_login_pages
 
 # Configuração de logging
 logger = logging.getLogger("valueHunter.auth")
