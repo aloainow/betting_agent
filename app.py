@@ -22,6 +22,7 @@ st.set_page_config(
     layout="wide"
 )
 
+
 # -----------------------------------------------------
 # SOLUÇÃO ULTRA-AGRESSIVA PARA REMOVER ESPAÇO EM BRANCO
 # -----------------------------------------------------
@@ -317,6 +318,124 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 """
 st.components.v1.html(additional_spacing_fix, height=0)
+
+# Solução final com medidas negativas
+ultra_aggressive_fix = """
+<style>
+/* SOLUÇÃO FINAL: Forçar deslocamento negativo para compensar qualquer espaço residual */
+/* Esta é a técnica mais agressiva possível */
+
+/* Forçar todo conteúdo principal para cima com transform */
+.main .block-container {
+    transform: translateY(-30px) !important;
+    margin-top: -30px !important;
+}
+
+/* Negativo extremo para primeiros elementos */
+.main .block-container > div:first-child,
+.main section:first-child,
+.element-container:first-child,
+.stMarkdown:first-child {
+    margin-top: -30px !important;
+}
+
+/* Garantir que a altura seja limitada no topo */
+[data-testid="stAppViewContainer"] > section {
+    padding-top: 0 !important;
+    margin-top: -20px !important;
+}
+
+/* Ajuste específico para o alerta de informação mobile */
+div:has(> div:contains("Versão Mobile")),
+div:has(> span:contains("Versão Mobile")) {
+    transform: translateY(-15px) !important;
+    margin-bottom: -15px !important;
+}
+
+/* Ajuste específico para o header VALUE HUNTER */
+div:has(> div:contains("VALUE")),
+div:has(> div:contains("HUNTER")),
+div:has(> div:contains("Seleção de Times")) {
+    transform: translateY(-10px) !important;
+    margin-bottom: -10px !important;
+}
+
+/* Redução forçada de altura nos primeiros elementos */
+.main .block-container > div:nth-child(-n+3) {
+    min-height: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+}
+
+/* Remover margem superior absoluta usando forças nucleares */
+body::before {
+    content: "";
+    display: block;
+    height: 0;
+    margin-top: -40px;
+    pointer-events: none;
+}
+</style>
+
+<script>
+// Último recurso: Forçar reposicionamento absoluto dos primeiros elementos
+document.addEventListener('DOMContentLoaded', function() {
+    // Função ultra-agressiva
+    function nuclearFix() {
+        // Empurrar toda a página para cima
+        const appContainer = document.querySelector('[data-testid="stAppViewContainer"]');
+        if (appContainer) {
+            appContainer.style.marginTop = '-30px';
+            appContainer.style.transform = 'translateY(-30px)';
+        }
+        
+        // Ajuste extremamente agressivo para todos os elementos possíveis
+        const allPossibleTopElements = document.querySelectorAll(
+            '.main .block-container > div, ' +
+            '.main section, ' +
+            '.stMarkdown, ' + 
+            '.stTitle, ' +
+            '.element-container, ' +
+            'div[role="alert"]'
+        );
+        
+        // Aplicar margem negativa para os 5 primeiros elementos
+        Array.from(allPossibleTopElements).slice(0, 5).forEach((el, index) => {
+            el.style.marginTop = (-20 - (index * 5)) + 'px';
+        });
+        
+        // Mover a primeira mensagem específica para cima
+        const infoMessages = Array.from(document.querySelectorAll('div')).filter(el => 
+            el.textContent && el.textContent.includes('Versão Mobile')
+        );
+        
+        if (infoMessages.length > 0) {
+            const infoElement = infoMessages[0];
+            let parent = infoElement.parentElement;
+            if (parent) {
+                parent.style.marginTop = '-25px';
+                parent.style.transform = 'translateY(-25px)';
+            }
+        }
+    }
+    
+    // Executar várias vezes
+    nuclearFix();
+    setTimeout(nuclearFix, 100);
+    setTimeout(nuclearFix, 500);
+    setTimeout(nuclearFix, 1000);
+    
+    // Manter observando e ajustando
+    const observer = new MutationObserver(nuclearFix);
+    observer.observe(document.body, { 
+        childList: true, 
+        subtree: true,
+        attributes: true
+    });
+});
+</script>
+"""
+st.components.v1.html(ultra_aggressive_fix, height=0)
 
 # Favicon SVG (binóculo laranja)
 favicon_svg = """
