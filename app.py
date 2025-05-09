@@ -378,11 +378,78 @@ def main():
         # Aplicar tema escuro consistente
         apply_dark_theme()
                 
-        # Aplicar estilo CSS direto para remover espaço no topo
-        st.markdown('<style>.main .block-container { padding-top: 0 !important; margin-top: 0 !important; } header[data-testid="stHeader"] { display: none !important; height: 0 !important; }</style>', unsafe_allow_html=True)
+        # CORREÇÃO DEFINITIVA DO ESPAÇO EM BRANCO - Aplicar imediatamente
+        st.markdown("""
+        <style>
+        /* SOLUÇÃO ZERO ESPAÇO - Reset completo e agressivo */
+        body, html, .stApp, .main, .main .block-container {
+            margin-top: 0 !important;
+            padding-top: 0 !important;
+            gap: 0 !important;
+        }
         
-        # Remover todos os espaçamentos do topo da página
-        remove_all_spacing()
+        /* Remover completamente o cabeçalho */
+        header[data-testid="stHeader"] {
+            display: none !important;
+            height: 0 !important;
+            min-height: 0 !important;
+            max-height: 0 !important;
+            visibility: hidden !important;
+            position: absolute !important;
+            z-index: -9999 !important;
+            width: 0 !important;
+        }
+        
+        /* Forçar primeiro elemento a começar no topo absoluto */
+        .main .block-container > div:first-child,
+        .element-container:first-child,
+        .stMarkdown:first-child,
+        section.main > div:first-child {
+            margin-top: 0 !important;
+            padding-top: 0 !important;
+        }
+        
+        /* Corrigir altura do container principal */
+        .main .block-container {
+            max-width: 100% !important; 
+            padding-top: 0 !important;
+            margin-top: 0 !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        # Adicionar um JavaScript que reforça a remoção de espaços
+        st.components.v1.html("""
+        <script>
+        // Função que remove ativamente espaços em branco
+        function removeSpaces() {
+            // Forçar reset de todos os elementos que possam causar espaço
+            document.querySelectorAll('header, .main .block-container, div:first-child').forEach(el => {
+                el.style.marginTop = '0';
+                el.style.paddingTop = '0';
+            });
+            
+            // Remover cabeçalho por completo
+            const header = document.querySelector('header[data-testid="stHeader"]');
+            if (header) header.style.display = 'none';
+        }
+        
+        // Executar imediatamente
+        removeSpaces();
+        
+        // Executar novamente após carregamento
+        window.addEventListener('load', removeSpaces);
+        
+        // Executar a cada 100ms por um curto período para garantir
+        let attempts = 0;
+        const interval = setInterval(() => {
+            removeSpaces();
+            attempts++;
+            if (attempts > 10) clearInterval(interval);
+        }, 100);
+        </script>
+        """, height=0)
+        
         
         # NOVO: Diagnóstico de arquivos
         print("\n===== DIAGNÓSTICO DE ARQUIVOS =====")
