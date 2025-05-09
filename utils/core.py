@@ -1406,3 +1406,46 @@ def remove_top_whitespace():
     }
     </style>
     """, unsafe_allow_html=True)
+# Adicione esta função ao utils/core.py
+
+def zero_spacing_login_pages():
+    """Função ultra-agressiva específica para remover espaço nas páginas de login/registro"""
+    st.markdown("""
+    <style>
+    /* Remover QUALQUER espaço possível */
+    body, html, .main, section, div, [data-testid="stAppViewContainer"], .stApp, .main .block-container {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+        gap: 0 !important;
+    }
+    
+    /* Forçar margens negativas para compensar qualquer espaço */
+    .main .block-container, 
+    .main .block-container > div:first-child,
+    .element-container:first-child {
+        margin-top: -10px !important; /* Valor negativo para "puxar" conteúdo para cima */
+    }
+    
+    /* Ocultar completamente o cabeçalho */
+    header[data-testid="stHeader"] {
+        display: none !important;
+        height: 0 !important;
+        max-height: 0 !important;
+        min-height: 0 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        visibility: hidden !important;
+        position: absolute !important;
+        z-index: -9999 !important;
+    }
+    
+    /* Remover qualquer elemento decorativo ou de navegação */
+    [data-testid="stToolbar"],
+    [data-testid="stDecoration"],
+    [data-testid="stStatusWidget"],
+    div[data-testid="stTopBanner"] {
+        display: none !important;
+        height: 0 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
