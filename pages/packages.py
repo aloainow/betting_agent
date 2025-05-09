@@ -15,94 +15,59 @@ def show_packages_page():
         # Aplicar estilos personalizados
         apply_custom_styles()
 
-        # Esconder a barra lateral na página de pacotes
+        # Estilos básicos para os cartões
         st.markdown("""
         <style>
         [data-testid="stSidebar"] {
             display: none !important;
         }
         
-        /* Grid layout para resolver o alinhamento */
-        .packages-container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            grid-gap: 20px;
-            margin-bottom: 20px;
-        }
-        
-        /* Card principal com altura fixa */
-        .package-card {
+        /* Estilos para cartões de preço */
+        .card {
             background-color: #1e1e1e;
             border-radius: 12px;
             border: 1px solid #333;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-            height: 380px; /* Altura fixa para uniformidade */
-            display: flex;
-            flex-direction: column;
-        }
-        
-        /* Cabeçalho do card */
-        .package-header {
-            padding: 25px 25px 0 25px;
+            padding: 20px;
             text-align: center;
+            height: 100%;
         }
         
-        .package-icon {
+        .card-icon {
             font-size: 40px;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
         
-        .package-title {
+        .card-title {
             font-size: 24px;
-            font-weight: 700;
-            margin-bottom: 15px;
-            color: #ffffff;
+            font-weight: bold;
+            color: white;
+            margin-bottom: 10px;
         }
         
-        .package-price {
+        .card-price {
             font-size: 32px;
-            font-weight: 800;
+            font-weight: bold;
             color: #fd7014;
-            margin-bottom: 15px;
+            margin-bottom: 10px;
         }
         
-        .package-desc {
+        .card-subtitle {
             font-size: 16px;
-            color: #bbbbbb;
+            color: #aaa;
             margin-bottom: 15px;
             padding-bottom: 15px;
             border-bottom: 1px solid #333;
         }
         
-        /* Lista de recursos */
-        .feature-list {
-            padding: 0 25px;
-            flex-grow: 1;
-        }
-        
-        .feature-item {
-            display: flex;
-            align-items: flex-start;
-            margin-bottom: 10px;
-            color: #dddddd;
+        .feature {
+            text-align: left;
+            margin-bottom: 8px;
+            color: #ddd;
         }
         
         .feature-check {
             color: #fd7014;
-            margin-right: 10px;
-            min-width: 15px;
-        }
-        
-        /* Para esconder o excesso de conteúdo */
-        div.row-widget.stButton > button {
-            width: 100%;
-            background-color: #fd7014;
-            color: white;
-            border: none;
-            padding: 12px 0;
-            border-radius: 6px;
-            font-weight: bold;
-            margin-top: 10px;
+            margin-right: 8px;
         }
         </style>
         """, unsafe_allow_html=True)
@@ -110,7 +75,7 @@ def show_packages_page():
         # Header com a logo
         show_valuehunter_logo()
         
-        # Botão para voltar - MOVIDO PARA LOGO ABAIXO DO LOGO
+        # Botão para voltar
         col_back, col_empty = st.columns([1, 3])
         with col_back:
             if st.button("← Voltar para análises", key="back_to_analysis"):
@@ -130,16 +95,13 @@ def show_packages_page():
         if check_payment_success():
             return
         
-        # IMPORTANTE: Forçar refresh dos dados do usuário para garantir que os créditos estão atualizados
+        # IMPORTANTE: Forçar refresh dos dados do usuário
         if st.session_state.authenticated and st.session_state.email:
             try:
-                # Recarregar explicitamente os dados do usuário do disco
                 from utils.data import UserManager
                 st.session_state.user_manager = UserManager()
-                # Limpar qualquer cache que possa existir para estatísticas
                 if hasattr(st.session_state, 'user_stats_cache'):
                     del st.session_state.user_stats_cache
-                # Log da atualização
                 logger.info(f"Dados do usuário recarregados na página de pacotes para: {st.session_state.email}")
             except Exception as e:
                 logger.error(f"Erro ao atualizar dados do usuário na página de pacotes: {str(e)}")
@@ -152,69 +114,41 @@ def show_packages_page():
             stats = st.session_state.user_manager.get_usage_stats(st.session_state.email)
             st.info(f"💰 Você atualmente tem **{stats['credits_remaining']} créditos** disponíveis em sua conta.")
         
-        # Container para os pacotes (usa uma div em vez de columns do Streamlit)
-        st.markdown("""
-        <div class="packages-container">
-            <div class="package-card">
-                <div class="package-header">
-                    <div class="package-icon">💼</div>
-                    <div class="package-title">30 Créditos</div>
-                    <div class="package-price">R$ 19,99</div>
-                    <div class="package-desc">Pacote Standard</div>
-                </div>
-                <div class="feature-list">
-                    <div class="feature-item">
-                        <span class="feature-check">✓</span> 
-                        <span>Análise para mercados simples</span>
-                    </div>
-                    <div class="feature-item">
-                        <span class="feature-check">✓</span> 
-                        <span>Renovação automática com créditos</span>
-                    </div>
-                    <div class="feature-item">
-                        <span class="feature-check">✓</span> 
-                        <span>Suporte básico</span>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="package-card">
-                <div class="package-header">
-                    <div class="package-icon">🚀</div>
-                    <div class="package-title">60 Créditos</div>
-                    <div class="package-price">R$ 29,99</div>
-                    <div class="package-desc">Pacote Pro</div>
-                </div>
-                <div class="feature-list">
-                    <div class="feature-item">
-                        <span class="feature-check">✓</span> 
-                        <span>Análise para múltiplos mercados</span>
-                    </div>
-                    <div class="feature-item">
-                        <span class="feature-check">✓</span> 
-                        <span>Melhor custo-benefício</span>
-                    </div>
-                    <div class="feature-item">
-                        <span class="feature-check">✓</span> 
-                        <span>Análises estendidas</span>
-                    </div>
-                    <div class="feature-item">
-                        <span class="feature-check">✓</span> 
-                        <span>Suporte prioritário</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Botões de compra (separados dos cards para melhor controle)
+        # Usar colunas do Streamlit para layout
         col1, col2 = st.columns(2)
         
+        # Pacote Standard
         with col1:
+            st.markdown("""
+            <div class="card">
+                <div class="card-icon">💼</div>
+                <div class="card-title">30 Créditos</div>
+                <div class="card-price">R$ 19,99</div>
+                <div class="card-subtitle">Pacote Standard</div>
+                <div class="feature"><span class="feature-check">✓</span> Análise para mercados simples</div>
+                <div class="feature"><span class="feature-check">✓</span> Renovação automática com créditos</div>
+                <div class="feature"><span class="feature-check">✓</span> Suporte básico</div>
+            </div>
+            """, unsafe_allow_html=True)
+            
             if st.button("Comprar 30 Créditos", use_container_width=True, key="buy_30c"):
                 update_purchase_button(30, 19.99)
         
+        # Pacote Pro
         with col2:
+            st.markdown("""
+            <div class="card">
+                <div class="card-icon">🚀</div>
+                <div class="card-title">60 Créditos</div>
+                <div class="card-price">R$ 29,99</div>
+                <div class="card-subtitle">Pacote Pro</div>
+                <div class="feature"><span class="feature-check">✓</span> Análise para múltiplos mercados</div>
+                <div class="feature"><span class="feature-check">✓</span> Melhor custo-benefício</div>
+                <div class="feature"><span class="feature-check">✓</span> Análises estendidas</div>
+                <div class="feature"><span class="feature-check">✓</span> Suporte prioritário</div>
+            </div>
+            """, unsafe_allow_html=True)
+            
             if st.button("Comprar 60 Créditos", use_container_width=True, key="buy_60c"):
                 update_purchase_button(60, 29.99)
         
