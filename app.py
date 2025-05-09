@@ -184,6 +184,140 @@ js_fix_spacing = """
 """
 st.components.v1.html(js_fix_spacing, height=0)
 
+# Adicione este código no app.py logo após o JS anterior
+additional_spacing_fix = """
+<style>
+/* Solução extremamente específica para qualquer espaço residual */
+/* Alvo: Cabeçalho especifico e elementos na página de seleção de times */
+
+/* Reduzir espaçamento ao mínimo absoluto */
+.main .block-container,
+section[data-testid="stAppViewContainer"] {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+    min-height: 0 !important;
+}
+
+/* Ajustes específicos para o título "VALUE HUNTER" */
+h1, h2, h3, h1 *, h2 *, h3 * {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+    line-height: 1.2 !important;
+}
+
+/* Remover espaço de qualquer alerta ou mensagem (como a mensagem de versão mobile) */
+.stAlert,
+[data-baseweb="notification"],
+div[role="alert"],
+.info-box,
+.css-1aumxhk {
+    margin-top: 0 !important;
+    padding-top: 3px !important;
+    padding-bottom: 3px !important;
+}
+
+/* Ajuste para qualquer elemento de notificação na parte superior */
+[data-testid="stAppViewContainer"] > section > div:first-child {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+
+/* Compactar espaços entre elementos */
+.element-container {
+    margin-bottom: 5px !important;
+}
+
+/* Fixar elementos específicos da dashboard */
+div:has(> .stTitle),
+div:has(> h1),
+div:has(> h2) {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+
+/* Remover qualquer margem das primeiras 5 divs */
+.main .block-container > div:nth-child(-n+5) {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+</style>
+
+<script>
+// Script ultra-específico para a página de seleção de times
+document.addEventListener('DOMContentLoaded', function() {
+    // Função para ajustar espaçamento de forma extremamente agressiva
+    function ultraFix() {
+        // Encontrar qualquer título com "VALUE HUNTER" ou "Seleção de Times"
+        const titleElements = Array.from(document.querySelectorAll('h1, h2, h3, div'));
+        const targetElements = titleElements.filter(el => 
+            el.textContent && (
+                el.textContent.includes('VALUE') || 
+                el.textContent.includes('HUNTER') || 
+                el.textContent.includes('Seleção de Times')
+            )
+        );
+        
+        // Remover todo espaço acima destes elementos específicos
+        targetElements.forEach(el => {
+            // Obter todos os elementos pais
+            let parent = el.parentElement;
+            while (parent && parent.tagName !== 'BODY') {
+                parent.style.marginTop = '0';
+                parent.style.paddingTop = '0';
+                parent = parent.parentElement;
+            }
+            
+            // Ajustar o elemento específico
+            el.style.marginTop = '0';
+            el.style.paddingTop = '0';
+        });
+        
+        // Remover margens de mensagens de info (versão mobile, liga selecionada)
+        const infoMessages = Array.from(document.querySelectorAll('div, p, span')).filter(el => 
+            el.textContent && (
+                el.textContent.includes('Versão Mobile') || 
+                el.textContent.includes('Liga selecionada') ||
+                el.textContent.includes('times carregados')
+            )
+        );
+        
+        infoMessages.forEach(el => {
+            let parent = el;
+            // Subir até 5 níveis para ajustar pais
+            for (let i = 0; i < 5; i++) {
+                if (!parent) break;
+                parent.style.marginTop = '0';
+                parent.style.paddingTop = '0';
+                parent = parent.parentElement;
+            }
+        });
+        
+        // Forçar ajuste direto para a main
+        const mains = document.querySelectorAll('.main, main');
+        mains.forEach(m => {
+            m.style.paddingTop = '0';
+            m.style.marginTop = '0';
+        });
+    }
+    
+    // Executar várias vezes para garantir
+    ultraFix();
+    setTimeout(ultraFix, 100);
+    setTimeout(ultraFix, 500);
+    setTimeout(ultraFix, 1000);
+    
+    // Adicionar listener de mutação para detectar mudanças no DOM
+    const observer = new MutationObserver(ultraFix);
+    observer.observe(document.body, { 
+        childList: true, 
+        subtree: true,
+        attributes: true
+    });
+});
+</script>
+"""
+st.components.v1.html(additional_spacing_fix, height=0)
+
 # Favicon SVG (binóculo laranja)
 favicon_svg = """
 <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
