@@ -8,8 +8,7 @@ from utils.core import (
     DATA_DIR, init_session_state, show_valuehunter_logo, 
     configure_sidebar_visibility, apply_global_css, init_stripe,
     check_payment_success, handle_stripe_errors, apply_custom_styles,
-    remove_loading_screen, apply_responsive_styles, hide_sidebar_completely,
-    remove_top_whitespace, apply_dark_theme   # Alterado de remove_all_top_space para remove_top_whitespace
+    remove_loading_screen, apply_responsive_styles, hide_sidebar_completely, apply_dark_theme
 )
 
 # -----------------------------------------------------
