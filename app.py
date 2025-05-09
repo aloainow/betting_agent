@@ -9,7 +9,7 @@ from utils.core import (
     configure_sidebar_visibility, apply_global_css, init_stripe,
     check_payment_success, handle_stripe_errors, apply_custom_styles,
     remove_loading_screen, apply_responsive_styles, hide_sidebar_completely,
-    remove_top_whitespace, apply_dark_theme
+    remove_top_whitespace, apply_dark_theme, nuclear_whitespace_fix
 )
 
 # -----------------------------------------------------
@@ -22,6 +22,8 @@ st.set_page_config(
     layout="wide"
 )
 
+# Chame a solução nuclear imediatamente após set_page_config
+nuclear_whitespace_fix()
 
 # -----------------------------------------------------
 # SOLUÇÃO ULTRA-AGRESSIVA PARA REMOVER ESPAÇO EM BRANCO
