@@ -1725,21 +1725,6 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
         # Acessar total_expected_goals se ele for retornado pela função
         total_expected_goals = all_over_under_probs.get("expected_goals", home_expected_goals + away_expected_goals)
         
-        # Nas referências posteriores no dicionário de retorno, use o nome correto:
-        "over_under": {
-            # Manter os campos existentes para compatibilidade
-            "over_2_5": round(all_over_under_probs.get("over_2_5", 0), 1),
-            "under_2_5": round(all_over_under_probs.get("under_2_5", 0), 1),
-            "expected_goals": round(total_expected_goals, 2),
-            "over_1_5": round(all_over_under_probs.get("over_1_5", 0), 1),
-            "under_1_5": round(all_over_under_probs.get("under_1_5", 0), 1),
-            "over_3_5": round(all_over_under_probs.get("over_3_5", 0), 1),
-            "under_3_5": round(all_over_under_probs.get("under_3_5", 0), 1),
-            # Adicionar todos os novos thresholds calculados
-            **(all_over_under_probs if 'all_over_under_probs' in locals() else {})
-        }
-
-        
         # 10.4. Ambos Marcam (BTTS)
         btts_yes_prob, btts_no_prob = calculate_btts_probability(
             home_expected_goals, away_expected_goals, league_factors[1]
@@ -1762,9 +1747,8 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
             abs(home_total_score - away_total_score)
         )
         
-        
         # 11. Retornar resultados completos
-        return {
+        result = {
             "moneyline": {
                 "home_win": round(home_win_prob * 100, 1),
                 "draw": round(draw_prob * 100, 1),
@@ -1774,15 +1758,6 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
                 "home_or_draw": round((home_win_prob + draw_prob) * 100, 1),
                 "away_or_draw": round((away_win_prob + draw_prob) * 100, 1),
                 "home_or_away": round((home_win_prob + away_win_prob) * 100, 1)
-            },
-            "over_under": {
-                "over_2_5": round(all_over_under_probs.get("over_2_5", 0), 1),
-                "under_2_5": round(all_over_under_probs.get("under_2_5", 0), 1),
-                "expected_goals": round(total_expected_goals, 2),
-                "over_1_5": round(all_over_under_probs.get("over_1_5", 0), 1),
-                "under_1_5": round(all_over_under_probs.get("under_1_5", 0), 1),
-                "over_3_5": round(all_over_under_probs.get("over_3_5", 0), 1),
-                "under_3_5": round(all_over_under_probs.get("under_3_5", 0), 1)
             },
             "btts": {
                 "yes": round(adjusted_btts_yes * 100, 1),
@@ -1807,6 +1782,25 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
                 "away_total_score": round(away_total_score, 2)
             }
         }
+        
+        # Adicionando over_under com os campos existentes e os novos thresholds
+        result["over_under"] = {
+            # Manter os campos existentes para compatibilidade
+            "over_2_5": round(all_over_under_probs.get("over_2_5", 0), 1),
+            "under_2_5": round(all_over_under_probs.get("under_2_5", 0), 1),
+            "expected_goals": round(total_expected_goals, 2),
+            "over_1_5": round(all_over_under_probs.get("over_1_5", 0), 1),
+            "under_1_5": round(all_over_under_probs.get("under_1_5", 0), 1),
+            "over_3_5": round(all_over_under_probs.get("over_3_5", 0), 1),
+            "under_3_5": round(all_over_under_probs.get("under_3_5", 0), 1)
+        }
+        
+        # Adicionar os novos thresholds calculados (0.5, 4.5, 5.5)
+        for key, value in all_over_under_probs.items():
+            if key not in ["expected_goals"] and key not in result["over_under"]:
+                result["over_under"][key] = round(value, 1) if isinstance(value, (int, float)) else value
+        
+        return result
         
     except Exception as e:
         import logging
