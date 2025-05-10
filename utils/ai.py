@@ -1722,7 +1722,6 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
         # 10.3. Probabilidades Over/Under para múltiplos thresholds
         all_over_under_probs = calculate_over_under_probabilities(home_expected_goals, away_expected_goals)
 
-        )
         
         # 10.4. Ambos Marcam (BTTS)
         btts_yes_prob, btts_no_prob = calculate_btts_probability(
