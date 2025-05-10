@@ -941,401 +941,334 @@ def check_data_quality(stats_dict):
     
     return False
 
-def format_analysis_response(analysis_text, home_team, away_team, selected_markets=None, original_probabilities=None, odds_data=None, implied_probabilities=None):
+def format_analysis_response(home_team, away_team, original_probabilities, implied_probabilities, selected_markets):
     """
-    Formato atualizado que usa dados pré-calculados de probabilidades implícitas e
-    separa as oportunidades das justificativas detalhadas.
+    Formata o resultado da análise de valor para exibição.
+    Processa múltiplos thresholds para todos os mercados.
     """
-    # Definir o limiar de valor como uma constante para fácil ajuste
-    VALUE_THRESHOLD = 10.0 # Aumentado de 5.0 para 10.0 para ser muito mais conservador
+    # Constante para determinar valor mínimo
+    VALUE_THRESHOLD = 2.0  # Diferença mínima de 2% para considerar valor
     
-    try:
-        # Verificar se temos informações suficientes
-        if not analysis_text or not original_probabilities or not implied_probabilities:
-            logger.warning("Informações insuficientes para formatação completa")
-            return analysis_text
-        
-        selected_markets = selected_markets or {}
-        
-        # Criar uma análise completamente nova a partir dos dados que temos
-        new_analysis = []
-        
-        # Título
-        new_analysis.append(f"# Análise da Partida\n## {home_team} x {away_team}")
-        
-        # Análise de Mercados
-        markets_section = "# Análise de Mercados Disponíveis:\n"
-        
-        # Usar o odds_data original diretamente se disponível
-        if odds_data:
-            markets_section += odds_data
-        else:
-            # Ou reconstruir a partir das probabilidades implícitas
-            if selected_markets.get("money_line") and implied_probabilities:
-                markets_section += "- **Money Line (1X2):**\n"
-                if "home" in implied_probabilities:
-                    home_odd = 100.0 / implied_probabilities["home"]
-                    markets_section += f"  - Casa ({home_team}): @{home_odd:.2f}\n"
-                if "draw" in implied_probabilities:
-                    draw_odd = 100.0 / implied_probabilities["draw"]
-                    markets_section += f"  - Empate: @{draw_odd:.2f}\n"
-                if "away" in implied_probabilities:
-                    away_odd = 100.0 / implied_probabilities["away"]
-                    markets_section += f"  - Fora ({away_team}): @{away_odd:.2f}\n"
-            
-            if selected_markets.get("chance_dupla") and implied_probabilities:
-                markets_section += "- **Chance Dupla:**\n"
-                if "home_draw" in implied_probabilities:
-                    home_draw_odd = 100.0 / implied_probabilities["home_draw"]
-                    markets_section += f"  - 1X ({home_team} ou Empate): @{home_draw_odd:.2f}\n"
-                if "home_away" in implied_probabilities:
-                    home_away_odd = 100.0 / implied_probabilities["home_away"]
-                    markets_section += f"  - 12 ({home_team} ou {away_team}): @{home_away_odd:.2f}\n"
-                if "draw_away" in implied_probabilities:
-                    draw_away_odd = 100.0 / implied_probabilities["draw_away"]
-                    markets_section += f"  - X2 (Empate ou {away_team}): @{draw_away_odd:.2f}\n"
-            
-            if selected_markets.get("ambos_marcam") and implied_probabilities:
-                markets_section += "- **Ambos Marcam (BTTS):**\n"
-                if "btts_yes" in implied_probabilities:
-                    btts_yes_odd = 100.0 / implied_probabilities["btts_yes"]
-                    markets_section += f"  - Sim: @{btts_yes_odd:.2f}\n"
-                if "btts_no" in implied_probabilities:
-                    btts_no_odd = 100.0 / implied_probabilities["btts_no"]
-                    markets_section += f"  - Não: @{btts_no_odd:.2f}\n"
-                    
-            if selected_markets.get("over_under") and implied_probabilities:
-                markets_section += "- **Over/Under 2.5 Gols:**\n"
-                if "over_2_5" in implied_probabilities:
-                    over_odd = 100.0 / implied_probabilities["over_2_5"]
-                    markets_section += f"  - Over 2.5: @{over_odd:.2f}\n"
-                if "under_2_5" in implied_probabilities:
-                    under_odd = 100.0 / implied_probabilities["under_2_5"]
-                    markets_section += f"  - Under 2.5: @{under_odd:.2f}\n"
-                    
-            if selected_markets.get("escanteios") and implied_probabilities:
-                markets_section += "- **Escanteios (Over/Under 9.5):**\n"
-                if "over_9_5_corners" in implied_probabilities:
-                    over_odd = 100.0 / implied_probabilities["over_9_5_corners"]
-                    markets_section += f"  - Over 9.5: @{over_odd:.2f}\n"
-                if "under_9_5_corners" in implied_probabilities:
-                    under_odd = 100.0 / implied_probabilities["under_9_5_corners"]
-                    markets_section += f"  - Under 9.5: @{under_odd:.2f}\n"
-                    
-            if selected_markets.get("cartoes") and implied_probabilities:
-                markets_section += "- **Cartões (Over/Under 3.5):**\n"
-                if "over_3_5_cards" in implied_probabilities:
-                    over_odd = 100.0 / implied_probabilities["over_3_5_cards"]
-                    markets_section += f"  - Over 3.5: @{over_odd:.2f}\n"
-                if "under_3_5_cards" in implied_probabilities:
-                    under_odd = 100.0 / implied_probabilities["under_3_5_cards"]
-                    markets_section += f"  - Under 3.5: @{under_odd:.2f}\n"
-        
-        new_analysis.append(markets_section)
-        
-        # Probabilidades Calculadas vs Implícitas
-        probs_section = "# Probabilidades Calculadas (REAL vs IMPLÍCITA):\n"
-        opportunities = []
-        
-        # Extrair dados de análise comuns
-        analysis_data = original_probabilities.get("analysis_data", {})
-        
-        # Processar Money Line (1X2)
-        if selected_markets.get("money_line") and "moneyline" in original_probabilities:
-            probs_section += "## Money Line (1X2):\n"
-            
-            moneyline = original_probabilities["moneyline"]
-            
-            # Casa
-            home_real = moneyline.get("home_win", 0)
-            home_implicit = implied_probabilities.get("home", 0)
-            home_value = home_real > home_implicit + VALUE_THRESHOLD
-            
-            probs_section += f"- **{home_team}**: Real {home_real:.1f}% vs Implícita {home_implicit:.1f}%{' (Valor)' if home_value else ''}\n"
-            
-            if home_value:
-                # Criar texto de oportunidade
-                opportunity = f"- **{home_team}**: Real {home_real:.1f}% vs Implícita {home_implicit:.1f}% (Valor de {home_real-home_implicit:.1f}%)"
-                # Formatar com justificativa condensada usando a nova função
-                opportunity = format_opportunity_with_justification(
-                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
-                )
-                opportunities.append(opportunity)
-            
-            # Empate
-            draw_real = moneyline.get("draw", 0)
-            draw_implicit = implied_probabilities.get("draw", 0)
-            draw_value = draw_real > draw_implicit + VALUE_THRESHOLD
-            
-            probs_section += f"- **Empate**: Real {draw_real:.1f}% vs Implícita {draw_implicit:.1f}%{' (Valor)' if draw_value else ''}\n"
-            
-            if draw_value:
-                # Criar texto de oportunidade
-                opportunity = f"- **Empate**: Real {draw_real:.1f}% vs Implícita {draw_implicit:.1f}% (Valor de {draw_real-draw_implicit:.1f}%)"
-                # Formatar com justificativa condensada
-                opportunity = format_opportunity_with_justification(
-                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
-                )
-                opportunities.append(opportunity)
-            
-            # Fora
-            away_real = moneyline.get("away_win", 0)
-            away_implicit = implied_probabilities.get("away", 0)
-            away_value = away_real > away_implicit + VALUE_THRESHOLD
-            
-            probs_section += f"- **{away_team}**: Real {away_real:.1f}% vs Implícita {away_implicit:.1f}%{' (Valor)' if away_value else ''}\n"
-            
-            if away_value:
-                # Criar texto de oportunidade
-                opportunity = f"- **{away_team}**: Real {away_real:.1f}% vs Implícita {away_implicit:.1f}% (Valor de {away_real-away_implicit:.1f}%)"
-                # Formatar com justificativa condensada
-                opportunity = format_opportunity_with_justification(
-                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
-                )
-                opportunities.append(opportunity)
-        
-        # Double Chance
-        if selected_markets.get("chance_dupla") and "double_chance" in original_probabilities:
-            probs_section += "## Chance Dupla (Double Chance):\n"
-            
-            dc = original_probabilities["double_chance"]
-            
-            # 1X
-            hd_real = dc.get("home_or_draw", 0)
-            hd_implicit = implied_probabilities.get("home_draw", 0)
-            hd_value = hd_real > hd_implicit + VALUE_THRESHOLD
-            
-            probs_section += f"- **{home_team} ou Empate**: Real {hd_real:.1f}% vs Implícita {hd_implicit:.1f}%{' (Valor)' if hd_value else ''}\n"
-            
-            if hd_value:
-                opportunity = f"- **{home_team} ou Empate**: Real {hd_real:.1f}% vs Implícita {hd_implicit:.1f}% (Valor de {hd_real-hd_implicit:.1f}%)"
-                opportunity = format_opportunity_with_justification(
-                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
-                )
-                opportunities.append(opportunity)
-            
-            # 12
-            ha_real = dc.get("home_or_away", 0)
-            ha_implicit = implied_probabilities.get("home_away", 0)
-            ha_value = ha_real > ha_implicit + VALUE_THRESHOLD
-            
-            probs_section += f"- **{home_team} ou {away_team}**: Real {ha_real:.1f}% vs Implícita {ha_implicit:.1f}%{' (Valor)' if ha_value else ''}\n"
-            
-            if ha_value:
-                opportunity = f"- **{home_team} ou {away_team}**: Real {ha_real:.1f}% vs Implícita {ha_implicit:.1f}% (Valor de {ha_real-ha_implicit:.1f}%)"
-                opportunity = format_opportunity_with_justification(
-                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
-                )
-                opportunities.append(opportunity)
-            
-            # X2
-            da_real = dc.get("away_or_draw", 0)
-            da_implicit = implied_probabilities.get("draw_away", 0)
-            da_value = da_real > da_implicit + VALUE_THRESHOLD
-            
-            probs_section += f"- **Empate ou {away_team}**: Real {da_real:.1f}% vs Implícita {da_implicit:.1f}%{' (Valor)' if da_value else ''}\n"
-            
-            if da_value:
-                opportunity = f"- **Empate ou {away_team}**: Real {da_real:.1f}% vs Implícita {da_implicit:.1f}% (Valor de {da_real-da_implicit:.1f}%)"
-                opportunity = format_opportunity_with_justification(
-                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
-                )
-                opportunities.append(opportunity)
-        
-        # BTTS
-        if selected_markets.get("ambos_marcam") and "btts" in original_probabilities:
-            probs_section += "## Ambos Marcam (BTTS):\n"
-            
-            btts = original_probabilities["btts"]
-            
-            # Sim
-            yes_real = btts.get("yes", 0)
-            yes_implicit = implied_probabilities.get("btts_yes", 0)
-            yes_value = yes_real > yes_implicit + VALUE_THRESHOLD
-            
-            probs_section += f"- **Sim**: Real {yes_real:.1f}% vs Implícita {yes_implicit:.1f}%{' (Valor)' if yes_value else ''}\n"
-            
-            if yes_value:
-                opportunity = f"- **Ambos Marcam - Sim**: Real {yes_real:.1f}% vs Implícita {yes_implicit:.1f}% (Valor de {yes_real-yes_implicit:.1f}%)"
-                opportunity = format_opportunity_with_justification(
-                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
-                )
-                opportunities.append(opportunity)
-            
-            # Não
-            no_real = btts.get("no", 0)
-            no_implicit = implied_probabilities.get("btts_no", 0)
-            no_value = no_real > no_implicit + VALUE_THRESHOLD
-            
-            probs_section += f"- **Não**: Real {no_real:.1f}% vs Implícita {no_implicit:.1f}%{' (Valor)' if no_value else ''}\n"
-            
-            if no_value:
-                opportunity = f"- **Ambos Marcam - Não**: Real {no_real:.1f}% vs Implícita {no_implicit:.1f}% (Valor de {no_real-no_implicit:.1f}%)"
-                opportunity = format_opportunity_with_justification(
-                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
-                )
-                opportunities.append(opportunity)
-        
-        # Over/Under
-        if selected_markets.get("over_under") and "over_under" in original_probabilities:
-            probs_section += "## Over/Under 2.5 Gols:\n"
-            
-            ou = original_probabilities["over_under"]
-            
-            # Over 2.5
-            over_real = ou.get("over_2_5", 0)
-            over_implicit = implied_probabilities.get("over_2_5", 0)
-            over_value = over_real > over_implicit + VALUE_THRESHOLD
-            
-            probs_section += f"- **Over 2.5**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}%{' (Valor)' if over_value else ''}\n"
-            
-            if over_value:
-                opportunity = f"- **Over 2.5 Gols**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}% (Valor de {over_real-over_implicit:.1f}%)"
-                opportunity = format_opportunity_with_justification(
-                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
-                )
-                opportunities.append(opportunity)
-            
-            # Under 2.5
-            under_real = ou.get("under_2_5", 0)
-            under_implicit = implied_probabilities.get("under_2_5", 0)
-            under_value = under_real > under_implicit + VALUE_THRESHOLD
-            
-            probs_section += f"- **Under 2.5**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}%{' (Valor)' if under_value else ''}\n"
-            
-            if under_value:
-                opportunity = f"- **Under 2.5 Gols**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real-under_implicit:.1f}%)"
-                opportunity = format_opportunity_with_justification(
-                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
-                )
-                opportunities.append(opportunity)
-        
-        # Escanteios
-        if selected_markets.get("escanteios") and "corners" in original_probabilities:
-            probs_section += "## Escanteios (Over/Under 9.5):\n"
-            
-            corners = original_probabilities["corners"]
-            
-            # Over 9.5
-            over_real = corners.get("over_9_5", 0)
-            over_implicit = implied_probabilities.get("over_9_5_corners", 0)
-            over_value = over_real > over_implicit + VALUE_THRESHOLD
-            
-            probs_section += f"- **Over 9.5**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}%{' (Valor)' if over_value else ''}\n"
-            
-            if over_value:
-                opportunity = f"- **Over 9.5 Escanteios**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}% (Valor de {over_real-over_implicit:.1f}%)"
-                opportunity = format_opportunity_with_justification(
-                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
-                )
-                opportunities.append(opportunity)
-            
-            # Under 9.5
-            under_real = corners.get("under_9_5", 0)
-            under_implicit = implied_probabilities.get("under_9_5_corners", 0)
-            under_value = under_real > under_implicit + VALUE_THRESHOLD
-            
-            probs_section += f"- **Under 9.5**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}%{' (Valor)' if under_value else ''}\n"
-            
-            if under_value:
-                opportunity = f"- **Under 9.5 Escanteios**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real-under_implicit:.1f}%)"
-                opportunity = format_opportunity_with_justification(
-                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
-                )
-                opportunities.append(opportunity)
-        
-        # Cartões
-        if selected_markets.get("cartoes") and "cards" in original_probabilities:
-            probs_section += "## Cartões (Over/Under 3.5):\n"
-            
-            cards = original_probabilities["cards"]
-            
-            # Over 3.5
-            # CORREÇÃO: Usar a chave correta para o limiar 3.5 (assumindo que exista, ex: 'over_3_5')
-            # O código original usava 'over_4_5', o que estava inconsistente.
-            # Se a chave 'over_3_5' não existir, a lógica de cálculo ou a fonte de dados precisa ser revisada.
-            over_real = cards.get("over_3_5", 0) # Corrigido de "over_4_5"
-            over_implicit = implied_probabilities.get("over_3_5_cards", 0)
-            over_value = over_real > over_implicit + VALUE_THRESHOLD
-            
-            probs_section += f"- **Over 3.5**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}%{' (Valor)' if over_value else ''}\n"
-            
-            if over_value:
-                opportunity = f"- **Over 3.5 Cartões**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}% (Valor de {over_real-over_implicit:.1f}%)"
-                opportunity = format_opportunity_with_justification(
-                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
-                )
-                opportunities.append(opportunity)
-            
-            # Under 3.5
-            # CORREÇÃO: Usar a chave correta para o limiar 3.5 (assumindo que exista, ex: 'under_3_5')
-            # O código original usava 'under_4_5', o que estava inconsistente.
-            # Se a chave 'under_3_5' não existir, a lógica de cálculo ou a fonte de dados precisa ser revisada.
-            under_real = cards.get("under_3_5", 0) # Corrigido de "under_4_5"
-            under_implicit = implied_probabilities.get("under_3_5_cards", 0)
-            under_value = under_real > under_implicit + VALUE_THRESHOLD
-            
-            probs_section += f"- **Under 3.5**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}%{' (Valor)' if under_value else ''}\n"
-            
-            if under_value:
-                opportunity = f"- **Under 3.5 Cartões**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real-under_implicit:.1f}%)"
-                opportunity = format_opportunity_with_justification(
-                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
-                )
-                opportunities.append(opportunity)
-        
-        new_analysis.append(probs_section)
-        
-        # Oportunidades Identificadas (com justificativas condensadas)
-        if opportunities:
-            new_analysis.append("# Oportunidades Identificadas:\n" + "\n".join(opportunities))
-        else:
-            new_analysis.append("# Oportunidades Identificadas:\nInfelizmente não detectamos valor em nenhuma dos seus inputs.")
-        
-        # Adicionar seção de justificativas detalhadas utilizando o módulo de justificativas
-        justifications = generate_justifications_for_opportunities(
-            opportunities, home_team, away_team, original_probabilities, implied_probabilities
-        )
-        
-        justifications_section = format_justifications_section(justifications)
-        if justifications_section:
-            new_analysis.append(justifications_section)
-        
-        # Nível de Confiança
-        if "analysis_data" in original_probabilities:
-            analysis_data = original_probabilities["analysis_data"]
-            home_consistency = analysis_data.get("home_consistency", 0)
-            away_consistency = analysis_data.get("away_consistency", 0)
-            home_form_points = analysis_data.get("home_form_points", 0) * 15
-            away_form_points = analysis_data.get("away_form_points", 0) * 15
-            
-            # Determinar nível de confiança com base nas consistências e formas
-            avg_consistency = (home_consistency + away_consistency) / 2
-            
-            if avg_consistency > 70 and (home_form_points >= 9 or away_form_points >= 9):
-                confidence_level = "Alto"
-            elif avg_consistency > 50 and (home_form_points >= 6 or away_form_points >= 6):
-                confidence_level = "Médio"
-            else:
-                confidence_level = "Baixo"
-            
-            confidence_text = f"# Nível de Confiança Geral: {confidence_level}\n"
-            confidence_text += f"- **Consistência**: {home_team}: {home_consistency:.1f}%, {away_team}: {away_consistency:.1f}%. Consistência é uma medida que indica quão previsível é o desempenho da equipe.\n"
-            confidence_text += f"- **Forma Recente**: {home_team}: {home_form_points:.1f}/15 como mandante, {away_team}: {away_form_points:.1f}/15 como visitante. Forma representa a pontuação dos últimos 5 jogos (vitória=3pts, empate=1pt, derrota=0pts).\n"
-            confidence_text += "- Valores mais altos em ambas métricas aumentam a confiança na previsão."
-            
-            new_analysis.append(confidence_text)
-        else:
-            new_analysis.append("# Nível de Confiança Geral: Médio\n- **Consistência**: A consistência mede quão previsível é o desempenho da equipe.\n- **Forma Recente**: A forma representa pontos dos últimos 5 jogos (vitória=3pts, empate=1pt, derrota=0pts).")
-        
-        # Retornar a análise completa
-        return '\n\n'.join(new_analysis)
+    opportunities = []
+    probs_section = "# Análise de Probabilidades\n\n"
     
-    except Exception as e:
-        import traceback
-        logger.error(f"Erro ao formatar resposta de análise: {str(e)}")
-        logger.error(traceback.format_exc())
-        return analysis_text  # Retornar o texto original em caso de erro
+    # 1X2 (Money Line)
+    if selected_markets.get("moneyline") and "moneyline" in original_probabilities:
+        probs_section += "## Money Line (1X2):\n"
+        
+        ml = original_probabilities["moneyline"]
+        
+        # Home Win
+        home_real = ml.get("home_win", 0)
+        home_implicit = implied_probabilities.get("home_win", 0)
+        home_value = home_real > home_implicit + VALUE_THRESHOLD
+        
+        probs_section += f"- **{home_team['name']}**: Real {home_real:.1f}% vs Implícita {home_implicit:.1f}%{' (Valor)' if home_value else ''}\n"
+        
+        # Draw
+        draw_real = ml.get("draw", 0)
+        draw_implicit = implied_probabilities.get("draw", 0)
+        draw_value = draw_real > draw_implicit + VALUE_THRESHOLD
+        
+        probs_section += f"- **Empate**: Real {draw_real:.1f}% vs Implícita {draw_implicit:.1f}%{' (Valor)' if draw_value else ''}\n"
+        
+        # Away Win
+        away_real = ml.get("away_win", 0)
+        away_implicit = implied_probabilities.get("away_win", 0)
+        away_value = away_real > away_implicit + VALUE_THRESHOLD
+        
+        probs_section += f"- **{away_team['name']}**: Real {away_real:.1f}% vs Implícita {away_implicit:.1f}%{' (Valor)' if away_value else ''}\n"
+        
+        # Adicionar oportunidades
+        if home_value:
+            opportunity = f"- **Vitória do {home_team['name']}**: Real {home_real:.1f}% vs Implícita {home_implicit:.1f}% (Valor de {home_real-home_implicit:.1f}%)"
+            opportunity = format_opportunity_with_justification(
+                opportunity, home_team, away_team, original_probabilities, implied_probabilities
+            )
+            opportunities.append(opportunity)
+        
+        if draw_value:
+            opportunity = f"- **Empate**: Real {draw_real:.1f}% vs Implícita {draw_implicit:.1f}% (Valor de {draw_real-draw_implicit:.1f}%)"
+            opportunity = format_opportunity_with_justification(
+                opportunity, home_team, away_team, original_probabilities, implied_probabilities
+            )
+            opportunities.append(opportunity)
+        
+        if away_value:
+            opportunity = f"- **Vitória do {away_team['name']}**: Real {away_real:.1f}% vs Implícita {away_implicit:.1f}% (Valor de {away_real-away_implicit:.1f}%)"
+            opportunity = format_opportunity_with_justification(
+                opportunity, home_team, away_team, original_probabilities, implied_probabilities
+            )
+            opportunities.append(opportunity)
+    
+    # Chance Dupla (Double Chance)
+    if selected_markets.get("double_chance") and "double_chance" in original_probabilities:
+        probs_section += "## Chance Dupla (Double Chance):\n"
+        
+        dc = original_probabilities["double_chance"]
+        
+        # Home or Draw
+        hd_real = dc.get("home_or_draw", 0)
+        hd_implicit = implied_probabilities.get("home_or_draw", 0)
+        hd_value = hd_real > hd_implicit + VALUE_THRESHOLD
+        
+        probs_section += f"- **{home_team['name']} ou Empate**: Real {hd_real:.1f}% vs Implícita {hd_implicit:.1f}%{' (Valor)' if hd_value else ''}\n"
+        
+        # Home or Away
+        ha_real = dc.get("home_or_away", 0)
+        ha_implicit = implied_probabilities.get("home_or_away", 0)
+        ha_value = ha_real > ha_implicit + VALUE_THRESHOLD
+        
+        probs_section += f"- **{home_team['name']} ou {away_team['name']}**: Real {ha_real:.1f}% vs Implícita {ha_implicit:.1f}%{' (Valor)' if ha_value else ''}\n"
+        
+        # Draw or Away
+        da_real = dc.get("away_or_draw", 0)
+        da_implicit = implied_probabilities.get("away_or_draw", 0)
+        da_value = da_real > da_implicit + VALUE_THRESHOLD
+        
+        probs_section += f"- **Empate ou {away_team['name']}**: Real {da_real:.1f}% vs Implícita {da_implicit:.1f}%{' (Valor)' if da_value else ''}\n"
+        
+        # Adicionar oportunidades
+        if hd_value:
+            opportunity = f"- **{home_team['name']} ou Empate**: Real {hd_real:.1f}% vs Implícita {hd_implicit:.1f}% (Valor de {hd_real-hd_implicit:.1f}%)"
+            opportunity = format_opportunity_with_justification(
+                opportunity, home_team, away_team, original_probabilities, implied_probabilities
+            )
+            opportunities.append(opportunity)
+        
+        if ha_value:
+            opportunity = f"- **{home_team['name']} ou {away_team['name']}**: Real {ha_real:.1f}% vs Implícita {ha_implicit:.1f}% (Valor de {ha_real-ha_implicit:.1f}%)"
+            opportunity = format_opportunity_with_justification(
+                opportunity, home_team, away_team, original_probabilities, implied_probabilities
+            )
+            opportunities.append(opportunity)
+        
+        if da_value:
+            opportunity = f"- **Empate ou {away_team['name']}**: Real {da_real:.1f}% vs Implícita {da_implicit:.1f}% (Valor de {da_real-da_implicit:.1f}%)"
+            opportunity = format_opportunity_with_justification(
+                opportunity, home_team, away_team, original_probabilities, implied_probabilities
+            )
+            opportunities.append(opportunity)
+    
+    # BTTS (Ambos Marcam)
+    if selected_markets.get("btts") and "btts" in original_probabilities:
+        probs_section += "## Ambos Marcam (BTTS):\n"
+        
+        btts = original_probabilities["btts"]
+        
+        # Yes
+        yes_real = btts.get("yes", 0)
+        yes_implicit = implied_probabilities.get("btts_yes", 0)
+        yes_value = yes_real > yes_implicit + VALUE_THRESHOLD
+        
+        probs_section += f"- **Sim**: Real {yes_real:.1f}% vs Implícita {yes_implicit:.1f}%{' (Valor)' if yes_value else ''}\n"
+        
+        # No
+        no_real = btts.get("no", 0)
+        no_implicit = implied_probabilities.get("btts_no", 0)
+        no_value = no_real > no_implicit + VALUE_THRESHOLD
+        
+        probs_section += f"- **Não**: Real {no_real:.1f}% vs Implícita {no_implicit:.1f}%{' (Valor)' if no_value else ''}\n"
+        
+        # Adicionar oportunidades
+        if yes_value:
+            opportunity = f"- **Ambos Marcam (Sim)**: Real {yes_real:.1f}% vs Implícita {yes_implicit:.1f}% (Valor de {yes_real-yes_implicit:.1f}%)"
+            opportunity = format_opportunity_with_justification(
+                opportunity, home_team, away_team, original_probabilities, implied_probabilities
+            )
+            opportunities.append(opportunity)
+        
+        if no_value:
+            opportunity = f"- **Ambos Marcam (Não)**: Real {no_real:.1f}% vs Implícita {no_implicit:.1f}% (Valor de {no_real-no_implicit:.1f}%)"
+            opportunity = format_opportunity_with_justification(
+                opportunity, home_team, away_team, original_probabilities, implied_probabilities
+            )
+            opportunities.append(opportunity)
+            
+    # Over/Under Gols - MÚLTIPLOS THRESHOLDS
+    if selected_markets.get("over_under") and "over_under" in original_probabilities:
+        probs_section += "## Over/Under Gols:\n"
+        
+        ou = original_probabilities["over_under"]
+        
+        # Detectar todas as linhas de gols disponíveis (0.5, 1.5, 2.5, 3.5, etc.)
+        goal_thresholds = []
+        for key in ou.keys():
+            if key.startswith('over_'):
+                # Extrair o threshold do nome da chave (ex: over_2_5 -> 2.5)
+                try:
+                    threshold = key[5:].replace('_', '.')
+                    goal_thresholds.append(float(threshold))
+                except (ValueError, IndexError):
+                    continue
+        
+        # Processar cada linha de gols em ordem
+        for threshold in sorted(goal_thresholds):
+            # Formatar o threshold para uso nas chaves
+            threshold_key = str(threshold).replace('.', '_')
+            over_key = f"over_{threshold_key}"
+            under_key = f"under_{threshold_key}"
+            
+            # Chaves para probabilidades implícitas
+            over_implicit_key = f"over_{threshold_key}"
+            under_implicit_key = f"under_{threshold_key}"
+            
+            # Processar "Over"
+            over_real = ou.get(over_key, 0)
+            over_implicit = implied_probabilities.get(over_implicit_key, 0)
+            over_value = over_real > over_implicit + VALUE_THRESHOLD
+            
+            probs_section += f"- **Over {threshold}**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}%{' (Valor)' if over_value else ''}\n"
+            
+            if over_value:
+                opportunity = f"- **Over {threshold} Gols**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}% (Valor de {over_real-over_implicit:.1f}%)"
+                opportunity = format_opportunity_with_justification(
+                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
+                )
+                opportunities.append(opportunity)
+            
+            # Processar "Under" 
+            under_real = ou.get(under_key, 0)
+            under_implicit = implied_probabilities.get(under_implicit_key, 0)
+            under_value = under_real > under_implicit + VALUE_THRESHOLD
+            
+            probs_section += f"- **Under {threshold}**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}%{' (Valor)' if under_value else ''}\n"
+            
+            if under_value:
+                opportunity = f"- **Under {threshold} Gols**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real-under_implicit:.1f}%)"
+                opportunity = format_opportunity_with_justification(
+                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
+                )
+                opportunities.append(opportunity)
+    
+    # Cartões - MÚLTIPLOS THRESHOLDS
+    if selected_markets.get("cartoes") and "cards" in original_probabilities:
+        probs_section += "## Cartões (Over/Under):\n"
+        
+        cards = original_probabilities["cards"]
+        
+        # Detectar todas as linhas de cartões disponíveis (2.5, 3.5, 4.5, etc.)
+        card_thresholds = []
+        for key in cards.keys():
+            if key.startswith('over_'):
+                # Extrair o threshold do nome da chave (ex: over_3_5 -> 3.5)
+                try:
+                    threshold = key[5:].replace('_', '.')
+                    card_thresholds.append(float(threshold))
+                except (ValueError, IndexError):
+                    continue
+        
+        # Processar cada linha de cartões em ordem
+        for threshold in sorted(card_thresholds):
+            # Formatar o threshold para uso nas chaves
+            threshold_key = str(threshold).replace('.', '_')
+            over_key = f"over_{threshold_key}"
+            under_key = f"under_{threshold_key}"
+            
+            # Chaves para probabilidades implícitas
+            over_implicit_key = f"over_{threshold_key}_cards"
+            under_implicit_key = f"under_{threshold_key}_cards"
+            
+            # Processar "Over"
+            over_real = cards.get(over_key, 0)
+            over_implicit = implied_probabilities.get(over_implicit_key, 0)
+            over_value = over_real > over_implicit + VALUE_THRESHOLD
+            
+            probs_section += f"- **Over {threshold}**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}%{' (Valor)' if over_value else ''}\n"
+            
+            if over_value:
+                opportunity = f"- **Over {threshold} Cartões**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}% (Valor de {over_real-over_implicit:.1f}%)"
+                opportunity = format_opportunity_with_justification(
+                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
+                )
+                opportunities.append(opportunity)
+            
+            # Processar "Under" 
+            under_real = cards.get(under_key, 0)
+            under_implicit = implied_probabilities.get(under_implicit_key, 0)
+            under_value = under_real > under_implicit + VALUE_THRESHOLD
+            
+            probs_section += f"- **Under {threshold}**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}%{' (Valor)' if under_value else ''}\n"
+            
+            if under_value:
+                opportunity = f"- **Under {threshold} Cartões**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real-under_implicit:.1f}%)"
+                opportunity = format_opportunity_with_justification(
+                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
+                )
+                opportunities.append(opportunity)
+    
+    # Escanteios - MÚLTIPLOS THRESHOLDS
+    if selected_markets.get("escanteios") and "corners" in original_probabilities:
+        probs_section += "## Escanteios (Over/Under):\n"
+        
+        corners = original_probabilities["corners"]
+        
+        # Detectar todas as linhas de escanteios disponíveis (7.5, 8.5, 9.5, 10.5, etc.)
+        corner_thresholds = []
+        for key in corners.keys():
+            if key.startswith('over_'):
+                # Extrair o threshold do nome da chave (ex: over_9_5 -> 9.5)
+                try:
+                    threshold = key[5:].replace('_', '.')
+                    corner_thresholds.append(float(threshold))
+                except (ValueError, IndexError):
+                    continue
+        
+        # Processar cada linha de escanteios em ordem
+        for threshold in sorted(corner_thresholds):
+            # Formatar o threshold para uso nas chaves
+            threshold_key = str(threshold).replace('.', '_')
+            over_key = f"over_{threshold_key}"
+            under_key = f"under_{threshold_key}"
+            
+            # Chaves para probabilidades implícitas
+            over_implicit_key = f"over_{threshold_key}_corners"
+            under_implicit_key = f"under_{threshold_key}_corners"
+            
+            # Processar "Over"
+            over_real = corners.get(over_key, 0)
+            over_implicit = implied_probabilities.get(over_implicit_key, 0)
+            over_value = over_real > over_implicit + VALUE_THRESHOLD
+            
+            probs_section += f"- **Over {threshold}**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}%{' (Valor)' if over_value else ''}\n"
+            
+            if over_value:
+                opportunity = f"- **Over {threshold} Escanteios**: Real {over_real:.1f}% vs Implícita {over_implicit:.1f}% (Valor de {over_real-over_implicit:.1f}%)"
+                opportunity = format_opportunity_with_justification(
+                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
+                )
+                opportunities.append(opportunity)
+            
+            # Processar "Under" 
+            under_real = corners.get(under_key, 0)
+            under_implicit = implied_probabilities.get(under_implicit_key, 0)
+            under_value = under_real > under_implicit + VALUE_THRESHOLD
+            
+            probs_section += f"- **Under {threshold}**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}%{' (Valor)' if under_value else ''}\n"
+            
+            if under_value:
+                opportunity = f"- **Under {threshold} Escanteios**: Real {under_real:.1f}% vs Implícita {under_implicit:.1f}% (Valor de {under_real-under_implicit:.1f}%)"
+                opportunity = format_opportunity_with_justification(
+                    opportunity, home_team, away_team, original_probabilities, implied_probabilities
+                )
+                opportunities.append(opportunity)
+    
+    # Analisar oportunidades e classificá-las
+    ranked_opportunities = []
+    
+    if opportunities:
+        probs_section += "\n## 🔎 Oportunidades de Valor Identificadas:\n"
+        
+        for opportunity in opportunities:
+            ranked_opportunities.append(opportunity)
+        
+        # Adicionar as oportunidades classificadas
+        for opportunity in ranked_opportunities:
+            probs_section += f"{opportunity}\n\n"
+    else:
+        probs_section += "\n## Nenhuma oportunidade de valor identificada para os mercados selecionados.\n"
+    
+    return probs_section # Retornar o texto original em caso de erro
 
 # Função auxiliar para aplicar a justificativa condensada à string de oportunidade
 def format_opportunity_with_justification(opportunity, home_team, away_team, original_probabilities, implied_probabilities):
@@ -1787,18 +1720,9 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
         total_expected_goals = home_expected_goals + away_expected_goals
         
         # 10.3. Probabilidades Over/Under para múltiplos thresholds
-        over_under_probabilities = {}
-        for threshold in [0.5, 1.5, 2.5, 3.5, 4.5]:
-            over_prob = calculate_over_probability(home_expected_goals, away_expected_goals, threshold)
-                        # Ajustar pela qualidade dos dados
-            # Se dados são de baixa qualidade, ajustar mais perto de 50-50
-            market_avg = 0.53 if threshold <= 2.5 else 0.47  # Odds típicas de mercado
-            # Aumentar o peso do market_avg para reduzir a confiança nas previsões
-            adjusted_over = over_prob * (data_quality * 0.7) + market_avg * (1 - (data_quality * 0.7))
-            adjusted_under = 1 - adjusted_over
-            
-            over_under_probabilities[f"over_{threshold}"] = adjusted_over * 100
-            over_under_probabilities[f"under_{threshold}"] = adjusted_under * 100
+        all_over_under_probs = calculate_over_under_probabilities(home_expected_goals, away_expected_goals)
+
+        )
         
         # 10.4. Ambos Marcam (BTTS)
         btts_yes_prob, btts_no_prob = calculate_btts_probability(
@@ -1812,110 +1736,117 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
         adjusted_btts_no = 1 - adjusted_btts_yes
         
         # 10.5. Escanteios
-        over_corners_prob, under_corners_prob, expected_corners = calculate_corners_probability(
+        over_corners_prob, under_corners_prob, expected_corners, all_corners_probs = calculate_corners_probability(
             home_team, away_team, 9.5, league_factors[3]
         )
         
-        # Ajustar pela qualidade dos dados
-        market_corners_over = 0.53  # Odds típicas de mercado
-        # Aumentar o peso do market_avg para reduzir a confiança nas previsões
-        adjusted_corners_over = over_corners_prob * (data_quality * 0.7) + market_corners_over * (1 - (data_quality * 0.7))
-        adjusted_corners_under = 1 - adjusted_corners_over
-        
         # 10.6. Cartões
-        over_cards_prob, under_cards_prob, expected_cards = calculate_cards_probability(
-            home_team, away_team, 4.5, league_factors[2],
+        over_cards_prob, under_cards_prob, expected_cards, all_cards_probs = calculate_cards_probability(
+            home_team, away_team, 3.5, league_factors[2],
             abs(home_total_score - away_total_score)
         )
         
-        # Ajustar pela qualidade dos dados
-        market_cards_over = 0.52  # Odds típicas de mercado
-        # Aumentar o peso do market_avg para reduzir a confiança nas previsões
-        adjusted_cards_over = over_cards_prob * (data_quality * 0.7) + market_cards_over * (1 - (data_quality * 0.7))
-        adjusted_cards_under = 1 - adjusted_cards_over
         
         # 11. Retornar resultados completos
-        return {
-            "moneyline": {
-                "home_win": round(home_win_prob * 100, 1),
-                "draw": round(draw_prob * 100, 1),
-                "away_win": round(away_win_prob * 100, 1)
+return {
+    "moneyline": {
+        "home_win": round(home_win_prob * 100, 1),
+        "draw": round(draw_prob * 100, 1),
+        "away_win": round(away_win_prob * 100, 1)
+    },
+    "double_chance": {
+        "home_or_draw": round((home_win_prob + draw_prob) * 100, 1),
+        "away_or_draw": round((away_win_prob + draw_prob) * 100, 1),
+        "home_or_away": round((home_win_prob + away_win_prob) * 100, 1)
+    },
+    "over_under": {
+        # Manter os campos existentes para compatibilidade
+        "over_2_5": round(over_under_probabilities.get("over_2.5", 0), 1),
+        "under_2_5": round(over_under_probabilities.get("under_2.5", 0), 1),
+        "expected_goals": round(total_expected_goals, 2),
+        "over_1_5": round(over_under_probabilities.get("over_1.5", 0), 1),
+        "under_1_5": round(over_under_probabilities.get("under_1.5", 0), 1),
+        "over_3_5": round(over_under_probabilities.get("over_3.5", 0), 1),
+        "under_3_5": round(over_under_probabilities.get("under_3.5", 0), 1),
+        # Adicionar todos os novos thresholds calculados
+        **(all_over_under_probs if 'all_over_under_probs' in locals() else {})
+    },
+    "btts": {
+        "yes": round(adjusted_btts_yes * 100, 1),
+        "no": round(adjusted_btts_no * 100, 1)
+    },
+    "cards": {
+        # Manter os campos existentes para compatibilidade
+        "over_3_5": round(over_cards_prob * 100, 1),
+        "under_3_5": round(under_cards_prob * 100, 1),
+        "over_4_5": round(adjusted_cards_over * 100, 1) if 'adjusted_cards_over' in locals() else round(over_cards_prob * 100, 1),
+        "under_4_5": round(adjusted_cards_under * 100, 1) if 'adjusted_cards_under' in locals() else round(under_cards_prob * 100, 1),
+        "expected_cards": round(expected_cards, 1),
+        # Adicionar todos os novos thresholds calculados
+        **(all_cards_probs if 'all_cards_probs' in locals() else {})
+    },
+    "corners": {
+        # Manter os campos existentes para compatibilidade
+        "over_9_5": round(over_corners_prob * 100, 1),
+        "under_9_5": round(under_corners_prob * 100, 1),
+        "over_10_5": round(adjusted_corners_over * 100, 1) if 'adjusted_corners_over' in locals() else round(over_corners_prob * 100, 1),
+        "under_10_5": round(adjusted_corners_under * 100, 1) if 'adjusted_corners_under' in locals() else round(under_corners_prob * 100, 1),
+        "expected_corners": round(expected_corners, 1),
+        # Adicionar todos os novos thresholds calculados
+        **(all_corners_probs if 'all_corners_probs' in locals() else {})
+    },
+    "analysis_data": {
+        "home_consistency": round(home_consistency, 1),
+        "away_consistency": round(away_consistency, 1),
+        "home_form_points": home_form_points / 15.0,
+        "away_form_points": away_form_points / 15.0,
+        "home_form_context": home_form_context,
+        "away_form_context": away_form_context,
+        "home_total_score": round(home_total_score, 2),
+        "away_total_score": round(away_total_score, 2),
+        "home_fatigue": round(home_fatigue * 100, 1),
+        "away_fatigue": round(away_fatigue * 100, 1),
+        "data_quality": round(data_quality * 100, 1),  # Importante: indicador de qualidade
+        "form_details": {
+            "home_specific": {
+                "points": home_specific_points,
+                "normalized": home_specific_points / 15.0,
+                "weight": home_form_weights["specific"] * 100,
+                "form": home_specific_form
             },
-            "double_chance": {
-                "home_or_draw": round((home_win_prob + draw_prob) * 100, 1),
-                "away_or_draw": round((away_win_prob + draw_prob) * 100, 1),
-                "home_or_away": round((home_win_prob + away_win_prob) * 100, 1)
+            "home_overall": {
+                "points": home_overall_points,
+                "normalized": home_overall_points / 15.0,
+                "weight": home_form_weights["overall"] * 100,
+                "form": home_overall_form
             },
-            "over_under": {
-                "over_2_5": round(over_under_probabilities["over_2.5"], 1),
-                "under_2_5": round(over_under_probabilities["under_2.5"], 1),
-                "expected_goals": round(total_expected_goals, 2),
-                # Incluir outros thresholds
-                "over_1_5": round(over_under_probabilities["over_1.5"], 1),
-                "under_1_5": round(over_under_probabilities["under_1.5"], 1),
-                "over_3_5": round(over_under_probabilities["over_3.5"], 1),
-                "under_3_5": round(over_under_probabilities["under_3.5"], 1)
+            "away_specific": {
+                "points": away_specific_points,
+                "normalized": away_specific_points / 15.0,
+                "weight": away_form_weights["specific"] * 100,
+                "form": away_specific_form
             },
-            "btts": {
-                "yes": round(adjusted_btts_yes * 100, 1),
-                "no": round(adjusted_btts_no * 100, 1)
-            },
-            "cards": {
-                "over_4_5": round(adjusted_cards_over * 100, 1),
-                "under_4_5": round(adjusted_cards_under * 100, 1),
-                "expected_cards": round(expected_cards, 1)
-            },
-            "corners": {
-                "over_9_5": round(adjusted_corners_over * 100, 1),
-                "under_9_5": round(adjusted_corners_under * 100, 1),
-                "expected_corners": round(expected_corners, 1)
-            },
-            "analysis_data": {
-                "home_consistency": round(home_consistency, 1),
-                "away_consistency": round(away_consistency, 1),
-                "home_form_points": home_form_points / 15.0,
-                "away_form_points": away_form_points / 15.0,
-                "home_form_context": home_form_context,
-                "away_form_context": away_form_context,
-                "home_total_score": round(home_total_score, 2),
-                "away_total_score": round(away_total_score, 2),
-                "home_fatigue": round(home_fatigue * 100, 1),
-                "away_fatigue": round(away_fatigue * 100, 1),
-                "data_quality": round(data_quality * 100, 1),  # Importante: indicador de qualidade
-                "form_details": {
-                    "home_specific": {
-                        "points": home_specific_points,
-                        "normalized": home_specific_points / 15.0,
-                        "weight": home_form_weights["specific"] * 100,
-                        "form": home_specific_form
-                    },
-                    "home_overall": {
-                        "points": home_overall_points,
-                        "normalized": home_overall_points / 15.0,
-                        "weight": home_form_weights["overall"] * 100,
-                        "form": home_overall_form
-                    },
-                    "away_specific": {
-                        "points": away_specific_points,
-                        "normalized": away_specific_points / 15.0,
-                        "weight": away_form_weights["specific"] * 100,
-                        "form": away_specific_form
-                    },
-                    "away_overall": {
-                        "points": away_overall_points,
-                        "normalized": away_overall_points / 15.0,
-                        "weight": away_form_weights["overall"] * 100,
-                        "form": away_overall_form
-                    }
-                },
-                "h2h_influence": {
-                    "home_factor": round(h2h_factors["home_factor"], 2),
-                    "draw_factor": round(h2h_factors["draw_factor"], 2),
-                    "away_factor": round(h2h_factors["away_factor"], 2),
-                    "weight": h2h_weight * 100
-                }
+            "away_overall": {
+                "points": away_overall_points,
+                "normalized": away_overall_points / 15.0,
+                "weight": away_form_weights["overall"] * 100,
+                "form": away_overall_form
             }
+        },
+        "h2h_influence": {
+            "home_factor": round(h2h_factors["home_factor"], 2),
+            "draw_factor": round(h2h_factors["draw_factor"], 2),
+            "away_factor": round(h2h_factors["away_factor"], 2),
+            "weight": h2h_weight * 100
+        },
+        # Adicionar metadados sobre os thresholds calculados
+        "calculated_thresholds": {
+            "over_under": list(sorted([float(k.replace('over_', '').replace('_', '.')) for k in over_under_probabilities.keys() if k.startswith('over_')])) if 'over_under_probabilities' in locals() else [],
+            "cards": list(sorted([float(k.replace('over_', '').replace('_', '.')) for k in all_cards_probs.keys() if k.startswith('over_')])) if 'all_cards_probs' in locals() else [],
+            "corners": list(sorted([float(k.replace('over_', '').replace('_', '.')) for k in all_corners_probs.keys() if k.startswith('over_')])) if 'all_corners_probs' in locals() else []
         }
+    }
+}
         
     except Exception as e:
         import logging
@@ -2068,35 +1999,38 @@ def ensemble_prediction(models_output, weights=None):
     return result
 
 # Uso:
-def calculate_over_under_probability(home_expected_goals, away_expected_goals, threshold=2.5):
-    """
-    Calculate over/under probabilities using Poisson distribution
-    
-    Args:
-        home_expected_goals: Expected goals for home team
-        away_expected_goals: Expected goals for away team
-        threshold: Goal line (e.g., 2.5)
-        
-    Returns:
-        tuple: (over_probability, under_probability)
-    """
+def calculate_over_under_probabilities(home_xg, away_xg):
+    """Calcula probabilidades para múltiplas linhas de gols"""
     # Total expected goals
-    lambda_total = home_expected_goals + away_expected_goals
+    lambda_total = home_xg + away_xg
     
-    # Calculate under probability: sum of P(X=0) + P(X=1) + ... + P(X=threshold)
-    under_prob = 0
-    for i in range(int(threshold) + 1):
-        poisson_prob = math.exp(-lambda_total) * (lambda_total ** i) / math.factorial(i)
-        under_prob += poisson_prob
+    # Calcular para linhas padrão
+    thresholds = [0.5, 1.5, 2.5, 3.5, 4.5, 5.5]
+    results = {}
     
-    # Over probability is complement of under
-    over_prob = 1 - under_prob
+    for threshold in thresholds:
+        # Calcular under probability usando Poisson
+        under_prob = 0
+        for i in range(int(threshold) + 1):
+            poisson_prob = math.exp(-lambda_total) * (lambda_total ** i) / math.factorial(i)
+            under_prob += poisson_prob
+        
+        # Over probability é o complemento
+        over_prob = 1 - under_prob
+        
+        # Garantir probabilidades razoáveis
+        over_prob = min(0.95, max(0.05, over_prob))
+        under_prob = 1 - over_prob
+        
+        # Armazenar resultados
+        threshold_key = str(threshold).replace('.', '_')
+        results[f"over_{threshold_key}"] = over_prob * 100
+        results[f"under_{threshold_key}"] = under_prob * 100
     
-    # Ensure probabilities are in reasonable range
-    over_prob = min(0.95, max(0.05, over_prob))
-    under_prob = 1 - over_prob
+    # Adicionar o total esperado de gols
+    results["expected_goals"] = lambda_total
     
-    return over_prob, under_prob, lambda_total
+    return results
 
 def calculate_team_fatigue(team_data):
     """
@@ -2502,22 +2436,51 @@ def calculate_over_probability(home_xg, away_xg, threshold):
     return over_prob
 
 
-def calculate_corners_probability(home_team, away_team, threshold=9.5, league_corner_factor=1.0):
-    """Calculates probabilities for corners markets"""
+def calculate_corners_probability(home_team, away_team, primary_threshold=9.5, league_corner_factor=1.0):
+    """
+    Calculates probabilities for multiple corner thresholds
+    
+    Args:
+        home_team (dict): Home team statistics
+        away_team (dict): Away team statistics
+        primary_threshold (float): Primary threshold for compatibility (default: 9.5)
+        league_corner_factor (float): League-specific adjustment factor
+        
+    Returns:
+        tuple: (over_probability, under_probability, expected_corners, all_results)
+    """
+    import math
+    import logging
+    logger = logging.getLogger("valueHunter.ai")
+    
     # Extract corners statistics
     home_corners_for = home_team.get('corners_for', 0) / max(1, home_team.get('matches_played', 1))
     home_corners_against = home_team.get('corners_against', 0) / max(1, home_team.get('matches_played', 1))
     away_corners_for = away_team.get('corners_for', 0) / max(1, away_team.get('matches_played', 1))
     away_corners_against = away_team.get('corners_against', 0) / max(1, away_team.get('matches_played', 1))
     
+    # Alternativa baseada nas médias por jogo, se disponíveis
+    if home_corners_for == 0 and 'cornersAVG_overall' in home_team:
+        home_corners_for = home_team.get('cornersAVG_overall', 0)
+        
+    if home_corners_against == 0 and 'cornersAgainstAVG_overall' in home_team:
+        home_corners_against = home_team.get('cornersAgainstAVG_overall', 0)
+        
+    if away_corners_for == 0 and 'cornersAVG_overall' in away_team:
+        away_corners_for = away_team.get('cornersAVG_overall', 0)
+        
+    if away_corners_against == 0 and 'cornersAgainstAVG_overall' in away_team:
+        away_corners_against = away_team.get('cornersAgainstAVG_overall', 0)
+    
     # When both teams have zero or very low corners data,
-    # the probability should be closer to market average
+    # use reasonable default values based on league averages
     if (home_corners_for + away_corners_for + home_corners_against + away_corners_against) < 0.5:
-        # Use more balanced probability (slightly favoring over)
-        over_prob = 0.53
-        under_prob = 0.47
-        expected_corners = 9.5  # League average
-        return over_prob, under_prob, expected_corners
+        logger.warning("Insufficient corner data, using league averages")
+        # For Premier League, average is around 10-11 corners per game
+        home_corners_for = 2.8
+        home_corners_against = 2.7
+        away_corners_for = 2.3
+        away_corners_against = 2.9
     
     # Expected corners for each team
     home_expected = (home_corners_for + away_corners_against) / 2
@@ -2526,43 +2489,71 @@ def calculate_corners_probability(home_team, away_team, threshold=9.5, league_co
     # Total expected corners
     total_expected = (home_expected + away_expected) * league_corner_factor
     
+    # Log para depuração
+    logger.info(f"Expected corners calculation: {home_expected:.2f} (home) + {away_expected:.2f} (away) = {total_expected:.2f} total")
+    
     # Calculation using normal approximation
     std_dev = math.sqrt(total_expected)
     
     # Z-score for threshold
-    z = (threshold - total_expected) / std_dev if std_dev > 0 else 0
-    
-    # Approximation of normal CDF
     def normal_cdf(x):
         return 0.5 * (1 + math.erf(x / math.sqrt(2)))
     
-    # Probability under
-    p_under = normal_cdf(z)
+    # Calcular para múltiplos thresholds padrão
+    thresholds = [7.5, 8.5, 9.5, 10.5, 11.5, 12.5]
+    results = {}
     
-    # Limit to reasonable values
-    p_under = min(0.85, max(0.15, p_under))
-    p_over = 1 - p_under
+    for threshold in thresholds:
+        # Z-score para este threshold
+        z = (threshold - total_expected) / std_dev if std_dev > 0 else 0
+        
+        # Probabilidade under
+        p_under = normal_cdf(z)
+        
+        # Limitar a valores razoáveis
+        p_under = min(0.85, max(0.15, p_under))
+        p_over = 1 - p_under
+        
+        # Armazenar resultados (como percentuais)
+        threshold_key = str(threshold).replace('.', '_')
+        results[f"over_{threshold_key}"] = p_over * 100
+        results[f"under_{threshold_key}"] = p_under * 100
+        
+        # Log para o threshold principal
+        if threshold == primary_threshold:
+            logger.info(f"Corners probability for threshold {threshold}: Over={p_over*100:.1f}%, Under={p_under*100:.1f}%")
     
-    return p_over, p_under, total_expected
+    # Adicionar expected_corners ao resultado
+    results["expected_corners"] = total_expected
+    
+    # Retornar o formato compatível para o threshold primário + todos os resultados
+    primary_threshold_key = str(primary_threshold).replace('.', '_')
+    p_over_primary = results[f"over_{primary_threshold_key}"] / 100
+    p_under_primary = results[f"under_{primary_threshold_key}"] / 100
+    
+    return p_over_primary, p_under_primary, total_expected, results
 
 
-def calculate_cards_probability(home_team, away_team, threshold, league_card_factor=1.0, team_diff=0.0):
+def calculate_cards_probability(home_team, away_team, primary_threshold=3.5, league_card_factor=1.0, team_diff=0.0):
     """
-    Calculates probabilities for cards markets with improved accuracy
+    Calculates probabilities for multiple card thresholds
     
     Args:
         home_team (dict): Home team statistics
         away_team (dict): Away team statistics
-        threshold (float): Card threshold for over/under market (2.5, 3.5, 4.5, 5.5, 6.5, etc.)
+        primary_threshold (float): Primary threshold for compatibility (default: 3.5)
         league_card_factor (float): League-specific adjustment factor
         team_diff (float): Team strength difference factor
         
     Returns:
-        tuple: (over_probability, under_probability, expected_cards)
+        tuple: (over_probability, under_probability, expected_cards, all_results)
     """
     import math
     import logging
     logger = logging.getLogger("valueHunter.ai")
+    
+    # Log o threshold primário para facilitar diagnóstico
+    logger.info(f"Calculando probabilidades de cartões com threshold primário: {primary_threshold}")
     
     # Extract cards statistics - prioritize the most specific data
     # Use raw card totals divided by games whenever possible
@@ -2589,47 +2580,69 @@ def calculate_cards_probability(home_team, away_team, threshold, league_card_fac
         away_cards = away_team.get('cards_per_game', 0)
         logger.info(f"Using overall cards average: {away_cards:.2f}")
     
+    # Verificar se temos dados suficientes
+    if home_cards == 0 and away_cards == 0:
+        logger.warning("Insufficient card data, using league averages")
+        # Para Premier League, média é ~3.5 cartões por jogo
+        home_cards = 1.8
+        away_cards = 1.7
+    
     # Calculate intensity factor based on team proximity
     # Teams closer in ability tend to have more cards
-    intensity_factor = 1.0 + (0.2 * (1.0 - min(1.0, team_diff * 2.0)))
+    # Utilizando fator moderado para evitar valores extremos
+    intensity_factor = 1.0 + (0.15 * (1.0 - min(1.0, team_diff * 2.0)))
     logger.info(f"Intensity factor calculated: {intensity_factor:.2f}")
     
     # Calculate expected cards with all factors
     expected_cards = (home_cards + away_cards) * intensity_factor * league_card_factor
+    
+    # Log com detalhes
     logger.info(f"Raw expected cards: {home_cards:.2f} + {away_cards:.2f} = {home_cards + away_cards:.2f}")
-    logger.info(f"Adjusted expected cards: {expected_cards:.2f} (threshold: {threshold})")
+    logger.info(f"Adjusted expected cards: {expected_cards:.2f} (after applying intensity and league factors)")
     
     # Use normal approximation for cards distribution
-    # Standard deviation typically scales with sqrt of expected value for count data
-    std_dev = math.sqrt(expected_cards * 0.75)  # 0.75 factor from historical analysis
-    
-    # Z-score for threshold (how many standard deviations from the mean)
-    z_score = (threshold - expected_cards) / std_dev if std_dev > 0 else 0
-    logger.info(f"Z-score for threshold {threshold}: {z_score:.2f}")
+    # AJUSTE: Fator de 0.85 para o desvio padrão produz distribuição mais realista
+    std_dev = math.sqrt(expected_cards * 0.85)
     
     # Normal CDF calculation for probability
     def normal_cdf(x):
         """Standard normal cumulative distribution function"""
         return 0.5 * (1.0 + math.erf(x / math.sqrt(2.0)))
     
-    # Under probability = P(cards <= threshold)
-    p_under = normal_cdf(z_score)
-    p_over = 1.0 - p_under
+    # Calcular para múltiplos thresholds padrão
+    thresholds = [1.5, 2.5, 3.5, 4.5, 5.5, 6.5]
+    results = {}
     
-    # Log both probabilities for validation
-    logger.info(f"Calculated probabilities - Over {threshold}: {p_over*100:.1f}%, Under {threshold}: {p_under*100:.1f}%")
+    for threshold in thresholds:
+        # Z-score para este threshold
+        z_score = (threshold - expected_cards) / std_dev if std_dev > 0 else 0
+        
+        # Under probability = P(cards <= threshold)
+        p_under = normal_cdf(z_score)
+        p_over = 1.0 - p_under
+        
+        # AJUSTE: Garantir que as probabilidades não sejam extremas
+        p_over = min(0.95, max(0.05, p_over))
+        p_under = 1.0 - p_over
+        
+        # Armazenar resultados (como percentuais)
+        threshold_key = str(threshold).replace('.', '_')
+        results[f"over_{threshold_key}"] = p_over * 100
+        results[f"under_{threshold_key}"] = p_under * 100
+        
+        # Log para o threshold principal
+        if threshold == primary_threshold:
+            logger.info(f"Cards probability for threshold {threshold}: Over={p_over*100:.1f}%, Under={p_under*100:.1f}%")
     
-    # Store these values in an accessible format for reconstruction
-    result = {
-        "over": p_over,
-        "under": p_under,
-        "expected_cards": expected_cards,
-        f"over_{str(threshold).replace('.', '_')}": p_over,
-        f"under_{str(threshold).replace('.', '_')}": p_under
-    }
+    # Adicionar expected_cards ao resultado
+    results["expected_cards"] = expected_cards
     
-    # Return both the tuple (for backward compatibility) and the dict (for easier access)
-    return p_over, p_under, expected_cards
+    # Retornar o formato compatível para o threshold primário + todos os resultados
+    primary_threshold_key = str(primary_threshold).replace('.', '_')
+    p_over_primary = results[f"over_{primary_threshold_key}"] / 100
+    p_under_primary = results[f"under_{primary_threshold_key}"] / 100
+    
+    return p_over_primary, p_under_primary, expected_cards, results
 
 
 def calculate_double_chance_probabilities(home_win, draw, away_win):
