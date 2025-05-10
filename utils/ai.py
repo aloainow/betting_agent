@@ -1747,105 +1747,105 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
         
         
         # 11. Retornar resultados completos
-return {
-    "moneyline": {
-        "home_win": round(home_win_prob * 100, 1),
-        "draw": round(draw_prob * 100, 1),
-        "away_win": round(away_win_prob * 100, 1)
-    },
-    "double_chance": {
-        "home_or_draw": round((home_win_prob + draw_prob) * 100, 1),
-        "away_or_draw": round((away_win_prob + draw_prob) * 100, 1),
-        "home_or_away": round((home_win_prob + away_win_prob) * 100, 1)
-    },
-    "over_under": {
-        # Manter os campos existentes para compatibilidade
-        "over_2_5": round(over_under_probabilities.get("over_2.5", 0), 1),
-        "under_2_5": round(over_under_probabilities.get("under_2.5", 0), 1),
-        "expected_goals": round(total_expected_goals, 2),
-        "over_1_5": round(over_under_probabilities.get("over_1.5", 0), 1),
-        "under_1_5": round(over_under_probabilities.get("under_1.5", 0), 1),
-        "over_3_5": round(over_under_probabilities.get("over_3.5", 0), 1),
-        "under_3_5": round(over_under_probabilities.get("under_3.5", 0), 1),
-        # Adicionar todos os novos thresholds calculados
-        **(all_over_under_probs if 'all_over_under_probs' in locals() else {})
-    },
-    "btts": {
-        "yes": round(adjusted_btts_yes * 100, 1),
-        "no": round(adjusted_btts_no * 100, 1)
-    },
-    "cards": {
-        # Manter os campos existentes para compatibilidade
-        "over_3_5": round(over_cards_prob * 100, 1),
-        "under_3_5": round(under_cards_prob * 100, 1),
-        "over_4_5": round(adjusted_cards_over * 100, 1) if 'adjusted_cards_over' in locals() else round(over_cards_prob * 100, 1),
-        "under_4_5": round(adjusted_cards_under * 100, 1) if 'adjusted_cards_under' in locals() else round(under_cards_prob * 100, 1),
-        "expected_cards": round(expected_cards, 1),
-        # Adicionar todos os novos thresholds calculados
-        **(all_cards_probs if 'all_cards_probs' in locals() else {})
-    },
-    "corners": {
-        # Manter os campos existentes para compatibilidade
-        "over_9_5": round(over_corners_prob * 100, 1),
-        "under_9_5": round(under_corners_prob * 100, 1),
-        "over_10_5": round(adjusted_corners_over * 100, 1) if 'adjusted_corners_over' in locals() else round(over_corners_prob * 100, 1),
-        "under_10_5": round(adjusted_corners_under * 100, 1) if 'adjusted_corners_under' in locals() else round(under_corners_prob * 100, 1),
-        "expected_corners": round(expected_corners, 1),
-        # Adicionar todos os novos thresholds calculados
-        **(all_corners_probs if 'all_corners_probs' in locals() else {})
-    },
-    "analysis_data": {
-        "home_consistency": round(home_consistency, 1),
-        "away_consistency": round(away_consistency, 1),
-        "home_form_points": home_form_points / 15.0,
-        "away_form_points": away_form_points / 15.0,
-        "home_form_context": home_form_context,
-        "away_form_context": away_form_context,
-        "home_total_score": round(home_total_score, 2),
-        "away_total_score": round(away_total_score, 2),
-        "home_fatigue": round(home_fatigue * 100, 1),
-        "away_fatigue": round(away_fatigue * 100, 1),
-        "data_quality": round(data_quality * 100, 1),  # Importante: indicador de qualidade
-        "form_details": {
-            "home_specific": {
-                "points": home_specific_points,
-                "normalized": home_specific_points / 15.0,
-                "weight": home_form_weights["specific"] * 100,
-                "form": home_specific_form
+        return {
+            "moneyline": {
+                "home_win": round(home_win_prob * 100, 1),
+                "draw": round(draw_prob * 100, 1),
+                "away_win": round(away_win_prob * 100, 1)
             },
-            "home_overall": {
-                "points": home_overall_points,
-                "normalized": home_overall_points / 15.0,
-                "weight": home_form_weights["overall"] * 100,
-                "form": home_overall_form
+            "double_chance": {
+                "home_or_draw": round((home_win_prob + draw_prob) * 100, 1),
+                "away_or_draw": round((away_win_prob + draw_prob) * 100, 1),
+                "home_or_away": round((home_win_prob + away_win_prob) * 100, 1)
             },
-            "away_specific": {
-                "points": away_specific_points,
-                "normalized": away_specific_points / 15.0,
-                "weight": away_form_weights["specific"] * 100,
-                "form": away_specific_form
+            "over_under": {
+                # Manter os campos existentes para compatibilidade
+                "over_2_5": round(over_under_probabilities.get("over_2.5", 0), 1),
+                "under_2_5": round(over_under_probabilities.get("under_2.5", 0), 1),
+                "expected_goals": round(total_expected_goals, 2),
+                "over_1_5": round(over_under_probabilities.get("over_1.5", 0), 1),
+                "under_1_5": round(over_under_probabilities.get("under_1.5", 0), 1),
+                "over_3_5": round(over_under_probabilities.get("over_3.5", 0), 1),
+                "under_3_5": round(over_under_probabilities.get("under_3.5", 0), 1),
+                # Adicionar todos os novos thresholds calculados
+                **(all_over_under_probs if 'all_over_under_probs' in locals() else {})
             },
-            "away_overall": {
-                "points": away_overall_points,
-                "normalized": away_overall_points / 15.0,
-                "weight": away_form_weights["overall"] * 100,
-                "form": away_overall_form
+            "btts": {
+                "yes": round(adjusted_btts_yes * 100, 1),
+                "no": round(adjusted_btts_no * 100, 1)
+            },
+            "cards": {
+                # Manter os campos existentes para compatibilidade
+                "over_3_5": round(over_cards_prob * 100, 1),
+                "under_3_5": round(under_cards_prob * 100, 1),
+                "over_4_5": round(adjusted_cards_over * 100, 1) if 'adjusted_cards_over' in locals() else round(over_cards_prob * 100, 1),
+                "under_4_5": round(adjusted_cards_under * 100, 1) if 'adjusted_cards_under' in locals() else round(under_cards_prob * 100, 1),
+                "expected_cards": round(expected_cards, 1),
+                # Adicionar todos os novos thresholds calculados
+                **(all_cards_probs if 'all_cards_probs' in locals() else {})
+            },
+            "corners": {
+                # Manter os campos existentes para compatibilidade
+                "over_9_5": round(over_corners_prob * 100, 1),
+                "under_9_5": round(under_corners_prob * 100, 1),
+                "over_10_5": round(adjusted_corners_over * 100, 1) if 'adjusted_corners_over' in locals() else round(over_corners_prob * 100, 1),
+                "under_10_5": round(adjusted_corners_under * 100, 1) if 'adjusted_corners_under' in locals() else round(under_corners_prob * 100, 1),
+                "expected_corners": round(expected_corners, 1),
+                # Adicionar todos os novos thresholds calculados
+                **(all_corners_probs if 'all_corners_probs' in locals() else {})
+            },
+            "analysis_data": {
+                "home_consistency": round(home_consistency, 1),
+                "away_consistency": round(away_consistency, 1),
+                "home_form_points": home_form_points / 15.0,
+                "away_form_points": away_form_points / 15.0,
+                "home_form_context": home_form_context,
+                "away_form_context": away_form_context,
+                "home_total_score": round(home_total_score, 2),
+                "away_total_score": round(away_total_score, 2),
+                "home_fatigue": round(home_fatigue * 100, 1),
+                "away_fatigue": round(away_fatigue * 100, 1),
+                "data_quality": round(data_quality * 100, 1),  # Importante: indicador de qualidade
+                "form_details": {
+                    "home_specific": {
+                        "points": home_specific_points,
+                        "normalized": home_specific_points / 15.0,
+                        "weight": home_form_weights["specific"] * 100,
+                        "form": home_specific_form
+                    },
+                    "home_overall": {
+                        "points": home_overall_points,
+                        "normalized": home_overall_points / 15.0,
+                        "weight": home_form_weights["overall"] * 100,
+                        "form": home_overall_form
+                    },
+                    "away_specific": {
+                        "points": away_specific_points,
+                        "normalized": away_specific_points / 15.0,
+                        "weight": away_form_weights["specific"] * 100,
+                        "form": away_specific_form
+                    },
+                    "away_overall": {
+                        "points": away_overall_points,
+                        "normalized": away_overall_points / 15.0,
+                        "weight": away_form_weights["overall"] * 100,
+                        "form": away_overall_form
+                    }
+                },
+                "h2h_influence": {
+                    "home_factor": round(h2h_factors["home_factor"], 2),
+                    "draw_factor": round(h2h_factors["draw_factor"], 2),
+                    "away_factor": round(h2h_factors["away_factor"], 2),
+                    "weight": h2h_weight * 100
+                },
+                # Adicionar metadados sobre os thresholds calculados
+                "calculated_thresholds": {
+                    "over_under": list(sorted([float(k.replace('over_', '').replace('_', '.')) for k in over_under_probabilities.keys() if k.startswith('over_')])) if 'over_under_probabilities' in locals() else [],
+                    "cards": list(sorted([float(k.replace('over_', '').replace('_', '.')) for k in all_cards_probs.keys() if k.startswith('over_')])) if 'all_cards_probs' in locals() else [],
+                    "corners": list(sorted([float(k.replace('over_', '').replace('_', '.')) for k in all_corners_probs.keys() if k.startswith('over_')])) if 'all_corners_probs' in locals() else []
+                }
             }
-        },
-        "h2h_influence": {
-            "home_factor": round(h2h_factors["home_factor"], 2),
-            "draw_factor": round(h2h_factors["draw_factor"], 2),
-            "away_factor": round(h2h_factors["away_factor"], 2),
-            "weight": h2h_weight * 100
-        },
-        # Adicionar metadados sobre os thresholds calculados
-        "calculated_thresholds": {
-            "over_under": list(sorted([float(k.replace('over_', '').replace('_', '.')) for k in over_under_probabilities.keys() if k.startswith('over_')])) if 'over_under_probabilities' in locals() else [],
-            "cards": list(sorted([float(k.replace('over_', '').replace('_', '.')) for k in all_cards_probs.keys() if k.startswith('over_')])) if 'all_cards_probs' in locals() else [],
-            "corners": list(sorted([float(k.replace('over_', '').replace('_', '.')) for k in all_corners_probs.keys() if k.startswith('over_')])) if 'all_corners_probs' in locals() else []
         }
-    }
-}
         
     except Exception as e:
         import logging
