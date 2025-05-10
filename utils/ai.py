@@ -1721,6 +1721,23 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
         
         # 10.3. Probabilidades Over/Under para múltiplos thresholds
         all_over_under_probs = calculate_over_under_probabilities(home_expected_goals, away_expected_goals)
+        
+        # Acessar total_expected_goals se ele for retornado pela função
+        total_expected_goals = all_over_under_probs.get("expected_goals", home_expected_goals + away_expected_goals)
+        
+        # Nas referências posteriores no dicionário de retorno, use o nome correto:
+        "over_under": {
+            # Manter os campos existentes para compatibilidade
+            "over_2_5": round(all_over_under_probs.get("over_2_5", 0), 1),
+            "under_2_5": round(all_over_under_probs.get("under_2_5", 0), 1),
+            "expected_goals": round(total_expected_goals, 2),
+            "over_1_5": round(all_over_under_probs.get("over_1_5", 0), 1),
+            "under_1_5": round(all_over_under_probs.get("under_1_5", 0), 1),
+            "over_3_5": round(all_over_under_probs.get("over_3_5", 0), 1),
+            "under_3_5": round(all_over_under_probs.get("under_3_5", 0), 1),
+            # Adicionar todos os novos thresholds calculados
+            **(all_over_under_probs if 'all_over_under_probs' in locals() else {})
+        }
 
         
         # 10.4. Ambos Marcam (BTTS)
