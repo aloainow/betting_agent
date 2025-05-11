@@ -837,7 +837,7 @@ def analyze_with_gpt(prompt, original_probabilities=None, selected_markets=None,
         with st.spinner("Analisando dados e calculando probabilidades..."):
             logger.info("Enviando prompt para análise com GPT")
             response = client.chat.completions.create(
-                model="gpt-4o",
+                model="gpt-4.1",
                 messages=[
                     {
                         "role": "system",
