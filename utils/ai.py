@@ -2001,14 +2001,14 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
             }
         }
                 
-        except Exception as e:
-            import logging
-            import traceback
-            logging.getLogger("valueHunter.ai").error(f"Erro no cálculo avançado: {str(e)}")
-            logging.getLogger("valueHunter.ai").error(traceback.format_exc())
-            
-            # Re-raise a exception para que seja tratada apropriadamente em outro lugar
-            raise
+    except Exception as e:
+        import logging
+        import traceback
+        logging.getLogger("valueHunter.ai").error(f"Erro no cálculo avançado: {str(e)}")
+        logging.getLogger("valueHunter.ai").error(traceback.format_exc())
+        
+        # Re-raise a exception para que seja tratada apropriadamente em outro lugar
+        raise
 
 def calculate_league_factors(league_id, league_data=None):
     """
