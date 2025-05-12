@@ -1611,6 +1611,43 @@ import math
 import numpy as np  # Adicione esta importação se necessário
 import logging
 
+
+def extract_threshold_from_odds(odds_data, market_type):
+    """
+    Extrai o threshold das odds fornecidas
+    
+    Args:
+        odds_data (str): String com as odds formatadas
+        market_type (str): 'cartoes', 'escanteios', 'gols'
+        
+    Returns:
+        float: O threshold extraído
+    """
+    import re
+    import logging
+    logger = logging.getLogger("valueHunter.ai")
+    
+    if not odds_data or not isinstance(odds_data, str):
+        raise ValueError(f"Dados de odds inválidos para {market_type}")
+    
+    patterns = {
+        'cartoes': r"Over (\d+\.?\d*) Cartões",
+        'escanteios': r"Over (\d+\.?\d*) Escanteios",
+        'gols': r"Over (\d+\.?\d*) Gols"
+    }
+    
+    if market_type not in patterns:
+        raise ValueError(f"Tipo de mercado não reconhecido: {market_type}")
+    
+    pattern = patterns[market_type]
+    match = re.search(pattern, odds_data)
+    
+    if match:
+        threshold = float(match.group(1))
+        logger.info(f"Threshold extraído para {market_type}: {threshold}")
+        return threshold
+    else:
+        raise ValueError(f"Não foi possível extrair threshold para {market_type} nas odds fornecidas")
 def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league_id='generic', match_conditions=None):
     """
     Cálculo avançado de probabilidades utilizando método aprimorado de Dispersão e Ponderação
@@ -1811,28 +1848,83 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
         adjusted_btts_yes = btts_yes_prob * (data_quality * 0.7) + market_btts_yes * (1 - (data_quality * 0.7))
         adjusted_btts_no = 1 - adjusted_btts_yes
         
-        # 10.5. Escanteios
-        over_corners_prob, under_corners_prob, expected_corners = calculate_corners_probability(
-            home_team, away_team, 9.5, league_factors[3]
-        )
-        
-        # Ajustar pela qualidade dos dados
-        market_corners_over = 0.53  # Odds típicas de mercado
-        # Aumentar o peso do market_avg para reduzir a confiança nas previsões
-        adjusted_corners_over = over_corners_prob * (data_quality * 0.7) + market_corners_over * (1 - (data_quality * 0.7))
-        adjusted_corners_under = 1 - adjusted_corners_over
-        
-        # 10.6. Cartões
-        over_cards_prob, under_cards_prob, expected_cards = calculate_cards_probability(
-            home_team, away_team, 4.5, league_factors[2],
-            abs(home_total_score - away_total_score)
-        )
-        
-        # Ajustar pela qualidade dos dados
-        market_cards_over = 0.52  # Odds típicas de mercado
-        # Aumentar o peso do market_avg para reduzir a confiança nas previsões
-        adjusted_cards_over = over_cards_prob * (data_quality * 0.7) + market_cards_over * (1 - (data_quality * 0.7))
-        adjusted_cards_under = 1 - adjusted_cards_over
+        try:
+            # Tentar extrair thresholds das odds (se disponíveis)
+            cards_threshold = None
+            corners_threshold = None
+            
+            if odds_data:
+                try:
+                    cards_threshold = extract_threshold_from_odds(odds_data, 'cartoes')
+                    logger.info(f"Threshold de cartões extraído: {cards_threshold}")
+                except Exception as e:
+                    logger.warning(f"Não foi possível extrair threshold de cartões: {str(e)}")
+                
+                try:
+                    corners_threshold = extract_threshold_from_odds(odds_data, 'escanteios')
+                    logger.info(f"Threshold de escanteios extraído: {corners_threshold}")
+                except Exception as e:
+                    logger.warning(f"Não foi possível extrair threshold de escanteios: {str(e)}")
+            
+            # 10.5. Calcular múltiplos thresholds de escanteios
+            corners_probabilities = calculate_multi_threshold_corners(
+                home_team, away_team, league_factors[3]
+            )
+            
+            # Determinar qual threshold usar para corners
+            if corners_threshold is None:
+                # Se não conseguiu extrair, tenta usar 10.5 (comum)
+                corners_key = "over_10_5" if "over_10_5" in corners_probabilities else list(corners_probabilities.keys())[0]
+                logger.warning(f"Usando threshold padrão para escanteios: {corners_key}")
+            else:
+                corners_key = f"over_{str(corners_threshold).replace('.', '_')}"
+            
+            # Extrair os valores para o threshold apropriado
+            over_corners_prob = corners_probabilities.get(corners_key, 50) / 100.0
+            under_corners_key = corners_key.replace("over_", "under_")
+            under_corners_prob = corners_probabilities.get(under_corners_key, 50) / 100.0
+            expected_corners = corners_probabilities.get("expected_corners", 10)
+            
+            # 10.6. Calcular múltiplos thresholds de cartões
+            cards_probabilities = calculate_multi_threshold_cards(
+                home_team, away_team, league_factors[2],
+                abs(home_total_score - away_total_score)
+            )
+            
+            # Determinar qual threshold usar para cartões
+            if cards_threshold is None:
+                # Se não conseguiu extrair, tenta usar 4.5 (comum)
+                cards_key = "over_4_5" if "over_4_5" in cards_probabilities else list(cards_probabilities.keys())[0]
+                logger.warning(f"Usando threshold padrão para cartões: {cards_key}")
+            else:
+                cards_key = f"over_{str(cards_threshold).replace('.', '_')}"
+            
+            # Extrair os valores para o threshold apropriado
+            over_cards_prob = cards_probabilities.get(cards_key, 50) / 100.0
+            under_cards_key = cards_key.replace("over_", "under_")
+            under_cards_prob = cards_probabilities.get(under_cards_key, 50) / 100.0
+            expected_cards = cards_probabilities.get("expected_cards", 4)
+            
+        except Exception as e:
+            logger.error(f"Erro ao calcular probabilidades de escanteios/cartões: {str(e)}")
+            # Valores de backup para não quebrar o fluxo
+            corners_probabilities = {
+                "over_10_5": 50.0,
+                "under_10_5": 50.0,
+                "expected_corners": 10.0
+            }
+            over_corners_prob = 0.5
+            under_corners_prob = 0.5
+            expected_corners = 10.0
+            
+            cards_probabilities = {
+                "over_4_5": 50.0,
+                "under_4_5": 50.0,
+                "expected_cards": 4.0
+            }
+            over_cards_prob = 0.5
+            under_cards_prob = 0.5
+            expected_cards = 4.0
         
         # 11. Retornar resultados completos
         return {
@@ -1860,16 +1952,8 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
                 "yes": round(adjusted_btts_yes * 100, 1),
                 "no": round(adjusted_btts_no * 100, 1)
             },
-            "cards": {
-                "over_4_5": round(adjusted_cards_over * 100, 1),
-                "under_4_5": round(adjusted_cards_under * 100, 1),
-                "expected_cards": round(expected_cards, 1)
-            },
-            "corners": {
-                "over_9_5": round(adjusted_corners_over * 100, 1),
-                "under_9_5": round(adjusted_corners_under * 100, 1),
-                "expected_corners": round(expected_corners, 1)
-            },
+            "cards": cards_probabilities,  # Agora inclui todos os thresholds calculados
+            "corners": corners_probabilities,  # Agora inclui todos os thresholds calculados
             "analysis_data": {
                 "home_consistency": round(home_consistency, 1),
                 "away_consistency": round(away_consistency, 1),
@@ -1916,15 +2000,15 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
                 }
             }
         }
-        
-    except Exception as e:
-        import logging
-        import traceback
-        logging.getLogger("valueHunter.ai").error(f"Erro no cálculo avançado: {str(e)}")
-        logging.getLogger("valueHunter.ai").error(traceback.format_exc())
-        
-        # Re-raise a exception para que seja tratada apropriadamente em outro lugar
-        raise
+                
+        except Exception as e:
+            import logging
+            import traceback
+            logging.getLogger("valueHunter.ai").error(f"Erro no cálculo avançado: {str(e)}")
+            logging.getLogger("valueHunter.ai").error(traceback.format_exc())
+            
+            # Re-raise a exception para que seja tratada apropriadamente em outro lugar
+            raise
 
 def calculate_league_factors(league_id, league_data=None):
     """
@@ -2501,137 +2585,291 @@ def calculate_over_probability(home_xg, away_xg, threshold):
     
     return over_prob
 
-
-def calculate_corners_probability(home_team, away_team, threshold=9.5, league_corner_factor=1.0):
-    """Calculates probabilities for corners markets"""
-    # Extract corners statistics
-    home_corners_for = home_team.get('corners_for', 0) / max(1, home_team.get('matches_played', 1))
-    home_corners_against = home_team.get('corners_against', 0) / max(1, home_team.get('matches_played', 1))
-    away_corners_for = away_team.get('corners_for', 0) / max(1, away_team.get('matches_played', 1))
-    away_corners_against = away_team.get('corners_against', 0) / max(1, away_team.get('matches_played', 1))
+def calculate_expected_corners_total(home_team, away_team, league_corner_factor=1.0):
+    """
+    Calcula o total esperado de escanteios para uma partida
+    """
+    import logging
+    logger = logging.getLogger("valueHunter.ai")
     
-    # When both teams have zero or very low corners data,
-    # the probability should be closer to market average
-    if (home_corners_for + away_corners_for + home_corners_against + away_corners_against) < 0.5:
-        # Use more balanced probability (slightly favoring over)
-        over_prob = 0.53
-        under_prob = 0.47
-        expected_corners = 9.5  # League average
-        return over_prob, under_prob, expected_corners
+    # Extrair dados com verificações
+    home_corners_for = home_team.get('cornersAVG_home', home_team.get('cornersAVG_overall', 0))
+    home_corners_against = home_team.get('cornersAgainstAVG_home', home_team.get('cornersAgainstAVG_overall', 0))
+    away_corners_for = away_team.get('cornersAVG_away', away_team.get('cornersAVG_overall', 0))
+    away_corners_against = away_team.get('cornersAgainstAVG_away', away_team.get('cornersAgainstAVG_overall', 0))
     
-    # Expected corners for each team
-    home_expected = (home_corners_for + away_corners_against) / 2
-    away_expected = (away_corners_for + home_corners_against) / 2
+    # Verificar dados suficientes
+    if home_corners_for == 0 or home_corners_against == 0:
+        raise ValueError("Dados de escanteios insuficientes para o time da casa")
     
-    # Total expected corners
+    if away_corners_for == 0 or away_corners_against == 0:
+        raise ValueError("Dados de escanteios insuficientes para o time visitante")
+    
+    logger.info(f"Escanteios - Casa: {home_corners_for}/{home_corners_against}")
+    logger.info(f"Escanteios - Fora: {away_corners_for}/{away_corners_against}")
+    
+    # Ajustar por posse de bola
+    home_possession = home_team.get('possession', 50)
+    away_possession = away_team.get('possession', 50)
+    
+    possession_factor_home = 1.0 + (home_possession - 50) * 0.002
+    possession_factor_away = 1.0 + (away_possession - 50) * 0.002
+    
+    # Escanteios esperados com interação
+    home_expected = (home_corners_for * possession_factor_home + away_corners_against) / 2
+    away_expected = (away_corners_for * possession_factor_away + home_corners_against) / 2
+    
     total_expected = (home_expected + away_expected) * league_corner_factor
     
-    # Calculation using normal approximation
-    std_dev = math.sqrt(total_expected)
+    # Fator para jogos equilibrados
+    if abs(home_expected - away_expected) < 2:
+        total_expected *= 1.1
     
-    # Z-score for threshold
-    z = (threshold - total_expected) / std_dev if std_dev > 0 else 0
-    
-    # Approximation of normal CDF
-    def normal_cdf(x):
-        return 0.5 * (1 + math.erf(x / math.sqrt(2)))
-    
-    # Probability under
-    p_under = normal_cdf(z)
-    
-    # Limit to reasonable values
-    p_under = min(0.85, max(0.15, p_under))
-    p_over = 1 - p_under
-    
-    return p_over, p_under, total_expected
+    logger.info(f"Escanteios esperados: {total_expected:.2f}")
+    return total_expected
 
 
-def calculate_cards_probability(home_team, away_team, threshold, league_card_factor=1.0, team_diff=0.0):
+def calculate_corners_probability_for_threshold(expected_corners, threshold):
     """
-    Calculates probabilities for cards markets with improved accuracy
-    
-    Args:
-        home_team (dict): Home team statistics
-        away_team (dict): Away team statistics
-        threshold (float): Card threshold for over/under market (2.5, 3.5, 4.5, 5.5, 6.5, etc.)
-        league_card_factor (float): League-specific adjustment factor
-        team_diff (float): Team strength difference factor
-        
-    Returns:
-        tuple: (over_probability, under_probability, expected_cards)
+    Calcula probabilidades de escanteios para um threshold específico
     """
     import math
     import logging
     logger = logging.getLogger("valueHunter.ai")
     
-    # Extract cards statistics - prioritize the most specific data
-    # Use raw card totals divided by games whenever possible
+    # Cálculo com distribuição melhorada
+    r = max(1, expected_corners / 1.2)
+    p_nb = r / (r + expected_corners)
     
-    # Home team cards calculation - prioritize home-specific data
-    if home_team.get('home_played', 0) > 0 and home_team.get('cardsTotal_home', 0) > 0:
-        home_cards = home_team['cardsTotal_home'] / home_team['home_played']
-        logger.info(f"Using raw home cards data: {home_cards:.2f} cards per home game")
-    elif home_team.get('home_cards_per_game', 0) > 0:
-        home_cards = home_team['home_cards_per_game']
-        logger.info(f"Using home_cards_per_game: {home_cards:.2f}")
-    else:
-        home_cards = home_team.get('cards_per_game', 0)
-        logger.info(f"Using overall cards average: {home_cards:.2f}")
+    mean = expected_corners
+    variance = expected_corners * (1 + expected_corners / r)
+    std_dev = math.sqrt(variance)
     
-    # Away team cards calculation - prioritize away-specific data
-    if away_team.get('away_played', 0) > 0 and away_team.get('cardsTotal_away', 0) > 0:
-        away_cards = away_team['cardsTotal_away'] / away_team['away_played']
-        logger.info(f"Using raw away cards data: {away_cards:.2f} cards per away game")
-    elif away_team.get('away_cards_per_game', 0) > 0:
-        away_cards = away_team['away_cards_per_game']
-        logger.info(f"Using away_cards_per_game: {away_cards:.2f}")
-    else:
-        away_cards = away_team.get('cards_per_game', 0)
-        logger.info(f"Using overall cards average: {away_cards:.2f}")
+    # Correção de continuidade
+    adjusted_threshold = threshold + 0.5
+    z_score = (adjusted_threshold - mean) / std_dev if std_dev > 0 else 0
     
-    # Calculate intensity factor based on team proximity
-    # Teams closer in ability tend to have more cards
-    intensity_factor = 1.0 + (0.2 * (1.0 - min(1.0, team_diff * 2.0)))
-    logger.info(f"Intensity factor calculated: {intensity_factor:.2f}")
+    # Normal CDF melhorada
+    def improved_normal_cdf(x):
+        if x >= 0:
+            a1, a2, a3, a4, a5 = 0.319381530, -0.356563782, 1.781477937, -1.821255978, 1.330274429
+            L = abs(x)
+            K = 1.0 / (1.0 + 0.2316419 * L)
+            w = 1.0 - 1.0 / math.sqrt(2 * math.pi) * math.exp(-L * L / 2.0) * (
+                a1 * K + a2 * K * K + a3 * K * K * K + a4 * K * K * K * K + a5 * K * K * K * K * K)
+            return w
+        else:
+            return 1.0 - improved_normal_cdf(-x)
     
-    # Calculate expected cards with all factors
-    expected_cards = (home_cards + away_cards) * intensity_factor * league_card_factor
-    logger.info(f"Raw expected cards: {home_cards:.2f} + {away_cards:.2f} = {home_cards + away_cards:.2f}")
-    logger.info(f"Adjusted expected cards: {expected_cards:.2f} (threshold: {threshold})")
-    
-    # Use normal approximation for cards distribution
-    # Standard deviation typically scales with sqrt of expected value for count data
-    std_dev = math.sqrt(expected_cards * 0.75)  # 0.75 factor from historical analysis
-    
-    # Z-score for threshold (how many standard deviations from the mean)
-    z_score = (threshold - expected_cards) / std_dev if std_dev > 0 else 0
-    logger.info(f"Z-score for threshold {threshold}: {z_score:.2f}")
-    
-    # Normal CDF calculation for probability
-    def normal_cdf(x):
-        """Standard normal cumulative distribution function"""
-        return 0.5 * (1.0 + math.erf(x / math.sqrt(2.0)))
-    
-    # Under probability = P(cards <= threshold)
-    p_under = normal_cdf(z_score)
+    p_under = improved_normal_cdf(z_score)
     p_over = 1.0 - p_under
     
-    # Log both probabilities for validation
-    logger.info(f"Calculated probabilities - Over {threshold}: {p_over*100:.1f}%, Under {threshold}: {p_under*100:.1f}%")
+    # Validar ranges
+    p_under = max(0.05, min(0.95, p_under))
+    p_over = 1.0 - p_under
     
-    # Store these values in an accessible format for reconstruction
-    result = {
-        "over": p_over,
-        "under": p_under,
-        "expected_cards": expected_cards,
-        f"over_{str(threshold).replace('.', '_')}": p_over,
-        f"under_{str(threshold).replace('.', '_')}": p_under
-    }
+    logger.info(f"Probabilidades - Over {threshold}: {p_over*100:.1f}%, Under {threshold}: {p_under*100:.1f}%")
     
-    # Return both the tuple (for backward compatibility) and the dict (for easier access)
+    return p_over, p_under, expected_corners
+
+
+def calculate_multi_threshold_corners(home_team, away_team, league_corner_factor=1.0):
+    """
+    Calcula probabilidades para múltiplos thresholds de escanteios
+    """
+    import logging
+    logger = logging.getLogger("valueHunter.ai")
+    
+    try:
+        # Calcular total esperado uma única vez
+        expected_corners = calculate_expected_corners_total(home_team, away_team, league_corner_factor)
+        
+        results = {}
+        # Calcular para vários thresholds
+        for threshold in [7.5, 8.5, 9.5, 10.5, 11.5, 12.5]:
+            try:
+                over_prob, under_prob, _ = calculate_corners_probability_for_threshold(
+                    expected_corners, threshold
+                )
+                # Usar formato seguro para chaves de dicionário
+                threshold_key = str(threshold).replace('.', '_')
+                results[f"over_{threshold_key}"] = round(over_prob * 100, 1)
+                results[f"under_{threshold_key}"] = round(under_prob * 100, 1)
+            except Exception as e:
+                logger.error(f"Erro no cálculo para threshold {threshold}: {str(e)}")
+        
+        results["expected_corners"] = round(expected_corners, 1)
+        return results
+    except Exception as e:
+        logger.error(f"Erro no cálculo multi-threshold de escanteios: {str(e)}")
+        raise
+def calculate_corners_probability(home_team, away_team, threshold, league_corner_factor=1.0):
+    """
+    Cálculo melhorado para escanteios - sem threshold padrão
+    """
+    # Calcular o total esperado de escanteios
+    expected_corners = calculate_expected_corners_total(home_team, away_team, league_corner_factor)
+    
+    # Calcular probabilidades para o threshold específico
+    over_prob, under_prob, _ = calculate_corners_probability_for_threshold(
+        expected_corners, threshold
+    )
+    
+    return over_prob, under_prob, expected_corners
+
+def calculate_expected_cards_total(home_team, away_team, league_card_factor=1.0, team_diff=0.0):
+    """
+    Calcula o total esperado de cartões para uma partida
+    """
+    import logging
+    logger = logging.getLogger("valueHunter.ai")
+    
+    # Extrair dados de cartões
+    if home_team.get('home_played', 0) > 0 and home_team.get('cardsTotal_home', 0) > 0:
+        home_cards = home_team['cardsTotal_home'] / home_team['home_played']
+        logger.info(f"Usando dados de cartões em casa: {home_cards:.2f}")
+    elif home_team.get('home_cards_per_game', 0) > 0:
+        home_cards = home_team['home_cards_per_game']
+        logger.info(f"Usando home_cards_per_game: {home_cards:.2f}")
+    else:
+        home_cards = home_team.get('cards_per_game', 0)
+        logger.info(f"Usando média geral de cartões: {home_cards:.2f}")
+        
+    if home_cards == 0:
+        raise ValueError("Dados de cartões insuficientes para o time da casa")
+    
+    if away_team.get('away_played', 0) > 0 and away_team.get('cardsTotal_away', 0) > 0:
+        away_cards = away_team['cardsTotal_away'] / away_team['away_played']
+        logger.info(f"Usando dados de cartões fora: {away_cards:.2f}")
+    elif away_team.get('away_cards_per_game', 0) > 0:
+        away_cards = away_team['away_cards_per_game']
+        logger.info(f"Usando away_cards_per_game: {away_cards:.2f}")
+    else:
+        away_cards = away_team.get('cards_per_game', 0)
+        logger.info(f"Usando média geral de cartões: {away_cards:.2f}")
+        
+    if away_cards == 0:
+        raise ValueError("Dados de cartões insuficientes para o time visitante")
+    
+    # Fator de intensidade mais conservador
+    if team_diff is not None:
+        intensity_adjustment = 0.15 * (1.0 - min(1.0, abs(team_diff) * 2.0))
+        intensity_factor = 1.0 + intensity_adjustment
+    else:
+        intensity_factor = 1.05
+    
+    logger.info(f"Fator de intensidade: {intensity_factor:.2f}")
+    
+    # Cartões esperados
+    expected_cards = (home_cards + away_cards) * intensity_factor * league_card_factor
+    logger.info(f"Cartões esperados: {expected_cards:.2f}")
+    
+    return expected_cards
+
+
+def calculate_cards_probability_for_threshold(expected_cards, threshold):
+    """
+    Calcula probabilidades de cartões para um threshold específico
+    """
+    import math
+    import logging
+    logger = logging.getLogger("valueHunter.ai")
+    
+    # Melhor cálculo de desvio padrão
+    std_dev = math.sqrt(expected_cards * 0.85)
+    
+    # Correção de continuidade para distribuição discreta
+    adjusted_threshold = threshold + 0.5
+    
+    # Z-score corrigido
+    z_score = (adjusted_threshold - expected_cards) / std_dev if std_dev > 0 else 0
+    logger.info(f"Z-score para threshold {threshold}: {z_score:.3f}")
+    
+    # Normal CDF melhorada
+    def improved_normal_cdf(x):
+        if x >= 0:
+            a1, a2, a3, a4, a5 = 0.319381530, -0.356563782, 1.781477937, -1.821255978, 1.330274429
+            L = abs(x)
+            K = 1.0 / (1.0 + 0.2316419 * L)
+            w = 1.0 - 1.0 / math.sqrt(2 * math.pi) * math.exp(-L * L / 2.0) * (
+                a1 * K + a2 * K * K + a3 * K * K * K + a4 * K * K * K * K + a5 * K * K * K * K * K)
+            return w
+        else:
+            return 1.0 - improved_normal_cdf(-x)
+    
+    # Calcular probabilidades
+    p_under = improved_normal_cdf(z_score)
+    p_over = 1.0 - p_under
+    
+    # Validar ranges
+    p_under = max(0.01, min(0.99, p_under))
+    p_over = 1.0 - p_under
+    
+    logger.info(f"Probabilidades - Over {threshold}: {p_over*100:.1f}%, Under {threshold}: {p_under*100:.1f}%")
+    
     return p_over, p_under, expected_cards
 
 
+def calculate_multi_threshold_cards(home_team, away_team, league_card_factor=1.0, team_diff=0.0):
+    """
+    Calcula probabilidades para múltiplos thresholds de cartões
+    """
+    import logging
+    logger = logging.getLogger("valueHunter.ai")
+    
+    try:
+        # Calcular total esperado uma única vez
+        expected_cards = calculate_expected_cards_total(
+            home_team, away_team, league_card_factor, team_diff
+        )
+        
+        results = {}
+        # Calcular para vários thresholds
+        for threshold in [2.5, 3.5, 4.5, 5.5, 6.5]:
+            try:
+                over_prob, under_prob, _ = calculate_cards_probability_for_threshold(
+                    expected_cards, threshold
+                )
+                # Usar formato seguro para chaves de dicionário
+                threshold_key = str(threshold).replace('.', '_')
+                results[f"over_{threshold_key}"] = round(over_prob * 100, 1)
+                results[f"under_{threshold_key}"] = round(under_prob * 100, 1)
+            except Exception as e:
+                logger.error(f"Erro no cálculo para threshold {threshold}: {str(e)}")
+        
+        results["expected_cards"] = round(expected_cards, 1)
+        return results
+    except Exception as e:
+        logger.error(f"Erro no cálculo multi-threshold de cartões: {str(e)}")
+        raise
+def calculate_cards_probability(home_team, away_team, threshold, league_card_factor=1.0, team_diff=0.0):
+    """
+    Cálculo melhorado para probabilidades de cartões - sem threshold padrão
+    """
+    # Calcular o total esperado de cartões
+    expected_cards = calculate_expected_cards_total(home_team, away_team, league_card_factor, team_diff)
+    
+    # Calcular probabilidades para o threshold específico
+    over_prob, under_prob, _ = calculate_cards_probability_for_threshold(
+        expected_cards, threshold
+    )
+    
+    return over_prob, under_prob, expected_cards
+
+def validate_probability(prob, market_name, min_val=0.01, max_val=0.99):
+    """
+    Valida e ajusta probabilidades para ranges realistas
+    """
+    logger = logging.getLogger("valueHunter.ai")
+    
+    if prob < min_val:
+        logger.warning(f"{market_name}: Probabilidade muito baixa ({prob:.4f}), ajustando para {min_val}")
+        return min_val
+    elif prob > max_val:
+        logger.warning(f"{market_name}: Probabilidade muito alta ({prob:.4f}), ajustando para {max_val}")
+        return max_val
+    return prob
+    
 def calculate_double_chance_probabilities(home_win, draw, away_win):
     """Calculate double chance probabilities based on 1X2 probabilities"""
     # Direct calculation from 1X2 probabilities
