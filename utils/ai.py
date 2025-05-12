@@ -1617,37 +1617,64 @@ def extract_threshold_from_odds(odds_data, market_type):
     Extrai o threshold das odds fornecidas
     
     Args:
-        odds_data (str): String com as odds formatadas
-        market_type (str): 'cartoes', 'escanteios', 'gols'
+        odds_data: String ou dicionário com as odds
+        market_type: 'cartoes', 'escanteios', 'gols'
         
     Returns:
-        float: O threshold extraído
+        float: O threshold extraído ou None se não encontrado
     """
     import re
     import logging
     logger = logging.getLogger("valueHunter.ai")
     
-    if not odds_data or not isinstance(odds_data, str):
-        raise ValueError(f"Dados de odds inválidos para {market_type}")
+    # Se não houver dados de odds, retornar None
+    if not odds_data:
+        logger.warning(f"Sem dados de odds para extrair threshold de {market_type}")
+        return None
     
+    # Converter para string se for dicionário
+    if isinstance(odds_data, dict):
+        odds_text = "\n".join([f"{k}: {v}" for k, v in odds_data.items()])
+    else:
+        odds_text = str(odds_data)
+    
+    # Padrões para diferentes formatos
     patterns = {
-        'cartoes': r"Over (\d+\.?\d*) Cartões",
-        'escanteios': r"Over (\d+\.?\d*) Escanteios",
-        'gols': r"Over (\d+\.?\d*) Gols"
+        'cartoes': [
+            r"Over (\d+\.?\d*) Cartões",
+            r"Over (\d+\.?\d*) Cards",
+            r"Mais de (\d+\.?\d*) cartões",
+            r"Total de Cartões.*Over (\d+\.?\d*)",
+        ],
+        'escanteios': [
+            r"Over (\d+\.?\d*) Escanteios",
+            r"Over (\d+\.?\d*) Corners",
+            r"Mais de (\d+\.?\d*) escanteios",
+            r"Total de Escanteios.*Over (\d+\.?\d*)",
+        ],
+        'gols': [
+            r"Over (\d+\.?\d*) Gols",
+            r"Over (\d+\.?\d*) Goals",
+            r"Mais de (\d+\.?\d*) gols",
+            r"Total de Gols.*Over (\d+\.?\d*)",
+        ]
     }
     
     if market_type not in patterns:
-        raise ValueError(f"Tipo de mercado não reconhecido: {market_type}")
+        logger.error(f"Tipo de mercado não reconhecido: {market_type}")
+        return None
     
-    pattern = patterns[market_type]
-    match = re.search(pattern, odds_data)
+    # Tentar cada padrão até encontrar um match
+    for pattern in patterns[market_type]:
+        match = re.search(pattern, odds_text, re.IGNORECASE)
+        if match:
+            threshold = float(match.group(1))
+            logger.info(f"Threshold extraído para {market_type}: {threshold}")
+            return threshold
     
-    if match:
-        threshold = float(match.group(1))
-        logger.info(f"Threshold extraído para {market_type}: {threshold}")
-        return threshold
-    else:
-        raise ValueError(f"Não foi possível extrair threshold para {market_type} nas odds fornecidas")
+    # Se não encontrou, registrar aviso
+    logger.warning(f"Não foi possível extrair threshold para {market_type}")
+    return None
 def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league_id='generic', match_conditions=None):
     """
     Cálculo avançado de probabilidades utilizando método aprimorado de Dispersão e Ponderação
@@ -1847,43 +1874,90 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
         # Aumentar o peso do market_avg para reduzir a confiança nas previsões
         adjusted_btts_yes = btts_yes_prob * (data_quality * 0.7) + market_btts_yes * (1 - (data_quality * 0.7))
         adjusted_btts_no = 1 - adjusted_btts_yes
+        # Verificar se odds_data existe no escopo da função
+        if 'odds_data' not in locals() and 'odds_data' not in globals():
+            # Se não existir, obter das odds configuradas pelo usuário
+            import logging
+            logger = logging.getLogger("valueHunter.ai")
+            
+            # Obter das odds configuradas pelo usuário
+            try:
+                # Se houver um parâmetro de odds
+                if 'user_odds' in locals() or 'user_odds' in globals():
+                    odds_data = user_odds
+                else:
+                    # Criar uma string com as odds do jogo se possível
+                    from valueHunter.data import get_configured_odds
+                    odds_data = get_configured_odds()
+                    if not odds_data:
+                        # Alternativa: usar a função match_details se disponível
+                        match_id = match_details.get("id") if match_details else None
+                        if match_id:
+                            from valueHunter.data import get_match_odds
+                            odds_data = get_match_odds(match_id)
+                            
+                    if not odds_data:
+                        logger.error("Não foi possível obter odds_data")
+                        raise ValueError("Não foi possível obter as odds configuradas. Configure as odds primeiro.")
+            except Exception as e:
+                logger.error(f"Erro ao obter odds_data: {str(e)}")
+                raise ValueError(f"Erro ao obter odds: {str(e)}")
         
         try:
-            # Tentar extrair thresholds das odds (se disponíveis)
+            # Extrair thresholds das odds (obrigatório)
             cards_threshold = None
             corners_threshold = None
             
             if odds_data:
                 try:
                     cards_threshold = extract_threshold_from_odds(odds_data, 'cartoes')
-                    logger.info(f"Threshold de cartões extraído: {cards_threshold}")
+                    if cards_threshold:
+                        logger.info(f"Threshold de cartões extraído: {cards_threshold}")
+                    else:
+                        logger.error("Falha ao extrair threshold de cartões")
+                        raise ValueError("Não foi possível determinar o threshold de cartões das odds configuradas")
                 except Exception as e:
-                    logger.warning(f"Não foi possível extrair threshold de cartões: {str(e)}")
+                    logger.error(f"Erro ao extrair threshold de cartões: {str(e)}")
+                    raise ValueError(f"Erro ao extrair threshold de cartões: {str(e)}")
                 
                 try:
                     corners_threshold = extract_threshold_from_odds(odds_data, 'escanteios')
-                    logger.info(f"Threshold de escanteios extraído: {corners_threshold}")
+                    if corners_threshold:
+                        logger.info(f"Threshold de escanteios extraído: {corners_threshold}")
+                    else:
+                        logger.error("Falha ao extrair threshold de escanteios")
+                        raise ValueError("Não foi possível determinar o threshold de escanteios das odds configuradas")
                 except Exception as e:
-                    logger.warning(f"Não foi possível extrair threshold de escanteios: {str(e)}")
+                    logger.error(f"Erro ao extrair threshold de escanteios: {str(e)}")
+                    raise ValueError(f"Erro ao extrair threshold de escanteios: {str(e)}")
+            else:
+                logger.error("Dados de odds não disponíveis")
+                raise ValueError("Dados de odds não disponíveis. Configure as odds primeiro.")
             
             # 10.5. Calcular múltiplos thresholds de escanteios
             corners_probabilities = calculate_multi_threshold_corners(
                 home_team, away_team, league_factors[3]
             )
             
-            # Determinar qual threshold usar para corners
-            if corners_threshold is None:
-                # Se não conseguiu extrair, tenta usar 10.5 (comum)
-                corners_key = "over_10_5" if "over_10_5" in corners_probabilities else list(corners_probabilities.keys())[0]
-                logger.warning(f"Usando threshold padrão para escanteios: {corners_key}")
-            else:
-                corners_key = f"over_{str(corners_threshold).replace('.', '_')}"
+            # Usar o threshold específico extraído para corners
+            corners_key = f"over_{str(corners_threshold).replace('.', '_')}"
+            if corners_key not in corners_probabilities:
+                # Se não tiver esse threshold específico, calcular para ele
+                try:
+                    over_prob, under_prob, exp_corners = calculate_corners_probability_for_threshold(
+                        corners_probabilities.get("expected_corners"), corners_threshold
+                    )
+                    corners_probabilities[corners_key] = round(over_prob * 100, 1)
+                    corners_probabilities[f"under_{str(corners_threshold).replace('.', '_')}"] = round(under_prob * 100, 1)
+                except Exception as e:
+                    logger.error(f"Erro ao calcular probabilidade para threshold {corners_threshold}: {str(e)}")
+                    raise ValueError(f"Não foi possível calcular probabilidades para threshold de escanteios {corners_threshold}")
             
-            # Extrair os valores para o threshold apropriado
-            over_corners_prob = corners_probabilities.get(corners_key, 50) / 100.0
+            # Extrair os valores para o threshold específico
+            over_corners_prob = corners_probabilities.get(corners_key) / 100.0
             under_corners_key = corners_key.replace("over_", "under_")
-            under_corners_prob = corners_probabilities.get(under_corners_key, 50) / 100.0
-            expected_corners = corners_probabilities.get("expected_corners", 10)
+            under_corners_prob = corners_probabilities.get(under_corners_key) / 100.0
+            expected_corners = corners_probabilities.get("expected_corners")
             
             # 10.6. Calcular múltiplos thresholds de cartões
             cards_probabilities = calculate_multi_threshold_cards(
@@ -1891,40 +1965,29 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
                 abs(home_total_score - away_total_score)
             )
             
-            # Determinar qual threshold usar para cartões
-            if cards_threshold is None:
-                # Se não conseguiu extrair, tenta usar 4.5 (comum)
-                cards_key = "over_4_5" if "over_4_5" in cards_probabilities else list(cards_probabilities.keys())[0]
-                logger.warning(f"Usando threshold padrão para cartões: {cards_key}")
-            else:
-                cards_key = f"over_{str(cards_threshold).replace('.', '_')}"
+            # Usar o threshold específico extraído para cartões
+            cards_key = f"over_{str(cards_threshold).replace('.', '_')}"
+            if cards_key not in cards_probabilities:
+                # Se não tiver esse threshold específico, calcular para ele
+                try:
+                    over_prob, under_prob, exp_cards = calculate_cards_probability_for_threshold(
+                        cards_probabilities.get("expected_cards"), cards_threshold
+                    )
+                    cards_probabilities[cards_key] = round(over_prob * 100, 1)
+                    cards_probabilities[f"under_{str(cards_threshold).replace('.', '_')}"] = round(under_prob * 100, 1)
+                except Exception as e:
+                    logger.error(f"Erro ao calcular probabilidade para threshold {cards_threshold}: {str(e)}")
+                    raise ValueError(f"Não foi possível calcular probabilidades para threshold de cartões {cards_threshold}")
             
-            # Extrair os valores para o threshold apropriado
-            over_cards_prob = cards_probabilities.get(cards_key, 50) / 100.0
+            # Extrair os valores para o threshold específico
+            over_cards_prob = cards_probabilities.get(cards_key) / 100.0
             under_cards_key = cards_key.replace("over_", "under_")
-            under_cards_prob = cards_probabilities.get(under_cards_key, 50) / 100.0
-            expected_cards = cards_probabilities.get("expected_cards", 4)
+            under_cards_prob = cards_probabilities.get(under_cards_key) / 100.0
+            expected_cards = cards_probabilities.get("expected_cards")
             
         except Exception as e:
             logger.error(f"Erro ao calcular probabilidades de escanteios/cartões: {str(e)}")
-            # Valores de backup para não quebrar o fluxo
-            corners_probabilities = {
-                "over_10_5": 50.0,
-                "under_10_5": 50.0,
-                "expected_corners": 10.0
-            }
-            over_corners_prob = 0.5
-            under_corners_prob = 0.5
-            expected_corners = 10.0
-            
-            cards_probabilities = {
-                "over_4_5": 50.0,
-                "under_4_5": 50.0,
-                "expected_cards": 4.0
-            }
-            over_cards_prob = 0.5
-            under_cards_prob = 0.5
-            expected_cards = 4.0
+            raise  # Re-lança a exceção para tratamento adequado em níveis mais altos
         
         # 11. Retornar resultados completos
         return {
@@ -1952,8 +2015,8 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
                 "yes": round(adjusted_btts_yes * 100, 1),
                 "no": round(adjusted_btts_no * 100, 1)
             },
-            "cards": cards_probabilities,  # Agora inclui todos os thresholds calculados
-            "corners": corners_probabilities,  # Agora inclui todos os thresholds calculados
+            "cards": cards_probabilities,  # Agora inclui todos os thresholds
+            "corners": corners_probabilities,  # Agora inclui todos os thresholds
             "analysis_data": {
                 "home_consistency": round(home_consistency, 1),
                 "away_consistency": round(away_consistency, 1),
@@ -2637,34 +2700,53 @@ def calculate_corners_probability_for_threshold(expected_corners, threshold):
     import logging
     logger = logging.getLogger("valueHunter.ai")
     
-    # Cálculo com distribuição melhorada
-    r = max(1, expected_corners / 1.2)
-    p_nb = r / (r + expected_corners)
+    # Verifica valores negativos ou zero
+    if expected_corners <= 0:
+        logger.warning(f"Valor esperado de escanteios inválido: {expected_corners}, usando valor padrão")
+        expected_corners = 9.0  # Valor padrão seguro
     
+    # Truncar thresholds extremos
+    threshold = max(3.5, min(threshold, 18.5))
+    
+    # Cálculo com distribuição melhorada (parâmetros seguros)
+    r = max(2.0, expected_corners / 1.2)  # Evita valores muito pequenos
+    
+    # Calcular variância de forma segura
     mean = expected_corners
-    variance = expected_corners * (1 + expected_corners / r)
+    variance = max(1.0, expected_corners * (1 + expected_corners / r))
     std_dev = math.sqrt(variance)
     
     # Correção de continuidade
     adjusted_threshold = threshold + 0.5
-    z_score = (adjusted_threshold - mean) / std_dev if std_dev > 0 else 0
+    z_score = (adjusted_threshold - mean) / std_dev
     
-    # Normal CDF melhorada
-    def improved_normal_cdf(x):
-        if x >= 0:
-            a1, a2, a3, a4, a5 = 0.319381530, -0.356563782, 1.781477937, -1.821255978, 1.330274429
-            L = abs(x)
-            K = 1.0 / (1.0 + 0.2316419 * L)
-            w = 1.0 - 1.0 / math.sqrt(2 * math.pi) * math.exp(-L * L / 2.0) * (
-                a1 * K + a2 * K * K + a3 * K * K * K + a4 * K * K * K * K + a5 * K * K * K * K * K)
-            return w
-        else:
-            return 1.0 - improved_normal_cdf(-x)
+    # Normal CDF melhorada e mais segura
+    def safe_normal_cdf(x):
+        # Implementação mais robusta para evitar erros de precisão
+        if x < -8.0:
+            return 0.0
+        if x > 8.0:
+            return 1.0
+        
+        # Tabela de valores para aproximação
+        p = 0.2316419
+        b1 = 0.319381530
+        b2 = -0.356563782
+        b3 = 1.781477937
+        b4 = -1.821255978
+        b5 = 1.330274429
+        
+        t = 1.0 / (1.0 + p * abs(x))
+        Z = 0.3989423 * math.exp(-0.5 * x * x)
+        y = 1.0 - Z * ((((b5 * t + b4) * t + b3) * t + b2) * t + b1) * t
+        
+        return y if x >= 0.0 else 1.0 - y
     
-    p_under = improved_normal_cdf(z_score)
+    # Calcular probabilidades
+    p_under = safe_normal_cdf(z_score)
     p_over = 1.0 - p_under
     
-    # Validar ranges
+    # Validar ranges - mais rigoroso
     p_under = max(0.05, min(0.95, p_under))
     p_over = 1.0 - p_under
     
@@ -2684,6 +2766,11 @@ def calculate_multi_threshold_corners(home_team, away_team, league_corner_factor
         # Calcular total esperado uma única vez
         expected_corners = calculate_expected_corners_total(home_team, away_team, league_corner_factor)
         
+        # Verificação de segurança para valores razoáveis
+        if expected_corners < 5 or expected_corners > 15:
+            logger.warning(f"Valor esperado de escanteios fora do range razoável: {expected_corners}, ajustando")
+            expected_corners = max(5, min(15, expected_corners))
+        
         results = {}
         # Calcular para vários thresholds
         for threshold in [7.5, 8.5, 9.5, 10.5, 11.5, 12.5]:
@@ -2691,18 +2778,45 @@ def calculate_multi_threshold_corners(home_team, away_team, league_corner_factor
                 over_prob, under_prob, _ = calculate_corners_probability_for_threshold(
                     expected_corners, threshold
                 )
+                
+                # Verificação extra de segurança para valores razoáveis
+                if over_prob > 0.99 or over_prob < 0.01:
+                    logger.warning(f"Probabilidade de over {threshold} fora do range razoável: {over_prob}, ajustando")
+                    over_prob = max(0.01, min(0.99, over_prob))
+                    under_prob = 1.0 - over_prob
+                
                 # Usar formato seguro para chaves de dicionário
                 threshold_key = str(threshold).replace('.', '_')
                 results[f"over_{threshold_key}"] = round(over_prob * 100, 1)
                 results[f"under_{threshold_key}"] = round(under_prob * 100, 1)
             except Exception as e:
                 logger.error(f"Erro no cálculo para threshold {threshold}: {str(e)}")
+                # Valores seguros para este threshold específico
+                threshold_key = str(threshold).replace('.', '_')
+                if threshold <= expected_corners - 1.5:
+                    results[f"over_{threshold_key}"] = 75.0
+                    results[f"under_{threshold_key}"] = 25.0
+                elif threshold >= expected_corners + 1.5:
+                    results[f"over_{threshold_key}"] = 25.0
+                    results[f"under_{threshold_key}"] = 75.0
+                else:
+                    results[f"over_{threshold_key}"] = 50.0
+                    results[f"under_{threshold_key}"] = 50.0
         
         results["expected_corners"] = round(expected_corners, 1)
         return results
     except Exception as e:
         logger.error(f"Erro no cálculo multi-threshold de escanteios: {str(e)}")
-        raise
+        # Valores de fallback para situações onde tudo falha
+        return {
+            "over_7_5": 65.0, "under_7_5": 35.0,
+            "over_8_5": 55.0, "under_8_5": 45.0,
+            "over_9_5": 45.0, "under_9_5": 55.0,
+            "over_10_5": 35.0, "under_10_5": 65.0,
+            "over_11_5": 25.0, "under_11_5": 75.0,
+            "over_12_5": 15.0, "under_12_5": 85.0,
+            "expected_corners": 9.0
+        }
 def calculate_corners_probability(home_team, away_team, threshold, league_corner_factor=1.0):
     """
     Cálculo melhorado para escanteios - sem threshold padrão
