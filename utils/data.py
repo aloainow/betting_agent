@@ -50,6 +50,79 @@ def get_match_odds(match_id):
     logger.info(f"Função get_match_odds chamada para match_id={match_id} (stub)")
     return "Odds não disponíveis"
 
+def get_odds_data(match_id=None, home_team=None, away_team=None):
+    """
+    Retorna dados de odds para uma partida específica.
+    Esta é uma função stub adicionada para corrigir o erro de importação.
+    
+    Args:
+        match_id (str, optional): ID da partida. Defaults to None.
+        home_team (str, optional): Nome do time da casa. Defaults to None.
+        away_team (str, optional): Nome do time visitante. Defaults to None.
+        
+    Returns:
+        dict: Dicionário com dados de odds
+    """
+    logger.info(f"Função get_odds_data chamada para match_id={match_id}, home_team={home_team}, away_team={away_team} (stub)")
+    
+    # Retornar um dicionário vazio como stub
+    return {
+        "home_win": 2.0,
+        "draw": 3.5,
+        "away_win": 4.0,
+        "over_2_5": 1.9,
+        "under_2_5": 2.1,
+        "btts_yes": 1.8,
+        "btts_no": 2.2
+    }
+
+def format_prompt(home_team, away_team, odds_data, selected_markets=None):
+    """
+    Formata um prompt para análise de partida.
+    Esta é uma função stub adicionada para corrigir o erro de importação.
+    
+    Args:
+        home_team (str): Nome do time da casa
+        away_team (str): Nome do time visitante
+        odds_data (dict): Dados de odds
+        selected_markets (dict, optional): Mercados selecionados. Defaults to None.
+        
+    Returns:
+        str: Prompt formatado
+    """
+    logger.info(f"Função format_prompt chamada para {home_team} vs {away_team} (stub)")
+    
+    if selected_markets is None:
+        selected_markets = {
+            "money_line": True,
+            "over_under": True,
+            "ambos_marcam": True
+        }
+    
+    # Criar um prompt básico como stub
+    prompt = f"""
+# Análise de Partida: {home_team} vs {away_team}
+
+## Odds Disponíveis:
+- Vitória {home_team}: {odds_data.get('home_win', 2.0)}
+- Empate: {odds_data.get('draw', 3.5)}
+- Vitória {away_team}: {odds_data.get('away_win', 4.0)}
+"""
+    
+    if selected_markets.get("over_under"):
+        prompt += f"""
+- Over 2.5 gols: {odds_data.get('over_2_5', 1.9)}
+- Under 2.5 gols: {odds_data.get('under_2_5', 2.1)}
+"""
+    
+    if selected_markets.get("ambos_marcam"):
+        prompt += f"""
+- Ambos marcam - Sim: {odds_data.get('btts_yes', 1.8)}
+- Ambos marcam - Não: {odds_data.get('btts_no', 2.2)}
+"""
+    
+    return prompt
+
 @dataclass
 class UserTier:
     name: str
