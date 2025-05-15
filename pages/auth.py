@@ -49,8 +49,8 @@ def show_login():
                             # Log para debug
                             print(f"Login bem-sucedido para {email}, redirecionando para dashboard")
                             
-                            # Redirecionar para dashboard
-                            st.session_state.page = "main"
+                            # Redirecionar para dashboard - CORRIGIDO: usar "dashboard" em vez de "main"
+                            st.session_state.page = "dashboard"
                             
                             # Usar experimental_rerun de forma mais segura
                             st.experimental_rerun()
