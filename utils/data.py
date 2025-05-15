@@ -48,18 +48,173 @@ def get_match_odds(match_id):
     Esta é uma função stub adicionada para corrigir o erro de importação.
     """
     logger.info(f"Função get_match_odds chamada para match_id={match_id} (stub)")
-    return "Odds não disponíveis"
-
-def get_odds_data(match_id=None, home_team=None, away_team=None):
+    
+def get_odds_data(selected_markets):
     """
-    Retorna dados de odds para uma partida específica.
-    Esta é uma função stub adicionada para corrigir o erro de importação.
+    Exibe campos de input para as odds dos mercados selecionados e retorna os valores inseridos.
     
     Args:
-        match_id (str, optional): ID da partida. Defaults to None.
-        home_team (str, optional): Nome do time da casa. Defaults to None.
-        away_team (str, optional): Nome do time visitante. Defaults to None.
+        selected_markets (dict): Dicionário com os mercados selecionados
         
+    Returns:
+        dict: Dicionário com as odds configuradas para cada mercado
+    """
+    logger.info(f"Exibindo inputs para odds dos mercados: {[k for k, v in selected_markets.items() if v]}")
+    
+    odds_data = {}
+    
+    # Verificar se algum mercado foi selecionado
+    if not any(selected_markets.values()):
+        st.warning("Selecione pelo menos um mercado para configurar odds.")
+        return None
+    
+    # Money Line (1X2)
+    if selected_markets.get("money_line"):
+        st.subheader("Money Line (1X2)")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            home_win = st.number_input("Casa (1)", min_value=1.01, max_value=50.0, value=2.0, step=0.05, format="%.2f", key="ml_home")
+        with col2:
+            draw = st.number_input("Empate (X)", min_value=1.01, max_value=50.0, value=3.2, step=0.05, format="%.2f", key="ml_draw")
+        with col3:
+            away_win = st.number_input("Fora (2)", min_value=1.01, max_value=50.0, value=3.5, step=0.05, format="%.2f", key="ml_away")
+        
+        odds_data["money_line"] = {
+            "home": home_win,
+            "draw": draw,
+            "away": away_win
+        }
+    
+    # Total de Gols (Over/Under)
+    if selected_markets.get("over_under"):
+        st.subheader("Total de Gols")
+        col1, col2 = st.columns(2)
+        with col1:
+            over_odds = st.number_input("Over 2.5", min_value=1.01, max_value=10.0, value=1.85, step=0.05, format="%.2f", key="ou_over")
+        with col2:
+            under_odds = st.number_input("Under 2.5", min_value=1.01, max_value=10.0, value=1.95, step=0.05, format="%.2f", key="ou_under")
+        
+        odds_data["over_under"] = {
+            "over": over_odds,
+            "under": under_odds
+        }
+    
+    # Chance Dupla
+    if selected_markets.get("chance_dupla"):
+        st.subheader("Chance Dupla")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            home_draw = st.number_input("Casa ou Empate (1X)", min_value=1.01, max_value=10.0, value=1.3, step=0.05, format="%.2f", key="cd_home_draw")
+        with col2:
+            home_away = st.number_input("Casa ou Fora (12)", min_value=1.01, max_value=10.0, value=1.25, step=0.05, format="%.2f", key="cd_home_away")
+        with col3:
+            draw_away = st.number_input("Empate ou Fora (X2)", min_value=1.01, max_value=10.0, value=1.6, step=0.05, format="%.2f", key="cd_draw_away")
+        
+        odds_data["chance_dupla"] = {
+            "home_draw": home_draw,
+            "home_away": home_away,
+            "draw_away": draw_away
+        }
+    
+    # Ambos Marcam
+    if selected_markets.get("ambos_marcam"):
+        st.subheader("Ambos Marcam")
+        col1, col2 = st.columns(2)
+        with col1:
+            btts_yes = st.number_input("Sim", min_value=1.01, max_value=10.0, value=1.8, step=0.05, format="%.2f", key="btts_yes")
+        with col2:
+            btts_no = st.number_input("Não", min_value=1.01, max_value=10.0, value=2.0, step=0.05, format="%.2f", key="btts_no")
+        
+        odds_data["ambos_marcam"] = {
+            "yes": btts_yes,
+            "no": btts_no
+        }
+    
+    # Total de Escanteios
+    if selected_markets.get("escanteios"):
+        st.subheader("Total de Escanteios")
+        col1, col2 = st.columns(2)
+        with col1:
+            corners_over = st.number_input("Over 9.5", min_value=1.01, max_value=10.0, value=1.85, step=0.05, format="%.2f", key="corners_over")
+        with col2:
+            corners_under = st.number_input("Under 9.5", min_value=1.01, max_value=10.0, value=1.95, step=0.05, format="%.2f", key="corners_under")
+        
+        odds_data["escanteios"] = {
+            "over": corners_over,
+            "under": corners_under
+        }
+    
+    # Total de Cartões
+    if selected_markets.get("cartoes"):
+        st.subheader("Total de Cartões")
+        col1, col2 = st.columns(2)
+        with col1:
+            cards_over = st.number_input("Over 3.5", min_value=1.01, max_value=10.0, value=1.85, step=0.05, format="%.2f", key="cards_over")
+        with col2:
+            cards_under = st.number_input("Under 3.5", min_value=1.01, max_value=10.0, value=1.95, step=0.05, format="%.2f", key="cards_under")
+        
+        odds_data["cartoes"] = {
+            "over": cards_over,
+            "under": cards_under
+        }
+    
+    # Verificar se temos dados de odds
+    if not odds_data:
+        st.warning("Nenhum mercado selecionado para configurar odds.")
+        return None
+    
+    return odds_data
+
+def format_prompt(team_stats, selected_markets, odds_data):
+    """
+    Formata um prompt para análise de partida com base nas odds e mercados selecionados.
+    
+    Args:
+        team_stats (dict): Estatísticas dos times
+        selected_markets (dict): Mercados selecionados
+        odds_data (dict): Odds configuradas
+        
+    Returns:
+        str: Prompt formatado para análise
+    """
+    logger.info("Formatando prompt para análise de partida")
+    
+    # Verificar se temos dados necessários
+    if not team_stats or not selected_markets or not odds_data:
+        return "Dados insuficientes para análise."
+    
+    # Extrair informações básicas
+    home_team = team_stats.get("match_info", {}).get("home_team", "Time da Casa")
+    away_team = team_stats.get("match_info", {}).get("away_team", "Time Visitante")
+    league = team_stats.get("match_info", {}).get("league", "Liga não especificada")
+    
+    # Construir o prompt
+    prompt = f"Análise da partida {home_team} vs {away_team} na {league}.\n\n"
+    prompt += "Mercados e odds selecionados:\n"
+    
+    # Adicionar informações de cada mercado
+    if selected_markets.get("money_line") and "money_line" in odds_data:
+        prompt += f"- Money Line (1X2): Casa {odds_data['money_line']['home']}, Empate {odds_data['money_line']['draw']}, Fora {odds_data['money_line']['away']}\n"
+    
+    if selected_markets.get("over_under") and "over_under" in odds_data:
+        prompt += f"- Total de Gols: Over 2.5 {odds_data['over_under']['over']}, Under 2.5 {odds_data['over_under']['under']}\n"
+    
+    if selected_markets.get("chance_dupla") and "chance_dupla" in odds_data:
+        prompt += f"- Chance Dupla: 1X {odds_data['chance_dupla']['home_draw']}, 12 {odds_data['chance_dupla']['home_away']}, X2 {odds_data['chance_dupla']['draw_away']}\n"
+    
+    if selected_markets.get("ambos_marcam") and "ambos_marcam" in odds_data:
+        prompt += f"- Ambos Marcam: Sim {odds_data['ambos_marcam']['yes']}, Não {odds_data['ambos_marcam']['no']}\n"
+    
+    if selected_markets.get("escanteios") and "escanteios" in odds_data:
+        prompt += f"- Total de Escanteios: Over 9.5 {odds_data['escanteios']['over']}, Under 9.5 {odds_data['escanteios']['under']}\n"
+    
+    if selected_markets.get("cartoes") and "cartoes" in odds_data:
+        prompt += f"- Total de Cartões: Over 3.5 {odds_data['cartoes']['over']}, Under 3.5 {odds_data['cartoes']['under']}\n"
+    
+    # Adicionar instruções para análise
+    prompt += "\nPor favor, analise estes mercados considerando as estatísticas das equipes e identifique oportunidades de valor."
+    
+    return prompt
     Returns:
         dict: Dicionário com dados de odds
     """
