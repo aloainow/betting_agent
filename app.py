@@ -24,12 +24,14 @@ st.set_page_config(
 # AGORA injetamos o CSS para remover espaçamento DEPOIS da configuração da página
 st.markdown("""
 <style>
-/* SOLUÇÃO DEFINITIVA PARA ESPAÇO EM BRANCO - aplicada globalmente */
+/* SOLUÇÃO ULTRA AGRESSIVA PARA ESPAÇO EM BRANCO - aplicada globalmente */
 /* Reset de todos os espaçamentos em todos os elementos */
-body, html, .stApp, .main, .main .block-container {
+body, html, .stApp, .main, .main .block-container, div[data-testid="stAppViewContainer"], div[data-testid="stVerticalBlock"] {
     margin-top: 0 !important;
     padding-top: 0 !important;
     gap: 0 !important;
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
 }
 
 /* Remover completamente o cabeçalho do Streamlit */
@@ -72,7 +74,8 @@ div[data-testid~="injected"] {
 .main .block-container > div:first-child,
 .element-container:first-child,
 .stMarkdown:first-child,
-section.main > div:first-child {
+section.main > div:first-child,
+div[data-testid="stVerticalBlock"] > div:first-child {
     margin-top: 0 !important;
     padding-top: 0 !important;
 }
@@ -86,6 +89,63 @@ section.main > div:first-child {
 /* Reset para layout de gaps e grids */
 div[data-layout] {
     gap: 0 !important;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+
+/* Reduzir ainda mais o espaço entre elementos */
+.stMarkdown, .stText, .stTitle, .element-container {
+    margin-top: 0 !important;
+    margin-bottom: 0.5rem !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+}
+
+/* Remover espaço entre colunas e linhas */
+div[data-layout="grid"] {
+    gap: 0.5rem !important;
+}
+
+/* Ajustar espaçamento de widgets */
+.stButton, .stSelectbox, .stTextInput, .stNumberInput {
+    margin-top: 0 !important;
+    margin-bottom: 0.5rem !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+}
+
+/* Forçar remoção de espaço no topo da página */
+.stApp > header + div > div:first-child,
+.main > div:first-child,
+.main .block-container > div:first-child,
+.stApp [data-testid="stAppViewBlockContainer"] > div:first-child,
+[data-testid="collapsedControl"],
+[data-testid="stHeader"],
+[data-testid="stToolbar"],
+[data-testid="stDecoration"],
+section.main > div:first-child,
+div[data-testid="stVerticalBlock"] > div:first-child {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+    min-height: 0 !important;
+}
+
+/* Remover decorações no topo */
+.stApp::before,
+.stApp::after {
+    display: none !important;
+}
+
+/* Resetar layout e gaps */
+.stApp [data-testid="stAppViewContainer"],
+.stApp [data-testid="stAppViewContainer"] > section {
+    gap: 0 !important;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+
+/* Remover espaço em todos os elementos */
+div, p, h1, h2, h3, h4, h5, h6, ul, ol, li, span, a, button, input, select, textarea {
     margin-top: 0 !important;
     padding-top: 0 !important;
 }
@@ -381,11 +441,14 @@ def main():
         # CORREÇÃO DEFINITIVA DO ESPAÇO EM BRANCO - Aplicar imediatamente
         st.markdown("""
         <style>
-        /* SOLUÇÃO ZERO ESPAÇO - Reset completo e agressivo */
-        body, html, .stApp, .main, .main .block-container {
+        /* SOLUÇÃO ULTRA AGRESSIVA PARA ESPAÇO EM BRANCO - aplicada globalmente */
+        /* Reset de todos os espaçamentos em todos os elementos */
+        body, html, .stApp, .main, .main .block-container, div[data-testid="stAppViewContainer"], div[data-testid="stVerticalBlock"] {
             margin-top: 0 !important;
             padding-top: 0 !important;
             gap: 0 !important;
+            margin-bottom: 0 !important;
+            padding-bottom: 0 !important;
         }
         
         /* Remover completamente o cabeçalho */
@@ -404,7 +467,8 @@ def main():
         .main .block-container > div:first-child,
         .element-container:first-child,
         .stMarkdown:first-child,
-        section.main > div:first-child {
+        section.main > div:first-child,
+        div[data-testid="stVerticalBlock"] > div:first-child {
             margin-top: 0 !important;
             padding-top: 0 !important;
         }
@@ -416,25 +480,10 @@ def main():
             margin-top: 0 !important;
         }
         
-        /* Reduzir ainda mais o espaço entre elementos */
-        .stMarkdown, .stText, .stTitle, .element-container {
+        /* Remover espaço em todos os elementos */
+        div, p, h1, h2, h3, h4, h5, h6, ul, ol, li, span, a, button, input, select, textarea {
             margin-top: 0 !important;
-            margin-bottom: 0.5rem !important;
             padding-top: 0 !important;
-            padding-bottom: 0 !important;
-        }
-        
-        /* Remover espaço entre colunas e linhas */
-        div[data-layout="grid"] {
-            gap: 0.5rem !important;
-        }
-        
-        /* Ajustar espaçamento de widgets */
-        .stButton, .stSelectbox, .stTextInput, .stNumberInput {
-            margin-top: 0 !important;
-            margin-bottom: 0.5rem !important;
-            padding-top: 0 !important;
-            padding-bottom: 0 !important;
         }
         </style>
         """, unsafe_allow_html=True)
@@ -445,7 +494,7 @@ def main():
         // Função que remove ativamente espaços em branco
         function removeSpaces() {
             // Forçar reset de todos os elementos que possam causar espaço
-            document.querySelectorAll('header, .main .block-container, div:first-child').forEach(el => {
+            document.querySelectorAll('header, .main .block-container, div:first-child, div[data-testid="stVerticalBlock"], div[data-testid="stAppViewContainer"]').forEach(el => {
                 el.style.marginTop = '0';
                 el.style.paddingTop = '0';
             });
@@ -453,6 +502,12 @@ def main():
             // Remover cabeçalho por completo
             const header = document.querySelector('header[data-testid="stHeader"]');
             if (header) header.style.display = 'none';
+            
+            // Remover espaço em todos os elementos
+            document.querySelectorAll('div, p, h1, h2, h3, h4, h5, h6, ul, ol, li, span, a, button, input, select, textarea').forEach(el => {
+                el.style.marginTop = '0';
+                el.style.paddingTop = '0';
+            });
         }
         
         // Executar imediatamente
@@ -466,292 +521,76 @@ def main():
         const interval = setInterval(() => {
             removeSpaces();
             attempts++;
-            if (attempts > 10) clearInterval(interval);
+            if (attempts > 20) clearInterval(interval);
         }, 100);
         </script>
         """, height=0)
         
         
         # NOVO: Diagnóstico de arquivos
-        print("\n===== DIAGNÓSTICO DE ARQUIVOS =====")
+        print("\nDiagnóstico de arquivos:")
         print(f"Diretório atual: {os.getcwd()}")
-        try:
-            print(f"Arquivos no diretório atual: {os.listdir(os.getcwd())}")
-        except Exception as e:
-            print(f"Erro ao listar diretório: {str(e)}")
-
-        print(f"3F3F45.png existe? {os.path.exists(os.path.join(os.getcwd(), '3F3F45.png'))}")
-        print(f"favicon_svg.svg existe? {os.path.exists(os.path.join(os.getcwd(), 'favicon_svg.svg'))}")
-
-        # Verificar caso-sensitivo
-        print("\nVerificação de maiúsculas/minúsculas:")
-        try:
-            for arquivo in os.listdir(os.getcwd()):
-                if arquivo.lower() in ['3f3f45.png', 'favicon_svg.svg']:
-                    print(f"Encontrado: {arquivo} (nome exato no disco)")
-        except Exception as e:
-            print(f"Erro na verificação caso-sensitiva: {str(e)}")
-        print("===================================\n")
+        print(f"Arquivos na raiz: {os.listdir('.')}")
+        print(f"Arquivos em utils: {os.listdir('./utils') if os.path.exists('./utils') else 'Diretório não existe'}")
+        print(f"Arquivos em pages: {os.listdir('./pages') if os.path.exists('./pages') else 'Diretório não existe'}")
         
-        # Verificar se precisamos fechar a janela atual
-        if 'close_window' in st.query_params and st.query_params.close_window == 'true':
-            st.components.v1.html("""
-                <script>
-                    window.opener && window.opener.postMessage('payment_complete', '*');
-                    window.close();
-                </script>
-            """, height=0)
-            st.success("Pagamento concluído! Você pode fechar esta janela.")
-            return
-            
-        # Initialize session state com valores padrão
+        # Inicializar estado da sessão
         init_session_state()
+        
+        # Configurar visibilidade da barra lateral
+        configure_sidebar_visibility()
+        
+        # Aplicar estilos globais
+        apply_global_css()
+        
+        # Aplicar estilos personalizados
+        apply_custom_styles()
+        
+        # Aplicar estilos responsivos
+        apply_responsive_styles()
+        
+        # Remover tela de carregamento
+        remove_loading_screen()
+        
+        # Inicializar Stripe
+        init_stripe()
+        
+        # Verificar se há um código de pagamento na URL
+        check_payment_success()
         
         # Ativar modo de debug se necessário
         enable_debug_mode()
         
-        # Initialize Stripe
-        init_stripe()
-        
-        # Check for payment from popup
-        popup_payment = False
-        if 'check_payment' in st.query_params and st.query_params.check_payment == 'true':
-            popup_payment = True
-        
-        # Handle page routing
-        if popup_payment and st.session_state.authenticated:
-            check_payment_success()
-            
-        # Regular payment callback check
-        payment_result = check_payment_success()
-        
-        # Stripe error handling
-        handle_stripe_errors()
-        
-        # Roteamento para páginas
-        if "page" in st.session_state:
-            page = st.session_state.page
-            
-            # Configurar CSS e visibilidade da barra lateral com base na página
-            if page in ["landing", "login", "register", "verification", 
-                       "password_recovery", "password_reset_code", "password_reset"]:
-                # Páginas de autenticação - ocultar totalmente a barra lateral
-                st.markdown("""
-                <style>
-                [data-testid="stSidebar"] {
-                    display: none !important;
-                }
-                </style>
-                """, unsafe_allow_html=True)
-            else:
-                # Outras páginas - configurar barra lateral normalmente
-                configure_sidebar_visibility()
-                
-            # Aplicar CSS global - versão simplificada
-            apply_global_css()
-            
-            # Roteamento para a página correta
-            if page == "landing":
-                show_landing_page()
-            elif page == "login":
-                show_login()
-            elif page == "register":
-                show_register()
-            elif page == "verification":
-                show_verification()
-            elif page == "password_recovery":
-                show_password_recovery()
-            elif page == "password_reset_code":
-                show_password_reset_code()
-            elif page == "password_reset":
-                show_password_reset()
-            elif page == "main":
-                if st.session_state.authenticated:
-                    # Aplicar estilo responsivo
-                    apply_custom_styles()
-                    show_main_dashboard()
-                else:
-                    go_to_login()
-            elif page == "admin":
-                # Verificar se é admin antes de mostrar (implementação futura)
-                if st.session_state.authenticated:
-                    try:
-                        from pages._admin import show_admin_panel
-                        show_admin_panel()
-                    except Exception as e:
-                        logger.error(f"Erro ao carregar painel admin: {str(e)}")
-                        st.error("Erro ao carregar painel administrativo")
-                else:
-                    go_to_login()
-            elif page == "packages":
-                if st.session_state.authenticated:
-                    show_packages_page()
-                else:
-                    go_to_login()
-            else:
-                # Página desconhecida, voltar para a landing
-                st.session_state.page = "landing"
-                st.experimental_rerun()
+        # Determinar qual página mostrar com base no estado da sessão
+        if st.session_state.get("page") == "login":
+            show_login()
+        elif st.session_state.get("page") == "register":
+            show_register()
+        elif st.session_state.get("page") == "verification":
+            show_verification()
+        elif st.session_state.get("page") == "password_recovery":
+            show_password_recovery()
+        elif st.session_state.get("page") == "password_reset_code":
+            show_password_reset_code()
+        elif st.session_state.get("page") == "password_reset":
+            show_password_reset()
+        elif st.session_state.get("page") == "dashboard":
+            show_main_dashboard()
+        elif st.session_state.get("page") == "packages":
+            show_packages_page()
         else:
-            # Estado da sessão não inicializado, voltar para a landing
-            st.session_state.page = "landing"
-            st.experimental_rerun()
-        
-        # Remover a tela de carregamento quando tudo estiver pronto
-        remove_loading_screen()
-        
+            # Página inicial (landing)
+            show_landing_page()
+            
     except Exception as e:
-        logger.error(f"Erro geral na aplicação: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        st.error("Ocorreu um erro inesperado. Por favor, recarregue a página e tente novamente.")
+        st.error(f"Erro na aplicação: {str(e)}")
+        logger.error(f"Erro na aplicação: {str(e)}")
         
-        if "debug_mode" in st.session_state and st.session_state.debug_mode:
-            with st.expander("Detalhes do erro", expanded=True):
-                st.code(traceback.format_exc())
+        # Mostrar detalhes do erro em modo de debug
+        if st.session_state.get("debug_mode", False):
+            import traceback
+            st.code(traceback.format_exc())
 
-# Executar a aplicação
+# Executar a função principal
 if __name__ == "__main__":
-    try:
-        logger.info("Iniciando aplicação ValueHunter")
-        main()
-    except Exception as e:
-        logger.critical(f"Erro fatal na aplicação: {str(e)}")
-        st.error("Ocorreu um erro inesperado. Por favor, recarregue a página e tente novamente.")
-def remove_all_top_space():
-    """
-    Solução definitiva para eliminar QUALQUER espaço em branco no topo das páginas Streamlit.
-    Esta função combina técnicas de CSS e JavaScript para garantir que não haja espaço em branco.
-    
-    Use esta função no início de cada página ou no arquivo app.py principal.
-    """
-    import streamlit as st
-    import streamlit.components.v1 as components
-    
-    # 1. Primeiro, aplicar CSS agressivo para remover espaços
-    st.markdown("""
-    <style>
-    /* Reset absoluto de todos os espaçamentos */
-    .main .block-container {
-        padding-top: 0 !important;
-        margin-top: 0 !important;
-        gap: 0 !important;
-    }
-    
-    /* Ocultar cabeçalho completamente */
-    header[data-testid="stHeader"] {
-        display: none !important;
-        height: 0 !important;
-        min-height: 0 !important;
-        max-height: 0 !important;
-        visibility: hidden !important;
-        position: absolute !important;
-        z-index: -9999 !important;
-        opacity: 0 !important;
-        width: 0 !important;
-    }
-    
-    /* Remover todos os elementos decorativos e espaços extras */
-    [data-testid="stDecoration"],
-    [data-testid="stToolbar"],
-    [data-testid="stStatusWidget"],
-    [data-testid="stSidebarNavItems"],
-    div[data-testid~="injected"] {
-        display: none !important;
-        height: 0 !important;
-        width: 0 !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        visibility: hidden !important;
-        position: absolute !important;
-        z-index: -9999 !important;
-    }
-    
-    /* Forçar primeiro elemento a começar no topo absoluto */
-    .main .block-container > div:first-child,
-    .element-container:first-child,
-    .stMarkdown:first-child,
-    section.main > div:first-child {
-        margin-top: 0 !important;
-        padding-top: 0 !important;
-    }
-    
-    /* Zerar margens e paddings de todos primeiros filhos */
-    *:first-child {
-        margin-top: 0 !important;
-        padding-top: 0 !important;
-    }
-    
-    /* Reset para layout de gaps e grids */
-    div[data-layout] {
-        gap: 0 !important;
-        margin-top: 0 !important;
-        padding-top: 0 !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-    
-    # 2. Adicionar script JavaScript que remove dinamicamente espaços em branco
-    js = """
-    <script>
-        // Função para remover espaços em branco no topo
-        function removeTopSpaces() {
-            // Remover cabeçalho do Streamlit
-            const header = document.querySelector('header[data-testid="stHeader"]');
-            if (header) {
-                header.style.display = 'none';
-                header.style.height = '0';
-                header.style.minHeight = '0';
-                header.style.margin = '0';
-                header.style.padding = '0';
-            }
-            
-            // Remover margem do primeiro elemento
-            const firstElement = document.querySelector('.main .block-container > div:first-child');
-            if (firstElement) {
-                firstElement.style.marginTop = '0';
-                firstElement.style.paddingTop = '0';
-            }
-            
-            // Remover espaços de elementos decorativos
-            const decorations = document.querySelectorAll(
-                '[data-testid="stDecoration"], ' +
-                '[data-testid="stToolbar"], ' +
-                '[data-testid="stStatusWidget"]'
-            );
-            
-            decorations.forEach(el => {
-                el.style.display = 'none';
-                el.style.height = '0';
-                el.style.margin = '0';
-                el.style.padding = '0';
-            });
-            
-            // Remover gap do container principal
-            const blockContainer = document.querySelector('.main .block-container');
-            if (blockContainer) {
-                blockContainer.style.paddingTop = '0';
-                blockContainer.style.marginTop = '0';
-                blockContainer.style.gap = '0';
-            }
-        }
-        
-        // Executar imediatamente
-        removeTopSpaces();
-        
-        // Executar quando o DOM estiver totalmente carregado
-        document.addEventListener('DOMContentLoaded', removeTopSpaces);
-        
-        // Executar periodicamente para garantir
-        setInterval(removeTopSpaces, 100);
-        
-        // Executar após carregamento completo da página
-        window.addEventListener('load', removeTopSpaces);
-        
-        // Executar também quando o tamanho da janela muda
-        window.addEventListener('resize', removeTopSpaces);
-    </script>
-    """
-    
-    components.html(js, height=0)
-    
+    main()
