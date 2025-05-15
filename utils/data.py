@@ -33,6 +33,23 @@ except (ImportError, ModuleNotFoundError):
 # Garantir que o diretório de dados existe
 os.makedirs(DATA_DIR, exist_ok=True)
 
+# Funções que estavam faltando e causando o erro
+def get_configured_odds():
+    """
+    Retorna as odds configuradas para a partida atual.
+    Esta é uma função stub adicionada para corrigir o erro de importação.
+    """
+    logger.info("Função get_configured_odds chamada (stub)")
+    return "Odds não disponíveis"
+
+def get_match_odds(match_id):
+    """
+    Retorna as odds para uma partida específica.
+    Esta é uma função stub adicionada para corrigir o erro de importação.
+    """
+    logger.info(f"Função get_match_odds chamada para match_id={match_id} (stub)")
+    return "Odds não disponíveis"
+
 @dataclass
 class UserTier:
     name: str
@@ -385,152 +402,141 @@ class UserManager:
                 tier_name = "free"
                 
             tier = self.tiers[tier_name]
-            base_credits = tier.total_credits
+            tier_credits = tier.total_credits
             
-            # Add any purchased credits
+            # Add purchased credits
             purchased_credits = user.get("purchased_credits", 0)
-            
-            # Get user name (with fallback)
-            user_name = user.get("name", email.split('@')[0].capitalize())
-            
-            # Free tier special handling
-            free_credits_reset = False
-            next_free_credits_time = None
-            
-            if user["tier"] == "free" and user.get("free_credits_exhausted_at"):
-                try:
-                    # Convert stored time to datetime
-                    exhausted_time = datetime.fromisoformat(user["free_credits_exhausted_at"])
-                    current_time = datetime.now()
-                    
-                    # Check if 24 hours have passed
-                    if (current_time - exhausted_time).total_seconds() >= 86400:  # 24 hours in seconds
-                        # Reset credits - IMPORTANTE: sempre será 5 créditos, não acumula
-                        user["free_credits_exhausted_at"] = None
-                        
-                        # Clear usage history for free users after reset
-                        user["usage"]["total"] = []
-                        free_credits_reset = True
-                        self._save_users()
-                        
-                        # Após resetar, não há créditos usados
-                        total_credits_used = 0
-                        logger.info(f"Créditos gratuitos renovados para: {email}")
-                    else:
-                        # Calculate time remaining
-                        time_until_reset = exhausted_time + timedelta(days=1) - current_time
-                        hours = int(time_until_reset.total_seconds() // 3600)
-                        minutes = int((time_until_reset.total_seconds() % 3600) // 60)
-                        next_free_credits_time = f"{hours}h {minutes}min"
-                except Exception as e:
-                    logger.error(f"Erro ao calcular tempo para renovação de créditos: {str(e)}")
+            total_credits = tier_credits + purchased_credits
             
             # Calculate remaining credits
-            remaining_credits = max(0, base_credits + purchased_credits - total_credits_used)
+            credits_remaining = max(0, total_credits - total_credits_used)
             
-            # Check if user is out of credits and set exhausted timestamp
-            if remaining_credits == 0 and not user.get("free_credits_exhausted_at") and user["tier"] == "free":
-                user["free_credits_exhausted_at"] = datetime.now().isoformat()
-                self._save_users()
-                logger.info(f"Créditos gratuitos esgotados para: {email}")
+            # Get market limit
+            market_limit = tier.market_limit
+            
+            # Format tier name for display
+            tier_display = self._format_tier_name(tier_name)
+            
+            # Get user name
+            name = user.get("name", email.split('@')[0].capitalize())
             
             return {
-                "name": user_name,
+                "name": name,
                 "tier": tier_name,
-                "tier_display": self._format_tier_name(tier_name),
+                "tier_display": tier_display,
                 "credits_used": total_credits_used,
-                "credits_total": base_credits + purchased_credits,
-                "credits_remaining": remaining_credits,
-                "market_limit": tier.market_limit,
-                "free_credits_reset": free_credits_reset,
-                "next_free_credits_time": next_free_credits_time,
-                "verified": user.get('verified', True)
+                "credits_total": total_credits,
+                "credits_remaining": credits_remaining,
+                "market_limit": market_limit,
+                "verified": True
             }
         except Exception as e:
             logger.error(f"Erro ao obter estatísticas para {email}: {str(e)}")
-            # Retornar estatísticas padrão com nome genérico
             return {
-                "name": "Usuário",
+                "name": "Erro",
                 "tier": "free",
                 "tier_display": "Free",
                 "credits_used": 0,
                 "credits_total": 5,
                 "credits_remaining": 5,
-                "market_limit": float('inf'),
-                "verified": False
+                "market_limit": float('inf')
             }
     
-    def record_usage(self, email, num_markets, analysis_data=None):
-        """Record usage of credits"""
-        if email not in self.users:
-            logger.warning(f"Tentativa de registrar uso para usuário inexistente: {email}")
-            return False
-            
-        # Verificar se o usuário está verificado
-        if not self.users[email].get('verified', True):
-            logger.warning(f"Tentativa de registrar uso para usuário não verificado: {email}")
-            return False
-
-        today = datetime.now().date().isoformat()
-        
-        # Criar registro de uso com dados detalhados
-        usage = {
-            "date": today,
-            "markets": num_markets,
-            "timestamp": datetime.now().isoformat(),
-        }
-        
-        # Adicionar dados de análise se fornecidos
-        if analysis_data:
-            usage.update({
-                "league": analysis_data.get("league"),
-                "home_team": analysis_data.get("home_team"),
-                "away_team": analysis_data.get("away_team"),
-                "markets_used": analysis_data.get("markets_used", [])
-            })
-        
-        # Garantir que a estrutura de uso existe para o usuário
-        if "usage" not in self.users[email]:
-            self.users[email]["usage"] = {"daily": [], "total": []}
-        
-        # Adicionar o registro ao rastreamento diário e total
-        self.users[email]["usage"]["daily"].append(usage)
-        self.users[email]["usage"]["total"].append(usage)
-        
-        # Salvar alterações
-        save_success = self._save_users()
-        if not save_success:
-            logger.warning(f"Falha ao salvar dados após registrar uso para: {email}")
-            return False
-            
-        # Verificar créditos restantes após a atualização
-        stats_after = self.get_usage_stats(email)
-        credits_after = stats_after.get('credits_remaining', 0)
-        
-        # Se o usuário for do tier Free e esgotou os créditos, marcar o esgotamento
-        if self.users[email]["tier"] == "free":
-            if credits_after == 0 and not self.users[email].get("free_credits_exhausted_at"):
-                self.users[email]["free_credits_exhausted_at"] = datetime.now().isoformat()
-                self._save_users()
-                logger.info(f"Marcando esgotamento de créditos gratuitos para: {email}")
-        
-        # Para usuários dos tiers Standard ou Pro
-        elif self.users[email]["tier"] in ["standard", "pro"]:
-            if credits_after == 0 and not self.users[email].get("paid_credits_exhausted_at"):
-                self.users[email]["paid_credits_exhausted_at"] = datetime.now().isoformat()
-                self._save_users()
-                logger.info(f"Marcando esgotamento de créditos pagos para: {email}")
-        
-        # Limpar qualquer cache que possa existir para estatísticas
+    def register_usage(self, email: str, num_markets: int = 1) -> bool:
+        """Register usage of credits"""
         try:
-            import streamlit as st
-            if hasattr(st.session_state, 'user_stats_cache'):
-                del st.session_state.user_stats_cache
-        except Exception as e:
-            logger.warning(f"Erro ao limpar cache de estatísticas: {str(e)}")
+            if email not in self.users:
+                logger.warning(f"Tentativa de registrar uso para usuário inexistente: {email}")
+                return False
+                
+            # Verificar se o usuário está verificado
+            if not self.users[email].get('verified', False):
+                logger.warning(f"Tentativa de registrar uso para usuário não verificado: {email}")
+                return False
+                
+            # Verificar se o usuário tem créditos suficientes
+            stats = self.get_usage_stats(email)
+            credits_remaining = stats.get('credits_remaining', 0)
             
-        logger.info(f"Uso registrado com sucesso: {num_markets} créditos para {email}")
-        return True
+            if credits_remaining < num_markets:
+                logger.warning(f"Usuário {email} não tem créditos suficientes: {credits_remaining} < {num_markets}")
+                return False
+                
+            # Registrar uso
+            now = datetime.now()
+            usage_entry = {
+                "timestamp": now.isoformat(),
+                "markets": num_markets
+            }
+            
+            # Adicionar ao uso total
+            if "usage" not in self.users[email]:
+                self.users[email]["usage"] = {"daily": [], "total": []}
+                
+            if "total" not in self.users[email]["usage"]:
+                self.users[email]["usage"]["total"] = []
+                
+            self.users[email]["usage"]["total"].append(usage_entry)
+            
+            # Adicionar ao uso diário
+            today = now.strftime("%Y-%m-%d")
+            
+            if "daily" not in self.users[email]["usage"]:
+                self.users[email]["usage"]["daily"] = []
+                
+            # Verificar se já existe uma entrada para hoje
+            today_entry = None
+            for entry in self.users[email]["usage"]["daily"]:
+                entry_date = entry.get("date")
+                if entry_date == today:
+                    today_entry = entry
+                    break
+                    
+            if today_entry:
+                today_entry["markets"] += num_markets
+            else:
+                self.users[email]["usage"]["daily"].append({
+                    "date": today,
+                    "markets": num_markets
+                })
+                
+            # Salvar alterações
+            save_success = self._save_users()
+            if not save_success:
+                logger.warning(f"Falha ao salvar dados após registrar uso para: {email}")
+                return False
+                
+            # Verificar créditos restantes após a atualização
+            stats_after = self.get_usage_stats(email)
+            credits_after = stats_after.get('credits_remaining', 0)
+            
+            # Se o usuário for do tier Free e esgotou os créditos, marcar o esgotamento
+            if self.users[email]["tier"] == "free":
+                if credits_after == 0 and not self.users[email].get("free_credits_exhausted_at"):
+                    self.users[email]["free_credits_exhausted_at"] = datetime.now().isoformat()
+                    self._save_users()
+                    logger.info(f"Marcando esgotamento de créditos gratuitos para: {email}")
+            
+            # Para usuários dos tiers Standard ou Pro
+            elif self.users[email]["tier"] in ["standard", "pro"]:
+                if credits_after == 0 and not self.users[email].get("paid_credits_exhausted_at"):
+                    self.users[email]["paid_credits_exhausted_at"] = datetime.now().isoformat()
+                    self._save_users()
+                    logger.info(f"Marcando esgotamento de créditos pagos para: {email}")
+            
+            # Limpar qualquer cache que possa existir para estatísticas
+            try:
+                import streamlit as st
+                if hasattr(st.session_state, 'user_stats_cache'):
+                    del st.session_state.user_stats_cache
+            except Exception as e:
+                logger.warning(f"Erro ao limpar cache de estatísticas: {str(e)}")
+                
+            logger.info(f"Uso registrado com sucesso: {num_markets} créditos para {email}")
+            return True
+        except Exception as e:
+            logger.error(f"Erro ao registrar uso para {email}: {str(e)}")
+            return False
     
     def _upgrade_to_standard(self, email: str) -> bool:
         """Upgrade a user to Standard package (for admin use)"""
@@ -576,12 +582,6 @@ def rate_limit(seconds):
             return result
         return wrapper
     return decorator
-
-   
-    # Mensagem de erro simples e clara
-    logger.error(f"Não foi possível carregar os dados do campeonato {league_name} após múltiplas tentativas")
-    return None
-    # Adicione esta função em utils/ai.py ou utils/data.py
 
 def extract_team_stats(stats_df, team_name):
     """
@@ -867,580 +867,170 @@ def parse_team_stats(html_content):
                             break
                 
                 if not header_cells:
-                    logger.error("Não foi possível encontrar cabeçalhos para extração manual")
+                    logger.error("Não foi possível identificar células de cabeçalho")
                     return None
                     
-                # 4.2 Extrair textos dos cabeçalhos
-                headers = []
-                for i, cell in enumerate(header_cells):
+                # 4.2 Extrair nomes de colunas
+                column_names = []
+                for cell in header_cells:
+                    # Tentar obter o texto do cabeçalho
                     header_text = cell.get_text(strip=True)
                     if not header_text:
-                        header_text = f"Column_{i}"  # Nome de coluna genérico
-                    headers.append(header_text)
-                    
-                logger.info(f"Cabeçalhos extraídos manualmente: {headers}")
+                        # Se não tem texto, usar um nome genérico
+                        header_text = f"Col{len(column_names)}"
+                    column_names.append(header_text)
                 
-                # 4.3 Identificar tbody ou linhas de dados
+                logger.info(f"Nomes de colunas extraídos: {column_names}")
+                
+                # 4.3 Extrair dados das linhas
                 data_rows = []
+                
+                # Se tem tbody, usar as linhas de lá
                 tbody = stats_table.find('tbody')
                 if tbody:
-                    data_rows = tbody.find_all('tr')
+                    data_tr_elements = tbody.find_all('tr')
                 else:
-                    # Se não tem tbody, pular a linha de cabeçalho e usar o resto
+                    # Se não tem tbody, pular a linha de cabeçalho
                     if header_row is not None:
-                        data_rows = rows[header_row+1:]
+                        data_tr_elements = rows[header_row+1:]
                     else:
-                        # Tentar adivinhar - pular a primeira linha
-                        data_rows = rows[1:]
+                        # Se não identificou cabeçalho, usar todas as linhas exceto a primeira
+                        data_tr_elements = rows[1:]
                 
-                # 4.4 Extrair dados de cada linha
-                data = []
-                for row in data_rows:
-                    cells = row.find_all(['td', 'th'])
+                # Processar cada linha de dados
+                for tr in data_tr_elements:
+                    cells = tr.find_all(['td', 'th'])
+                    
+                    # Verificar se a linha tem células suficientes
+                    if len(cells) < 3:  # Muito poucas células, provavelmente não é uma linha de dados
+                        continue
+                        
+                    # Extrair valores das células
                     row_data = []
                     for cell in cells:
-                        row_data.append(cell.get_text(strip=True))
+                        # Obter texto da célula
+                        cell_text = cell.get_text(strip=True)
+                        row_data.append(cell_text)
                     
-                    # Verificar se a linha tem dados válidos e o mesmo número de colunas que os cabeçalhos
-                    if row_data and len(row_data) == len(headers):
-                        data.append(row_data)
-                    elif row_data:
-                        logger.warning(f"Linha ignorada - número de colunas não corresponde: {len(row_data)} vs {len(headers)}")
+                    # Adicionar à lista de linhas
+                    if len(row_data) > 0:
+                        data_rows.append(row_data)
                 
-                # 4.5 Criar DataFrame com os dados extraídos manualmente
-                if data and headers:
-                    df = pd.DataFrame(data, columns=headers)
+                # 4.4 Criar DataFrame
+                if data_rows:
+                    # Ajustar tamanho das linhas para corresponder aos cabeçalhos
+                    num_cols = len(column_names)
+                    adjusted_rows = []
+                    for row in data_rows:
+                        if len(row) > num_cols:
+                            # Truncar linhas muito longas
+                            adjusted_rows.append(row[:num_cols])
+                        elif len(row) < num_cols:
+                            # Preencher linhas muito curtas
+                            adjusted_rows.append(row + [''] * (num_cols - len(row)))
+                        else:
+                            adjusted_rows.append(row)
+                    
+                    # Criar DataFrame
+                    df = pd.DataFrame(adjusted_rows, columns=column_names)
                     logger.info(f"DataFrame criado manualmente: {df.shape}")
                 else:
-                    logger.error("Extração manual não produziu dados válidos")
+                    logger.error("Nenhuma linha de dados extraída")
                     return None
                     
             except Exception as e:
                 logger.error(f"Erro na extração manual: {str(e)}")
-                import traceback
-                logger.error(traceback.format_exc())
                 return None
                 
-        # 5. Validação final do DataFrame
-        if df is None or df.empty:
-            logger.error("Falha em todos os métodos de extração")
-            st.error("Não foi possível extrair dados válidos.")
-            return None
-            
-        # 5.1 Identificar coluna com nomes de times
-        squad_col = None
-        for col in df.columns:
-            col_name = str(col).lower()
-            # Verificar se o nome da coluna sugere que contém nomes de times
-            if any(team_kw in col_name for team_kw in ['squad', 'team', 'equipe', 'time', 'clube', 'nombre']):
-                squad_col = col
-                logger.info(f"Coluna de times identificada pelo nome: {col}")
-                break
-                
-        # 5.2 Se não encontrou pelo nome, procurar pela natureza dos dados
-        if squad_col is None:
-            for col in df.columns:
-                # Verificar valores na coluna
-                col_values = df[col].astype(str)
-                # Times geralmente têm nomes com mais de 3 caracteres e são textos, não números
-                if (col_values.str.len() > 3).mean() > 0.8 and not pd.to_numeric(col_values, errors='coerce').notna().any():
-                    squad_col = col
-                    logger.info(f"Coluna de times identificada pela natureza dos dados: {col}")
-                    break
-                    
-        # 5.3 Se ainda não encontrou, usar a primeira coluna
-        if squad_col is None and len(df.columns) > 0:
-            squad_col = df.columns[0]
-            logger.warning(f"Usando primeira coluna como coluna de times: {squad_col}")
-            
-        # 5.4 Renomear coluna de times para padronizar
-        if squad_col is not None:
-            df = df.rename(columns={squad_col: 'Squad'})
-            logger.info(f"Coluna {squad_col} renomeada para 'Squad'")
-        else:
-            logger.error("Não foi possível identificar uma coluna de times")
-            st.error("Estrutura de dados inválida: coluna de times não encontrada")
-            return None
-            
-        # 5.5 Limpar dados
-        # Remover linhas vazias e duplicadas
-        df = df.dropna(subset=['Squad'])
-        df = df.drop_duplicates(subset=['Squad'])
-        
-        # Remover qualquer linha onde Squad é um valor genérico, não um time
-        generic_values = ['team', 'squad', 'equipe', 'time', 'total', 'média', 'average']
-        df = df[~df['Squad'].str.lower().isin(generic_values)]
-        
-        # 5.6 Tentar converter colunas numéricas
-        numeric_cols = []
-        for col in df.columns:
-            if col != 'Squad':
-                try:
-                    # Limpar texto e converter para número
-                    df[col] = pd.to_numeric(
-                        df[col].astype(str)
-                           .str.replace(',', '.')  # Decimal europeu
-                           .str.replace('%', '')   # Percentuais
-                           .str.extract('([-+]?\d*\.?\d+)', expand=False),  # Extrair números
-                        errors='coerce'
-                    )
-                    numeric_cols.append(col)
-                except:
-                    pass
-                    
-        logger.info(f"Colunas convertidas para numéricas: {numeric_cols}")
-        
-        # 5.7 Verificar se temos dados suficientes
-        if len(df) < 3:
-            logger.error(f"DataFrame final tem muito poucos times: {len(df)}")
-            st.warning(f"Foram encontrados apenas {len(df)} times. Os dados podem estar incompletos.")
-            
-        # 5.8 Verificar e mapear colunas importantes
-        important_cols = {
-            'MP': ['mp', 'matches', 'jogos', 'p', 'pj', 'partidas'],
-            'Gls': ['gls', 'goals', 'gols', 'g', 'gf'],
-            'xG': ['xg', 'expected_goals', 'gols_esperados'],
-            'Poss': ['poss', 'possession', 'posse']
-        }
-        
-        for target, possible_names in important_cols.items():
-            if target not in df.columns:
-                for col in df.columns:
-                    if str(col).lower() in possible_names:
-                        df = df.rename(columns={col: target})
-                        logger.info(f"Coluna {col} mapeada para {target}")
-                        break
-                        
-        # Log final
-        logger.info(f"DataFrame final: {df.shape}, colunas: {df.columns.tolist()}")
-        logger.info(f"Primeiros times: {df['Squad'].head(3).tolist()}")
-        
-        return df
-        
-    except Exception as e:
-        logger.error(f"Erro global no processamento de dados: {str(e)}")
-        import traceback
-        logger.error(traceback.format_exc())
-        st.error("Erro ao processar dados de estatísticas dos times.")
-        return None
-
-def get_stat(stats, col, default='N/A'):
-    """
-    Função auxiliar melhorada para extrair estatísticas com tratamento de erro e fallback
-    """
-    try:
-        # Primeiro tenta o nome exato da coluna
-        if col in stats and pd.notna(stats[col]) and stats[col] != '':
-            return stats[col]
-        
-        # Mapeamento de nomes alternativos de colunas
-        col_map = {
-            'MP': ['MP', 'PJ', 'Matches', 'Jogos', 'Games'],
-            'Gls': ['Gls', 'G', 'Gols', 'Goals', 'GF'],
-            'xG': ['xG', 'ExpG', 'Expected_Goals'],
-            'Poss': ['Poss', 'Posse', 'Possession', '%Posse']
-        }
-        
-        # Se a coluna original foi encontrada no mapa, tenta os alternativos
-        if col in col_map:
-            for alt_col in col_map[col]:
-                if alt_col in stats and pd.notna(stats[alt_col]) and stats[alt_col] != '':
-                    return stats[alt_col]
-                    
-        # Verificar variações de case (maiúsculas/minúsculas)
-        for stats_col in stats.index:
-            if stats_col.lower() == col.lower() and pd.notna(stats[stats_col]) and stats[stats_col] != '':
-                return stats[stats_col]
-                
-        return default
-    except Exception as e:
-        logger.warning(f"Erro ao obter estatística '{col}': {str(e)}")
-        return default
-
-# Substituir completamente a função  em utils/data.py
-
-def get_odds_data(selected_markets):
-    """
-    Captura as odds configuradas pelo usuário na interface.
-    
-    Args:
-        selected_markets (dict): Mercados selecionados pelo usuário
-        
-    Returns:
-        str: String formatada com as odds capturadas
-    """
-    import streamlit as st
-    import logging
-    
-    logger = logging.getLogger("valueHunter.data")
-    logger.info(f"Capturando odds para mercados: {selected_markets}")
-    
-    # Inicializar dicionário de configuração de odds na sessão se não existir
-    if 'odds_config' not in st.session_state:
-        st.session_state.odds_config = {}
-    
-    odds_text = []
-    
-    # Money Line (1X2)
-    if selected_markets.get("money_line", False):
-        odds_text.append("Money Line (1X2):")
-        
-        # Valores padrão ou recuperados da sessão
-        default_casa = st.session_state.odds_config.get('ml_casa_odd', 1.35)
-        default_empate = st.session_state.odds_config.get('ml_empate_odd', 5.25)
-        default_fora = st.session_state.odds_config.get('ml_fora_odd', 7.50)
-        
-        # Adicionar campos de input para usuário
-        st.subheader("Money Line (1X2)")
-        with st.container():
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                casa_odd = st.number_input("Casa (@)", value=float(default_casa), 
-                                          min_value=1.01, max_value=100.0, step=0.05, 
-                                          key='ml_casa_odd_input')
-                st.session_state.odds_config['ml_casa_odd'] = casa_odd
-            with col2:
-                empate_odd = st.number_input("Empate (@)", value=float(default_empate), 
-                                            min_value=1.01, max_value=100.0, step=0.05, 
-                                            key='ml_empate_odd_input')
-                st.session_state.odds_config['ml_empate_odd'] = empate_odd
-            with col3:
-                fora_odd = st.number_input("Fora (@)", value=float(default_fora), 
-                                          min_value=1.01, max_value=100.0, step=0.05, 
-                                          key='ml_fora_odd_input')
-                st.session_state.odds_config['ml_fora_odd'] = fora_odd
-        
-        odds_text.append(f"• Casa: @{casa_odd:.2f}")
-        odds_text.append(f"• Empate: @{empate_odd:.2f}")
-        odds_text.append(f"• Fora: @{fora_odd:.2f}")
-    
-    # Chance Dupla
-    if selected_markets.get("chance_dupla", False):
-        odds_text.append("\nChance Dupla:")
-        
-        # Valores padrão ou recuperados da sessão
-        default_1x = st.session_state.odds_config.get('cd_1x_odd', 1.10)
-        default_12 = st.session_state.odds_config.get('cd_12_odd', 1.16)
-        default_x2 = st.session_state.odds_config.get('cd_x2_odd', 3.00)
-        
-        st.subheader("Chance Dupla")
-        with st.container():
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                cd_1x_odd = st.number_input("1X (@)", value=float(default_1x), 
-                                           min_value=1.01, max_value=100.0, step=0.05, 
-                                           key='cd_1x_odd_input')
-                st.session_state.odds_config['cd_1x_odd'] = cd_1x_odd
-            with col2:
-                cd_12_odd = st.number_input("12 (@)", value=float(default_12), 
-                                           min_value=1.01, max_value=100.0, step=0.05, 
-                                           key='cd_12_odd_input')
-                st.session_state.odds_config['cd_12_odd'] = cd_12_odd
-            with col3:
-                cd_x2_odd = st.number_input("X2 (@)", value=float(default_x2), 
-                                           min_value=1.01, max_value=100.0, step=0.05, 
-                                           key='cd_x2_odd_input')
-                st.session_state.odds_config['cd_x2_odd'] = cd_x2_odd
-        
-        odds_text.append(f"• 1X: @{cd_1x_odd:.2f}")
-        odds_text.append(f"• 12: @{cd_12_odd:.2f}")
-        odds_text.append(f"• X2: @{cd_x2_odd:.2f}")
-    
-    # Ambos Marcam
-    if selected_markets.get("ambos_marcam", False):
-        odds_text.append("\nAmbos Marcam (BTTS):")
-        
-        # Valores padrão ou recuperados da sessão
-        default_sim = st.session_state.odds_config.get('btts_sim_odd', 2.00)
-        default_nao = st.session_state.odds_config.get('btts_nao_odd', 1.80)
-        
-        st.subheader("Ambos Marcam (BTTS)")
-        with st.container():
-            col1, col2 = st.columns(2)
-            with col1:
-                btts_sim_odd = st.number_input("Sim (@)", value=float(default_sim), 
-                                              min_value=1.01, max_value=100.0, step=0.05, 
-                                              key='btts_sim_odd_input')
-                st.session_state.odds_config['btts_sim_odd'] = btts_sim_odd
-            with col2:
-                btts_nao_odd = st.number_input("Não (@)", value=float(default_nao), 
-                                              min_value=1.01, max_value=100.0, step=0.05, 
-                                              key='btts_nao_odd_input')
-                st.session_state.odds_config['btts_nao_odd'] = btts_nao_odd
-        
-        odds_text.append(f"• Sim (BTTS): @{btts_sim_odd:.2f}")
-        odds_text.append(f"• Não (BTTS): @{btts_nao_odd:.2f}")
-    
-    # Gols (Over/Under)
-    if selected_markets.get("over_under", False):
-        odds_text.append("\nTotal de Gols:")
-        
-        # Valores padrão ou recuperados da sessão
-        default_linha = st.session_state.odds_config.get('gols_linha', 2.5)
-        default_over = st.session_state.odds_config.get('gols_over_odd', 1.90)
-        default_under = st.session_state.odds_config.get('gols_under_odd', 1.90)
-        
-        st.subheader("Total de Gols")
-        with st.container():
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                linha_options = [0.5, 1.5, 2.5, 3.5, 4.5]
-                linha_index = linha_options.index(default_linha) if default_linha in linha_options else 2
-                gols_linha = st.selectbox("Linha", linha_options, index=linha_index, key='gols_linha_input')
-                st.session_state.odds_config['gols_linha'] = gols_linha
-            with col2:
-                gols_over_odd = st.number_input(f"Over {gols_linha} (@)", value=float(default_over), 
-                                               min_value=1.01, max_value=100.0, step=0.05, 
-                                               key='gols_over_odd_input')
-                st.session_state.odds_config['gols_over_odd'] = gols_over_odd
-            with col3:
-                gols_under_odd = st.number_input(f"Under {gols_linha} (@)", value=float(default_under), 
-                                                min_value=1.01, max_value=100.0, step=0.05, 
-                                                key='gols_under_odd_input')
-                st.session_state.odds_config['gols_under_odd'] = gols_under_odd
-        
-        odds_text.append(f"• Over {gols_linha} Gols: @{gols_over_odd:.2f}")
-        odds_text.append(f"• Under {gols_linha} Gols: @{gols_under_odd:.2f}")
-    
-    # Escanteios
-    if selected_markets.get("escanteios", False):
-        odds_text.append("\nTotal de Escanteios:")
-        
-        # Valores padrão ou recuperados da sessão
-        default_linha = st.session_state.odds_config.get('corners_linha', 9.5)
-        default_over = st.session_state.odds_config.get('corners_over_odd', 1.85)
-        default_under = st.session_state.odds_config.get('corners_under_odd', 1.85)
-        
-        st.subheader("Total de Escanteios")
-        with st.container():
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                linha_options = [7.5, 8.5, 9.5, 10.5, 11.5]
-                linha_index = linha_options.index(default_linha) if default_linha in linha_options else 2
-                corners_linha = st.selectbox("Linha", linha_options, index=linha_index, key='corners_linha_input')
-                st.session_state.odds_config['corners_linha'] = corners_linha
-            with col2:
-                corners_over_odd = st.number_input(f"Over {corners_linha} (@)", value=float(default_over), 
-                                                  min_value=1.01, max_value=100.0, step=0.05, 
-                                                  key='corners_over_odd_input')
-                st.session_state.odds_config['corners_over_odd'] = corners_over_odd
-            with col3:
-                corners_under_odd = st.number_input(f"Under {corners_linha} (@)", value=float(default_under), 
-                                                   min_value=1.01, max_value=100.0, step=0.05, 
-                                                   key='corners_under_odd_input')
-                st.session_state.odds_config['corners_under_odd'] = corners_under_odd
-        
-        odds_text.append(f"• Over {corners_linha} Escanteios: @{corners_over_odd:.2f}")
-        odds_text.append(f"• Under {corners_linha} Escanteios: @{corners_under_odd:.2f}")
-    
-    # Cartões
-    if selected_markets.get("cartoes", False):
-        odds_text.append("\nTotal de Cartões:")
-        
-        # Valores padrão ou recuperados da sessão
-        default_linha = st.session_state.odds_config.get('cards_linha', 3.5)
-        default_over = st.session_state.odds_config.get('cards_over_odd', 1.85)
-        default_under = st.session_state.odds_config.get('cards_under_odd', 1.85)
-        
-        st.subheader("Total de Cartões")
-        with st.container():
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                linha_options = [2.5, 3.5, 4.5, 5.5, 6.5]
-                linha_index = linha_options.index(default_linha) if default_linha in linha_options else 1
-                cards_linha = st.selectbox("Linha", linha_options, index=linha_index, key='cards_linha_input')
-                st.session_state.odds_config['cards_linha'] = cards_linha
-            with col2:
-                cards_over_odd = st.number_input(f"Over {cards_linha} (@)", value=float(default_over), 
-                                               min_value=1.01, max_value=100.0, step=0.05, 
-                                               key='cards_over_odd_input')
-                st.session_state.odds_config['cards_over_odd'] = cards_over_odd
-            with col3:
-                cards_under_odd = st.number_input(f"Under {cards_linha} (@)", value=float(default_under), 
-                                                min_value=1.01, max_value=100.0, step=0.05, 
-                                                key='cards_under_odd_input')
-                st.session_state.odds_config['cards_under_odd'] = cards_under_odd
-        
-        odds_text.append(f"• Over {cards_linha} Cartões: @{cards_over_odd:.2f}")
-        odds_text.append(f"• Under {cards_linha} Cartões: @{cards_under_odd:.2f}")
-    
-    # Juntar tudo em uma string formatada
-    odds_data = "\n".join(odds_text)
-    
-    # Log das odds capturadas
-    logger.info(f"Odds configuradas pelo usuário: {odds_data}")
-    
-    return odds_data
-def validate_match_data(match_data):
-    """
-    Valida se os dados de uma partida estão completos o suficiente para análise.
-    
-    Args:
-        match_data (dict): Dados da partida a serem validados
-        
-    Returns:
-        tuple: (bool, str) - (dados válidos, mensagem de erro)
-    """
-    if not match_data or not isinstance(match_data, dict):
-        return False, "Dados de partida ausentes ou inválidos."
-    
-    # Verificar estrutura básica
-    if not all(key in match_data for key in ["match_info", "home_team", "away_team"]):
-        return False, "Estrutura de dados incompleta."
-    
-    # Verificar times
-    home_team = match_data.get("home_team", {})
-    away_team = match_data.get("away_team", {})
-    
-    # Verificar se dados básicos estão presentes
-    if not home_team or not away_team:
-        return False, "Dados de times ausentes."
-    
-    # Verificar se há dados estatísticos mínimos
-    min_stats = ["played", "wins", "draws", "losses", "goals_scored", "goals_conceded"]
-    
-    home_has_stats = all(stat in home_team for stat in min_stats)
-    away_has_stats = all(stat in away_team for stat in min_stats)
-    
-    if not home_has_stats or not away_has_stats:
-        return False, "Estatísticas básicas faltando para os times."
-    
-    # Verificar se os dados não são todos zeros
-    home_all_zeros = all(home_team.get(stat, 0) == 0 for stat in min_stats)
-    away_all_zeros = all(away_team.get(stat, 0) == 0 for stat in min_stats)
-    
-    if home_all_zeros and away_all_zeros:
-        return False, "Todos os dados estatísticos são zero."
-    
-    # Verificar dados de jogos recentes
-    if "recent_matches" in home_team:
-        # Se existe recent_matches mas só tem times da Premier League e os times atuais são de outra liga, provavelmente é fallback
-        home_opponents = [match.get("opponent", "") for match in home_team.get("recent_matches", [])]
-        premier_league_teams = ["Liverpool", "Chelsea", "Arsenal", "Tottenham", "Man Utd"]
-        
-        if home_opponents and all(opponent in premier_league_teams for opponent in home_opponents):
-            if match_data["match_info"].get("league") and "Premier League" not in match_data["match_info"].get("league"):
-                return False, "Dados de partidas recentes incompatíveis com a liga."
-    
-    return True, "Dados válidos."
-
-def format_prompt(stats_df, home_team, away_team, odds_data, selected_markets):
-    """Formata o prompt para o GPT-4 com os dados coletados"""
-    try:
-        # Extrair dados dos times
-        home_stats = stats_df[stats_df['Squad'] == home_team].iloc[0]
-        away_stats = stats_df[stats_df['Squad'] == away_team].iloc[0]
-        
-        # Calcular probabilidades reais baseadas em xG e outros dados
-        def calculate_real_prob(home_xg, away_xg, home_games, away_games):
+        # 5. Pós-processamento do DataFrame
+        if df is not None:
             try:
-                if pd.isna(home_xg) or pd.isna(away_xg):
-                    return None
+                # 5.1 Identificar coluna de equipes
+                team_column = None
+                for col in df.columns:
+                    # Verificar se o nome da coluna indica equipes
+                    if col.lower() in ['squad', 'team', 'equipe', 'time', 'clube']:
+                        team_column = col
+                        break
                 
-                home_xg_per_game = home_xg / home_games if home_games > 0 else 0
-                away_xg_per_game = away_xg / away_games if away_games > 0 else 0
+                # Se não encontrou pelo nome, procurar pela primeira coluna com strings longas
+                if not team_column:
+                    for col in df.columns:
+                        col_values = df[col].astype(str)
+                        if any(len(val) > 3 for val in col_values):
+                            team_column = col
+                            logger.info(f"Coluna de equipes identificada por conteúdo: {col}")
+                            break
                 
-                # Ajuste baseado em home advantage
-                home_advantage = 1.1
-                adjusted_home_xg = home_xg_per_game * home_advantage
+                if not team_column:
+                    # Usar a primeira coluna como fallback
+                    team_column = df.columns[0]
+                    logger.warning(f"Usando primeira coluna como coluna de equipes: {team_column}")
                 
-                total_xg = adjusted_home_xg + away_xg_per_game
-                if total_xg == 0:
-                    return None
-                    
-                home_prob = (adjusted_home_xg / total_xg) * 100
-                away_prob = (away_xg_per_game / total_xg) * 100
-                draw_prob = 100 - (home_prob + away_prob)
+                # 5.2 Renomear coluna de equipes para padrão
+                df = df.rename(columns={team_column: 'Squad'})
                 
-                return {
-                    'home': home_prob,
-                    'draw': draw_prob,
-                    'away': away_prob
-                }
-            except:
-                return None
-
-        # Formatar estatísticas dos times
-        home_team_stats = f"""
-  * Jogos Disputados: {get_stat(home_stats, 'MP')}
-  * Gols Marcados: {get_stat(home_stats, 'Gls')}
-  * Expected Goals (xG): {get_stat(home_stats, 'xG')}
-  * Posse de Bola: {get_stat(home_stats, 'Poss')}%"""
-
-        away_team_stats = f"""
-  * Jogos Disputados: {get_stat(away_stats, 'MP')}
-  * Gols Marcados: {get_stat(away_stats, 'Gls')}
-  * Expected Goals (xG): {get_stat(away_stats, 'xG')}
-  * Posse de Bola: {get_stat(away_stats, 'Poss')}%"""
-
-        # Calcular probabilidades reais
-        real_probs = calculate_real_prob(
-            float(get_stat(home_stats, 'xG', 0)),
-            float(get_stat(away_stats, 'xG', 0)),
-            float(get_stat(home_stats, 'MP', 1)),
-            float(get_stat(away_stats, 'MP', 1))
-        )
-
-        # Montar o prompt completo
-        full_prompt = f"""Role: Agente Analista de Probabilidades Esportivas
-
-KNOWLEDGE BASE INTERNO:
-- Estatísticas Home Team ({home_team}):{home_team_stats}
-
-- Estatísticas Away Team ({away_team}):{away_team_stats}
-
-PROBABILIDADES CALCULADAS:
-"""
+                # 5.3 Limpar e converter dados
+                # Remover linhas sem nome de equipe
+                df = df[df['Squad'].notna() & (df['Squad'] != '')]
+                
+                # Converter colunas numéricas
+                for col in df.columns:
+                    if col != 'Squad':
+                        try:
+                            # Substituir vírgulas por pontos
+                            df[col] = df[col].astype(str).str.replace(',', '.')
+                            # Converter para numérico
+                            df[col] = pd.to_numeric(df[col], errors='coerce')
+                        except:
+                            pass
+                
+                logger.info(f"DataFrame final: {df.shape}")
+                return df
+                
+            except Exception as e:
+                logger.error(f"Erro no pós-processamento do DataFrame: {str(e)}")
+                return df  # Retornar o DataFrame mesmo com erro no pós-processamento
         
-        if real_probs:
-            full_prompt += f"""- Vitória {home_team}: {real_probs['home']:.1f}% (Real)
-- Empate: {real_probs['draw']:.1f}% (Real)
-- Vitória {away_team}: {real_probs['away']:.1f}% (Real)
-"""
-        else:
-            full_prompt += "Dados insuficientes para cálculo de probabilidades reais\n"
-
-        # Adicionar informações sobre quais mercados foram selecionados
-        selected_market_names = []
-        full_prompt += "\nMERCADOS SELECIONADOS PARA ANÁLISE:\n"
-        for market, selected in selected_markets.items():
-            if selected:
-                market_names = {
-                    "money_line": "Money Line (1X2)",
-                    "over_under": "Over/Under Gols",
-                    "chance_dupla": "Chance Dupla",
-                    "ambos_marcam": "Ambos Marcam",
-                    "escanteios": "Total de Escanteios",
-                    "cartoes": "Total de Cartões"
-                }
-                market_name = market_names.get(market, market)
-                selected_market_names.append(market_name)
-                full_prompt += f"- {market_name}\n"
-
-        # Instrução muito clara sobre o formato de saída
-        full_prompt += f"""
-INSTRUÇÕES ESPECIAIS: VOCÊ DEVE CALCULAR PROBABILIDADES REAIS PARA TODOS OS MERCADOS LISTADOS ACIMA, não apenas para o Money Line. Use os dados disponíveis e sua expertise para estimar probabilidades reais para CADA mercado selecionado.
-
-[SAÍDA OBRIGATÓRIA]
-
-# Análise da Partida
-## {home_team} x {away_team}
-
-# Análise de Mercados Disponíveis:
-{odds_data}
-
-# Probabilidades Calculadas (REAL vs IMPLÍCITA):
-[IMPORTANTE - Para cada um dos mercados abaixo, você DEVE mostrar a probabilidade REAL calculada, bem como a probabilidade IMPLÍCITA nas odds:]
-{chr(10).join([f"- {name}" for name in selected_market_names])}
-
-# Oportunidades Identificadas (Edges >3%):
-[Listagem detalhada de cada mercado selecionado, indicando explicitamente se há edge ou não para cada opção.]
-
-# Nível de Confiança Geral: [Baixo/Médio/Alto]
-[Breve explicação da sua confiança na análise]
-"""
-        return full_prompt
-
-    except Exception as e:
-        logger.error(f"Erro ao formatar prompt: {str(e)}")
         return None
+        
+    except Exception as e:
+        logger.error(f"Erro geral no parse_team_stats: {str(e)}")
+        return None
+
+def get_stat(team_stats, stat_name, default=0):
+    """
+    Obtém uma estatística específica de um time com tratamento de erros.
+    
+    Args:
+        team_stats: Linha do DataFrame com estatísticas do time
+        stat_name: Nome da estatística desejada
+        default: Valor padrão caso a estatística não exista
+        
+    Returns:
+        Valor da estatística ou valor padrão
+    """
+    try:
+        # Verificar se a estatística existe
+        if stat_name in team_stats:
+            value = team_stats[stat_name]
+            
+            # Verificar se é NaN
+            if pd.isna(value):
+                return default
+                
+            # Verificar se é string e converter para número se possível
+            if isinstance(value, str):
+                try:
+                    # Substituir vírgula por ponto para conversão
+                    value = value.replace(',', '.')
+                    return float(value)
+                except:
+                    return value
+                    
+            return value
+        else:
+            return default
+    except Exception as e:
+        logger.error(f"Erro ao obter estatística {stat_name}: {str(e)}")
+        return default
