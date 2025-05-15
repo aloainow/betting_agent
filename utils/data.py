@@ -215,68 +215,6 @@ def format_prompt(team_stats, selected_markets, odds_data):
     prompt += "\nPor favor, analise estes mercados considerando as estatísticas das equipes e identifique oportunidades de valor."
     
     return prompt
-    Returns:
-        dict: Dicionário com dados de odds
-    """
-    logger.info(f"Função get_odds_data chamada para match_id={match_id}, home_team={home_team}, away_team={away_team} (stub)")
-    
-    # Retornar um dicionário vazio como stub
-    return {
-        "home_win": 2.0,
-        "draw": 3.5,
-        "away_win": 4.0,
-        "over_2_5": 1.9,
-        "under_2_5": 2.1,
-        "btts_yes": 1.8,
-        "btts_no": 2.2
-    }
-
-def format_prompt(home_team, away_team, odds_data, selected_markets=None):
-    """
-    Formata um prompt para análise de partida.
-    Esta é uma função stub adicionada para corrigir o erro de importação.
-    
-    Args:
-        home_team (str): Nome do time da casa
-        away_team (str): Nome do time visitante
-        odds_data (dict): Dados de odds
-        selected_markets (dict, optional): Mercados selecionados. Defaults to None.
-        
-    Returns:
-        str: Prompt formatado
-    """
-    logger.info(f"Função format_prompt chamada para {home_team} vs {away_team} (stub)")
-    
-    if selected_markets is None:
-        selected_markets = {
-            "money_line": True,
-            "over_under": True,
-            "ambos_marcam": True
-        }
-    
-    # Criar um prompt básico como stub
-    prompt = f"""
-# Análise de Partida: {home_team} vs {away_team}
-
-## Odds Disponíveis:
-- Vitória {home_team}: {odds_data.get('home_win', 2.0)}
-- Empate: {odds_data.get('draw', 3.5)}
-- Vitória {away_team}: {odds_data.get('away_win', 4.0)}
-"""
-    
-    if selected_markets.get("over_under"):
-        prompt += f"""
-- Over 2.5 gols: {odds_data.get('over_2_5', 1.9)}
-- Under 2.5 gols: {odds_data.get('under_2_5', 2.1)}
-"""
-    
-    if selected_markets.get("ambos_marcam"):
-        prompt += f"""
-- Ambos marcam - Sim: {odds_data.get('btts_yes', 1.8)}
-- Ambos marcam - Não: {odds_data.get('btts_no', 2.2)}
-"""
-    
-    return prompt
 
 @dataclass
 class UserTier:
@@ -399,773 +337,1103 @@ class UserManager:
                     json.dump(self.users, f, indent=2)
                 logger.info(f"Dados de usuários salvos no local alternativo: {alt_path}")
                 self.storage_path = alt_path  # Atualizar caminho para próximos salvamentos
-                return True
             except Exception as alt_e:
-                logger.error(f"Erro ao salvar no local alternativo: {str(alt_e)}")
-                
-        return False
+                logger.error(f"Erro ao salvar dados de usuários no local alternativo: {str(alt_e)}")
+            
+            return False
     
     def _hash_password(self, password: str) -> str:
-        """Hash password using SHA-256"""
+        """Hash a password using SHA-256"""
         return hashlib.sha256(password.encode()).hexdigest()
     
-    def _validate_email(self, email: str) -> bool:
-        """Validate email format"""
-        pattern = r'^[\w\.-]+@[\w\.-]+\.\w+$'
-        return bool(re.match(pattern, email))
-    
-    def _format_tier_name(self, tier: str) -> str:
-        """Format tier name for display (capitalize)"""
-        tier_display = {
-            "free": "Free",
-            "standard": "Standard", 
-            "pro": "Pro"
+    def register_user(self, email: str, password: str, name: str = None) -> bool:
+        """
+        Register a new user
+        
+        Args:
+            email (str): User email
+            password (str): User password
+            name (str, optional): User name. Defaults to None.
+            
+        Returns:
+            bool: True if registration was successful, False otherwise
+        """
+        # Verificar se o email já existe
+        if email in self.users:
+            logger.warning(f"Tentativa de registro com email já existente: {email}")
+            return False
+        
+        # Hash da senha
+        hashed_password = self._hash_password(password)
+        
+        # Criar novo usuário
+        self.users[email] = {
+            'password': hashed_password,
+            'name': name or email.split('@')[0],  # Usar parte do email como nome se não fornecido
+            'created_at': time.time(),
+            'tier': 'free',  # Todos os usuários começam no tier gratuito
+            'credits_used': 0,
+            'credits_remaining': 5,  # 5 créditos gratuitos iniciais
+            'credits_total': 5,
+            'last_free_credits_reset': time.time(),  # Timestamp da última renovação de créditos gratuitos
+            'last_analysis': None,  # Timestamp da última análise
+            'analyses_count': 0,  # Contador de análises realizadas
+            'verified': False,  # Usuário não verificado inicialmente
+            'verification_code': None,  # Código de verificação
+            'verification_sent_at': None,  # Timestamp do envio do código de verificação
+            'password_reset_code': None,  # Código de redefinição de senha
+            'password_reset_sent_at': None,  # Timestamp do envio do código de redefinição de senha
+            'last_login': None,  # Timestamp do último login
+            'last_credit_purchase': None,  # Timestamp da última compra de créditos
+            'purchases': []  # Histórico de compras
         }
-        return tier_display.get(tier, tier.capitalize())
-    
-    def register_user(self, email: str, password: str, name: str = None, tier: str = "free", verified: bool = False, verification_code: str = None) -> tuple:
-        """Register a new user with verification support"""
-        try:
-            if not self._validate_email(email):
-                return False, "Email inválido"
-            if email in self.users:
-                return False, "Email já registrado"
-            if len(password) < 6:
-                return False, "Senha deve ter no mínimo 6 caracteres"
-            if tier not in self.tiers:
-                return False, "Tipo de usuário inválido"
-                    
-            # Se nome não for fornecido, usar parte do email como nome
-            if not name:
-                name = email.split('@')[0].capitalize()
-            
-            # Se não foi fornecido código de verificação, gerar um
-            if verification_code is None:
-                from utils.email_verification import generate_verification_code
-                verification_code = generate_verification_code()
-                    
-            self.users[email] = {
-                "password": self._hash_password(password),
-                "name": name,  # Adicionando o nome
-                "tier": tier,
-                "verified": verified,  # Novo campo para verificação
-                "verification_code": verification_code,  # Código de verificação
-                "usage": {
-                    "daily": [],
-                    "total": []  # Track total usage
-                },
-                "purchased_credits": 0,  # Track additional purchased credits
-                "free_credits_exhausted_at": None,  # Timestamp when free credits run out
-                "paid_credits_exhausted_at": None,  # Timestamp when paid credits run out
-                "created_at": datetime.now().isoformat()
-            }
-            
-            # Se o usuário não está verificado, não dar créditos ainda
-            if not verified:
-                self.users[email]["credits_remaining"] = 0
-            
-            save_success = self._save_users()
-            if not save_success:
-                logger.warning(f"Falha ao salvar dados durante registro do usuário: {email}")
-                
-            logger.info(f"Usuário registrado com sucesso: {email}, tier: {tier}, verificado: {verified}")
-            return True, "Registro realizado com sucesso"
-        except Exception as e:
-            logger.error(f"Erro ao registrar usuário {email}: {str(e)}")
-            return False, f"Erro interno ao registrar usuário: {str(e)}"
-    
-    def authenticate(self, email: str, password: str) -> bool:
-        """Authenticate a user"""
-        try:
-            if email not in self.users:
-                logger.info(f"Tentativa de login com email não registrado: {email}")
-                return False
-                
-            # Check if the password matches
-            if self.users[email]["password"] != self._hash_password(password):
-                logger.info(f"Tentativa de login com senha incorreta: {email}")
-                return False
-                
-            # Autenticação bem-sucedida
-            logger.info(f"Login bem-sucedido: {email}")
-            return True
-        except Exception as e:
-            logger.error(f"Erro durante a autenticação para {email}: {str(e)}")
-            return False
-    
-    def verify_email_code(self, email, user_provided_code):
-        """
-        Verifica se o código fornecido pelo usuário corresponde ao código armazenado
         
-        Args:
-            email (str): Email do usuário
-            user_provided_code (str): Código fornecido pelo usuário
-            
-        Returns:
-            bool: True se o código for válido, False caso contrário
-        """
-        try:
-            if email not in self.users:
-                logger.warning(f"Tentativa de verificar código para usuário inexistente: {email}")
-                return False
-                
-            user = self.users[email]
-            stored_code = user.get('verification_code')
-            
-            # Verificar se os códigos correspondem
-            if stored_code and user_provided_code == stored_code:
-                # Atualizar status do usuário para verificado
-                self.users[email]['verified'] = True
-                
-                # Adicionar créditos gratuitos se ainda não foram adicionados
-                if self.users[email].get('credits_remaining', 0) == 0:
-                    # Conceder 5 créditos gratuitos para usuários verificados
-                    logger.info(f"Concedendo 5 créditos gratuitos para usuário verificado: {email}")
-                
-                # Salvar alterações
-                self._save_users()
-                logger.info(f"Email verificado com sucesso: {email}")
-                return True
-                
-            logger.warning(f"Código de verificação inválido para {email}")
-            return False
-        except Exception as e:
-            import traceback
-            logger.error(f"Erro ao verificar código para {email}: {str(e)}")
-            logger.error(traceback.format_exc())
-            return False
-    
-    def update_verification_code(self, email, new_code):
-        """
-        Atualiza o código de verificação para um usuário
+        # Salvar usuários
+        success = self._save_users()
         
-        Args:
-            email (str): Email do usuário
-            new_code (str): Novo código de verificação
-            
-        Returns:
-            bool: True se o código foi atualizado, False caso contrário
-        """
-        try:
-            if email not in self.users:
-                logger.warning(f"Tentativa de atualizar código para usuário inexistente: {email}")
-                return False
-                
-            # Atualizar código
-            self.users[email]['verification_code'] = new_code
-            
-            # Salvar alterações
-            self._save_users()
-            logger.info(f"Código de verificação atualizado para {email}")
-            return True
-        except Exception as e:
-            logger.error(f"Erro ao atualizar código para {email}: {str(e)}")
-            return False
-    
-    def add_credits(self, email: str, amount: int) -> bool:
-        """Add more credits to a user account"""
-        try:
-            if email not in self.users:
-                logger.warning(f"Tentativa de adicionar créditos para usuário inexistente: {email}")
-                return False
-                
-            if "purchased_credits" not in self.users[email]:
-                self.users[email]["purchased_credits"] = 0
-                
-            self.users[email]["purchased_credits"] += amount
-            
-            # Clear paid credits exhausted timestamp when adding credits
-            if self.users[email].get("paid_credits_exhausted_at"):
-                self.users[email]["paid_credits_exhausted_at"] = None
-                
-            save_success = self._save_users()
-            if not save_success:
-                logger.warning(f"Falha ao salvar dados após adicionar créditos para: {email}")
-                
-            logger.info(f"Créditos adicionados com sucesso: {amount} para {email}")
-            return True
-        except Exception as e:
-            logger.error(f"Erro ao adicionar créditos para {email}: {str(e)}")
-            return False
+        if success:
+            logger.info(f"Novo usuário registrado: {email}")
+        else:
+            logger.error(f"Erro ao salvar dados após registro de novo usuário: {email}")
+        
+        return success
     
     def get_usage_stats(self, email: str) -> Dict:
-        """Get usage statistics for a user"""
-        try:
-            if email not in self.users:
-                logger.warning(f"Tentativa de obter estatísticas para usuário inexistente: {email}")
-                return {
-                    "name": "Usuário",
-                    "tier": "free",
-                    "tier_display": "Free",
-                    "credits_used": 0,
-                    "credits_total": 5,
-                    "credits_remaining": 5,
-                    "market_limit": float('inf')
-                }
-                    
-            user = self.users[email]
+        """
+        Get usage statistics for a user
+        
+        Args:
+            email (str): User email
             
-            # Se o usuário não está verificado, mostrar 0 créditos
-            if not user.get('verified', True):
-                logger.info(f"Usuário não verificado: {email}")
-                return {
-                    "name": user.get("name", email.split('@')[0].capitalize()),
-                    "tier": user.get("tier", "free"),
-                    "tier_display": self._format_tier_name(user.get("tier", "free")),
-                    "credits_used": 0,
-                    "credits_total": 0,
-                    "credits_remaining": 0,
-                    "market_limit": float('inf'),
-                    "verified": False
-                }
+        Returns:
+            Dict: User statistics
+        """
+        if email not in self.users:
+            logger.warning(f"Tentativa de obter estatísticas para usuário inexistente: {email}")
+            return {}
+        
+        user_data = self.users[email]
+        
+        # Verificar se é hora de renovar créditos gratuitos (a cada 24 horas)
+        if user_data.get('tier') == 'free':
+            last_reset = user_data.get('last_free_credits_reset', 0)
+            now = time.time()
             
-            # Calculate total credits used
-            total_credits_used = sum(
-                u["markets"] for u in user.get("usage", {}).get("total", [])
-            )
-            
-            # Get credits based on user tier
-            tier_name = user.get("tier", "free")
-            if tier_name not in self.tiers:
-                tier_name = "free"
+            # Se passaram mais de 24 horas desde a última renovação
+            if now - last_reset > 24 * 60 * 60:
+                # Renovar créditos gratuitos
+                user_data['credits_remaining'] = 5
+                user_data['credits_total'] = 5
+                user_data['last_free_credits_reset'] = now
+                user_data['free_credits_reset'] = True  # Flag para indicar que os créditos foram renovados
                 
-            tier = self.tiers[tier_name]
-            tier_credits = tier.total_credits
-            
-            # Add purchased credits
-            purchased_credits = user.get("purchased_credits", 0)
-            total_credits = tier_credits + purchased_credits
-            
-            # Calculate remaining credits
-            credits_remaining = max(0, total_credits - total_credits_used)
-            
-            # Get market limit
-            market_limit = tier.market_limit
-            
-            # Format tier name for display
-            tier_display = self._format_tier_name(tier_name)
-            
-            # Get user name
-            name = user.get("name", email.split('@')[0].capitalize())
-            
-            return {
-                "name": name,
-                "tier": tier_name,
-                "tier_display": tier_display,
-                "credits_used": total_credits_used,
-                "credits_total": total_credits,
-                "credits_remaining": credits_remaining,
-                "market_limit": market_limit,
-                "verified": True
-            }
-        except Exception as e:
-            logger.error(f"Erro ao obter estatísticas para {email}: {str(e)}")
-            return {
-                "name": "Erro",
-                "tier": "free",
-                "tier_display": "Free",
-                "credits_used": 0,
-                "credits_total": 5,
-                "credits_remaining": 5,
-                "market_limit": float('inf')
-            }
-    
-    def register_usage(self, email: str, num_markets: int = 1) -> bool:
-        """Register usage of credits"""
-        try:
-            if email not in self.users:
-                logger.warning(f"Tentativa de registrar uso para usuário inexistente: {email}")
-                return False
+                # Salvar usuários
+                self._save_users()
                 
-            # Verificar se o usuário está verificado
-            if not self.users[email].get('verified', False):
-                logger.warning(f"Tentativa de registrar uso para usuário não verificado: {email}")
-                return False
-                
-            # Verificar se o usuário tem créditos suficientes
-            stats = self.get_usage_stats(email)
-            credits_remaining = stats.get('credits_remaining', 0)
-            
-            if credits_remaining < num_markets:
-                logger.warning(f"Usuário {email} não tem créditos suficientes: {credits_remaining} < {num_markets}")
-                return False
-                
-            # Registrar uso
-            now = datetime.now()
-            usage_entry = {
-                "timestamp": now.isoformat(),
-                "markets": num_markets
-            }
-            
-            # Adicionar ao uso total
-            if "usage" not in self.users[email]:
-                self.users[email]["usage"] = {"daily": [], "total": []}
-                
-            if "total" not in self.users[email]["usage"]:
-                self.users[email]["usage"]["total"] = []
-                
-            self.users[email]["usage"]["total"].append(usage_entry)
-            
-            # Adicionar ao uso diário
-            today = now.strftime("%Y-%m-%d")
-            
-            if "daily" not in self.users[email]["usage"]:
-                self.users[email]["usage"]["daily"] = []
-                
-            # Verificar se já existe uma entrada para hoje
-            today_entry = None
-            for entry in self.users[email]["usage"]["daily"]:
-                entry_date = entry.get("date")
-                if entry_date == today:
-                    today_entry = entry
-                    break
-                    
-            if today_entry:
-                today_entry["markets"] += num_markets
+                logger.info(f"Créditos gratuitos renovados para {email}")
             else:
-                self.users[email]["usage"]["daily"].append({
-                    "date": today,
-                    "markets": num_markets
-                })
+                # Calcular tempo restante para próxima renovação
+                time_to_next_reset = 24 * 60 * 60 - (now - last_reset)
+                hours = int(time_to_next_reset / 3600)
+                minutes = int((time_to_next_reset % 3600) / 60)
                 
-            # Salvar alterações
-            save_success = self._save_users()
-            if not save_success:
-                logger.warning(f"Falha ao salvar dados após registrar uso para: {email}")
-                return False
-                
-            # Verificar créditos restantes após a atualização
-            stats_after = self.get_usage_stats(email)
-            credits_after = stats_after.get('credits_remaining', 0)
-            
-            # Se o usuário for do tier Free e esgotou os créditos, marcar o esgotamento
-            if self.users[email]["tier"] == "free":
-                if credits_after == 0 and not self.users[email].get("free_credits_exhausted_at"):
-                    self.users[email]["free_credits_exhausted_at"] = datetime.now().isoformat()
-                    self._save_users()
-                    logger.info(f"Marcando esgotamento de créditos gratuitos para: {email}")
-            
-            # Para usuários dos tiers Standard ou Pro
-            elif self.users[email]["tier"] in ["standard", "pro"]:
-                if credits_after == 0 and not self.users[email].get("paid_credits_exhausted_at"):
-                    self.users[email]["paid_credits_exhausted_at"] = datetime.now().isoformat()
-                    self._save_users()
-                    logger.info(f"Marcando esgotamento de créditos pagos para: {email}")
-            
-            # Limpar qualquer cache que possa existir para estatísticas
-            try:
-                import streamlit as st
-                if hasattr(st.session_state, 'user_stats_cache'):
-                    del st.session_state.user_stats_cache
-            except Exception as e:
-                logger.warning(f"Erro ao limpar cache de estatísticas: {str(e)}")
-                
-            logger.info(f"Uso registrado com sucesso: {num_markets} créditos para {email}")
-            return True
-        except Exception as e:
-            logger.error(f"Erro ao registrar uso para {email}: {str(e)}")
-            return False
-    
-    def _upgrade_to_standard(self, email: str) -> bool:
-        """Upgrade a user to Standard package (for admin use)"""
-        if email not in self.users:
-            return False
-            
-        self.users[email]["tier"] = "standard"
-        # Reset usage and timestamps for upgrade
-        self.users[email]["free_credits_exhausted_at"] = None
-        self.users[email]["paid_credits_exhausted_at"] = None
-        self.users[email]["usage"]["total"] = []
-        self.users[email]["purchased_credits"] = 0
-        self._save_users()
-        return True
+                user_data['next_free_credits_time'] = f"{hours}h {minutes}min"
+                user_data['free_credits_reset'] = False
         
-    def _upgrade_to_pro(self, email: str) -> bool:
-        """Upgrade a user to Pro package (for admin use)"""
+        # Verificar se o usuário pago está sem créditos há mais de 7 dias
+        if user_data.get('tier') in ['standard', 'pro'] and user_data.get('credits_remaining', 0) == 0:
+            last_analysis = user_data.get('last_analysis', 0)
+            now = time.time()
+            
+            # Se passaram mais de 7 dias desde a última análise
+            if last_analysis > 0 and now - last_analysis > 7 * 24 * 60 * 60:
+                # Calcular dias restantes até o downgrade
+                days_since_last_analysis = (now - last_analysis) / (24 * 60 * 60)
+                days_until_downgrade = max(0, 7 - int(days_since_last_analysis))
+                
+                user_data['days_until_downgrade'] = days_until_downgrade
+                
+                # Se passaram mais de 7 dias, fazer downgrade para free
+                if days_until_downgrade == 0:
+                    user_data['tier'] = 'free'
+                    user_data['credits_remaining'] = 5
+                    user_data['credits_total'] = 5
+                    user_data['last_free_credits_reset'] = now
+                    
+                    # Salvar usuários
+                    self._save_users()
+                    
+                    logger.info(f"Usuário {email} rebaixado para tier gratuito por inatividade")
+        
+        return user_data
+    
+    def use_credits(self, email: str, num_credits: int) -> bool:
+        """
+        Use credits for a user
+        
+        Args:
+            email (str): User email
+            num_credits (int): Number of credits to use
+            
+        Returns:
+            bool: True if credits were used successfully, False otherwise
+        """
+        if email not in self.users:
+            logger.warning(f"Tentativa de usar créditos para usuário inexistente: {email}")
+            return False
+        
+        user_data = self.users[email]
+        
+        # Verificar se o usuário tem créditos suficientes
+        if user_data.get('credits_remaining', 0) < num_credits:
+            logger.warning(f"Usuário {email} não tem créditos suficientes: {user_data.get('credits_remaining', 0)} < {num_credits}")
+            return False
+        
+        # Usar créditos
+        user_data['credits_remaining'] -= num_credits
+        user_data['credits_used'] += num_credits
+        user_data['last_analysis'] = time.time()
+        user_data['analyses_count'] = user_data.get('analyses_count', 0) + 1
+        
+        # Salvar usuários
+        success = self._save_users()
+        
+        if success:
+            logger.info(f"Usuário {email} usou {num_credits} créditos. Restantes: {user_data['credits_remaining']}")
+        else:
+            logger.error(f"Erro ao salvar dados após uso de créditos para {email}")
+            # Reverter uso de créditos
+            user_data['credits_remaining'] += num_credits
+            user_data['credits_used'] -= num_credits
+        
+        return success
+    
+    def add_credits(self, email: str, num_credits: int, tier: str = None) -> bool:
+        """
+        Add credits to a user
+        
+        Args:
+            email (str): User email
+            num_credits (int): Number of credits to add
+            tier (str, optional): New tier for the user. Defaults to None.
+            
+        Returns:
+            bool: True if credits were added successfully, False otherwise
+        """
+        if email not in self.users:
+            logger.warning(f"Tentativa de adicionar créditos para usuário inexistente: {email}")
+            return False
+        
+        user_data = self.users[email]
+        
+        # Adicionar créditos
+        user_data['credits_remaining'] = user_data.get('credits_remaining', 0) + num_credits
+        user_data['credits_total'] = user_data.get('credits_total', 0) + num_credits
+        user_data['last_credit_purchase'] = time.time()
+        
+        # Atualizar tier se fornecido
+        if tier and tier in self.tiers:
+            user_data['tier'] = tier
+        
+        # Adicionar compra ao histórico
+        purchase = {
+            'timestamp': time.time(),
+            'credits': num_credits,
+            'tier': tier or user_data.get('tier', 'free')
+        }
+        
+        if 'purchases' not in user_data:
+            user_data['purchases'] = []
+        
+        user_data['purchases'].append(purchase)
+        
+        # Salvar usuários
+        success = self._save_users()
+        
+        if success:
+            logger.info(f"Adicionados {num_credits} créditos para {email}. Novo total: {user_data['credits_remaining']}")
+        else:
+            logger.error(f"Erro ao salvar dados após adição de créditos para {email}")
+            # Reverter adição de créditos
+            user_data['credits_remaining'] -= num_credits
+            user_data['credits_total'] -= num_credits
+            user_data['purchases'].pop()  # Remover última compra
+        
+        return success
+    
+    def set_verification_code(self, email: str, code: str) -> bool:
+        """
+        Set verification code for a user
+        
+        Args:
+            email (str): User email
+            code (str): Verification code
+            
+        Returns:
+            bool: True if code was set successfully, False otherwise
+        """
+        if email not in self.users:
+            logger.warning(f"Tentativa de definir código de verificação para usuário inexistente: {email}")
+            return False
+        
+        user_data = self.users[email]
+        
+        # Definir código de verificação
+        user_data['verification_code'] = code
+        user_data['verification_sent_at'] = time.time()
+        
+        # Salvar usuários
+        success = self._save_users()
+        
+        if success:
+            logger.info(f"Código de verificação definido para {email}")
+        else:
+            logger.error(f"Erro ao salvar dados após definição de código de verificação para {email}")
+        
+        return success
+    
+    def verify_user(self, email: str, code: str) -> bool:
+        """
+        Verify a user with a verification code
+        
+        Args:
+            email (str): User email
+            code (str): Verification code
+            
+        Returns:
+            bool: True if verification was successful, False otherwise
+        """
+        if email not in self.users:
+            logger.warning(f"Tentativa de verificar usuário inexistente: {email}")
+            return False
+        
+        user_data = self.users[email]
+        
+        # Verificar se o código é válido
+        if user_data.get('verification_code') != code:
+            logger.warning(f"Código de verificação inválido para {email}")
+            return False
+        
+        # Verificar se o código não expirou (24 horas)
+        sent_at = user_data.get('verification_sent_at', 0)
+        if time.time() - sent_at > 24 * 60 * 60:
+            logger.warning(f"Código de verificação expirado para {email}")
+            return False
+        
+        # Verificar usuário
+        user_data['verified'] = True
+        user_data['verification_code'] = None
+        user_data['verification_sent_at'] = None
+        
+        # Salvar usuários
+        success = self._save_users()
+        
+        if success:
+            logger.info(f"Usuário {email} verificado com sucesso")
+        else:
+            logger.error(f"Erro ao salvar dados após verificação de {email}")
+            # Reverter verificação
+            user_data['verified'] = False
+        
+        return success
+    
+    def set_password_reset_code(self, email: str, code: str) -> bool:
+        """
+        Set password reset code for a user
+        
+        Args:
+            email (str): User email
+            code (str): Password reset code
+            
+        Returns:
+            bool: True if code was set successfully, False otherwise
+        """
+        if email not in self.users:
+            logger.warning(f"Tentativa de definir código de redefinição de senha para usuário inexistente: {email}")
+            return False
+        
+        user_data = self.users[email]
+        
+        # Definir código de redefinição de senha
+        user_data['password_reset_code'] = code
+        user_data['password_reset_sent_at'] = time.time()
+        
+        # Salvar usuários
+        success = self._save_users()
+        
+        if success:
+            logger.info(f"Código de redefinição de senha definido para {email}")
+        else:
+            logger.error(f"Erro ao salvar dados após definição de código de redefinição de senha para {email}")
+        
+        return success
+    
+    def reset_password(self, email: str, code: str, new_password: str) -> bool:
+        """
+        Reset password for a user
+        
+        Args:
+            email (str): User email
+            code (str): Password reset code
+            new_password (str): New password
+            
+        Returns:
+            bool: True if password was reset successfully, False otherwise
+        """
+        if email not in self.users:
+            logger.warning(f"Tentativa de redefinir senha para usuário inexistente: {email}")
+            return False
+        
+        user_data = self.users[email]
+        
+        # Verificar se o código é válido
+        if user_data.get('password_reset_code') != code:
+            logger.warning(f"Código de redefinição de senha inválido para {email}")
+            return False
+        
+        # Verificar se o código não expirou (1 hora)
+        sent_at = user_data.get('password_reset_sent_at', 0)
+        if time.time() - sent_at > 60 * 60:
+            logger.warning(f"Código de redefinição de senha expirado para {email}")
+            return False
+        
+        # Hash da nova senha
+        hashed_password = self._hash_password(new_password)
+        
+        # Atualizar senha
+        user_data['password'] = hashed_password
+        user_data['password_reset_code'] = None
+        user_data['password_reset_sent_at'] = None
+        
+        # Salvar usuários
+        success = self._save_users()
+        
+        if success:
+            logger.info(f"Senha redefinida com sucesso para {email}")
+        else:
+            logger.error(f"Erro ao salvar dados após redefinição de senha para {email}")
+        
+        return success
+    
+    def update_last_login(self, email: str) -> bool:
+        """
+        Update last login timestamp for a user
+        
+        Args:
+            email (str): User email
+            
+        Returns:
+            bool: True if timestamp was updated successfully, False otherwise
+        """
+        if email not in self.users:
+            logger.warning(f"Tentativa de atualizar último login para usuário inexistente: {email}")
+            return False
+        
+        user_data = self.users[email]
+        
+        # Atualizar timestamp de último login
+        user_data['last_login'] = time.time()
+        
+        # Salvar usuários
+        success = self._save_users()
+        
+        if success:
+            logger.info(f"Timestamp de último login atualizado para {email}")
+        else:
+            logger.error(f"Erro ao salvar dados após atualização de timestamp de último login para {email}")
+        
+        return success
+    
+    def get_user_tier(self, email: str) -> Optional[UserTier]:
+        """
+        Get user tier
+        
+        Args:
+            email (str): User email
+            
+        Returns:
+            Optional[UserTier]: User tier or None if user does not exist
+        """
+        if email not in self.users:
+            logger.warning(f"Tentativa de obter tier para usuário inexistente: {email}")
+            return None
+        
+        user_data = self.users[email]
+        tier_name = user_data.get('tier', 'free')
+        
+        return self.tiers.get(tier_name)
+    
+    def get_user_name(self, email: str) -> Optional[str]:
+        """
+        Get user name
+        
+        Args:
+            email (str): User email
+            
+        Returns:
+            Optional[str]: User name or None if user does not exist
+        """
+        if email not in self.users:
+            logger.warning(f"Tentativa de obter nome para usuário inexistente: {email}")
+            return None
+        
+        user_data = self.users[email]
+        return user_data.get('name', email.split('@')[0])
+    
+    def update_user_name(self, email: str, name: str) -> bool:
+        """
+        Update user name
+        
+        Args:
+            email (str): User email
+            name (str): New name
+            
+        Returns:
+            bool: True if name was updated successfully, False otherwise
+        """
+        if email not in self.users:
+            logger.warning(f"Tentativa de atualizar nome para usuário inexistente: {email}")
+            return False
+        
+        user_data = self.users[email]
+        
+        # Atualizar nome
+        user_data['name'] = name
+        
+        # Salvar usuários
+        success = self._save_users()
+        
+        if success:
+            logger.info(f"Nome atualizado para {email}: {name}")
+        else:
+            logger.error(f"Erro ao salvar dados após atualização de nome para {email}")
+        
+        return success
+    
+    def delete_user(self, email: str) -> bool:
+        """
+        Delete a user
+        
+        Args:
+            email (str): User email
+            
+        Returns:
+            bool: True if user was deleted successfully, False otherwise
+        """
+        if email not in self.users:
+            logger.warning(f"Tentativa de excluir usuário inexistente: {email}")
+            return False
+        
+        # Excluir usuário
+        del self.users[email]
+        
+        # Salvar usuários
+        success = self._save_users()
+        
+        if success:
+            logger.info(f"Usuário {email} excluído com sucesso")
+        else:
+            logger.error(f"Erro ao salvar dados após exclusão de {email}")
+        
+        return success
+    
+    def get_all_users(self) -> Dict:
+        """
+        Get all users
+        
+        Returns:
+            Dict: All users
+        """
+        return self.users
+    
+    def get_user_count(self) -> int:
+        """
+        Get user count
+        
+        Returns:
+            int: Number of users
+        """
+        return len(self.users)
+    
+    def get_active_users(self, days: int = 7) -> Dict:
+        """
+        Get active users
+        
+        Args:
+            days (int, optional): Number of days to consider. Defaults to 7.
+            
+        Returns:
+            Dict: Active users
+        """
+        active_users = {}
+        now = time.time()
+        
+        for email, user_data in self.users.items():
+            last_login = user_data.get('last_login', 0)
+            
+            # Se o usuário fez login nos últimos X dias
+            if now - last_login < days * 24 * 60 * 60:
+                active_users[email] = user_data
+        
+        return active_users
+    
+    def get_user_by_email(self, email: str) -> Optional[Dict]:
+        """
+        Get user by email
+        
+        Args:
+            email (str): User email
+            
+        Returns:
+            Optional[Dict]: User data or None if user does not exist
+        """
+        return self.users.get(email)
+    
+    def user_exists(self, email: str) -> bool:
+        """
+        Check if user exists
+        
+        Args:
+            email (str): User email
+            
+        Returns:
+            bool: True if user exists, False otherwise
+        """
+        return email in self.users
+    
+    def is_user_verified(self, email: str) -> bool:
+        """
+        Check if user is verified
+        
+        Args:
+            email (str): User email
+            
+        Returns:
+            bool: True if user is verified, False otherwise
+        """
         if email not in self.users:
             return False
+        
+        user_data = self.users[email]
+        return user_data.get('verified', False)
+    
+    def has_enough_credits(self, email: str, num_credits: int) -> bool:
+        """
+        Check if user has enough credits
+        
+        Args:
+            email (str): User email
+            num_credits (int): Number of credits to check
             
-        self.users[email]["tier"] = "pro"
-        # Reset usage and timestamps for upgrade
-        self.users[email]["free_credits_exhausted_at"] = None
-        self.users[email]["paid_credits_exhausted_at"] = None
-        self.users[email]["usage"]["total"] = []
-        self.users[email]["purchased_credits"] = 0
-        self._save_users()
-        return True
-
-# Funções para análise e carregamento de dados
-
-def rate_limit(seconds):
-    """Decorador para limitar taxa de requisições"""
-    def decorator(func):
-        last_called = [0]
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            elapsed = time.time() - last_called[0]
-            if elapsed < seconds:
-                time.sleep(seconds - elapsed)
-            result = func(*args, **kwargs)
-            last_called[0] = time.time()
-            return result
-        return wrapper
-    return decorator
-
-def extract_team_stats(stats_df, team_name):
-    """
-    Extrai estatísticas abrangentes de um time específico.
-    Retorna um dicionário organizado com todas as estatísticas relevantes.
-    """
-    from utils.data import get_stat
-    import pandas as pd
-    import logging
+        Returns:
+            bool: True if user has enough credits, False otherwise
+        """
+        if email not in self.users:
+            return False
+        
+        user_data = self.users[email]
+        return user_data.get('credits_remaining', 0) >= num_credits
     
-    logger = logging.getLogger("valueHunter.stats")
-    
-    # Verifica se o time existe no DataFrame
-    if team_name not in stats_df['Squad'].values:
-        logger.error(f"Time {team_name} não encontrado no DataFrame")
-        return {}
-    
-    # Obter linha de estatísticas do time
-    team_stats = stats_df[stats_df['Squad'] == team_name].iloc[0]
-    
-    # Função auxiliar para obter estatística com tratamento
-    def get_numeric_stat(stat_name, default=0):
-        value = get_stat(team_stats, stat_name, default)
-        if value == 'N/A':
-            return default
+    def get_user_credits(self, email: str) -> int:
+        """
+        Get user credits
+        
+        Args:
+            email (str): User email
             
-        # Converter para número se for string
-        if isinstance(value, str):
-            value = value.replace(',', '.')
-            try:
-                return float(value)
-            except:
-                return default
-        return value
-    
-    # Função para calcular estatísticas por jogo
-    def per_game(stat, games):
-        if games <= 0:
+        Returns:
+            int: Number of credits
+        """
+        if email not in self.users:
             return 0
-        return round(stat / games, 2)
+        
+        user_data = self.users[email]
+        return user_data.get('credits_remaining', 0)
     
-    # Jogos disputados (valor base importante)
-    matches_played = get_numeric_stat('MP', 1)  # Default 1 para evitar divisão por zero
+    def get_user_total_credits(self, email: str) -> int:
+        """
+        Get user total credits
+        
+        Args:
+            email (str): User email
+            
+        Returns:
+            int: Total number of credits
+        """
+        if email not in self.users:
+            return 0
+        
+        user_data = self.users[email]
+        return user_data.get('credits_total', 0)
     
-    # Estatísticas coletadas
-    stats = {
-        # Básicas
-        "matches_played": matches_played,
-        "points": get_numeric_stat("Pts"),
-        "points_per_game": per_game(get_numeric_stat("Pts"), matches_played),
+    def get_user_used_credits(self, email: str) -> int:
+        """
+        Get user used credits
         
-        # Ofensivas
-        "goals_scored": get_numeric_stat("Gls"),
-        "goals_per_game": per_game(get_numeric_stat("Gls"), matches_played),
-        "expected_goals": get_numeric_stat("xG"),
-        "expected_goals_per_game": per_game(get_numeric_stat("xG"), matches_played),
-        "shots": get_numeric_stat("Sh"),
-        "shots_on_target": get_numeric_stat("SoT"),
-        "shots_on_target_percentage": get_numeric_stat("SoT%", 0),
+        Args:
+            email (str): User email
+            
+        Returns:
+            int: Number of used credits
+        """
+        if email not in self.users:
+            return 0
         
-        # Defensivas
-        "goals_against": get_numeric_stat("GA"),
-        "goals_against_per_game": per_game(get_numeric_stat("GA"), matches_played),
-        "expected_goals_against": get_numeric_stat("xGA"),
-        "expected_goals_against_per_game": per_game(get_numeric_stat("xGA"), matches_played),
-        "clean_sheets": get_numeric_stat("CS"),
-        "clean_sheets_percentage": round(get_numeric_stat("CS") * 100 / matches_played, 1) if matches_played > 0 else 0,
-        
-        # Posse e Passes
-        "possession": get_numeric_stat("Poss"),
-        "passes_completed": get_numeric_stat("Cmp"),
-        "passes_attempted": get_numeric_stat("Att"),
-        "pass_completion": get_numeric_stat("Cmp%"),
-        
-        # Outros
-        "yellow_cards": get_numeric_stat("CrdY"),
-        "red_cards": get_numeric_stat("CrdR"),
-        "fouls": get_numeric_stat("Fls"),
-        "corners": get_numeric_stat("CK"),
-        
-        # Eficiência e análise
-        "goal_efficiency": round((get_numeric_stat("Gls") / get_numeric_stat("xG", 0.01)) * 100, 1) if get_numeric_stat("xG", 0) > 0 else 100,
-        "defensive_efficiency": round((get_numeric_stat("GA") / get_numeric_stat("xGA", 0.01)) * 100, 1) if get_numeric_stat("xGA", 0) > 0 else 100,
-        "goal_difference": get_numeric_stat("Gls") - get_numeric_stat("GA"),
-        "expected_goal_difference": round(get_numeric_stat("xG") - get_numeric_stat("xGA"), 2),
-    }
+        user_data = self.users[email]
+        return user_data.get('credits_used', 0)
     
-    # Corrigir valores extremos ou inesperados
-    for key, value in stats.items():
-        if value is None or pd.isna(value):
-            stats[key] = 0
-        elif key.endswith("percentage") and value > 100:
-            stats[key] = 100
+    def get_user_analyses_count(self, email: str) -> int:
+        """
+        Get user analyses count
+        
+        Args:
+            email (str): User email
+            
+        Returns:
+            int: Number of analyses
+        """
+        if email not in self.users:
+            return 0
+        
+        user_data = self.users[email]
+        return user_data.get('analyses_count', 0)
     
-    return stats
+    def get_user_last_analysis(self, email: str) -> Optional[float]:
+        """
+        Get user last analysis timestamp
+        
+        Args:
+            email (str): User email
+            
+        Returns:
+            Optional[float]: Last analysis timestamp or None if user does not exist
+        """
+        if email not in self.users:
+            return None
+        
+        user_data = self.users[email]
+        return user_data.get('last_analysis')
+    
+    def get_user_last_login(self, email: str) -> Optional[float]:
+        """
+        Get user last login timestamp
+        
+        Args:
+            email (str): User email
+            
+        Returns:
+            Optional[float]: Last login timestamp or None if user does not exist
+        """
+        if email not in self.users:
+            return None
+        
+        user_data = self.users[email]
+        return user_data.get('last_login')
+    
+    def get_user_last_credit_purchase(self, email: str) -> Optional[float]:
+        """
+        Get user last credit purchase timestamp
+        
+        Args:
+            email (str): User email
+            
+        Returns:
+            Optional[float]: Last credit purchase timestamp or None if user does not exist
+        """
+        if email not in self.users:
+            return None
+        
+        user_data = self.users[email]
+        return user_data.get('last_credit_purchase')
+    
+    def get_user_purchases(self, email: str) -> List[Dict]:
+        """
+        Get user purchases
+        
+        Args:
+            email (str): User email
+            
+        Returns:
+            List[Dict]: List of purchases
+        """
+        if email not in self.users:
+            return []
+        
+        user_data = self.users[email]
+        return user_data.get('purchases', [])
+    
+    def get_user_creation_date(self, email: str) -> Optional[float]:
+        """
+        Get user creation date
+        
+        Args:
+            email (str): User email
+            
+        Returns:
+            Optional[float]: Creation date timestamp or None if user does not exist
+        """
+        if email not in self.users:
+            return None
+        
+        user_data = self.users[email]
+        return user_data.get('created_at')
+    
+    def get_user_age_days(self, email: str) -> Optional[int]:
+        """
+        Get user age in days
+        
+        Args:
+            email (str): User email
+            
+        Returns:
+            Optional[int]: User age in days or None if user does not exist
+        """
+        if email not in self.users:
+            return None
+        
+        user_data = self.users[email]
+        created_at = user_data.get('created_at')
+        
+        if created_at is None:
+            return None
+        
+        now = time.time()
+        return int((now - created_at) / (24 * 60 * 60))
+    
+    def get_user_tier_name(self, email: str) -> Optional[str]:
+        """
+        Get user tier name
+        
+        Args:
+            email (str): User email
+            
+        Returns:
+            Optional[str]: Tier name or None if user does not exist
+        """
+        if email not in self.users:
+            return None
+        
+        user_data = self.users[email]
+        return user_data.get('tier', 'free')
+    
+    def get_user_tier_limit(self, email: str) -> Optional[int]:
+        """
+        Get user tier market limit
+        
+        Args:
+            email (str): User email
+            
+        Returns:
+            Optional[int]: Market limit or None if user does not exist
+        """
+        if email not in self.users:
+            return None
+        
+        user_data = self.users[email]
+        tier_name = user_data.get('tier', 'free')
+        tier = self.tiers.get(tier_name)
+        
+        if tier is None:
+            return None
+        
+        return tier.market_limit
+    
+    def get_user_tier_total_credits(self, email: str) -> Optional[int]:
+        """
+        Get user tier total credits
+        
+        Args:
+            email (str): User email
+            
+        Returns:
+            Optional[int]: Total credits or None if user does not exist
+        """
+        if email not in self.users:
+            return None
+        
+        user_data = self.users[email]
+        tier_name = user_data.get('tier', 'free')
+        tier = self.tiers.get(tier_name)
+        
+        if tier is None:
+            return None
+        
+        return tier.total_credits
+    
+    def is_user_free_tier(self, email: str) -> bool:
+        """
+        Check if user is on free tier
+        
+        Args:
+            email (str): User email
+            
+        Returns:
+            bool: True if user is on free tier, False otherwise
+        """
+        if email not in self.users:
+            return False
+        
+        user_data = self.users[email]
+        return user_data.get('tier', 'free') == 'free'
+    
+    def is_user_paid_tier(self, email: str) -> bool:
+        """
+        Check if user is on paid tier
+        
+        Args:
+            email (str): User email
+            
+        Returns:
+            bool: True if user is on paid tier, False otherwise
+        """
+        if email not in self.users:
+            return False
+        
+        user_data = self.users[email]
+        return user_data.get('tier', 'free') != 'free'
+    
+    def get_free_tier_reset_time(self, email: str) -> Optional[str]:
+        """
+        Get free tier reset time
+        
+        Args:
+            email (str): User email
+            
+        Returns:
+            Optional[str]: Reset time string or None if user does not exist or is not on free tier
+        """
+        if email not in self.users:
+            return None
+        
+        user_data = self.users[email]
+        
+        if user_data.get('tier', 'free') != 'free':
+            return None
+        
+        return user_data.get('next_free_credits_time')
+    
+    def was_free_tier_reset(self, email: str) -> bool:
+        """
+        Check if free tier was reset
+        
+        Args:
+            email (str): User email
+            
+        Returns:
+            bool: True if free tier was reset, False otherwise
+        """
+        if email not in self.users:
+            return False
+        
+        user_data = self.users[email]
+        
+        if user_data.get('tier', 'free') != 'free':
+            return False
+        
+        return user_data.get('free_credits_reset', False)
+    
+    def get_days_until_downgrade(self, email: str) -> Optional[int]:
+        """
+        Get days until downgrade
+        
+        Args:
+            email (str): User email
+            
+        Returns:
+            Optional[int]: Days until downgrade or None if user does not exist or is not on paid tier
+        """
+        if email not in self.users:
+            return None
+        
+        user_data = self.users[email]
+        
+        if user_data.get('tier', 'free') == 'free':
+            return None
+        
+        return user_data.get('days_until_downgrade')
+    
+    def is_user_about_to_downgrade(self, email: str) -> bool:
+        """
+        Check if user is about to downgrade
+        
+        Args:
+            email (str): User email
+            
+        Returns:
+            bool: True if user is about to downgrade, False otherwise
+        """
+        if email not in self.users:
+            return False
+        
+        user_data = self.users[email]
+        
+        if user_data.get('tier', 'free') == 'free':
+            return False
+        
+        days_until_downgrade = user_data.get('days_until_downgrade')
+        
+        if days_until_downgrade is None:
+            return False
+        
+        return days_until_downgrade <= 3  # Considerar "prestes a ser rebaixado" se faltarem 3 dias ou menos
 
 def parse_team_stats(html_content):
-    """Função robusta para processar dados de times de futebol de HTML"""
+    """
+    Extrai estatísticas de times a partir de conteúdo HTML.
+    
+    Args:
+        html_content (str): Conteúdo HTML com tabela de estatísticas
+        
+    Returns:
+        pandas.DataFrame: DataFrame com estatísticas ou None em caso de erro
+    """
     try:
         import pandas as pd
-        import numpy as np
         from bs4 import BeautifulSoup
-        import streamlit as st
-        import os
         import re
-        import time
         
-        logger.info("Iniciando processamento de HTML avançado")
-        
-        # Verificar se o conteúdo HTML é válido
-        if not html_content or len(html_content) < 1000:
-            logger.error(f"Conteúdo HTML inválido: {len(html_content) if html_content else 0} caracteres")
-            st.error("O HTML recebido está incompleto ou inválido")
-            
-            # Salvar HTML para diagnóstico
-            try:
-                debug_path = os.path.join(DATA_DIR, f"debug_html_{int(time.time())}.txt")
-                with open(debug_path, 'w', encoding='utf-8') as f:
-                    f.write(html_content if html_content else "HTML vazio")
-                logger.info(f"HTML inválido salvo para diagnóstico em: {debug_path}")
-            except Exception as save_error:
-                logger.error(f"Erro ao salvar HTML para diagnóstico: {str(save_error)}")
-            
+        # 1. Verificar se temos conteúdo
+        if not html_content or len(html_content) < 100:
+            logger.error("Conteúdo HTML vazio ou muito pequeno")
             return None
         
-        # 0. Salvar uma cópia do HTML para diagnóstico
-        try:
-            debug_path = os.path.join(DATA_DIR, f"debug_html_{int(time.time())}.txt")
-            with open(debug_path, 'w', encoding='utf-8') as f:
-                f.write(html_content[:20000])  # Salvar apenas parte inicial para economizar espaço
-            logger.info(f"HTML salvo para diagnóstico em: {debug_path}")
-        except Exception as save_error:
-            logger.warning(f"Não foi possível salvar HTML para diagnóstico: {str(save_error)}")
-            
-        # 1. Método de parsing com BeautifulSoup
-        soup = BeautifulSoup(html_content, 'html.parser')
-        
-        # 1.1 Procurar todas as tabelas
-        all_tables = soup.find_all('table')
-        logger.info(f"Total de tabelas encontradas: {len(all_tables)}")
-        
-        if len(all_tables) == 0:
-            logger.error("Nenhuma tabela encontrada no HTML")
-            st.error("Não foi possível encontrar tabelas na página. O site pode ter mudado de estrutura.")
-            return None
-            
-        # 1.2 Lista de possiveis IDs/classes de tabelas de estatísticas
-        table_ids = [
-            'stats_squads_standard_for',
-            'stats_squads_standard_stats',
-            'stats_squads_standard',
-            'stats_squads',
-            'stats_standard'
-        ]
-        
-        # 1.3 Procurar por tabelas com IDs específicos
-        stats_table = None
-        for table_id in table_ids:
-            table = soup.find('table', {'id': table_id})
-            if table:
-                stats_table = table
-                logger.info(f"Tabela encontrada com ID: {table_id}")
-                break
-                
-        # 1.4 Se não encontrou por ID, procurar por conteúdo
-        if not stats_table:
-            logger.info("Procurando tabelas por conteúdo...")
-            for table in all_tables:
-                # Verificar se tem thead/tbody
-                has_thead = table.find('thead') is not None
-                has_tbody = table.find('tbody') is not None
-                
-                # Verificar se tem cabeçalhos
-                headers = table.find_all('th')
-                header_text = " ".join([h.get_text(strip=True).lower() for h in headers])
-                
-                logger.info(f"Tabela: thead={has_thead}, tbody={has_tbody}, headers={len(headers)}")
-                logger.info(f"Header text sample: {header_text[:100]}")
-                
-                # Verificar marcadores específicos de tabelas de estatísticas
-                if (has_thead and has_tbody and len(headers) > 3 and 
-                    any(kw in header_text for kw in ['squad', 'team', 'equipe', 'mp', 'matches', 'jogos', 'gls', 'goals'])):
-                    stats_table = table
-                    logger.info("Tabela de estatísticas encontrada pelo conteúdo dos cabeçalhos")
-                    break
-                    
-        # 1.5 Se ainda não encontrou, usar a maior tabela
-        if not stats_table and all_tables:
-            tables_with_rows = []
-            for i, table in enumerate(all_tables):
-                rows = table.find_all('tr')
-                if len(rows) > 5:  # Uma tabela de estatísticas deve ter pelo menos alguns times
-                    tables_with_rows.append((i, len(rows), table))
-            
-            if tables_with_rows:
-                # Ordenar por número de linhas (maior primeiro)
-                tables_with_rows.sort(key=lambda x: x[1], reverse=True)
-                stats_table = tables_with_rows[0][2]
-                logger.info(f"Usando a maior tabela (índice {tables_with_rows[0][0]}) com {tables_with_rows[0][1]} linhas")
-                
-        # 2. Diagnóstico da tabela encontrada
-        if not stats_table:
-            logger.error("Não foi possível identificar uma tabela de estatísticas válida")
-            st.error("A estrutura da página não contém uma tabela de estatísticas reconhecível")
-            return None
-            
-        # 2.1 Analisar estrutura da tabela
-        rows = stats_table.find_all('tr')
-        logger.info(f"A tabela selecionada tem {len(rows)} linhas")
-        
-        # 2.2 Verificar cabeçalhos
-        header_row = None
-        for i, row in enumerate(rows[:5]):  # Verificar apenas as primeiras linhas
-            headers = row.find_all('th')
-            if len(headers) > 3:  # Precisa ter alguns cabeçalhos
-                header_row = i
-                header_texts = [h.get_text(strip=True) for h in headers]
-                logger.info(f"Linha de cabeçalho encontrada (índice {i}): {header_texts}")
-                break
-                
-        if header_row is None:
-            logger.error("Não foi possível identificar uma linha de cabeçalho válida")
-            
-        # 3. MÉTODO A: Pandas read_html
+        # 2. Tentar extrair tabelas com pandas
         df = None
         try:
-            logger.info("Tentando extrair com pandas read_html")
-            # Nota: pandas.read_html pode falhar se o HTML for muito complexo
-            tables = pd.read_html(str(stats_table))
+            # Tentar extrair todas as tabelas
+            tables = pd.read_html(html_content)
             
             if tables and len(tables) > 0:
-                df = tables[0]
-                
-                # Verificar se o DataFrame tem dados
-                if len(df) > 0 and len(df.columns) > 3:
-                    logger.info(f"Extração bem-sucedida com pandas: {df.shape}")
-                    
-                    # Verificar se há uma coluna com nomes de equipes
-                    has_teams = False
-                    for col in df.columns:
-                        col_values = df[col].astype(str)
-                        if any(len(val) > 3 for val in col_values):  # Nomes de times geralmente têm mais de 3 caracteres
-                            has_teams = True
-                            logger.info(f"Possível coluna de equipes: {col}")
-                            break
-                    
-                    if not has_teams:
-                        logger.warning("O DataFrame não parece conter nomes de equipes")
-                        df = None
-                else:
-                    logger.warning(f"DataFrame extraído com pandas parece vazio ou inválido: {df.shape}")
-                    df = None
-            else:
-                logger.warning("pandas.read_html não retornou nenhuma tabela")
-                df = None
-                
+                # Usar a primeira tabela que parece ter estatísticas de times
+                for table in tables:
+                    # Verificar se a tabela tem pelo menos 3 colunas e 5 linhas
+                    if table.shape[0] >= 5 and table.shape[1] >= 3:
+                        df = table
+                        logger.info(f"Tabela extraída com pandas: {df.shape}")
+                        break
         except Exception as e:
-            logger.error(f"Erro ao extrair com pandas.read_html: {str(e)}")
-            df = None
-            
-        # 4. MÉTODO B: Extração manual com BeautifulSoup
+            logger.warning(f"Erro ao extrair tabelas com pandas: {str(e)}")
+            # Continuar com BeautifulSoup
+        
+        # 3. Se pandas falhou, tentar com BeautifulSoup
         if df is None:
             try:
-                logger.info("Tentando extração manual com BeautifulSoup")
+                soup = BeautifulSoup(html_content, 'html.parser')
                 
-                # 4.1 Identificar cabeçalhos
-                header_cells = []
+                # Procurar tabelas
+                tables = soup.find_all('table')
                 
-                # Primeiro, procurar na linha <thead>
-                thead = stats_table.find('thead')
-                if thead:
-                    header_rows = thead.find_all('tr')
-                    if header_rows:
-                        # Pegar a última linha do thead, que geralmente tem os cabeçalhos detalhados
-                        header_cells = header_rows[-1].find_all(['th', 'td'])
-                        
-                # Se não encontrou no thead, procurar nas primeiras linhas
-                if not header_cells:
-                    for row in rows[:3]:  # Verificar apenas as primeiras linhas
-                        cells = row.find_all(['th', 'td'])
-                        if len(cells) > 3:  # Precisa ter alguns cabeçalhos
-                            header_cells = cells
-                            break
-                
-                if not header_cells:
-                    logger.error("Não foi possível identificar células de cabeçalho")
+                if not tables:
+                    logger.warning("Nenhuma tabela encontrada no HTML")
                     return None
-                    
-                # 4.2 Extrair nomes de colunas
-                column_names = []
-                for cell in header_cells:
-                    # Tentar obter o texto do cabeçalho
-                    header_text = cell.get_text(strip=True)
-                    if not header_text:
-                        # Se não tem texto, usar um nome genérico
-                        header_text = f"Col{len(column_names)}"
-                    column_names.append(header_text)
                 
-                logger.info(f"Nomes de colunas extraídos: {column_names}")
+                # Usar a primeira tabela que parece ter estatísticas
+                target_table = None
+                for table in tables:
+                    rows = table.find_all('tr')
+                    if len(rows) >= 5:  # Pelo menos 5 linhas (cabeçalho + 4 times)
+                        target_table = table
+                        break
                 
-                # 4.3 Extrair dados das linhas
-                data_rows = []
+                if not target_table:
+                    logger.warning("Nenhuma tabela adequada encontrada")
+                    return None
                 
-                # Se tem tbody, usar as linhas de lá
-                tbody = stats_table.find('tbody')
-                if tbody:
-                    data_tr_elements = tbody.find_all('tr')
+                # Extrair cabeçalho
+                headers = []
+                header_row = target_table.find('thead')
+                if header_row:
+                    header_cells = header_row.find_all(['th', 'td'])
+                    headers = [cell.get_text(strip=True) for cell in header_cells]
                 else:
-                    # Se não tem tbody, pular a linha de cabeçalho
-                    if header_row is not None:
-                        data_tr_elements = rows[header_row+1:]
+                    # Tentar primeira linha como cabeçalho
+                    first_row = target_table.find('tr')
+                    if first_row:
+                        header_cells = first_row.find_all(['th', 'td'])
+                        headers = [cell.get_text(strip=True) for cell in header_cells]
+                
+                if not headers:
+                    logger.warning("Não foi possível extrair cabeçalho da tabela")
+                    # Criar cabeçalho genérico
+                    first_row = target_table.find('tr')
+                    if first_row:
+                        num_cols = len(first_row.find_all(['th', 'td']))
+                        headers = ['Column' + str(i) for i in range(num_cols)]
                     else:
-                        # Se não identificou cabeçalho, usar todas as linhas exceto a primeira
-                        data_tr_elements = rows[1:]
+                        headers = ['Column0', 'Column1', 'Column2']
                 
-                # Processar cada linha de dados
-                for tr in data_tr_elements:
-                    cells = tr.find_all(['td', 'th'])
-                    
-                    # Verificar se a linha tem células suficientes
-                    if len(cells) < 3:  # Muito poucas células, provavelmente não é uma linha de dados
-                        continue
-                        
-                    # Extrair valores das células
-                    row_data = []
-                    for cell in cells:
-                        # Obter texto da célula
-                        cell_text = cell.get_text(strip=True)
-                        row_data.append(cell_text)
-                    
-                    # Adicionar à lista de linhas
-                    if len(row_data) > 0:
-                        data_rows.append(row_data)
+                # Extrair linhas de dados
+                rows = []
+                data_rows = target_table.find_all('tr')
                 
-                # 4.4 Criar DataFrame
-                if data_rows:
-                    # Ajustar tamanho das linhas para corresponder aos cabeçalhos
-                    num_cols = len(column_names)
-                    adjusted_rows = []
-                    for row in data_rows:
-                        if len(row) > num_cols:
-                            # Truncar linhas muito longas
-                            adjusted_rows.append(row[:num_cols])
-                        elif len(row) < num_cols:
-                            # Preencher linhas muito curtas
-                            adjusted_rows.append(row + [''] * (num_cols - len(row)))
-                        else:
-                            adjusted_rows.append(row)
-                    
-                    # Criar DataFrame
-                    df = pd.DataFrame(adjusted_rows, columns=column_names)
-                    logger.info(f"DataFrame criado manualmente: {df.shape}")
-                else:
-                    logger.error("Nenhuma linha de dados extraída")
+                # Pular primeira linha se for cabeçalho
+                start_idx = 1 if header_row or (len(data_rows) > 0 and data_rows[0].find('th')) else 0
+                
+                for row in data_rows[start_idx:]:
+                    cells = row.find_all(['td', 'th'])
+                    if cells:
+                        row_data = [cell.get_text(strip=True) for cell in cells]
+                        rows.append(row_data)
+                
+                if not rows:
+                    logger.warning("Não foi possível extrair linhas de dados da tabela")
                     return None
-                    
+                
+                # Criar DataFrame
+                df = pd.DataFrame(rows, columns=headers[:len(rows[0])])
+                logger.info(f"Tabela extraída com BeautifulSoup: {df.shape}")
+                
+            except Exception as e:
+                logger.error(f"Erro ao extrair tabela com BeautifulSoup: {str(e)}")
+                return None
+        
+        # 4. Extração manual como último recurso
+        if df is None:
+            try:
+                # Procurar padrões de tabela no HTML
+                # Exemplo: <tr>...</tr> com <td>...</td> ou <th>...</th>
+                soup = BeautifulSoup(html_content, 'html.parser')
+                
+                # Extrair todas as linhas
+                tr_tags = soup.find_all('tr')
+                
+                if not tr_tags:
+                    logger.error("Nenhuma linha de tabela encontrada")
+                    return None
+                
+                # Extrair dados de cada linha
+                rows = []
+                for tr in tr_tags:
+                    cells = tr.find_all(['td', 'th'])
+                    if cells:
+                        row_data = [cell.get_text(strip=True) for cell in cells]
+                        rows.append(row_data)
+                
+                if not rows:
+                    logger.error("Nenhuma célula de dados encontrada")
+                    return None
+                
+                # Determinar número de colunas (usar o máximo)
+                num_cols = max(len(row) for row in rows)
+                
+                # Criar nomes de colunas genéricos
+                column_names = ['Column' + str(i) for i in range(num_cols)]
+                
+                # Ajustar linhas para ter o mesmo número de colunas
+                adjusted_rows = []
+                for row in rows:
+                    if len(row) > num_cols:
+                        # Truncar linhas muito longas
+                        adjusted_rows.append(row[:num_cols])
+                    elif len(row) < num_cols:
+                        # Preencher linhas muito curtas
+                        adjusted_rows.append(row + [''] * (num_cols - len(row)))
+                    else:
+                        adjusted_rows.append(row)
+                
+                # Criar DataFrame
+                df = pd.DataFrame(adjusted_rows, columns=column_names)
+                logger.info(f"DataFrame criado manualmente: {df.shape}")
             except Exception as e:
                 logger.error(f"Erro na extração manual: {str(e)}")
                 return None
