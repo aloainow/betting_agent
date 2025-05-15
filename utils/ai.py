@@ -100,11 +100,9 @@ def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_da
         home_xg = home.get('xg', 0) # Verifica se dados de xG existem
         away_xg = away.get('xg', 0)
 
-        has_stats_data = (
-            (isinstance(home_played, (int, float)) and home_played >= min_games_played and (home_goals_scored > 0 or home_xg > 0)) and
-            (isinstance(away_played, (int, float)) and away_played >= min_games_played and (away_goals_scored > 0 or away_xg > 0))
-        )
-        logger.info(f"Verificação de dados suficientes (mínimo {min_games_played} jogos, gols/xG > 0): {has_stats_data}")
+        # Verificação de dados suficientes removida conforme solicitado pelo cliente
+        # Agora sempre consideramos que temos dados suficientes
+        has_stats_data = True
         
         # Log da qualidade dos dados
         home_fields = sum(1 for k, v in home.items() 
@@ -115,10 +113,6 @@ def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_da
                           (isinstance(v, str) and v not in ["", "?????"]))
         
         logger.info(f"Qualidade dos dados: Casa={home_fields} campos, Visitante={away_fields} campos")
-        logger.info(f"Estatísticas suficientes: {has_stats_data}")
-        
-        if not has_stats_data:
-            logger.warning("AVISO: Dados estatísticos insuficientes. Usando cálculos de fallback.")
         
         # 1. FUNDAMENTAL STATISTICS
         fundamental_stats = f"""
@@ -169,19 +163,7 @@ def format_highly_optimized_prompt(optimized_data, home_team, away_team, odds_da
 * Média de gols: {h2h.get('avg_goals', 0)}
 """
 
-        # Adicionar aviso no prompt caso não tenhamos dados estatísticos suficientes
-        if not has_stats_data:
-            fundamental_stats += """
-### AVISO IMPORTANTE
-⚠️ Os dados estatísticos para esta partida são limitados ou inexistentes.
-As probabilidades calculadas estão utilizando a metodologia de fallback e devem ser consideradas aproximações.
-Recomenda-se cautela ao tomar decisões baseadas nesta análise.
-"""
-            # Registrar aviso no log
-            logger.warning(f"AVISO: Dados estatísticos insuficientes para {home_team} vs {away_team}. Usando metodologia de fallback.")
-            
-            # Adicionar flag ao objeto de dados para referência posterior
-            optimized_data["insufficient_data"] = True
+        # Removido aviso de dados insuficientes conforme solicitado pelo cliente
 
         # 2. STATS FOR RESULT MARKETS
         result_stats = ""
@@ -609,15 +591,9 @@ Recomenda-se cautela ao tomar decisões baseadas nesta análise.
         home_away_prob = home_win_prob + away_win_prob
         
         # 6. PROBABILITY SECTION
-        if not has_stats_data:
-            prob_title = "PROBABILIDADES CALCULADAS (MODELO DE FALLBACK)"
-            prob_explanation = """
-        ### Observação Importante
-        Devido à falta de dados estatísticos suficientes, estas probabilidades são aproximações 
-        baseadas em um modelo simplificado e podem não refletir com precisão as chances reais."""
-        else:
-            prob_title = "PROBABILIDADES CALCULADAS (MÉTODO DE DISPERSÃO E PONDERAÇÃO)"
-            prob_explanation = """
+        # Removida lógica de fallback conforme solicitado pelo cliente
+        prob_title = "PROBABILIDADES CALCULADAS (MÉTODO DE DISPERSÃO E PONDERAÇÃO)"
+        prob_explanation = """
         ### Metodologia
         As probabilidades foram calculadas usando nossa metodologia de dispersão e ponderação com:
         - Forma recente: 25% (ajustado)
@@ -1887,13 +1863,13 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
                     odds_data = user_odds
                 else:
                     # Criar uma string com as odds do jogo se possível
-                    from valueHunter.data import get_configured_odds
+                    from data import get_configured_odds
                     odds_data = get_configured_odds()
                     if not odds_data:
                         # Alternativa: usar a função match_details se disponível
                         match_id = match_details.get("id") if match_details else None
                         if match_id:
-                            from valueHunter.data import get_match_odds
+                            from data import get_match_odds
                             odds_data = get_match_odds(match_id)
                             
                     if not odds_data:
