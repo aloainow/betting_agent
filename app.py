@@ -485,6 +485,84 @@ def main():
             margin-top: 0 !important;
             padding-top: 0 !important;
         }
+        
+        /* SOLUÇÃO EXTREMA - Remover todos os espaços em branco */
+        * {
+            margin-top: 0 !important;
+            padding-top: 0 !important;
+            margin-bottom: 0 !important;
+            padding-bottom: 0 !important;
+        }
+        
+        /* Forçar todos os containers a começarem no topo absoluto */
+        .stApp {
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        
+        /* Remover espaço entre elementos */
+        .element-container {
+            margin-top: 0 !important;
+            padding-top: 0 !important;
+            margin-bottom: 0 !important;
+            padding-bottom: 0 !important;
+        }
+        
+        /* Remover espaço em todos os widgets do Streamlit */
+        .stButton, .stCheckbox, .stRadio, .stSelectbox, .stSlider, .stText, .stTextInput, .stTextArea {
+            margin-top: 0 !important;
+            padding-top: 0 !important;
+            margin-bottom: 0 !important;
+            padding-bottom: 0 !important;
+        }
+        
+        /* Remover espaço em todos os containers */
+        .stContainer, .stColumn, .stColumns, .stExpander, .stTabs, .stTab {
+            margin-top: 0 !important;
+            padding-top: 0 !important;
+            margin-bottom: 0 !important;
+            padding-bottom: 0 !important;
+        }
+        
+        /* Remover espaço em todos os elementos de texto */
+        .stMarkdown, .stTitle, .stHeader, .stSubheader, .stText, .stCaption {
+            margin-top: 0 !important;
+            padding-top: 0 !important;
+            margin-bottom: 0 !important;
+            padding-bottom: 0 !important;
+        }
+        
+        /* Remover espaço em todos os elementos de formulário */
+        .stForm, .stFormSubmit, .stFileUploader {
+            margin-top: 0 !important;
+            padding-top: 0 !important;
+            margin-bottom: 0 !important;
+            padding-bottom: 0 !important;
+        }
+        
+        /* Remover espaço em todos os elementos de visualização */
+        .stPlot, .stDataFrame, .stTable, .stJson, .stImage, .stAudio, .stVideo {
+            margin-top: 0 !important;
+            padding-top: 0 !important;
+            margin-bottom: 0 !important;
+            padding-bottom: 0 !important;
+        }
+        
+        /* Remover espaço em todos os elementos de layout */
+        .stSidebar, .stMain, .stContent, .stContainer {
+            margin-top: 0 !important;
+            padding-top: 0 !important;
+            margin-bottom: 0 !important;
+            padding-bottom: 0 !important;
+        }
+        
+        /* Remover espaço em todos os elementos de navegação */
+        .stTabs, .stTab, .stTabContent {
+            margin-top: 0 !important;
+            padding-top: 0 !important;
+            margin-bottom: 0 !important;
+            padding-bottom: 0 !important;
+        }
         </style>
         """, unsafe_allow_html=True)
         
@@ -494,21 +572,62 @@ def main():
         // Função que remove ativamente espaços em branco
         function removeSpaces() {
             // Forçar reset de todos os elementos que possam causar espaço
-            document.querySelectorAll('header, .main .block-container, div:first-child, div[data-testid="stVerticalBlock"], div[data-testid="stAppViewContainer"]').forEach(el => {
+            document.querySelectorAll('*').forEach(el => {
                 el.style.marginTop = '0';
                 el.style.paddingTop = '0';
+                el.style.marginBottom = '0';
+                el.style.paddingBottom = '0';
+            });
+            
+            // Remover especificamente o cabeçalho
+            const header = document.querySelector('header[data-testid="stHeader"]');
+            if (header) {
+                header.style.display = 'none';
+                header.style.height = '0';
+                header.style.minHeight = '0';
+                header.style.maxHeight = '0';
+                header.style.visibility = 'hidden';
+            }
+            
+            // Forçar o primeiro elemento a começar no topo absoluto
+            const firstElements = document.querySelectorAll('.main .block-container > div:first-child, .element-container:first-child, .stMarkdown:first-child, section.main > div:first-child, div[data-testid="stVerticalBlock"] > div:first-child');
+            firstElements.forEach(el => {
+                el.style.marginTop = '0';
+                el.style.paddingTop = '0';
+            });
+            
+            // Remover espaço em todos os containers
+            const containers = document.querySelectorAll('.stApp, .main, .main .block-container, div[data-testid="stAppViewContainer"], div[data-testid="stVerticalBlock"]');
+            containers.forEach(el => {
+                el.style.marginTop = '0';
+                el.style.paddingTop = '0';
+                el.style.gap = '0';
             });
             
             // Remover cabeçalho por completo
-            const header = document.querySelector('header[data-testid="stHeader"]');
-            if (header) header.style.display = 'none';
+            const headerElement = document.querySelector('header[data-testid="stHeader"]');
+            if (headerElement) headerElement.style.display = 'none';
             
-            // Remover espaço em todos os elementos
-            document.querySelectorAll('div, p, h1, h2, h3, h4, h5, h6, ul, ol, li, span, a, button, input, select, textarea').forEach(el => {
+            // Remover espaço entre widgets
+            const widgets = document.querySelectorAll('.stButton, .stCheckbox, .stRadio, .stSelectbox, .stSlider, .stText, .stTextInput, .stTextArea');
+            widgets.forEach(el => {
                 el.style.marginTop = '0';
                 el.style.paddingTop = '0';
+                el.style.marginBottom = '0';
+                el.style.paddingBottom = '0';
             });
         }
+        
+        // Executar a função imediatamente
+        removeSpaces();
+        
+        // Executar novamente após o carregamento completo
+        window.addEventListener('load', removeSpaces);
+        
+        // Executar periodicamente para garantir que novos elementos também sejam afetados
+        setInterval(removeSpaces, 100);
+        </script>
+        """, unsafe_allow_html=True)
         
         // Executar imediatamente
         removeSpaces();
