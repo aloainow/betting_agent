@@ -1863,7 +1863,7 @@ def calculate_advanced_probabilities(home_team, away_team, h2h_data=None, league
                     odds_data = user_odds
                 else:
                     # Criar uma string com as odds do jogo se possível
-                    from data import get_configured_odds
+                    from utils.data import get_configured_odds
                     odds_data = get_configured_odds()
                     if not odds_data:
                         # Alternativa: usar a função match_details se disponível
