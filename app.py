@@ -415,6 +415,27 @@ def main():
             padding-top: 0 !important;
             margin-top: 0 !important;
         }
+        
+        /* Reduzir ainda mais o espaço entre elementos */
+        .stMarkdown, .stText, .stTitle, .element-container {
+            margin-top: 0 !important;
+            margin-bottom: 0.5rem !important;
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+        }
+        
+        /* Remover espaço entre colunas e linhas */
+        div[data-layout="grid"] {
+            gap: 0.5rem !important;
+        }
+        
+        /* Ajustar espaçamento de widgets */
+        .stButton, .stSelectbox, .stTextInput, .stNumberInput {
+            margin-top: 0 !important;
+            margin-bottom: 0.5rem !important;
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+        }
         </style>
         """, unsafe_allow_html=True)
         
