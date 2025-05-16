@@ -72,6 +72,10 @@ if 'debug_mode' not in st.session_state:
 if 'use_sample_data' not in st.session_state:
     st.session_state.use_sample_data = True
 
+# Inicializar user_manager no session_state
+if 'user_manager' not in st.session_state:
+    st.session_state.user_manager = UserManager()
+
 # Função para aplicar tema escuro
 def apply_dark_theme():
     """Aplica tema escuro consistente em toda a aplicação"""
@@ -329,18 +333,31 @@ def main():
         # CORREÇÃO DEFINITIVA DO ESPAÇO EM BRANCO - Aplicar imediatamente
         st.markdown("""
         <style>
-        /* SOLUÇÃO ULTRA AGRESSIVA PARA ESPAÇO EM BRANCO - aplicada globalmente */
-        /* Reset de todos os espaçamentos em todos os elementos */
+        /* SOLUÇÃO ULTRA AGRESSIVA PARA ESPAÇO EM BRANCO E FUNDO 100% ESCURO */
+        /* Reset de todos os espaçamentos e garantia de fundo escuro */
         body, html, .stApp, .main, .main .block-container, div[data-testid="stAppViewContainer"], div[data-testid="stVerticalBlock"] {
             margin-top: 0 !important;
             padding-top: 0 !important;
             gap: 0 !important;
             margin-bottom: 0 !important;
             padding-bottom: 0 !important;
+            background-color: #121212 !important;
         }
         
         /* Remover completamente o cabeçalho */
         header[data-testid="stHeader"] {
+            display: none !important;
+            height: 0 !important;
+            min-height: 0 !important;
+            max-height: 0 !important;
+            visibility: hidden !important;
+            position: absolute !important;
+            z-index: -9999 !important;
+            width: 0 !important;
+        }
+        
+        /* Remover completamente o retângulo branco no topo */
+        div[data-testid="stDecoration"], div[data-testid="stToolbar"] {
             display: none !important;
             height: 0 !important;
             min-height: 0 !important;
@@ -366,6 +383,7 @@ def main():
             max-width: 100% !important; 
             padding-top: 0 !important;
             margin-top: 0 !important;
+            background-color: #121212 !important;
         }
         
         /* Remover espaço em todos os elementos */
@@ -374,18 +392,25 @@ def main():
             padding-top: 0 !important;
         }
         
-        /* SOLUÇÃO EXTREMA - Remover todos os espaços em branco */
+        /* SOLUÇÃO EXTREMA - Remover todos os espaços em branco e garantir fundo escuro */
         * {
             margin-top: 0 !important;
             padding-top: 0 !important;
             margin-bottom: 0 !important;
             padding-bottom: 0 !important;
+            background-color: #121212 !important;
+        }
+        
+        /* Exceções para elementos que precisam de cores específicas */
+        .stButton>button, input, select, textarea, .stSelectbox>div>div>select {
+            background-color: #2d2d2d !important;
         }
         
         /* Forçar todos os containers a começarem no topo absoluto */
         .stApp {
             margin: 0 !important;
             padding: 0 !important;
+            background-color: #121212 !important;
         }
         
         /* Remover espaço entre elementos */
@@ -394,6 +419,7 @@ def main():
             padding-top: 0 !important;
             margin-bottom: 0 !important;
             padding-bottom: 0 !important;
+            background-color: #121212 !important;
         }
         
         /* Remover espaço em todos os widgets do Streamlit */
@@ -410,6 +436,7 @@ def main():
             padding-top: 0 !important;
             margin-bottom: 0 !important;
             padding-bottom: 0 !important;
+            background-color: #121212 !important;
         }
         
         /* Remover espaço em todos os elementos de texto */
@@ -418,6 +445,7 @@ def main():
             padding-top: 0 !important;
             margin-bottom: 0 !important;
             padding-bottom: 0 !important;
+            color: #f0f0f0 !important;
         }
         
         /* Remover espaço em todos os elementos de formulário */
@@ -442,6 +470,7 @@ def main():
             padding-top: 0 !important;
             margin-bottom: 0 !important;
             padding-bottom: 0 !important;
+            background-color: #121212 !important;
         }
         
         /* Remover espaço em todos os elementos de navegação */
@@ -450,6 +479,19 @@ def main():
             padding-top: 0 !important;
             margin-bottom: 0 !important;
             padding-bottom: 0 !important;
+        }
+        
+        /* Esconder a barra lateral nas páginas de login e registro */
+        .login-page [data-testid="stSidebar"],
+        .register-page [data-testid="stSidebar"] {
+            display: none !important;
+            width: 0 !important;
+            height: 0 !important;
+            min-width: 0 !important;
+            max-width: 0 !important;
+            visibility: hidden !important;
+            position: absolute !important;
+            z-index: -9999 !important;
         }
         </style>
         """, unsafe_allow_html=True)
@@ -497,11 +539,35 @@ def main():
         
         # Roteamento de páginas
         if st.session_state.page == "landing":
+            # Adicionar classe para esconder a barra lateral na landing page
+            st.markdown('<div class="login-page">', unsafe_allow_html=True)
             show_landing_page()
+            st.markdown('</div>', unsafe_allow_html=True)
         elif st.session_state.page == "login":
+            # Esconder a barra lateral na página de login
+            st.markdown('<div class="login-page">', unsafe_allow_html=True)
+            # Esconder a barra lateral explicitamente
+            st.markdown("""
+            <style>
+            [data-testid="stSidebar"] {
+                display: none !important;
+                width: 0px !important;
+                height: 0px !important;
+                min-width: 0px !important;
+                max-width: 0px !important;
+                visibility: hidden !important;
+                position: absolute !important;
+                z-index: -9999 !important;
+            }
+            </style>
+            """, unsafe_allow_html=True)
             show_login()
+            st.markdown('</div>', unsafe_allow_html=True)
         elif st.session_state.page == "register":
+            # Esconder a barra lateral na página de registro
+            st.markdown('<div class="register-page">', unsafe_allow_html=True)
             show_register()
+            st.markdown('</div>', unsafe_allow_html=True)
         elif st.session_state.page == "password_reset":
             show_password_reset()
         elif st.session_state.page == "dashboard":
