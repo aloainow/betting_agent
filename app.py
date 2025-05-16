@@ -490,7 +490,7 @@ def main():
         // Executar periodicamente para garantir que novos elementos também sejam afetados
         setInterval(removeSpaces, 100);
         </script>
-        """, unsafe_allow_html=True)
+        """)
         
         # Mostrar barra lateral
         show_sidebar()
@@ -608,8 +608,7 @@ def main():
             st.exception(e)
 
 # Ativar modo de debug com query parameter
-query_params = st.experimental_get_query_params()
-if "debug" in query_params:
+if "debug" in st.query_params:
     st.session_state.debug_mode = True
 
 # Executar aplicação
