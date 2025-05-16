@@ -480,11 +480,7 @@ class UserManager:
         
         for user in users:
             if user["email"] == email:
-                # Criar uma cópia sem a senha
-                user_data = user.copy()
-                if "password" in user_data:
-                    del user_data["password"]
-                return user_data
+                return user
         
         return None
     
