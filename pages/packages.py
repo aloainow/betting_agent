@@ -2,7 +2,7 @@
 import streamlit as st
 import logging
 from utils.core import (
-    show_valuehunter_logo, update_purchase_button, check_payment_success, apply_custom_styles, apply_dark_theme
+    show_valuehunter_logo, update_purchase_button, check_payment_success 
 )
 # Configuração de logging
 logger = logging.getLogger("valueHunter.packages")
