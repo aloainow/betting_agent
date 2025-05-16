@@ -330,7 +330,7 @@ def main():
         # Aplicar tema escuro consistente
         apply_dark_theme()
                 
-        # CORREÇÃO DEFINITIVA DO ESPAÇO EM BRANCO - Aplicar imediatamente
+        # CORREÇÃO DEFINITIVA DO ESPAÇO EM BRANCO E RETÂNGULO BRANCO - Aplicar imediatamente
         st.markdown("""
         <style>
         /* SOLUÇÃO ULTRA AGRESSIVA PARA ESPAÇO EM BRANCO E FUNDO 100% ESCURO */
@@ -357,7 +357,7 @@ def main():
         }
         
         /* Remover completamente o retângulo branco no topo */
-        div[data-testid="stDecoration"], div[data-testid="stToolbar"] {
+        div[data-testid="stDecoration"], div[data-testid="stToolbar"], div[data-testid="stStatusWidget"], div[data-testid="stAppViewBlockContainer"] > div:first-child, div[data-testid="stAppViewContainer"] > div:first-child, div[data-testid="element-container"] > div:first-child, div[data-testid="stVerticalBlock"] > div:first-child, iframe, .stDeployButton {
             display: none !important;
             height: 0 !important;
             min-height: 0 !important;
@@ -366,6 +366,10 @@ def main():
             position: absolute !important;
             z-index: -9999 !important;
             width: 0 !important;
+            background-color: #121212 !important;
+            border: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
         }
         
         /* Forçar primeiro elemento a começar no topo absoluto */
@@ -376,6 +380,7 @@ def main():
         div[data-testid="stVerticalBlock"] > div:first-child {
             margin-top: 0 !important;
             padding-top: 0 !important;
+            background-color: #121212 !important;
         }
         
         /* Corrigir altura do container principal */
@@ -390,6 +395,7 @@ def main():
         div, p, h1, h2, h3, h4, h5, h6, ul, ol, li, span, a, button, input, select, textarea {
             margin-top: 0 !important;
             padding-top: 0 !important;
+            background-color: #121212 !important;
         }
         
         /* SOLUÇÃO EXTREMA - Remover todos os espaços em branco e garantir fundo escuro */
@@ -402,8 +408,28 @@ def main():
         }
         
         /* Exceções para elementos que precisam de cores específicas */
-        .stButton>button, input, select, textarea, .stSelectbox>div>div>select {
+        .stButton>button {
+            background-color: #FF5733 !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 4px !important;
+            padding: 0.5rem 1rem !important;
+            font-weight: 500 !important;
+        }
+        
+        .stButton>button:hover {
+            background-color: #FF7F50 !important;
+        }
+        
+        .stButton>button span {
+            background-color: transparent !important;
+            color: white !important;
+        }
+        
+        input, select, textarea, .stSelectbox>div>div>select, .stTextInput>div>div>input {
             background-color: #2d2d2d !important;
+            color: white !important;
+            border: 1px solid #3F3F45 !important;
         }
         
         /* Forçar todos os containers a começarem no topo absoluto */
@@ -446,6 +472,7 @@ def main():
             margin-bottom: 0 !important;
             padding-bottom: 0 !important;
             color: #f0f0f0 !important;
+            background-color: #121212 !important;
         }
         
         /* Remover espaço em todos os elementos de formulário */
@@ -454,6 +481,7 @@ def main():
             padding-top: 0 !important;
             margin-bottom: 0 !important;
             padding-bottom: 0 !important;
+            background-color: #121212 !important;
         }
         
         /* Remover espaço em todos os elementos de visualização */
@@ -462,6 +490,7 @@ def main():
             padding-top: 0 !important;
             margin-bottom: 0 !important;
             padding-bottom: 0 !important;
+            background-color: #121212 !important;
         }
         
         /* Remover espaço em todos os elementos de layout */
@@ -479,6 +508,7 @@ def main():
             padding-top: 0 !important;
             margin-bottom: 0 !important;
             padding-bottom: 0 !important;
+            background-color: #121212 !important;
         }
         
         /* Esconder a barra lateral nas páginas de login e registro */
@@ -489,6 +519,22 @@ def main():
             height: 0 !important;
             min-width: 0 !important;
             max-width: 0 !important;
+            visibility: hidden !important;
+            position: absolute !important;
+            z-index: -9999 !important;
+        }
+        
+        /* Garantir que o texto dentro dos botões não tenha fundo preto */
+        button *, .stButton button *, .stButton>button span, button span, button div, button p {
+            background-color: transparent !important;
+            color: white !important;
+        }
+        
+        /* Remover completamente qualquer iframe ou elemento que possa causar o retângulo branco */
+        iframe, .stDeployButton, div[data-testid="stToolbar"], div[data-testid="stDecoration"], div[data-testid="stStatusWidget"] {
+            display: none !important;
+            height: 0 !important;
+            width: 0 !important;
             visibility: hidden !important;
             position: absolute !important;
             z-index: -9999 !important;
