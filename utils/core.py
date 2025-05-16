@@ -578,4 +578,3 @@ class UserManager:
     def _verify_password(self, password, hashed_password):
         """Verifica se a senha corresponde ao hash"""
         return self._hash_password(password) == hashed_password
-        return self._hash_password(password) == hashed_password
