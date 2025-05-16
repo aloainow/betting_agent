@@ -167,8 +167,8 @@ def apply_dark_theme():
 # Função para mostrar a página de landing
 def show_landing_page():
     """Exibe a página inicial (landing page)"""
-    from pages.landing import show_landing
-    show_landing()
+    from pages.landing import show_landing_page
+    show_landing_page()
 
 # Função para mostrar a página de login
 def show_login():
