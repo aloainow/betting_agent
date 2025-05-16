@@ -2,330 +2,207 @@ import os
 import sys
 import logging
 import streamlit as st
-import pandas as pd
-import numpy as np
 import time
-import json
-import re
-import hashlib
 from datetime import datetime, timedelta
-from functools import wraps
+import json
+import base64
+import re
 
-# Configuração de logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler("valueHunter.log"),
-        logging.StreamHandler()
-    ]
-)
-
-logger = logging.getLogger("valueHunter.app")
-
-# Configuração do diretório de dados
-DATA_DIR = os.environ.get("DATA_DIR", "data")
-if "RENDER" in os.environ:
-    DATA_DIR = "/mnt/value-hunter-data"
-
-# Garantir que o diretório de dados existe
-os.makedirs(DATA_DIR, exist_ok=True)
+# Configurar logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("valueHunter")
 
 # Importar módulos do projeto
-try:
-    from utils.core import UserManager, DATA_DIR
-except ImportError:
-    # Se falhar, criar uma referência local
-    from utils.data import UserManager
-
-# Importar páginas
-from pages.landing import show_landing_page
-from pages.dashboard import show_main_dashboard
-from pages.auth import show_login, show_register, show_password_reset
-
-# Configurações da página
-st.set_page_config(
-    page_title="ValueHunter",
-    page_icon="🎯",
-    layout="wide",
-    initial_sidebar_state="expanded",
-    menu_items={
-        'Get Help': 'https://www.valueHunter.com/help',
-        'Report a bug': 'https://www.valueHunter.com/bug',
-        'About': "# ValueHunter\nSua ferramenta de análise de apostas esportivas."
-    }
+from utils.core import (
+    init_session_state, 
+    go_to_login, 
+    go_to_register, 
+    go_to_landing,
+    show_valuehunter_logo,
+    insert_favicon,
+    hide_streamlit_menu,
+    hide_app_admin_items,
+    apply_global_css,
+    configure_sidebar_visibility
 )
 
 # Inicializar estado da sessão
-if 'page' not in st.session_state:
-    st.session_state.page = "landing"
+init_session_state()
 
-if 'user' not in st.session_state:
-    st.session_state.user = None
+# Verificar se o usuário está autenticado
+def check_authentication():
+    """Verifica se o usuário está autenticado e redireciona se necessário"""
+    if not st.session_state.authenticated and st.session_state.page not in ["landing", "login", "register", "password_reset"]:
+        st.session_state.page = "login"
+        st.experimental_rerun()
 
-if 'logged_in' not in st.session_state:
-    st.session_state.logged_in = False
-
-if 'debug_mode' not in st.session_state:
-    st.session_state.debug_mode = False
-
-if 'use_sample_data' not in st.session_state:
-    st.session_state.use_sample_data = True
-
-# Inicializar user_manager no session_state
-if 'user_manager' not in st.session_state:
-    st.session_state.user_manager = UserManager()
+# Função para mostrar a barra lateral
+def show_sidebar():
+    """Exibe a barra lateral com opções de navegação"""
+    with st.sidebar:
+        # Logo no topo da barra lateral
+        show_valuehunter_logo()
+        
+        st.markdown("---")
+        
+        # Mostrar informações do usuário se autenticado
+        if st.session_state.authenticated and st.session_state.email:
+            # Obter dados do usuário
+            user_data = st.session_state.user_manager.get_user_data(st.session_state.email)
+            if user_data:
+                credits = user_data.get("credits", 0)
+                st.markdown(f"### Olá, {st.session_state.email.split('@')[0]}!")
+                st.markdown(f"**Créditos Restantes:** {credits}")
+                
+                # Barra de progresso para créditos
+                progress = min(credits / 100, 1.0)  # Máximo de 100 créditos para a barra
+                st.progress(progress)
+                
+                st.markdown("---")
+            
+            # Botões de navegação
+            if st.button("Ver Pacotes de Créditos", key="sidebar_credits"):
+                st.session_state.page = "packages"
+                st.experimental_rerun()
+                
+            if st.button("Dashboard", key="sidebar_dashboard"):
+                st.session_state.page = "dashboard"
+                st.experimental_rerun()
+                
+            if st.button("Sair", key="sidebar_logout"):
+                st.session_state.authenticated = False
+                st.session_state.email = None
+                st.session_state.page = "landing"
+                st.experimental_rerun()
+        else:
+            # Opções para usuários não autenticados
+            if st.button("Início", key="sidebar_home"):
+                st.session_state.page = "landing"
+                st.experimental_rerun()
+                
+            if st.button("Entrar", key="sidebar_login"):
+                st.session_state.page = "login"
+                st.experimental_rerun()
+                
+            if st.button("Registrar", key="sidebar_register"):
+                st.session_state.page = "register"
+                st.experimental_rerun()
 
 # Função para aplicar tema escuro
 def apply_dark_theme():
-    """Aplica tema escuro consistente em toda a aplicação"""
+    """Aplica o tema escuro à aplicação"""
     st.markdown("""
     <style>
-    /* Tema escuro */
+    /* Tema escuro para toda a aplicação */
     body {
-        color: #f0f0f0;
+        color: white;
         background-color: #121212;
     }
     
+    /* Cores para elementos específicos */
     .stApp {
         background-color: #121212;
     }
     
-    .stSidebar {
-        background-color: #1e1e1e;
-    }
-    
-    .stButton>button {
-        background-color: #3F3F45;
+    /* Estilo para botões */
+    div.stButton > button {
+        background-color: #fd7014;
         color: white;
         border: none;
-        border-radius: 4px;
         padding: 0.5rem 1rem;
+        border-radius: 0.3rem;
         font-weight: 500;
     }
     
-    .stButton>button:hover {
-        background-color: #4f4f55;
+    div.stButton > button:hover {
+        background-color: #ff8c3a;
     }
     
-    .stTextInput>div>div>input {
+    /* Estilo para texto */
+    h1, h2, h3, h4, h5, h6, p, li {
+        color: white;
+    }
+    
+    /* Estilo para links */
+    a {
+        color: #fd7014;
+    }
+    
+    a:hover {
+        color: #ff8c3a;
+    }
+    
+    /* Estilo para inputs */
+    input, textarea, select {
         background-color: #2d2d2d;
         color: white;
         border: 1px solid #3F3F45;
     }
     
-    .stSelectbox>div>div>select {
-        background-color: #2d2d2d;
-        color: white;
-        border: 1px solid #3F3F45;
-    }
-    
-    .stDataFrame {
-        background-color: #2d2d2d;
-        color: white;
-    }
-    
-    /* Cores de destaque */
-    .highlight {
-        color: #FF5733;
-        font-weight: bold;
-    }
-    
-    .success {
-        color: #4CAF50;
-    }
-    
-    .warning {
-        color: #FFC107;
-    }
-    
-    .error {
-        color: #F44336;
-    }
-    
-    /* Estilo de cartões */
-    .card {
+    /* Estilo para widgets */
+    .stSlider, .stCheckbox, .stRadio, .stSelectbox, .stTextInput, .stTextArea {
         background-color: #1e1e1e;
-        border-radius: 8px;
         padding: 1rem;
-        margin-bottom: 1rem;
-        border: 1px solid #3F3F45;
+        border-radius: 0.3rem;
     }
     
-    /* Estilo de tabelas */
-    table {
-        width: 100%;
-        border-collapse: collapse;
+    /* Remover elementos de UI do Streamlit */
+    #MainMenu, footer, header {
+        visibility: hidden;
     }
     
-    th {
-        background-color: #3F3F45;
-        color: white;
-        text-align: left;
-        padding: 8px;
+    /* Estilo para a barra lateral */
+    [data-testid="stSidebar"] {
+        background-color: #1e1e1e;
+        border-right: 1px solid #3F3F45;
     }
     
-    td {
-        border-bottom: 1px solid #3F3F45;
-        padding: 8px;
-    }
-    
-    tr:hover {
-        background-color: #2d2d2d;
+    /* Estilo para o logo */
+    .logo-container {
+        margin-bottom: 2rem;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# Função para mostrar barra lateral
-def show_sidebar():
-    """Exibe a barra lateral com opções de navegação e configuração"""
-    with st.sidebar:
-        st.title("ValueHunter")
-        
-        # Informações do usuário
-        if st.session_state.logged_in and st.session_state.user:
-            st.subheader(f"Olá, {st.session_state.user.get('name', 'usuário')}!")
-            
-            # Estatísticas de uso
-            user_manager = UserManager()
-            stats = user_manager.get_usage_stats(st.session_state.user['email'])
-            
-            st.write(f"Estatísticas de Uso")
-            
-            # Créditos
-            credits_col1, credits_col2 = st.columns(2)
-            with credits_col1:
-                st.write("Créditos Restantes:")
-            with credits_col2:
-                st.write(f"{stats.get('credits_remaining', 0)}")
-            
-            # Tier
-            tier_col1, tier_col2 = st.columns(2)
-            with tier_col1:
-                st.write("Plano:")
-            with tier_col2:
-                tier_name = stats.get('tier', 'free')
-                if tier_name == 'free':
-                    tier_display = "Gratuito"
-                elif tier_name == 'standard':
-                    tier_display = "Standard"
-                elif tier_name == 'pro':
-                    tier_display = "Pro"
-                else:
-                    tier_display = tier_name.capitalize()
-                st.write(f"{tier_display}")
-            
-            # Análises realizadas
-            analyses_col1, analyses_col2 = st.columns(2)
-            with analyses_col1:
-                st.write("Análises realizadas:")
-            with analyses_col2:
-                st.write(f"{stats.get('analyses_count', 0)}")
-            
-            # Renovação de créditos (apenas para tier gratuito)
-            if tier_name == 'free':
-                if stats.get('free_credits_reset', False):
-                    st.success("Créditos renovados!")
-                elif 'next_free_credits_time' in stats:
-                    st.info(f"Próxima renovação em: {stats['next_free_credits_time']}")
-            
-            # Aviso de downgrade (apenas para tiers pagos sem créditos)
-            if tier_name in ['standard', 'pro'] and stats.get('credits_remaining', 0) == 0:
-                days_until_downgrade = stats.get('days_until_downgrade')
-                if days_until_downgrade is not None and days_until_downgrade > 0:
-                    st.warning(f"Seu plano será rebaixado em {days_until_downgrade} dias se não adquirir mais créditos.")
-            
-            # Botões de navegação
-            if st.button("Dashboard"):
-                st.session_state.page = "dashboard"
-                st.experimental_rerun()
-            
-            if st.button("Ver Pacotes de Créditos"):
-                st.session_state.page = "credits"
-                st.experimental_rerun()
-            
-            if st.button("Sair"):
-                st.session_state.logged_in = False
-                st.session_state.user = None
-                st.session_state.page = "landing"
-                st.experimental_rerun()
-        else:
-            # Opções para usuários não logados
-            if st.button("Início"):
-                st.session_state.page = "landing"
-                st.experimental_rerun()
-            
-            if st.button("Entrar"):
-                st.session_state.page = "login"
-                st.experimental_rerun()
-            
-            if st.button("Registrar"):
-                st.session_state.page = "register"
-                st.experimental_rerun()
-        
-        # Modo de debug (apenas visível se ativado)
-        if st.session_state.debug_mode:
-            st.sidebar.subheader("Modo de Debug")
-            
-            # Estado da sessão
-            if st.sidebar.checkbox("Mostrar estado da sessão"):
-                st.sidebar.json(st.session_state)
-            
-            # Variáveis de ambiente
-            if st.sidebar.checkbox("Mostrar variáveis de ambiente"):
-                env_vars = {k: v for k, v in os.environ.items() if not k.startswith('AWS_') and not k.startswith('RENDER_')}
-                st.sidebar.json(env_vars)
-            
-            # Diretório de dados
-            if st.sidebar.checkbox("Mostrar diretório de dados"):
-                st.sidebar.text(f"DATA_DIR: {DATA_DIR}")
-                if os.path.exists(DATA_DIR):
-                    files = os.listdir(DATA_DIR)
-                    st.sidebar.text(f"Arquivos: {len(files)}")
-                    for f in files[:10]:  # Mostrar apenas os primeiros 10
-                        st.sidebar.text(f"- {f}")
-                    if len(files) > 10:
-                        st.sidebar.text(f"... e mais {len(files) - 10} arquivos")
-                else:
-                    st.sidebar.warning(f"Diretório não existe: {DATA_DIR}")
-            
-            # Logs
-            if st.sidebar.checkbox("Mostrar logs recentes"):
-                st.sidebar.subheader("Logs Recentes")
-                try:
-                    log_file = "valueHunter.log"
-                    if os.path.exists(log_file):
-                        with open(log_file, "r") as f:
-                            logs = f.readlines()[-20:]  # Últimas 20 linhas
-                        for log in logs:
-                            st.sidebar.text(log.strip())
-                    else:
-                        st.sidebar.warning("Arquivo de log não encontrado")
-                except Exception as e:
-                    st.sidebar.error(f"Erro ao ler logs: {str(e)}")
-            
-            # Ativar dados de exemplo
-            st.session_state.use_sample_data = st.sidebar.checkbox(
-                "Usar dados de exemplo", 
-                value=st.session_state.get("use_sample_data", True)
-            )
-            
-            # Permitir forçar reload do cache
-            if st.sidebar.button("Limpar cache"):
-                import glob
-                cache_files = glob.glob(os.path.join(DATA_DIR, "cache_*.html"))
-                for f in cache_files:
-                    try:
-                        os.remove(f)
-                        st.sidebar.success(f"Removido: {os.path.basename(f)}")
-                    except Exception as e:
-                        st.sidebar.error(f"Erro ao remover {f}: {str(e)}")
-        else:
-            st.session_state.debug_mode = False
+# Função para mostrar a página de landing
+def show_landing_page():
+    """Exibe a página inicial (landing page)"""
+    from pages.landing import show_landing
+    show_landing()
+
+# Função para mostrar a página de login
+def show_login():
+    """Exibe a página de login"""
+    from pages.auth import show_login_page
+    show_login_page()
+
+# Função para mostrar a página de registro
+def show_register():
+    """Exibe a página de registro"""
+    from pages.auth import show_register_page
+    show_register_page()
+
+# Função para mostrar a página de redefinição de senha
+def show_password_reset():
+    """Exibe a página de redefinição de senha"""
+    from pages.auth import show_password_reset_page
+    show_password_reset_page()
+
+# Função para mostrar a página de pacotes de créditos
+def show_packages():
+    """Exibe a página de pacotes de créditos"""
+    from pages.packages import show_packages_page
+    show_packages_page()
 
 # Função principal
 def main():
-    """Função principal que controla o fluxo do aplicativo"""
+    """Função principal da aplicação"""
+    # Inserir favicon
+    insert_favicon()
+    
+    # Verificar autenticação
+    check_authentication()
+    
     try:
         # Aplicar tema escuro consistente
         apply_dark_theme()
@@ -572,8 +449,7 @@ def main():
         
         // Executar periodicamente para garantir
         setInterval(fixLayout, 100);
-        </script>
-        """)
+        
         // Função que remove ativamente espaços em branco
         function removeSpaces() {
             // Forçar reset de todos os elementos que possam causar espaço
@@ -649,92 +525,10 @@ def main():
             if st.session_state.logged_in:
                 show_main_dashboard()
             else:
-                st.warning("Você precisa estar logado para acessar o dashboard.")
-                st.session_state.page = "login"
-                st.experimental_rerun()
-        elif st.session_state.page == "credits":
-            if st.session_state.logged_in:
-                # Implementar página de créditos
-                st.title("Pacotes de Créditos")
-                st.write("Escolha um pacote de créditos para continuar suas análises.")
-                
-                # Exibir pacotes disponíveis
-                col1, col2, col3 = st.columns(3)
-                
-                with col1:
-                    st.subheader("Pacote Standard")
-                    st.write("30 créditos")
-                    st.write("R$ 29,90")
-                    if st.button("Comprar Standard"):
-                        st.session_state.selected_package = "standard"
-                        st.session_state.page = "checkout"
-                        st.experimental_rerun()
-                
-                with col2:
-                    st.subheader("Pacote Pro")
-                    st.write("60 créditos")
-                    st.write("R$ 49,90")
-                    if st.button("Comprar Pro"):
-                        st.session_state.selected_package = "pro"
-                        st.session_state.page = "checkout"
-                        st.experimental_rerun()
-                
-                with col3:
-                    st.subheader("Pacote Premium")
-                    st.write("100 créditos")
-                    st.write("R$ 79,90")
-                    if st.button("Comprar Premium"):
-                        st.session_state.selected_package = "premium"
-                        st.session_state.page = "checkout"
-                        st.experimental_rerun()
-            else:
-                st.warning("Você precisa estar logado para comprar créditos.")
-                st.session_state.page = "login"
-                st.experimental_rerun()
-        elif st.session_state.page == "checkout":
-            if st.session_state.logged_in:
-                # Implementar página de checkout
-                st.title("Checkout")
-                st.write(f"Você selecionou o pacote {st.session_state.get('selected_package', 'Standard')}.")
-                
-                # Formulário de pagamento
-                st.subheader("Informações de Pagamento")
-                st.write("Esta é uma demonstração. Nenhum pagamento real será processado.")
-                
-                # Simular processamento de pagamento
-                if st.button("Finalizar Compra"):
-                    # Adicionar créditos ao usuário
-                    user_manager = UserManager()
-                    
-                    if st.session_state.selected_package == "standard":
-                        credits = 30
-                        tier = "standard"
-                    elif st.session_state.selected_package == "pro":
-                        credits = 60
-                        tier = "pro"
-                    elif st.session_state.selected_package == "premium":
-                        credits = 100
-                        tier = "pro"
-                    else:
-                        credits = 30
-                        tier = "standard"
-                    
-                    success = user_manager.add_credits(
-                        st.session_state.user['email'],
-                        credits,
-                        tier
-                    )
-                    
-                    if success:
-                        st.success(f"{credits} créditos adicionados com sucesso!")
-                        st.session_state.page = "dashboard"
-                        st.experimental_rerun()
-                    else:
-                        st.error("Erro ao adicionar créditos. Tente novamente.")
-            else:
-                st.warning("Você precisa estar logado para finalizar a compra.")
-                st.session_state.page = "login"
-                st.experimental_rerun()
+                from pages.dashboard import show_main_dashboard
+                show_main_dashboard()
+        elif st.session_state.page == "packages":
+            show_packages()
         else:
             # Página não encontrada, redirecionar para landing
             st.session_state.page = "landing"
@@ -742,16 +536,12 @@ def main():
     
     except Exception as e:
         st.error(f"Erro na aplicação: {str(e)}")
-        logger.exception("Erro não tratado na aplicação")
-        
-        # Mostrar detalhes do erro apenas no modo de debug
-        if st.session_state.debug_mode:
-            st.exception(e)
+        logger.error(f"Erro na aplicação: {str(e)}", exc_info=True)
 
 # Ativar modo de debug com query parameter
 if "debug" in st.query_params:
     st.session_state.debug_mode = True
 
-# Executar aplicação
+# Executar a aplicação
 if __name__ == "__main__":
     main()
