@@ -330,43 +330,114 @@ def main():
         # Aplicar tema escuro consistente
         apply_dark_theme()
                 
-        # CORREÇÃO BALANCEADA DO ESPAÇO EM BRANCO E RETÂNGULO BRANCO - Aplicar imediatamente
+        # CORREÇÃO ULTRA ESPECÍFICA PARA RETÂNGULO BRANCO E ESPAÇAMENTO
         st.markdown("""
         <style>
-        /* SOLUÇÃO BALANCEADA PARA ESPAÇO EM BRANCO E FUNDO ESCURO */
-        /* Reset de espaçamentos apenas nos elementos de container */
-        body, html, .stApp, .main, .main .block-container {
+        /* SOLUÇÃO ULTRA ESPECÍFICA PARA RETÂNGULO BRANCO E FUNDO ESCURO */
+        /* Forçar fundo escuro em todos os elementos principais */
+        body, html, .stApp, .main, .main .block-container, 
+        .stApp > header, .stApp > div:first-child,
+        .stApp > div > div, .stApp > div > div > div,
+        .stApp > div > div > div > div, .stApp > div > div > div > div > div,
+        .stApp > div > div > div > div > div > div,
+        .stApp > div > div > div > div > div > div > div,
+        .stApp > div > div > div > div > div > div > div > div,
+        .stApp > div > div > div > div > div > div > div > div > div,
+        .stApp > div > div > div > div > div > div > div > div > div > div,
+        .stApp > div > div > div > div > div > div > div > div > div > div > div,
+        .stApp > div > div > div > div > div > div > div > div > div > div > div > div,
+        .stApp > div > div > div > div > div > div > div > div > div > div > div > div > div,
+        .stApp > div > div > div > div > div > div > div > div > div > div > div > div > div > div,
+        .stApp > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div,
+        .stApp > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div,
+        .stApp > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div,
+        .stApp > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div,
+        .stApp > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div,
+        .stApp > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div,
+        .stApp > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div,
+        .stApp > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div,
+        .stApp > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div,
+        .stApp > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div,
+        .stApp > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div,
+        .stApp > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div,
+        .stApp > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div,
+        .stApp > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div,
+        .stApp > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div,
+        .stApp > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div,
+        .stApp > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div > div {
+            background-color: #121212 !important;
             margin-top: 0 !important;
             padding-top: 0 !important;
             gap: 0 !important;
-            background-color: #121212 !important;
         }
         
         /* Remover completamente o cabeçalho */
-        header[data-testid="stHeader"] {
+        header[data-testid="stHeader"],
+        [data-testid="stHeader"] {
             display: none !important;
             height: 0 !important;
             visibility: hidden !important;
+            opacity: 0 !important;
+            position: absolute !important;
+            top: -9999px !important;
+            left: -9999px !important;
         }
         
-        /* Remover apenas o retângulo branco no topo */
+        /* Remover TODOS os elementos que podem causar o retângulo branco */
         div[data-testid="stDecoration"], 
         div[data-testid="stToolbar"], 
         div[data-testid="stStatusWidget"],
-        iframe.stDeployButton {
+        iframe.stDeployButton,
+        .stDeployButton,
+        [data-testid="stDecoration"],
+        [data-testid="stToolbar"],
+        [data-testid="stStatusWidget"],
+        .stStatusWidget,
+        .stToolbar,
+        .stDecoration,
+        .stHeader,
+        .stApp > header,
+        .stApp > div:first-child > div:first-child,
+        .stApp > div:first-child > div:first-child > div:first-child,
+        .stApp > div:first-child > div:first-child > div:first-child > div:first-child,
+        .stApp > div:first-child > div:first-child > div:first-child > div:first-child > div:first-child {
             display: none !important;
             height: 0 !important;
+            max-height: 0 !important;
+            min-height: 0 !important;
             visibility: hidden !important;
+            opacity: 0 !important;
+            position: absolute !important;
+            top: -9999px !important;
+            left: -9999px !important;
+            z-index: -9999 !important;
+            pointer-events: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            outline: none !important;
         }
         
         /* Forçar primeiro elemento a começar no topo absoluto */
-        .main .block-container > div:first-child {
+        .main .block-container > div:first-child,
+        .main > div:first-child,
+        .stApp > div:first-child,
+        .stApp > div > div:first-child,
+        .stApp > div > div > div:first-child,
+        .stApp > div > div > div > div:first-child,
+        .stApp > div > div > div > div > div:first-child,
+        .stApp > div > div > div > div > div > div:first-child {
             margin-top: 0 !important;
             padding-top: 0 !important;
+            top: 0 !important;
         }
         
         /* Corrigir altura do container principal */
-        .main .block-container {
+        .main .block-container,
+        .main > div,
+        .stApp > div,
+        .stApp > div > div,
+        .stApp > div > div > div {
             max-width: 100% !important; 
             padding-top: 0 !important;
             margin-top: 0 !important;
@@ -393,9 +464,17 @@ def main():
         }
         
         /* Garantir que o texto dentro dos botões não tenha fundo preto */
-        .stButton>button span {
+        .stButton>button span,
+        .stButton>button p,
+        .stButton>button div,
+        .stButton button *,
+        button span,
+        button p,
+        button div,
+        button * {
             background-color: transparent !important;
             color: white !important;
+            background: transparent !important;
         }
         
         /* Estilizar campos de entrada */
@@ -412,7 +491,8 @@ def main():
         
         /* Esconder a barra lateral nas páginas de login e registro */
         .login-page [data-testid="stSidebar"],
-        .register-page [data-testid="stSidebar"] {
+        .register-page [data-testid="stSidebar"],
+        [data-testid="stSidebar"] {
             display: none !important;
             width: 0 !important;
             height: 0 !important;
@@ -423,9 +503,77 @@ def main():
         </style>
         """, unsafe_allow_html=True)
         
-        # Adicionar um JavaScript que reforça a remoção de espaços
+        # Adicionar um JavaScript que reforça a remoção de espaços e retângulo branco
         st.components.v1.html("""
         <script>
+        // Função para remover elementos indesejados e aplicar estilos
+        function fixLayout() {
+            // Remover retângulo branco e outros elementos indesejados
+            const elementsToRemove = [
+                'header[data-testid="stHeader"]',
+                'div[data-testid="stDecoration"]',
+                'div[data-testid="stToolbar"]',
+                'div[data-testid="stStatusWidget"]',
+                'iframe.stDeployButton',
+                '.stDeployButton',
+                '.stDecoration',
+                '.stToolbar',
+                '.stStatusWidget',
+                '.stHeader'
+            ];
+            
+            elementsToRemove.forEach(selector => {
+                const elements = document.querySelectorAll(selector);
+                elements.forEach(el => {
+                    if (el) {
+                        el.style.display = 'none';
+                        el.style.height = '0';
+                        el.style.visibility = 'hidden';
+                        el.style.opacity = '0';
+                        el.style.position = 'absolute';
+                        el.style.top = '-9999px';
+                        el.style.left = '-9999px';
+                    }
+                });
+            });
+            
+            // Aplicar fundo escuro a todos os elementos
+            document.body.style.backgroundColor = '#121212';
+            document.documentElement.style.backgroundColor = '#121212';
+            
+            // Encontrar e remover qualquer elemento branco no topo
+            const allElements = document.querySelectorAll('*');
+            allElements.forEach(el => {
+                const style = window.getComputedStyle(el);
+                if (style.backgroundColor === 'rgb(255, 255, 255)' || 
+                    style.backgroundColor === '#ffffff' || 
+                    style.backgroundColor === 'white') {
+                    el.style.backgroundColor = '#121212';
+                }
+                
+                // Remover margens e paddings do topo
+                el.style.marginTop = '0';
+                el.style.paddingTop = '0';
+            });
+            
+            // Corrigir texto nos botões
+            const buttonTexts = document.querySelectorAll('button *, .stButton button *');
+            buttonTexts.forEach(el => {
+                el.style.backgroundColor = 'transparent';
+                el.style.background = 'transparent';
+            });
+        }
+        
+        // Executar imediatamente
+        fixLayout();
+        
+        // Executar após carregamento completo
+        window.addEventListener('load', fixLayout);
+        
+        // Executar periodicamente para garantir
+        setInterval(fixLayout, 100);
+        </script>
+        """)
         // Função que remove ativamente espaços em branco
         function removeSpaces() {
             // Forçar reset de todos os elementos que possam causar espaço
