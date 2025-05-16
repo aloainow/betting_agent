@@ -2,7 +2,7 @@
 import streamlit as st
 import logging
 from utils.core import (
-    show_valuehunter_logo, update_purchase_button, check_payment_success 
+    show_valuehunter_logo, update_purchase_button, check_payment_success
 )
 # Configuração de logging
 logger = logging.getLogger("valueHunter.packages")
@@ -10,11 +10,6 @@ logger = logging.getLogger("valueHunter.packages")
 def show_packages_page():
     """Display credit purchase page with improved session handling"""
     try:
-        # Aplicar tema escuro
-        apply_dark_theme()
-        # Aplicar estilos personalizados
-        apply_custom_styles()
-
         # Esconder a barra lateral e aplicar estilos simplificados
         st.markdown("""
         <style>
