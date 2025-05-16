@@ -427,943 +427,154 @@ def get_stripe_cancel_url():
     full_url = f"{base_url}/?{cancel_params}"
     return full_url
 
-def redirect_to_stripe(checkout_url):
-    """Abre um popup para o checkout do Stripe"""
-    # JavaScript para abrir o Stripe em um popup
-    js_popup = f"""
-    <script>
-        // Abrir popup do Stripe centralizado
-        var windowWidth = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
-        var windowHeight = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
-        
-        var popupWidth = 600;
-        var popupHeight = 700;
-        
-        var left = (windowWidth - popupWidth) / 2;
-        var top = (windowHeight - popupHeight) / 2;
-        
-        // Abrir popup centralizado com nome único para evitar múltiplas janelas
-        var stripePopup = window.open(
-            '{checkout_url}', 
-            'stripe_checkout',
-            `width=${{popupWidth}},height=${{popupHeight}},left=${{left}},top=${{top}},location=yes,toolbar=yes,scrollbars=yes`
-        );
-        
-        // Verificar se o popup foi bloqueado
-        if (!stripePopup || stripePopup.closed || typeof stripePopup.closed == 'undefined') {{
-            // Popup foi bloqueado
-            document.getElementById('popup-blocked').style.display = 'block';
-        }} else {{
-            // Popup foi aberto com sucesso
-            document.getElementById('popup-success').style.display = 'block';
-        }}
-    </script>
+class UserManager:
+    """Gerencia usuários e autenticação"""
     
-    <div id="popup-blocked" style="display:none; padding: 15px; background-color: #ffcccc; border-radius: 5px; margin: 15px 0;">
-        <h3>⚠️ Popup bloqueado!</h3>
-        <p>Seu navegador bloqueou o popup de pagamento. Por favor:</p>
-        <ol>
-            <li>Clique no ícone de bloqueio de popup na barra de endereço</li>
-            <li>Selecione "Sempre permitir popups de [seu site]"</li>
-            <li>Clique no botão abaixo para tentar novamente</li>
-        </ol>
-        <a href="{checkout_url}" target="_blank" style="display: inline-block; padding: 10px 15px; background-color: #fd7014; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">
-            Abrir página de pagamento
-        </a>
-    </div>
+    def __init__(self):
+        """Inicializa o gerenciador de usuários"""
+        self.users_file = os.path.join(DATA_DIR, "users.json")
+        self._ensure_users_file()
     
-    <div id="popup-success" style="display:none; padding: 15px; background-color: #e6ffe6; border-radius: 5px; margin: 15px 0;">
-        <h3>✅ Janela de pagamento aberta!</h3>
-        <p>Uma nova janela foi aberta para você concluir seu pagamento.</p>
-        <p>Após completar o pagamento, a janela será fechada automaticamente e seus créditos serão adicionados.</p>
-        <p>Para ver seus créditos, clique no botão "Voltar para análises" após concluir o pagamento.</p>
-    </div>
-    """
+    def _ensure_users_file(self):
+        """Garante que o arquivo de usuários existe"""
+        os.makedirs(os.path.dirname(self.users_file), exist_ok=True)
+        if not os.path.exists(self.users_file):
+            with open(self.users_file, "w") as f:
+                json.dump([], f)
     
-    # Exibir o JavaScript
-    st.components.v1.html(js_popup, height=350)
-
-def create_stripe_checkout_session(email, credits, amount):
-    """Cria uma sessão de checkout do Stripe com manejo simplificado"""
-    try:
-        # Initialize Stripe
-        init_stripe()
+    def register_user(self, email, password, name=""):
+        """Registra um novo usuário"""
+        users = self._load_users()
         
-        # Convert amount to cents
-        amount_cents = int(float(amount) * 100)
+        # Verificar se o email já existe
+        if any(user["email"] == email for user in users):
+            return False, "Email já cadastrado"
         
-        # Create product description
-        product_description = f"{credits} Créditos para ValueHunter"
+        # Criar novo usuário
+        new_user = {
+            "email": email,
+            "password": self._hash_password(password),
+            "name": name,
+            "created_at": datetime.now().isoformat(),
+            "credits": 10,  # Créditos iniciais
+            "is_admin": False
+        }
         
-        # Create success URL
-        success_url = get_stripe_success_url(credits, email)
-        cancel_url = get_stripe_cancel_url()
+        users.append(new_user)
+        self._save_users(users)
+        return True, "Usuário registrado com sucesso"
+    
+    def verify_login(self, email, password):
+        """Verifica as credenciais de login"""
+        users = self._load_users()
         
-        logger.info(f"Criando sessão de checkout para {email}: {credits} créditos, R${amount}")
-        logger.info(f"Success URL: {success_url}")
-        logger.info(f"Cancel URL: {cancel_url}")
+        for user in users:
+            if user["email"] == email and self._verify_password(password, user["password"]):
+                return True
         
-        # Create checkout session
-        checkout_session = stripe.checkout.Session.create(
-            payment_method_types=['card'],
-            line_items=[{
-                'price_data': {
-                    'currency': 'brl',
-                    'product_data': {
-                        'name': f'ValueHunter - {credits} Créditos',
-                        'description': product_description,
-                    },
-                    'unit_amount': amount_cents,
-                },
-                'quantity': 1,
-            }],
-            mode='payment',
-            customer_email=email,
-            success_url=success_url,
-            cancel_url=cancel_url,
-            metadata={
-                'email': email,
-                'credits': str(credits)
-            }
-        )
+        return False
+    
+    def get_user_data(self, email):
+        """Retorna os dados do usuário pelo email"""
+        users = self._load_users()
         
-        # Armazenar o ID da sessão
-        st.session_state.last_stripe_session_id = checkout_session.id
-        logger.info(f"Sessão de checkout do Stripe criada com sucesso: {checkout_session.id}")
+        for user in users:
+            if user["email"] == email:
+                # Criar uma cópia sem a senha
+                user_data = user.copy()
+                if "password" in user_data:
+                    del user_data["password"]
+                return user_data
         
-        return checkout_session
-    except Exception as e:
-        logger.error(f"Erro ao criar sessão de pagamento: {str(e)}")
-        st.error(f"Erro ao criar sessão de pagamento: {str(e)}")
         return None
-
-def verify_stripe_payment(session_id):
-    """
-    Versão aprimorada e mais tolerante da verificação de pagamento.
-    Em ambiente de teste, SEMPRE considera o pagamento válido.
-    """
-    try:
-        logger.info(f"Verificando sessão de pagamento: {session_id}")
-        
-        # IMPORTANTE: Em ambiente de teste, considerar QUALQUER pagamento válido
-        if st.session_state.stripe_test_mode:
-            try:
-                # Tentar obter dados reais, mas não falhar se não conseguir
-                if session_id and session_id.startswith('cs_'):
-                    try:
-                        session = stripe.checkout.Session.retrieve(session_id)
-                        credits = int(session.metadata.get('credits', 0))
-                        email = session.metadata.get('email', '')
-                        logger.info(f"TESTE: Sessão válida para {email}: {credits} créditos")
-                        return True, credits, email
-                    except:
-                        # Se falhar, pegar dados da URL (fallback)
-                        credits = st.query_params.get('credits', 0)
-                        email = st.query_params.get('email', '')
-                        credits = int(credits) if isinstance(credits, str) else credits
-                        logger.info(f"TESTE FALLBACK: Usando dados da URL: {email}, {credits} créditos")
-                        return True, credits, email
-            except Exception as e:
-                # Sempre retornar verdadeiro em ambiente de teste, com valores de fallback
-                logger.warning(f"Erro em ambiente de teste, usando fallback: {str(e)}")
-                credits = st.query_params.get('credits', 30)  # Valor padrão se tudo falhar
-                email = st.query_params.get('email', '')
-                credits = int(credits) if isinstance(credits, str) else credits
-                return True, credits, email
-
-        # Em ambiente de produção, verificar o status do pagamento
-        if session_id and session_id.startswith('cs_'):
-            try:
-                session = stripe.checkout.Session.retrieve(session_id)
-                
-                # Extrair informações mesmo que o pagamento não esteja completo
-                credits = int(session.metadata.get('credits', 0))
-                email = session.metadata.get('email', '')
-                
-                # Verificar status de pagamento
-                if session.payment_status == 'paid':
-                    logger.info(f"PRODUÇÃO: Pagamento verificado com sucesso: {session_id}")
-                    return True, credits, email
-                else:
-                    logger.warning(f"PRODUÇÃO: Pagamento não concluído: {session_id}, status: {session.payment_status}")
-                    # Retornar os dados, mas indicando que o pagamento não está confirmado
-                    return False, credits, email
-            except Exception as e:
-                logger.error(f"Erro ao verificar sessão do Stripe: {str(e)}")
-                # Em caso de erro, tentar obter informações da URL
-                credits = st.query_params.get('credits', 0) 
-                email = st.query_params.get('email', '')
-                credits = int(credits) if isinstance(credits, str) else credits
-                return False, credits, email
-        
-        # Se não há ID de sessão ou não começa com cs_
-        logger.warning(f"ID de sessão inválido: {session_id}")
-        credits = st.query_params.get('credits', 0)
-        email = st.query_params.get('email', '')
-        credits = int(credits) if isinstance(credits, str) else credits
-        return False, credits, email
-        
-    except Exception as e:
-        logger.error(f"Erro crítico ao verificar pagamento: {str(e)}")
-        # Último recurso - tentar obter da URL
-        credits = st.query_params.get('credits', 0)
-        email = st.query_params.get('email', '')
-        credits = int(credits) if isinstance(credits, str) else credits
-        return False, credits, email
-
-def update_purchase_button(credits, amount):
-    """Função comum para processar a compra de créditos"""
-    logger.info(f"Botão de {credits} créditos clicado")
     
-    # Criar checkout e redirecionar
-    checkout_session = create_stripe_checkout_session(
-        st.session_state.email, 
-        credits, 
-        amount
-    )
-    
-    if checkout_session:
-        logger.info(f"Checkout session criada: {checkout_session.id}")
-        redirect_to_stripe(checkout_session.url)
-        return True
+    def update_user(self, email, data):
+        """Atualiza os dados de um usuário"""
+        users = self._load_users()
         
-    return False
-
-def check_payment_success():
-    """
-    Verifica se estamos em uma página especial de sucesso/cancelamento
-    ou se estamos verificando parâmetros na página principal.
-    """
-    # Verificar se estamos na página de sucesso do popup
-    if 'success_page' in st.query_params and st.query_params.success_page == 'true':
-        return handle_success_page()
-        
-    # Verificar se estamos na página de cancelamento do popup
-    if 'cancel_page' in st.query_params and st.query_params.cancel_page == 'true':
-        return handle_cancel_page()
-        
-    return False
-
-def handle_success_page():
-    """
-    Função aprimorada que garante a adição de créditos,
-    mesmo em caso de erros.
-    """
-    try:
-        # Obter parâmetros da URL
-        credits_param = st.query_params.get('credits', '0')
-        email_param = st.query_params.get('email', '')
-        session_id = st.query_params.get('session_id', '')
-        
-        # Converter créditos para número
-        try:
-            credits_value = int(credits_param)
-        except:
-            credits_value = 0
-            
-        # Log detalhado
-        logger.info(f"Processando página de sucesso: email={email_param}, credits={credits_value}, session_id={session_id}")
-        
-        # Inicializar Stripe (garantir que temos acesso à API)
-        try:
-            init_stripe()
-        except Exception as e:
-            logger.error(f"Erro ao inicializar Stripe: {str(e)}")
-        
-        # Verificar pagamento de forma robusta
-        is_valid, verified_credits, verified_email = verify_stripe_payment(session_id)
-        
-        # Log detalhado após verificação
-        logger.info(f"Resultado da verificação: valid={is_valid}, credits={verified_credits}, email={verified_email}")
-        
-        # Variáveis para a mensagem
-        final_credits = verified_credits if verified_credits > 0 else credits_value
-        final_email = verified_email if verified_email else email_param
-        
-        # IMPORTANTE: Adicionar créditos SEMPRE, garantindo que não falhe
-        credits_added = False
-        
-        # Primeira tentativa: usar email verificado
-        if final_email and final_credits > 0:
-            try:
-                logger.info(f"Tentando adicionar {final_credits} créditos para {final_email}")
+        for i, user in enumerate(users):
+            if user["email"] == email:
+                # Atualizar apenas os campos permitidos
+                for key in data:
+                    if key != "email" and key != "password":  # Não permitir alterar email ou senha aqui
+                        users[i][key] = data[key]
                 
-                # Verificar se o usuário existe
-                if hasattr(st.session_state, 'user_manager') and final_email in st.session_state.user_manager.users:
-                    # Adicionar diretamente na estrutura de dados para garantir
-                    if "purchased_credits" not in st.session_state.user_manager.users[final_email]:
-                        st.session_state.user_manager.users[final_email]["purchased_credits"] = 0
-                    
-                    st.session_state.user_manager.users[final_email]["purchased_credits"] += final_credits
-                    
-                    # Limpar timestamp de esgotamento se existir
-                    if "paid_credits_exhausted_at" in st.session_state.user_manager.users[final_email]:
-                        st.session_state.user_manager.users[final_email]["paid_credits_exhausted_at"] = None
-                    
-                    # Salvar alterações
-                    st.session_state.user_manager._save_users()
-                    
-                    # Registrar sucesso
-                    logger.info(f"Créditos adicionados diretamente: {final_credits} para {final_email}")
-                    credits_added = True
-                else:
-                    # Tentar usar a função padrão
-                    if st.session_state.user_manager.add_credits(final_email, final_credits):
-                        logger.info(f"Créditos adicionados via função: {final_credits} para {final_email}")
-                        credits_added = True
-                    else:
-                        logger.warning(f"Falha ao adicionar créditos via função: {final_credits} para {final_email}")
-            except Exception as add_error:
-                logger.error(f"Erro ao adicionar créditos para {final_email}: {str(add_error)}")
+                self._save_users(users)
+                return True
         
-        # Log final
-        if credits_added:
-            logger.info(f"SUCESSO: {final_credits} créditos adicionados para {final_email}")
-        else:
-            logger.warning(f"FALHA: Não foi possível adicionar créditos para {final_email}")
-        
-        # HTML ultra-simples, apenas a mensagem
-        success_html = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Pagamento Aprovado</title>
-            <style>
-                body {{
-                    font-family: Arial, sans-serif;
-                    background-color: #3F3F45;
-                    color: white;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    height: 100vh;
-                    margin: 0;
-                    padding: 20px;
-                    box-sizing: border-box;
-                }}
-                .message-box {{
-                    background-color: #4CAF50;
-                    border-radius: 10px;
-                    padding: 30px;
-                    text-align: center;
-                    max-width: 500px;
-                    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-                }}
-                .logo {{
-                    background-color: #fd7014;
-                    padding: 10px 20px;
-                    border-radius: 8px;
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 12px;
-                    margin-bottom: 20px;
-                }}
-                .logo-text {{
-                    font-size: 1.7rem;
-                    font-weight: bold;
-                    color: white;
-                }}
-                h1 {{
-                    font-size: 1.8rem;
-                    margin: 15px 0;
-                }}
-                p {{
-                    font-size: 1.2rem;
-                    margin: 10px 0;
-                }}
-                .credits {{
-                    font-size: 2.5rem;
-                    font-weight: bold;
-                    color: #FFEB3B;
-                    margin: 15px 0;
-                }}
-                .status {{
-                    font-size: 1rem;
-                    color: rgba(255,255,255,0.8);
-                    margin-top: 20px;
-                    font-style: italic;
-                }}
-            </style>
-        </head>
-        <body>
-            <div class="message-box">
-                <div class="logo">
-                    <span class="logo-v">V</span>
-                    <span class="logo-text">ValueHunter</span>
-                </div>
-                <h1>✅ Pagamento Aprovado</h1>
-                <p>Seu pagamento foi processado com sucesso.</p>
-                <div class="credits">{final_credits} créditos</div>
-                <p>foram adicionados à sua conta.</p>
-                <p><strong>Feche esta janela para continuar.</strong></p>
-                <div class="status">{f"ID: {session_id[:8]}..." if session_id else "Processado com sucesso"}</div>
-            </div>
-        </body>
-        </html>
-        """
-        
-        # Renderizar APENAS o HTML
-        st.components.v1.html(success_html, height=400, scrolling=False)
-        
-        # Impedir a execução de qualquer outro código
-        st.stop()
-        
-        return True
-        
-    except Exception as e:
-        logger.error(f"Erro crítico na página de sucesso: {str(e)}")
-        
-        # Mensagem de erro ultra-simples
-        error_html = """
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Processando Pagamento</title>
-            <style>
-                body {
-                    font-family: Arial, sans-serif;
-                    background-color: #3F3F45;
-                    color: white;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    height: 100vh;
-                    margin: 0;
-                    padding: 20px;
-                    box-sizing: border-box;
-                }
-                .message-box {
-                    background-color: #2196F3;
-                    border-radius: 10px;
-                    padding: 30px;
-                    text-align: center;
-                    max-width: 500px;
-                    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-                }
-                .logo {
-                    background-color: #fd7014;
-                    padding: 10px 20px;
-                    border-radius: 8px;
-                    display: inline-flex;
-                    align-items: center;
-                    margin-bottom: 20px;
-                }
-                .logo-v {
-                    color: #3F3F45;
-                    font-size: 2rem;
-                    font-weight: bold;
-                }
-                .logo-text {
-                    font-size: 1.7rem;
-                    font-weight: bold;
-                    color: white;
-                }
-                h1 {
-                    font-size: 1.8rem;
-                    margin: 15px 0;
-                }
-                p {
-                    font-size: 1.2rem;
-                    margin: 10px 0;
-                }
-            </style>
-        </head>
-        <body>
-            <div class="message-box">
-                <div class="logo">
-                    <!-- SVG binoculars logo -->
-                    <svg style="width:40px; height:40px;" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M35 25C25.5 25 20 35 20 45C20 55 25.5 65 35 65C44.5 65 50 55 50 45C50 35 44.5 25 35 25Z" fill="white"/>
-                        <path d="M65 25C74.5 25 80 35 80 45C80 55 74.5 65 65 65C55.5 65 50 55 50 45C50 35 55.5 25 65 25Z" fill="white"/>
-                        <path d="M50 40V50M43 45L57 45M35 35C31.7 35 30 39 30 45C30 51 31.7 55 35 55C38.3 55 40 51 40 45C40 39 38.3 35 35 35ZM65 35C61.7 35 60 39 60 45C60 51 61.7 55 65 55C68.3 55 70 51 70 45C70 39 68.3 35 65 35Z" stroke="#3F3F45" stroke-width="3"/>
-                    </svg>
-                    <span class="logo-text">VALUEHUNTER</span>
-                </div>
-        </body>
-        </html>
-        """
-        
-        st.components.v1.html(error_html, height=400, scrolling=False)
-        st.stop()
         return False
-
-def handle_cancel_page():
-    """
-    Mostra APENAS uma mensagem estática de cancelamento, sem timer.
-    """
-    try:
-        # HTML ultra-simples
-        cancel_html = """
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Pagamento Não Aprovado</title>
-            <style>
-                body {
-                    font-family: Arial, sans-serif;
-                    background-color: #3F3F45;
-                    color: white;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    height: 100vh;
-                    margin: 0;
-                    padding: 20px;
-                    box-sizing: border-box;
-                }
-                .message-box {
-                    background-color: #FF9800;
-                    border-radius: 10px;
-                    padding: 30px;
-                    text-align: center;
-                    max-width: 500px;
-                    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-                }
-                .logo {
-                    background-color: #fd7014;
-                    padding: 10px 20px;
-                    border-radius: 8px;
-                    display: inline-flex;
-                    align-items: center;
-                    margin-bottom: 20px;
-                }
-                .logo-v {
-                    color: #3F3F45;
-                    font-size: 2rem;
-                    font-weight: bold;
-                }
-                .logo-text {
-                    font-size: 1.7rem;
-                    font-weight: bold;
-                    color: white;
-                }
-                h1 {
-                    font-size: 1.8rem;
-                    margin: 15px 0;
-                }
-                p {
-                    font-size: 1.2rem;
-                    margin: 10px 0;
-                }
-            </style>
-        </head>
-        <body>
-            <div class="message-box">
-                <div class="logo">
-                    <!-- SVG binoculars logo -->
-                    <svg style="width:40px; height:40px;" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M35 25C25.5 25 20 35 20 45C20 55 25.5 65 35 65C44.5 65 50 55 50 45C50 35 44.5 25 35 25Z" fill="white"/>
-                        <path d="M65 25C74.5 25 80 35 80 45C80 55 74.5 65 65 65C55.5 65 50 55 50 45C50 35 55.5 25 65 25Z" fill="white"/>
-                        <path d="M50 40V50M43 45L57 45M35 35C31.7 35 30 39 30 45C30 51 31.7 55 35 55C38.3 55 40 51 40 45C40 39 38.3 35 35 35ZM65 35C61.7 35 60 39 60 45C60 51 61.7 55 65 55C68.3 55 70 51 70 45C70 39 68.3 35 65 35Z" stroke="#3F3F45" stroke-width="3"/>
-                    </svg>
-                    <span class="logo-text">VALUEHUNTER</span>
-                </div>
-                <h1>⚠️ Pagamento Não Aprovado</h1>
-                <p>O pagamento não foi concluído.</p>
-                <p><strong>Feche esta janela e tente novamente.</strong></p>
-            </div>
-        </body>
-        </html>
-        """
-        
-        # Renderizar APENAS o HTML
-        st.components.v1.html(cancel_html, height=400, scrolling=False)
-        
-        # Parar a execução
-        st.stop()
-        
-        return True
-        
-    except Exception as e:
-        logger.error(f"Erro ao exibir página de cancelamento: {str(e)}")
-        return False
-
-def handle_stripe_errors():
-    if 'error' in st.query_params:
-        st.error("Erro no processamento do pagamento...")
-        st.query_params.clear()
-
-def apply_responsive_styles():
-    """Versão mínima da função - estilos básicos apenas"""
-    css = (
-        "<style>"
-        ".main .block-container {max-width: 1200px; margin: 0 auto;}"
-        "h1, h2, h3 {color: #fd7014;}"
-        "</style>"
-    )
     
-    st.markdown(css, unsafe_allow_html=True)
-# Adicione esta função à utils/core.py
-
-def apply_navigation_hiding(hide_sidebar_completely=False):
-    """Versão simplificada"""
-    css = (
-        "<style>"
-        "[data-testid='stSidebarNavItems'] {display: none !important;}"
-        "header[data-testid='stHeader'], footer, #MainMenu {display: none !important;}"
-        "</style>"
-    )
+    def change_password(self, email, current_password, new_password):
+        """Altera a senha de um usuário"""
+        if not self.verify_login(email, current_password):
+            return False, "Senha atual incorreta"
+        
+        users = self._load_users()
+        
+        for i, user in enumerate(users):
+            if user["email"] == email:
+                users[i]["password"] = self._hash_password(new_password)
+                self._save_users(users)
+                return True, "Senha alterada com sucesso"
+        
+        return False, "Usuário não encontrado"
     
-    st.markdown(css, unsafe_allow_html=True)
-
-def remove_loading_screen():
-    """Versão mínima da função - não faz nada"""
-    pass
-
-def apply_custom_styles():
-    """Aplica estilos CSS personalizados para layout e espaçamento consistentes"""
-    st.markdown("""
-    <style>
-    /* Reduzir drasticamente o espaçamento do cabeçalho */
-    .main .block-container {
-        padding-top: 0 !important;
-        margin-top: 0 !important;
-        padding-bottom: 1rem !important;
-    }
+    def add_credits(self, email, credits):
+        """Adiciona créditos a um usuário"""
+        users = self._load_users()
+        
+        for i, user in enumerate(users):
+            if user["email"] == email:
+                users[i]["credits"] = user.get("credits", 0) + credits
+                self._save_users(users)
+                return True, f"{credits} créditos adicionados com sucesso"
+        
+        return False, "Usuário não encontrado"
     
-    /* Ajustar a altura máxima do cabeçalho */
-    header[data-testid="stHeader"] {
-        height: 0px !important;
-        padding: 0 !important;
-        margin: 0 !important;
-        visibility: hidden !important;
-    }
+    def get_credits(self, email):
+        """Retorna o número de créditos de um usuário"""
+        users = self._load_users()
+        
+        for user in users:
+            if user["email"] == email:
+                return user.get("credits", 0)
+        
+        return 0
     
-    /* Aumentar significativamente as bordas laterais para desktop */
-    @media (min-width: 992px) {
-        .main .block-container {
-            max-width: 1200px !important;
-            padding-left: 10% !important;
-            padding-right: 10% !important;
-            margin-left: auto !important;
-            margin-right: auto !important;
-        }
-    }
+    def use_credits(self, email, credits=1):
+        """Usa créditos de um usuário"""
+        users = self._load_users()
+        
+        for i, user in enumerate(users):
+            if user["email"] == email:
+                current_credits = user.get("credits", 0)
+                if current_credits < credits:
+                    return False, "Créditos insuficientes"
+                
+                users[i]["credits"] = current_credits - credits
+                self._save_users(users)
+                return True, f"{credits} créditos utilizados"
+        
+        return False, "Usuário não encontrado"
     
-    /* Ajustar para mobile */
-    @media (max-width: 991px) {
-        .main .block-container {
-            padding-left: 5% !important;
-            padding-right: 5% !important;
-        }
-    }
+    def _load_users(self):
+        """Carrega os usuários do arquivo"""
+        try:
+            with open(self.users_file, "r") as f:
+                return json.load(f)
+        except (json.JSONDecodeError, FileNotFoundError):
+            return []
     
-    /* Menor ainda para telas muito pequenas */
-    @media (max-width: 576px) {
-        .main .block-container {
-            padding-left: 2% !important;
-            padding-right: 2% !important;
-        }
-    }
+    def _save_users(self, users):
+        """Salva os usuários no arquivo"""
+        with open(self.users_file, "w") as f:
+            json.dump(users, f, indent=2)
     
-    /* Texto justificado em todo o aplicativo */
-    p, li, .stMarkdown {
-        text-align: justify !important;
-    }
+    def _hash_password(self, password):
+        """Cria um hash da senha"""
+        import hashlib
+        return hashlib.sha256(password.encode()).hexdigest()
     
-    /* Ajustar todos os cabeçalhos para ter menos espaço */
-    h1, h2, h3 {
-        margin-top: 0.8rem !important;
-        margin-bottom: 0.8rem !important;
-    }
-    
-    /* Corrigir botões para garantir que o texto caiba corretamente */
-    .stButton button {
-        background-color: #fd7014;
-        color: white;
-        border: none;
-        font-weight: bold;
-        border-radius: 4px;
-        padding: 0.4rem 0.8rem !important;
-        font-size: 0.9rem !important;
-        white-space: nowrap !important;
-        min-width: fit-content !important;
-        height: auto !important;
-        line-height: normal !important;
-    }
-    
-    /* Remover botão nativo de colapso do Streamlit */
-    [data-testid="collapsedControl"] {
-        display: none !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-    
-def hide_sidebar_completely():
-    """Versão simplificada"""
-    css = (
-        "<style>"
-        "[data-testid='stSidebar'] {display: none !important;}"
-        "</style>"
-    )
-    
-    st.markdown(css, unsafe_allow_html=True)
-
-def apply_dark_theme():
-    """
-    Aplica um tema escuro consistente em todas as versões (desktop e mobile)
-    para garantir que textos brancos sejam legíveis e adiciona o favicon personalizado.
-    """
-    st.markdown("""
-    <style>
-        /* Fundo escuro para todo o app */
-        .main, .stApp, body, [data-testid="stAppViewContainer"] {
-            background-color: #121212 !important;
-            color: white !important;
-        }
-        
-        /* CORREÇÃO DE ESPAÇAMENTO - Remover espaço no topo da página */
-        .main .block-container {
-            padding-top: 0 !important;
-            margin-top: 0 !important;
-            gap: 0 !important;
-        }
-        
-        /* Remover espaço entre elementos no topo */
-        .main .element-container:first-child {
-            margin-top: 0 !important;
-            padding-top: 0 !important;
-        }
-        
-        /* Forçar o header a ficar sem altura */
-        header[data-testid="stHeader"] {
-            height: 0 !important;
-            min-height: 0 !important;
-            visibility: hidden !important;
-            position: absolute !important;
-            padding: 0 !important;
-            margin: 0 !important;
-        }
-        
-        /* Remover margem do título principal */
-        h1:first-child, h2:first-child, h3:first-child {
-            margin-top: 0 !important;
-            padding-top: 0 !important;
-        }
-        
-        /* Garantir que o app não tenha padding extra */
-        .stApp {
-            margin-top: 0 !important;
-            padding-top: 0 !important;
-        }
-        
-        /* Garantir que o fundo da sidebar também seja escuro */
-        [data-testid="stSidebar"] {
-            background-color: #1e1e1e !important;
-            border-right: 1px solid #333 !important;
-        }
-        
-        /* Corrigir cores dos widgets */
-        .stTextInput input, .stTextArea textarea, .stNumberInput input, 
-        .stSelectbox > div, .stMultiselect > div {
-            background-color: #2d2d2d !important;
-            color: white !important;
-            border-color: #4d4d4d !important;
-        }
-        
-        /* Garantir que os textos dos widgets sejam visíveis */
-        .stSelectbox > div > div, .stMultiselect > div > div {
-            color: white !important;
-        }
-        
-        /* CORREÇÃO PARA DROPDOWNS NO MOBILE */
-        /* Seletor mais específico para o dropdown */
-        [data-baseweb="select"],
-        [data-baseweb="select"] div,
-        [data-baseweb="select"] span,
-        [data-baseweb="popover"],
-        [data-baseweb="menu"],
-        [role="listbox"],
-        [role="option"] {
-            background-color: #2d2d2d !important;
-            color: white !important;
-        }
-        
-        /* Opções quando dropdown está aberto */
-        [data-baseweb="menu"] [role="option"],
-        [role="listbox"] [role="option"],
-        [data-testid="stSelectbox"] ul,
-        [data-testid="stSelectbox"] li {
-            background-color: #2d2d2d !important;
-            color: white !important;
-        }
-        
-        /* Quando o mouse passa por cima da opção */
-        [role="option"]:hover {
-            background-color: #3d3d3d !important;
-        }
-        
-        /* Opção selecionada */
-        [aria-selected="true"],
-        [role="option"][aria-selected="true"] {
-            background-color: #fd7014 !important;
-            color: white !important;
-        }
-        
-        /* Corrigir cores dos botões (manter o laranja do ValueHunter) */
-        .stButton button {
-            background-color: #fd7014 !important;
-            color: white !important;
-        }
-        
-        /* Cores para headers */
-        h1, h2, h3 {
-            color: #fd7014 !important;
-        }
-        
-        /* Garantir que links sejam visíveis */
-        a {
-            color: #fd7014 !important;
-        }
-        
-        /* Fixar problema específico para mobile - EXPANDIDO */
-        @media (max-width: 767px) {
-            .main, body, [data-testid="stAppViewContainer"] {
-                background-color: #121212 !important;
-            }
-            
-            /* Corrigir elementos de mobile que têm background branco específico */
-            .element-container, .stMarkdown, div[data-baseweb="select"], div[data-baseweb="input"] {
-                background-color: #121212 !important;
-            }
-            
-            /* Garantir que os textos em mobile sejam visíveis */
-            p, div, span {
-                color: white !important;
-            }
-            
-            /* Ajustar selectbox e dropdown para mobile - MELHORADO */
-            div[role="listbox"],
-            div[data-baseweb="popover"],
-            div[data-baseweb="menu"],
-            div[data-baseweb="select"] ul,
-            div[data-baseweb="select"] li,
-            [role="option"] {
-                background-color: #2d2d2d !important;
-                color: white !important;
-            }
-            
-            /* Garantir que rótulos de selectbox sejam visíveis */
-            label span {
-                color: white !important;
-            }
-            
-            /* Cor de fundo do dropdown quando aberto no mobile */
-            [data-baseweb="popover"],
-            [data-baseweb="popover"] [role="listbox"] {
-                background-color: #2d2d2d !important;
-                border: 1px solid #4d4d4d !important;
-            }
-            
-            /* Ajustar cores dos checkboxes em mobile */
-            [data-testid="stCheckbox"] {
-                background-color: transparent !important;
-            }
-            [data-testid="stCheckbox"] p {
-                color: white !important;
-            }
-        }
-        
-        /* Corrigir cores das mensagens de erro, alerta e sucesso */
-        [data-testid="stAlert"] {
-            background-color: #2d2d2d !important;
-            color: white !important;
-        }
-        
-        /* Melhorar cores dos alerts mantendo a compatibilidade */
-        [data-testid="stAlert"][kind="error"] {
-            border-left-color: #ff5252 !important;
-        }
-        [data-testid="stAlert"][kind="warning"] {
-            border-left-color: #ffa726 !important;
-        }
-        [data-testid="stAlert"][kind="info"] {
-            border-left-color: #4fc3f7 !important;
-        }
-        [data-testid="stAlert"][kind="success"] {
-            border-left-color: #66bb6a !important;
-        }
-        
-        /* Melhorar a visibilidade de expanders */
-        [data-testid="stExpander"] {
-            background-color: #2d2d2d !important;
-            border-color: #3d3d3d !important;
-        }
-        
-        /* Corrigir cores do código/texto preformatado */
-        code, pre {
-            background-color: #1a1a1a !important;
-            color: #e0e0e0 !important;
-            border-color: #3d3d3d !important;
-        }
-        
-        /* Corrigir cores das métricas */
-        [data-testid="stMetric"] {
-            background-color: #2d2d2d !important;
-            color: white !important;
-            border-color: #3d3d3d !important;
-        }
-        
-        /* Corrigir cores dos painéis de abas */
-        .stTabs [data-baseweb="tab-list"] {
-            background-color: #1e1e1e !important;
-        }
-        
-        .stTabs [data-baseweb="tab"] {
-            color: white !important;
-        }
-        
-        .stTabs [aria-selected="true"] {
-            background-color: #fd7014 !important;
-        }
-    </style>
-    """, unsafe_allow_html=True)
-    
-    # Inserir o favicon personalizado
-    # Código SVG inline para o favicon (binóculos)
-    favicon_svg = """
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-      <rect width="64" height="64" fill="none"/>
-      <circle cx="20" cy="32" r="14" fill="#fd7014" stroke="#ffffff" stroke-width="2"/>
-      <circle cx="44" cy="32" r="14" fill="#fd7014" stroke="#ffffff" stroke-width="2"/>
-      <rect x="20" y="28" width="24" height="8" fill="#fd7014" stroke="#ffffff" stroke-width="1"/>
-      <circle cx="20" cy="32" r="7" fill="#1e1e1e" stroke="#ffffff" stroke-width="1"/>
-      <circle cx="44" cy="32" r="7" fill="#1e1e1e" stroke="#ffffff" stroke-width="1"/>
-    </svg>
-    """
-    
-    # Converter para base64
-    import base64
-    favicon_b64 = base64.b64encode(favicon_svg.encode()).decode()
-    
-    # Inserir como tag link com tipo MIME correto para SVG
-    favicon_html = (
-        "<link rel='icon' type='image/svg+xml' "
-        f"href='data:image/svg+xml;base64,{favicon_b64}'>"
-    )
-    
-    # Inserir também como ícone alternativo para garantir compatibilidade
-    st.markdown(favicon_html, unsafe_allow_html=True)
-    
-    # Adicionar também uma versão para Apple
-    apple_touch_icon = (
-        "<link rel='apple-touch-icon' "
-        f"href='data:image/svg+xml;base64,{favicon_b64}'>"
-    )
-    st.markdown(apple_touch_icon, unsafe_allow_html=True)
-    
-    # Adicionar meta tags para tema de cores em browsers mobile
-    meta_tags = """
-    <meta name="theme-color" content="#121212">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    """
-    st.markdown(meta_tags, unsafe_allow_html=True)
-    
-    # Log de sucesso (se logger estiver disponível)
-    try:
-        import logging
-        logger = logging.getLogger("valueHunter.core")
-        logger.info("Tema escuro e favicon personalizados aplicados com sucesso")
-    except:
-        pass  # Ignorar se o logger não estiver configurado
-
+    def _verify_password(self, password, hashed_password):
+        """Verifica se a senha corresponde ao hash"""
+        return self._hash_password(password) == hashed_password
