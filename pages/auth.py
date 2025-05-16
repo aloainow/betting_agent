@@ -44,7 +44,13 @@ def show_login():
                         if st.session_state.user_manager.verify_login(email, password):
                             # Login bem-sucedido
                             st.session_state.authenticated = True
+                            st.session_state.logged_in = True
                             st.session_state.email = email
+                            
+                            # Obter dados do usuário
+                            user_data = st.session_state.user_manager.get_user_data(email)
+                            if user_data:
+                                st.session_state.user = user_data
                             
                             # Log para debug
                             print(f"Login bem-sucedido para {email}, redirecionando para dashboard")
@@ -52,7 +58,9 @@ def show_login():
                             # Redirecionar para dashboard - CORRIGIDO: usar "dashboard" em vez de "main"
                             st.session_state.page = "dashboard"
                             
-                            # Usar experimental_rerun de forma mais segura
+                            # Forçar rerun para garantir redirecionamento
+                            st.success("Login bem-sucedido! Redirecionando para o dashboard...")
+                            time.sleep(1)
                             st.experimental_rerun()
                         else:
                             st.error("Email ou senha incorretos.")
