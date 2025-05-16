@@ -76,6 +76,8 @@ def show_login():
             st.session_state.page = "password_recovery"
             st.experimental_rerun()
 
+# Alias para compatibilidade com app.py
+show_login_page = show_login
 
 def show_password_recovery():
     """Display password recovery form"""
@@ -362,32 +364,33 @@ def show_register():
                 if not name or not email or not password or not confirm_password:
                     st.error("Por favor, preencha todos os campos.")
                     return
-                    
+                
                 if password != confirm_password:
-                    st.error("As senhas não coincidem. Por favor, tente novamente.")
+                    st.error("As senhas não coincidem.")
                     return
-                    
+                
                 if len(password) < 6:
                     st.error("A senha deve ter pelo menos 6 caracteres.")
                     return
-                    
+                
                 # Verificar se o email já está registrado
                 if hasattr(st.session_state.user_manager, "users") and email in st.session_state.user_manager.users:
                     st.error("Este email já está registrado. Por favor, use outro email ou faça login.")
                     return
                 
-                # Registrar o usuário
+                # Gerar código de verificação
+                verification_code = generate_verification_code()
+                
+                # Registrar usuário com status pendente
                 try:
-                    # Gerar código de verificação
-                    verification_code = generate_verification_code()
-                    
-                    # Registrar usuário com código de verificação
-                    st.session_state.user_manager.register_user(email, password, name, verification_code)
+                    st.session_state.user_manager.register_user(name, email, password, verification_code)
                     
                     # Enviar email de verificação
                     if send_verification_email(email, verification_code):
-                        # Sucesso - redirecionar para a tela de verificação
+                        # Armazenar email na sessão para a próxima etapa
                         st.session_state.verification_email = email
+                        
+                        # Redirecionar para a página de verificação
                         st.session_state.page = "verify_email"
                         st.success("Registro realizado com sucesso! Verifique seu email para ativar sua conta.")
                         time.sleep(2)
@@ -404,35 +407,16 @@ def show_register():
                         else:
                             st.error("Não foi possível enviar o email de verificação. Por favor, tente novamente mais tarde.")
                 except Exception as e:
-                    logger.error(f"Erro ao registrar usuário: {str(e)}")
                     st.error(f"Erro ao registrar usuário: {str(e)}")
-                    
-                    # Mostrar código na tela em modo de depuração
-                    if "debug_mode" in st.session_state and st.session_state.debug_mode:
-                        st.warning(f"Erro no registro: {str(e)}")
-                        st.info(f"Código de verificação (APENAS PARA TESTE): {verification_code}")
-                        
-                        # Ainda permitir prosseguir em modo debug
-                        st.session_state.verification_email = email
-                        if st.button("Continuar mesmo assim"):
-                            st.session_state.page = "verify_email"
-                            st.experimental_rerun()
-        
-        # Link para login
-        st.markdown("---")
-        st.markdown("Já tem uma conta?")
-        if st.button("Fazer Login"):
-            go_to_login()
-            
+                    logger.error(f"Erro ao registrar usuário: {str(e)}")
+    
     except Exception as e:
         logger.error(f"Erro ao exibir página de registro: {str(e)}")
         st.error("Erro ao carregar a página de registro. Por favor, tente novamente.")
-        
-        # Mostrar detalhes em modo debug
-        if "debug_mode" in st.session_state and st.session_state.debug_mode:
-            st.error(f"Detalhes: {str(e)}")
-            import traceback
-            st.code(traceback.format_exc())
+        st.error(f"Detalhes: {str(e)}")
+
+# Alias para compatibilidade com app.py
+show_register_page = show_register
 
 def show_verify_email():
     """Display email verification page"""
@@ -475,21 +459,11 @@ def show_verify_email():
                     return
                 
                 # Verificar o código
-                if (hasattr(st.session_state.user_manager, "users") and 
-                    email in st.session_state.user_manager.users and 
-                    st.session_state.user_manager.users[email].get("verification_code") == verification_code):
+                if st.session_state.user_manager.verify_email(email, verification_code):
+                    # Código correto - ativar conta
+                    st.session_state.user_manager.activate_user(email)
                     
-                    # Código correto - ativar a conta
-                    st.session_state.user_manager.users[email]["verified"] = True
-                    
-                    # Remover código de verificação
-                    if "verification_code" in st.session_state.user_manager.users[email]:
-                        del st.session_state.user_manager.users[email]["verification_code"]
-                    
-                    # Salvar alterações
-                    st.session_state.user_manager._save_users()
-                    
-                    # Limpar variáveis de sessão
+                    # Limpar variável de sessão
                     if 'verification_email' in st.session_state:
                         del st.session_state.verification_email
                     
@@ -502,32 +476,28 @@ def show_verify_email():
                     st.error("Código inválido. Por favor, tente novamente.")
         
         # Opção para reenviar o código
-        st.markdown("---")
         if st.button("Reenviar código"):
-            # Gerar novo código de verificação
-            new_verification_code = generate_verification_code()
+            # Gerar novo código
+            new_code = generate_verification_code()
             
-            # Atualizar o código no perfil do usuário
-            if hasattr(st.session_state.user_manager, "users") and email in st.session_state.user_manager.users:
-                st.session_state.user_manager.users[email]["verification_code"] = new_verification_code
-                st.session_state.user_manager._save_users()
-                
-                # Enviar email com o novo código
-                if send_verification_email(email, new_verification_code):
+            # Atualizar código no perfil do usuário
+            if st.session_state.user_manager.update_verification_code(email, new_code):
+                # Enviar email com novo código
+                if send_verification_email(email, new_code):
                     st.success("Novo código enviado com sucesso! Verifique seu email.")
                 else:
                     # Se falhar o envio, mostrar o código na tela (apenas para desenvolvimento/teste)
                     if "debug_mode" in st.session_state and st.session_state.debug_mode:
-                        st.warning(f"Não foi possível enviar o email. Novo código de verificação (APENAS PARA TESTE): {new_verification_code}")
+                        st.warning(f"Não foi possível enviar o email. Novo código (APENAS PARA TESTE): {new_code}")
                     else:
                         st.error("Não foi possível enviar o email. Por favor, tente novamente mais tarde.")
             else:
-                st.error("Usuário não encontrado. Por favor, registre-se novamente.")
-                st.session_state.page = "register"
-                time.sleep(2)
-                st.experimental_rerun()
+                st.error("Erro ao gerar novo código. Por favor, tente novamente.")
     
     except Exception as e:
         logger.error(f"Erro ao exibir página de verificação de email: {str(e)}")
         st.error("Erro ao carregar a página de verificação. Por favor, tente novamente.")
         st.error(f"Detalhes: {str(e)}")
+
+# Alias para compatibilidade com app.py
+show_password_reset_page = show_password_reset
